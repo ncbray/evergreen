@@ -14,28 +14,28 @@ type Edge struct {
 
 type NodeImpl struct {
   entries EntryList
-  exits []*Edge
+  exits []Edge
   data NodeData
 }
 
 func CreateNode(data NodeData) *NodeImpl {
 	numExits := data.NumExits()
-	n := &NodeImpl{data: data, exits: make([]*Edge, numExits)}
+	n := &NodeImpl{data: data, exits: make([]Edge, numExits)}
 	for i := 0; i < numExits; i++ {
-		n.exits[i] = &Edge{src: n, index: i}
+		n.exits[i] = Edge{src: n, index: i}
 	}
 	return n
 }
 
 func (n *NodeImpl) GetExit(flow int) *Edge {
-	return n.exits[flow]
+	return &n.exits[flow]
 }
 
 func (n *NodeImpl) SetExit(flow int, other *NodeImpl) {
 	if flow >= len(n.exits) {
 		panic(flow)
 	}
-	e := n.exits[flow]
+	e := n.GetExit(flow)
 	if e.dst != nil {
 		panic(e)
 	}
