@@ -7,15 +7,15 @@ type NodeData interface {
 type EntryList []*Edge
 
 type Edge struct {
-	src *NodeImpl
-  dst *NodeImpl
-  index int
+	src   *NodeImpl
+	dst   *NodeImpl
+	index int
 }
 
 type NodeImpl struct {
-  entries EntryList
-  exits []Edge
-  data NodeData
+	entries EntryList
+	exits   []Edge
+	data    NodeData
 }
 
 func CreateNode(data NodeData) *NodeImpl {
@@ -49,7 +49,7 @@ func (n *NodeImpl) NumExits() int {
 
 func (n *NodeImpl) SetDefaultExits(exits []*NodeImpl) {
 	for i, e := range n.exits {
-		if (e.dst == nil) {
+		if e.dst == nil {
 			n.SetExit(i, exits[i])
 		}
 	}
@@ -66,13 +66,12 @@ func (n *NodeImpl) addEntries(e EntryList) {
 func (n *NodeImpl) popEntries() EntryList {
 	temp := n.entries
 	n.entries = nil
-	return temp;
+	return temp
 }
 
 func (n *NodeImpl) peekEntries() EntryList {
 	return n.entries
 }
-
 
 func (n *NodeImpl) TransferEntries(other *NodeImpl) {
 	entries := n.popEntries()
@@ -85,7 +84,7 @@ func (n *NodeImpl) TransferEntries(other *NodeImpl) {
 func (n *NodeImpl) ReplaceEntry(target *Edge, replacements EntryList) {
 	old := n.popEntries()
 	for i, e := range old {
-		if (e == target) {
+		if e == target {
 			n.entries = append(append(old[:i], replacements...), old[i+1:]...)
 			dst := target.dst
 			target.dst = nil

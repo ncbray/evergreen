@@ -1,17 +1,17 @@
 package dub
 
 type Expr interface {
-  isExpr()
+	isExpr()
 }
 
 type RuneRange struct {
-  Lower rune
-  Upper rune
+	Lower rune
+	Upper rune
 }
 
 type RuneMatch struct {
-  Invert bool
-  Filters []*RuneRange
+	Invert  bool
+	Filters []*RuneRange
 }
 
 func (node *RuneMatch) isExpr() {
@@ -19,7 +19,7 @@ func (node *RuneMatch) isExpr() {
 
 type Repeat struct {
 	Expr Expr
-	Min int
+	Min  int
 }
 
 func (node *Repeat) isExpr() {

@@ -8,32 +8,31 @@ const (
 )
 
 type DubState struct {
-  stream []rune
-  index int
-  flow Flow
+	stream []rune
+	index  int
+	flow   Flow
 }
 
 func (state *DubState) Read() rune {
-  if state.index < len(state.stream) {
+	if state.index < len(state.stream) {
 		temp := state.stream[state.index]
 		state.index += 1
 		return temp
-  } else {
+	} else {
 		state.flow = FAIL
 		return 0
 	}
 }
 
 func (state *DubState) Save() int {
-	return state.index;
+	return state.index
 }
 
 func (state *DubState) Restore(pos int) {
-  state.index = pos
-  state.flow = NORMAL
+	state.index = pos
+	state.flow = NORMAL
 }
 
-
 func (state *DubState) Reject() {
-  state.flow = FAIL
+	state.flow = FAIL
 }

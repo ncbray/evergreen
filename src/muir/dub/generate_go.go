@@ -1,11 +1,11 @@
 package dub
 
 import (
-  "bytes"
+	"bytes"
 	"go/ast"
 	"go/printer"
 	"go/token"
-  "strconv"
+	"strconv"
 )
 
 // Begin AST construction wrappers
@@ -32,7 +32,6 @@ func intLiteral(value int) *ast.BasicLit {
 	}
 }
 
-
 func addr(expr ast.Expr) ast.Expr {
 	return &ast.UnaryExpr{
 		Op: token.AND,
@@ -48,9 +47,7 @@ func attr(expr ast.Expr, name string) ast.Expr {
 	return &ast.SelectorExpr{X: expr, Sel: id(name)}
 }
 
-
 // End AST construction wrappers
-
 
 func genFunc(decl *FuncDecl) *ast.FuncDecl {
 	return &ast.FuncDecl{
@@ -62,7 +59,7 @@ func genFunc(decl *FuncDecl) *ast.FuncDecl {
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.AssignStmt{Lhs: []ast.Expr{id("block")}, Tok: token.DEFINE, Rhs: []ast.Expr{intLiteral(0)}},
-        &ast.SwitchStmt{
+				&ast.SwitchStmt{
 					Tag: id("block"),
 					Body: &ast.BlockStmt{
 						List: []ast.Stmt{
@@ -79,19 +76,16 @@ func genFunc(decl *FuncDecl) *ast.FuncDecl {
 		}}
 }
 
-
 func GenerateGo() string {
-  data := []*FuncDecl {
+	data := []*FuncDecl{
 		&FuncDecl{Name: "S"},
 		&FuncDecl{Name: "integer"},
 	}
 
-  decls := []ast.Decl{}
+	decls := []ast.Decl{}
 
-
-  decls = append(decls, genFunc(data[0]))
-  decls = append(decls, genFunc(data[1]))
-
+	decls = append(decls, genFunc(data[0]))
+	decls = append(decls, genFunc(data[1]))
 
 	f := &ast.File{Name: id("dub"), Decls: decls}
 
@@ -99,5 +93,5 @@ func GenerateGo() string {
 	var buf bytes.Buffer
 	printer.Fprint(&buf, fset, f)
 
-  return buf.String()
+	return buf.String()
 }

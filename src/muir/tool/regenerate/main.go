@@ -1,8 +1,8 @@
 package main
 
 import (
-  "fmt"
-  "muir/dub"
+	"fmt"
+	"muir/dub"
 )
 
 type ExactChar struct {
@@ -10,5 +10,5 @@ type ExactChar struct {
 }
 
 func main() {
-  fmt.Println(dub.GenerateGo())
+	fmt.Println(dub.GenerateGo())
 }

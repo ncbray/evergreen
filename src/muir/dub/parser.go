@@ -13,7 +13,7 @@ func Dub_ReadEscaped(state *DubState) rune {
 	case 'n':
 		r = '\n'
 	}
-	return r;
+	return r
 }
 
 func Dub_RuneMatch(state *DubState) *RuneMatch {
@@ -26,29 +26,29 @@ func Dub_RuneMatch(state *DubState) *RuneMatch {
 		return nil
 	}
 
-  expr := &RuneMatch{Filters: []*RuneRange{}}
+	expr := &RuneMatch{Filters: []*RuneRange{}}
 
-  r = state.Read()
-  if state.flow == FAIL {
+	r = state.Read()
+	if state.flow == FAIL {
 		return nil
 	}
-  if r == '^' {
-		expr.Invert = true;
+	if r == '^' {
+		expr.Invert = true
 		goto Read
 	} else {
 		goto Decode
 	}
 
 Read:
-  r = state.Read()
-  if state.flow == FAIL {
+	r = state.Read()
+	if state.flow == FAIL {
 		return nil
 	}
 Decode:
-  if r == ']' {
+	if r == ']' {
 		return expr
 	}
-  if r == '\\' {
+	if r == '\\' {
 		r = Dub_ReadEscaped(state)
 		if state.flow == FAIL {
 			return nil
@@ -82,7 +82,7 @@ Decode:
 }
 
 func Dub_RunePostfix(state *DubState) Expr {
-	result := Dub_RuneMatch(state);
+	result := Dub_RuneMatch(state)
 	if state.flow == FAIL {
 		return nil
 	}
@@ -99,5 +99,5 @@ func Dub_RunePostfix(state *DubState) Expr {
 
 NoPostfix:
 	state.Restore(pos)
-	return result;
+	return result
 }
