@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func checkEdge(e *Edge, src *NodeImpl, dst *NodeImpl, t *testing.T) {
+func checkEdge(e *Edge, src *Node, dst *Node, t *testing.T) {
 	if e.src != src {
 		t.Errorf("Got src of %v, expected %v", e.src, src)
 	}
@@ -16,7 +16,7 @@ func checkEdge(e *Edge, src *NodeImpl, dst *NodeImpl, t *testing.T) {
 	}
 }
 
-func checkTopology(node *NodeImpl, entries []*NodeImpl, exits []*NodeImpl, t *testing.T) {
+func checkTopology(node *Node, entries []*Node, exits []*Node, t *testing.T) {
 	if node == nil {
 		t.Error("Node should not be nil")
 		return
@@ -61,27 +61,26 @@ func (n *TestNode) NumExits() int {
 	return 2
 }
 
-func CreateTestEntry() *NodeImpl {
+func CreateTestEntry() *Node {
 	return CreateNode(&TestEntry{})
 }
 
-func CreateTestNode(name string, numExits int) *NodeImpl {
+func CreateTestNode(name string, numExits int) *Node {
 	return CreateNode(&TestNode{name: name})
 }
 
-func CreateTestExit(flow int) *NodeImpl {
+func CreateTestExit(flow int) *Node {
 	return CreateNode(&TestExit{flow: flow})
 }
 
 func CreateTestRegion() *Region {
-	r := &Region{
-		entry: CreateTestEntry(),
-		exits: []*NodeImpl{
+	r := CreateRegion(
+		CreateTestEntry(),
+		[]*Node{
 			CreateTestExit(0),
 			CreateTestExit(1),
 		},
-	}
-	r.entry.SetExit(0, r.exits[0])
+	)
 	return r
 }
 
@@ -91,10 +90,10 @@ func TestSimpleFlow(t *testing.T) {
 	r.Connect(0, n)
 	r.AttachDefaultExits(n)
 
-	checkTopology(r.entry, []*NodeImpl{}, []*NodeImpl{n}, t)
-	checkTopology(n, []*NodeImpl{r.entry}, []*NodeImpl{r.exits[0], r.exits[1]}, t)
-	checkTopology(r.exits[0], []*NodeImpl{n}, []*NodeImpl{}, t)
-	checkTopology(r.exits[1], []*NodeImpl{n}, []*NodeImpl{}, t)
+	checkTopology(r.entry, []*Node{}, []*Node{n}, t)
+	checkTopology(n, []*Node{r.entry}, []*Node{r.exits[0], r.exits[1]}, t)
+	checkTopology(r.exits[0], []*Node{n}, []*Node{}, t)
+	checkTopology(r.exits[1], []*Node{n}, []*Node{}, t)
 }
 
 func TestRepeatFlow(t *testing.T) {
@@ -108,23 +107,23 @@ func TestRepeatFlow(t *testing.T) {
 	// Stop iterating on failure
 	l.exits[1].TransferEntries(l.exits[0])
 
-	checkTopology(l.entry, []*NodeImpl{}, []*NodeImpl{n}, t)
-	checkTopology(n, []*NodeImpl{l.entry, n}, []*NodeImpl{n, l.exits[0]}, t)
-	checkTopology(l.exits[0], []*NodeImpl{n}, []*NodeImpl{}, t)
-	checkTopology(l.exits[1], []*NodeImpl{}, []*NodeImpl{}, t)
+	checkTopology(l.entry, []*Node{}, []*Node{n}, t)
+	checkTopology(n, []*Node{l.entry, n}, []*Node{n, l.exits[0]}, t)
+	checkTopology(l.exits[0], []*Node{n}, []*Node{}, t)
+	checkTopology(l.exits[1], []*Node{}, []*Node{}, t)
 
 	r := CreateTestRegion()
 
 	r.Splice(0, l)
 
-	checkTopology(l.entry, []*NodeImpl{}, []*NodeImpl{nil}, t)
-	checkTopology(l.exits[0], []*NodeImpl{}, []*NodeImpl{}, t)
-	checkTopology(l.exits[1], []*NodeImpl{}, []*NodeImpl{}, t)
+	checkTopology(l.entry, []*Node{}, []*Node{nil}, t)
+	checkTopology(l.exits[0], []*Node{}, []*Node{}, t)
+	checkTopology(l.exits[1], []*Node{}, []*Node{}, t)
 
-	checkTopology(r.entry, []*NodeImpl{}, []*NodeImpl{n}, t)
-	checkTopology(n, []*NodeImpl{r.entry, n}, []*NodeImpl{n, r.exits[0]}, t)
-	checkTopology(r.exits[0], []*NodeImpl{n}, []*NodeImpl{}, t)
-	checkTopology(r.exits[1], []*NodeImpl{}, []*NodeImpl{}, t)
+	checkTopology(r.entry, []*Node{}, []*Node{n}, t)
+	checkTopology(n, []*Node{r.entry, n}, []*Node{n, r.exits[0]}, t)
+	checkTopology(r.exits[0], []*Node{n}, []*Node{}, t)
+	checkTopology(r.exits[1], []*Node{}, []*Node{}, t)
 }
 
 func TestWhileFlow(t *testing.T) {
@@ -146,10 +145,10 @@ func TestWhileFlow(t *testing.T) {
 	r := CreateTestRegion()
 	r.Splice(0, l)
 
-	checkTopology(r.entry, []*NodeImpl{}, []*NodeImpl{cond}, t)
-	checkTopology(cond, []*NodeImpl{r.entry, body}, []*NodeImpl{decide, r.exits[1]}, t)
-	checkTopology(decide, []*NodeImpl{cond}, []*NodeImpl{body, r.exits[0]}, t)
-	checkTopology(body, []*NodeImpl{decide}, []*NodeImpl{cond, r.exits[1]}, t)
-	checkTopology(r.exits[0], []*NodeImpl{decide}, []*NodeImpl{}, t)
-	checkTopology(r.exits[1], []*NodeImpl{cond, body}, []*NodeImpl{}, t)
+	checkTopology(r.entry, []*Node{}, []*Node{cond}, t)
+	checkTopology(cond, []*Node{r.entry, body}, []*Node{decide, r.exits[1]}, t)
+	checkTopology(decide, []*Node{cond}, []*Node{body, r.exits[0]}, t)
+	checkTopology(body, []*Node{decide}, []*Node{cond, r.exits[1]}, t)
+	checkTopology(r.exits[0], []*Node{decide}, []*Node{}, t)
+	checkTopology(r.exits[1], []*Node{cond, body}, []*Node{}, t)
 }

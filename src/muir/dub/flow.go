@@ -7,31 +7,31 @@ type NodeData interface {
 type EntryList []*Edge
 
 type Edge struct {
-	src   *NodeImpl
-	dst   *NodeImpl
+	src   *Node
+	dst   *Node
 	index int
 }
 
-type NodeImpl struct {
+type Node struct {
 	entries EntryList
 	exits   []Edge
 	data    NodeData
 }
 
-func CreateNode(data NodeData) *NodeImpl {
+func CreateNode(data NodeData) *Node {
 	numExits := data.NumExits()
-	n := &NodeImpl{data: data, exits: make([]Edge, numExits)}
+	n := &Node{data: data, exits: make([]Edge, numExits)}
 	for i := 0; i < numExits; i++ {
 		n.exits[i] = Edge{src: n, index: i}
 	}
 	return n
 }
 
-func (n *NodeImpl) GetExit(flow int) *Edge {
+func (n *Node) GetExit(flow int) *Edge {
 	return &n.exits[flow]
 }
 
-func (n *NodeImpl) SetExit(flow int, other *NodeImpl) {
+func (n *Node) SetExit(flow int, other *Node) {
 	if flow >= len(n.exits) {
 		panic(flow)
 	}
@@ -43,11 +43,11 @@ func (n *NodeImpl) SetExit(flow int, other *NodeImpl) {
 	other.addEntry(e)
 }
 
-func (n *NodeImpl) NumExits() int {
+func (n *Node) NumExits() int {
 	return len(n.exits)
 }
 
-func (n *NodeImpl) SetDefaultExits(exits []*NodeImpl) {
+func (n *Node) SetDefaultExits(exits []*Node) {
 	for i, e := range n.exits {
 		if e.dst == nil {
 			n.SetExit(i, exits[i])
@@ -55,25 +55,25 @@ func (n *NodeImpl) SetDefaultExits(exits []*NodeImpl) {
 	}
 }
 
-func (n *NodeImpl) addEntry(e *Edge) {
+func (n *Node) addEntry(e *Edge) {
 	n.entries = append(n.entries, e)
 }
 
-func (n *NodeImpl) addEntries(e EntryList) {
+func (n *Node) addEntries(e EntryList) {
 	n.entries = append(n.entries, e...)
 }
 
-func (n *NodeImpl) popEntries() EntryList {
+func (n *Node) popEntries() EntryList {
 	temp := n.entries
 	n.entries = nil
 	return temp
 }
 
-func (n *NodeImpl) peekEntries() EntryList {
+func (n *Node) peekEntries() EntryList {
 	return n.entries
 }
 
-func (n *NodeImpl) TransferEntries(other *NodeImpl) {
+func (n *Node) TransferEntries(other *Node) {
 	entries := n.popEntries()
 	for _, e := range entries {
 		e.dst = other
@@ -81,7 +81,7 @@ func (n *NodeImpl) TransferEntries(other *NodeImpl) {
 	other.addEntries(entries)
 }
 
-func (n *NodeImpl) ReplaceEntry(target *Edge, replacements EntryList) {
+func (n *Node) ReplaceEntry(target *Edge, replacements EntryList) {
 	old := n.popEntries()
 	for i, e := range old {
 		if e == target {
@@ -98,19 +98,19 @@ func (n *NodeImpl) ReplaceEntry(target *Edge, replacements EntryList) {
 }
 
 type Region struct {
-	entry *NodeImpl
-	exits []*NodeImpl
+	entry *Node
+	exits []*Node
 }
 
-func (r *Region) Head() *NodeImpl {
+func (r *Region) Head() *Node {
 	return r.entry.GetExit(0).dst
 }
 
-func (r *Region) Connect(flow int, n *NodeImpl) {
+func (r *Region) Connect(flow int, n *Node) {
 	r.exits[flow].TransferEntries(n)
 }
 
-func (r *Region) AttachDefaultExits(n *NodeImpl) {
+func (r *Region) AttachDefaultExits(n *Node) {
 	n.SetDefaultExits(r.exits)
 }
 
@@ -121,4 +121,17 @@ func (r *Region) Splice(flow int, other *Region) {
 	for i, exit := range r.exits {
 		other.exits[i].TransferEntries(exit)
 	}
+}
+
+func (r *Region) GetExit(flow int) *Node {
+	return r.exits[flow]
+}
+
+func CreateRegion(entry *Node, exits []*Node) *Region {
+	r := &Region{
+		entry: entry,
+		exits: exits,
+	}
+	r.entry.SetExit(0, r.exits[0])
+	return r
 }
