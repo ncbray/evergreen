@@ -1,6 +1,6 @@
 About
 =====
-Muir is a sandbox for exploring compiler construction with Go.
+Evergreen is a sandbox for exploring compiler construction with Go.
 
 Setup
 =====

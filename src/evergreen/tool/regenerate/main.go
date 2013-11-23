@@ -1,8 +1,8 @@
 package main
 
 import (
+	"evergreen/dub"
 	"fmt"
-	"muir/dub"
 )
 
 type DubEntry struct {
