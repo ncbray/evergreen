@@ -1,7 +1,9 @@
 package dub
 
 import (
+	"bytes"
 	"fmt"
+	"reflect"
 )
 
 type activeNode struct {
@@ -19,11 +21,9 @@ type Postorder struct {
 }
 
 func (v *Postorder) PreNode(n *Node) {
-	fmt.Printf(">>> %v\n", n.data)
 }
 
 func (v *Postorder) PostNode(n *Node) {
-	fmt.Printf("<<< %v\n", n.data)
 	v.nodes = append(v.nodes, n)
 }
 
@@ -65,8 +65,37 @@ func ReversePostorder(r *Region) []*Node {
 	for i := 0; i < n/2; i++ {
 		visitor.nodes[i], visitor.nodes[n-1-i] = visitor.nodes[n-1-i], visitor.nodes[i]
 	}
-	for _, n := range visitor.nodes {
-		fmt.Printf("%v\n", n.data)
-	}
 	return visitor.nodes
+}
+
+func NodeID(node *Node) string {
+	// TODO make deterministic
+	return string(fmt.Sprint(reflect.ValueOf(node).Elem().UnsafeAddr()))
+}
+
+func RegionToDot(region *Region) string {
+	nodes := ReversePostorder(region)
+
+	var buf bytes.Buffer
+	buf.WriteString("digraph G {\n")
+	for _, node := range nodes {
+		buf.WriteString("  ")
+		buf.WriteString(NodeID(node))
+		buf.WriteString("[")
+		buf.WriteString(node.Data.DotNodeStyle())
+		buf.WriteString("];\n")
+
+		for i := 0; i < node.NumExits(); i++ {
+			dst := node.GetNext(i)
+			if dst != nil {
+				buf.WriteString("  ")
+				buf.WriteString(NodeID(node))
+				buf.WriteString(" -> ")
+				buf.WriteString(NodeID(dst))
+				buf.WriteString(";\n")
+			}
+		}
+	}
+	buf.WriteString("}\n")
+	return buf.String()
 }

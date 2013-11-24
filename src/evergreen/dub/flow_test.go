@@ -1,6 +1,7 @@
 package dub
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -45,6 +46,10 @@ func (n *TestEntry) NumExits() int {
 	return 1
 }
 
+func (n *TestEntry) DotNodeStyle() string {
+	return `label="entry"`
+}
+
 type TestExit struct {
 	flow int
 }
@@ -53,12 +58,20 @@ func (n *TestExit) NumExits() int {
 	return 0
 }
 
+func (n *TestExit) DotNodeStyle() string {
+	return fmt.Sprintf(`label="exit %d"`, n.flow)
+}
+
 type TestNode struct {
 	name string
 }
 
 func (n *TestNode) NumExits() int {
 	return 2
+}
+
+func (n *TestNode) DotNodeStyle() string {
+	return fmt.Sprintf("label=%#v", n.name)
 }
 
 func CreateTestEntry() *Node {

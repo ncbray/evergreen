@@ -2,6 +2,7 @@ package dub
 
 type NodeData interface {
 	NumExits() int
+	DotNodeStyle() string
 }
 
 type EntryList []*Edge
@@ -15,16 +16,20 @@ type Edge struct {
 type Node struct {
 	entries EntryList
 	exits   []Edge
-	data    NodeData
+	Data    NodeData
 }
 
 func CreateNode(data NodeData) *Node {
 	numExits := data.NumExits()
-	n := &Node{data: data, exits: make([]Edge, numExits)}
+	n := &Node{Data: data, exits: make([]Edge, numExits)}
 	for i := 0; i < numExits; i++ {
 		n.exits[i] = Edge{src: n, index: i}
 	}
 	return n
+}
+
+func (n *Node) GetNext(flow int) *Node {
+	return n.exits[flow].dst
 }
 
 func (n *Node) GetExit(flow int) *Edge {
