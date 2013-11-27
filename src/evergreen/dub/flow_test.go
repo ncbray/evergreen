@@ -50,6 +50,10 @@ func (n *TestEntry) DotNodeStyle() string {
 	return `label="entry"`
 }
 
+func (n *TestEntry) DotEdgeStyle(flow int) string {
+	return `label="n"`
+}
+
 type TestExit struct {
 	flow int
 }
@@ -62,6 +66,10 @@ func (n *TestExit) DotNodeStyle() string {
 	return fmt.Sprintf(`label="exit %d"`, n.flow)
 }
 
+func (n *TestExit) DotEdgeStyle(flow int) string {
+	panic("Exit has no edges.")
+}
+
 type TestNode struct {
 	name string
 }
@@ -72,6 +80,10 @@ func (n *TestNode) NumExits() int {
 
 func (n *TestNode) DotNodeStyle() string {
 	return fmt.Sprintf("label=%#v", n.name)
+}
+
+func (n *TestNode) DotEdgeStyle(flow int) string {
+	return fmt.Sprintf(`label="%d"`, flow)
 }
 
 func CreateTestEntry() *Node {

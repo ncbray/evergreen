@@ -3,6 +3,7 @@ package dub
 type NodeData interface {
 	NumExits() int
 	DotNodeStyle() string
+	DotEdgeStyle(flow int) string
 }
 
 type EntryList []*Edge

@@ -92,7 +92,9 @@ func RegionToDot(region *Region) string {
 				buf.WriteString(NodeID(node))
 				buf.WriteString(" -> ")
 				buf.WriteString(NodeID(dst))
-				buf.WriteString(";\n")
+				buf.WriteString("[")
+				buf.WriteString(node.Data.DotEdgeStyle(i))
+				buf.WriteString("];\n")
 			}
 		}
 	}

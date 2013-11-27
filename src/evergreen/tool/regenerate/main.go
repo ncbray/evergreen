@@ -18,6 +18,10 @@ func (n *DubEntry) DotNodeStyle() string {
 	return `shape=point,label="entry"`
 }
 
+func (n *DubEntry) DotEdgeStyle(flow int) string {
+	return `color="green"`
+}
+
 type DubExit struct {
 	flow int
 }
@@ -27,27 +31,76 @@ func (n *DubExit) NumExits() int {
 }
 
 func (n *DubExit) DotNodeStyle() string {
-	return fmt.Sprintf(`shape=invtriangle,label="%d"`, n.flow)
+	switch n.flow {
+	case 0:
+		return `shape=invtriangle,label="n"`
+	case 1:
+		return `shape=invtriangle,label="f"`
+	default:
+		return `shape=invtriangle,label="?"`
+	}
 }
 
-type DubNode struct {
+func (n *DubExit) DotEdgeStyle(flow int) string {
+	panic("Exit has no edges.")
+}
+
+type DubBlock struct {
 	name string
 }
 
-func (n *DubNode) NumExits() int {
+func (n *DubBlock) NumExits() int {
 	return 2
 }
 
-func (n *DubNode) DotNodeStyle() string {
-	return fmt.Sprintf("label=%#v", n.name)
+func (n *DubBlock) DotNodeStyle() string {
+	return fmt.Sprintf("shape=box,label=%#v", n.name)
+}
+
+func (n *DubBlock) DotEdgeStyle(flow int) string {
+	switch flow {
+	case 0:
+		return `color="green"`
+	case 1:
+		return `color="goldenrod"`
+	default:
+		return `label="?"`
+	}
+}
+
+type DubSwitch struct {
+	name string
+}
+
+func (n *DubSwitch) NumExits() int {
+	return 2
+}
+
+func (n *DubSwitch) DotNodeStyle() string {
+	return fmt.Sprintf("shape=diamond,label=%#v", n.name)
+}
+
+func (n *DubSwitch) DotEdgeStyle(flow int) string {
+	switch flow {
+	case 0:
+		return `color="limegreen"`
+	case 1:
+		return `color="yellow"`
+	default:
+		return `label="?"`
+	}
 }
 
 func CreateDubEntry() *dub.Node {
 	return dub.CreateNode(&DubEntry{})
 }
 
-func CreateDubNode(name string, numExits int) *dub.Node {
-	return dub.CreateNode(&DubNode{name: name})
+func CreateDubBlock(name string, numExits int) *dub.Node {
+	return dub.CreateNode(&DubBlock{name: name})
+}
+
+func CreateDubSwitch(name string) *dub.Node {
+	return dub.CreateNode(&DubSwitch{name: name})
 }
 
 func CreateDubExit(flow int) *dub.Node {
@@ -66,9 +119,9 @@ func CreateDubRegion() *dub.Region {
 
 func main() {
 	l := CreateDubRegion()
-	cond := CreateDubNode("cond", 2)
-	decide := CreateDubNode("decide", 2)
-	body := CreateDubNode("body", 2)
+	cond := CreateDubBlock("cond", 2)
+	decide := CreateDubSwitch("decide")
+	body := CreateDubBlock("body", 2)
 
 	l.Connect(0, cond)
 	l.AttachDefaultExits(cond)
