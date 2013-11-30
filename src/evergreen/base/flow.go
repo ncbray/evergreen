@@ -1,4 +1,4 @@
-package dub
+package base
 
 type NodeData interface {
 	NumExits() int
