@@ -7,6 +7,58 @@ import (
 	"path/filepath"
 )
 
+type DubRegister uint32
+
+func RegisterName(reg DubRegister) string {
+	return fmt.Sprintf("r%d", reg)
+}
+
+func AssignOp(op string, dst DubRegister) string {
+	return fmt.Sprintf("%s := %s", RegisterName(dst), op)
+}
+
+type DubOp interface {
+	OpToString() string
+}
+
+type GetLocal struct {
+	name string
+	dst  DubRegister
+}
+
+func (n *GetLocal) OpToString() string {
+	return AssignOp(n.name, n.dst)
+}
+
+type SetLocal struct {
+	src  DubRegister
+	name string
+}
+
+func (n *SetLocal) OpToString() string {
+	return fmt.Sprintf("%s := %s", n.name, RegisterName(n.src))
+}
+
+type ConstantInt struct {
+	value int64
+	dst   DubRegister
+}
+
+func (n *ConstantInt) OpToString() string {
+	return AssignOp(fmt.Sprintf("%d", n.value), n.dst)
+}
+
+type BinaryOp struct {
+	left  DubRegister
+	op    string
+	right DubRegister
+	dst   DubRegister
+}
+
+func (n *BinaryOp) OpToString() string {
+	return AssignOp(fmt.Sprintf("%s %s %s", RegisterName(n.left), n.op, RegisterName(n.right)), n.dst)
+}
+
 type DubEntry struct {
 }
 
@@ -46,7 +98,7 @@ func (n *DubExit) DotEdgeStyle(flow int) string {
 }
 
 type DubBlock struct {
-	name string
+	exprs []DubOp
 }
 
 func (n *DubBlock) NumExits() int {
@@ -54,7 +106,11 @@ func (n *DubBlock) NumExits() int {
 }
 
 func (n *DubBlock) DotNodeStyle() string {
-	return fmt.Sprintf("shape=box,label=%#v", n.name)
+	s := ""
+	for _, expr := range n.exprs {
+		s += expr.OpToString() + "\n"
+	}
+	return fmt.Sprintf("shape=box,label=%#v", s)
 }
 
 func (n *DubBlock) DotEdgeStyle(flow int) string {
@@ -69,7 +125,7 @@ func (n *DubBlock) DotEdgeStyle(flow int) string {
 }
 
 type DubSwitch struct {
-	name string
+	expr DubRegister
 }
 
 func (n *DubSwitch) NumExits() int {
@@ -77,7 +133,7 @@ func (n *DubSwitch) NumExits() int {
 }
 
 func (n *DubSwitch) DotNodeStyle() string {
-	return fmt.Sprintf("shape=diamond,label=%#v", n.name)
+	return fmt.Sprintf("shape=diamond,label=%#v", RegisterName(n.expr))
 }
 
 func (n *DubSwitch) DotEdgeStyle(flow int) string {
@@ -95,12 +151,12 @@ func CreateDubEntry() *dub.Node {
 	return dub.CreateNode(&DubEntry{})
 }
 
-func CreateDubBlock(name string, numExits int) *dub.Node {
-	return dub.CreateNode(&DubBlock{name: name})
+func CreateDubBlock(exprs []DubOp) *dub.Node {
+	return dub.CreateNode(&DubBlock{exprs: exprs})
 }
 
-func CreateDubSwitch(name string) *dub.Node {
-	return dub.CreateNode(&DubSwitch{name: name})
+func CreateDubSwitch(expr DubRegister) *dub.Node {
+	return dub.CreateNode(&DubSwitch{expr: expr})
 }
 
 func CreateDubExit(flow int) *dub.Node {
@@ -119,9 +175,28 @@ func CreateDubRegion() *dub.Region {
 
 func main() {
 	l := CreateDubRegion()
-	cond := CreateDubBlock("cond", 2)
-	decide := CreateDubSwitch("decide")
-	body := CreateDubBlock("body", 2)
+	cond := CreateDubBlock([]DubOp{
+		&GetLocal{name: "counter", dst: 1},
+		&GetLocal{name: "limit", dst: 2},
+		&BinaryOp{
+			left:  1,
+			op:    "<",
+			right: 2,
+			dst:   3,
+		},
+	})
+	decide := CreateDubSwitch(3)
+	body := CreateDubBlock([]DubOp{
+		&GetLocal{name: "counter", dst: 4},
+		&ConstantInt{value: 1, dst: 5},
+		&BinaryOp{
+			left:  4,
+			op:    "+",
+			right: 5,
+			dst:   6,
+		},
+		&SetLocal{src: 6, name: "counter"},
+	})
 
 	l.Connect(0, cond)
 	l.AttachDefaultExits(cond)
