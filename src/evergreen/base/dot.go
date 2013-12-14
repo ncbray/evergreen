@@ -42,7 +42,7 @@ func DFS(r *Region, visitor DFSListener) {
 		visitor.PostNode(current.node)
 		current, stack = stack[len(stack)-1], stack[:len(stack)-1]
 	}
-	push(r.entry)
+	push(r.GetEntry())
 	for current.node != nil {
 		num := current.node.NumExits()
 		if current.flow < num {

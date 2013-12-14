@@ -104,40 +104,35 @@ func (n *Node) ReplaceEntry(target *Edge, replacements EntryList) {
 }
 
 type Region struct {
-	entry *Node
-	exits []*Node
+	Entry *Node
+	Exits []*Node
 }
 
 func (r *Region) Head() *Node {
-	return r.entry.GetExit(0).dst
+	return r.Entry.GetExit(0).dst
 }
 
 func (r *Region) Connect(flow int, n *Node) {
-	r.exits[flow].TransferEntries(n)
+	r.Exits[flow].TransferEntries(n)
 }
 
 func (r *Region) AttachDefaultExits(n *Node) {
-	n.SetDefaultExits(r.exits)
+	n.SetDefaultExits(r.Exits)
 }
 
 func (r *Region) Splice(flow int, other *Region) {
-	otherEntry := other.entry.GetExit(0)
+	otherEntry := other.Entry.GetExit(0)
 	otherHead := otherEntry.dst
-	otherHead.ReplaceEntry(otherEntry, r.exits[flow].popEntries())
-	for i, exit := range r.exits {
-		other.exits[i].TransferEntries(exit)
+	otherHead.ReplaceEntry(otherEntry, r.Exits[flow].popEntries())
+	for i, exit := range r.Exits {
+		other.Exits[i].TransferEntries(exit)
 	}
+}
+
+func (r *Region) GetEntry() *Node {
+	return r.Entry
 }
 
 func (r *Region) GetExit(flow int) *Node {
-	return r.exits[flow]
-}
-
-func CreateRegion(entry *Node, exits []*Node) *Region {
-	r := &Region{
-		entry: entry,
-		exits: exits,
-	}
-	r.entry.SetExit(0, r.exits[0])
-	return r
+	return r.Exits[flow]
 }

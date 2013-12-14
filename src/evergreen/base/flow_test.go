@@ -99,13 +99,14 @@ func CreateTestExit(flow int) *Node {
 }
 
 func CreateTestRegion() *Region {
-	r := CreateRegion(
-		CreateTestEntry(),
-		[]*Node{
+	r := &Region{
+		Entry: CreateTestEntry(),
+		Exits: []*Node{
 			CreateTestExit(0),
 			CreateTestExit(1),
 		},
-	)
+	}
+	r.Entry.SetExit(0, r.Exits[0])
 	return r
 }
 
@@ -115,10 +116,10 @@ func TestSimpleFlow(t *testing.T) {
 	r.Connect(0, n)
 	r.AttachDefaultExits(n)
 
-	checkTopology(r.entry, []*Node{}, []*Node{n}, t)
-	checkTopology(n, []*Node{r.entry}, []*Node{r.exits[0], r.exits[1]}, t)
-	checkTopology(r.exits[0], []*Node{n}, []*Node{}, t)
-	checkTopology(r.exits[1], []*Node{n}, []*Node{}, t)
+	checkTopology(r.GetEntry(), []*Node{}, []*Node{n}, t)
+	checkTopology(n, []*Node{r.GetEntry()}, []*Node{r.GetExit(0), r.GetExit(1)}, t)
+	checkTopology(r.GetExit(0), []*Node{n}, []*Node{}, t)
+	checkTopology(r.GetExit(1), []*Node{n}, []*Node{}, t)
 }
 
 func TestRepeatFlow(t *testing.T) {
@@ -128,27 +129,27 @@ func TestRepeatFlow(t *testing.T) {
 	l.AttachDefaultExits(n)
 	head := l.Head()
 	// Normal flow iterates
-	l.exits[0].TransferEntries(head)
+	l.GetExit(0).TransferEntries(head)
 	// Stop iterating on failure
-	l.exits[1].TransferEntries(l.exits[0])
+	l.GetExit(1).TransferEntries(l.GetExit(0))
 
-	checkTopology(l.entry, []*Node{}, []*Node{n}, t)
-	checkTopology(n, []*Node{l.entry, n}, []*Node{n, l.exits[0]}, t)
-	checkTopology(l.exits[0], []*Node{n}, []*Node{}, t)
-	checkTopology(l.exits[1], []*Node{}, []*Node{}, t)
+	checkTopology(l.GetEntry(), []*Node{}, []*Node{n}, t)
+	checkTopology(n, []*Node{l.GetEntry(), n}, []*Node{n, l.GetExit(0)}, t)
+	checkTopology(l.GetExit(0), []*Node{n}, []*Node{}, t)
+	checkTopology(l.GetExit(1), []*Node{}, []*Node{}, t)
 
 	r := CreateTestRegion()
 
 	r.Splice(0, l)
 
-	checkTopology(l.entry, []*Node{}, []*Node{nil}, t)
-	checkTopology(l.exits[0], []*Node{}, []*Node{}, t)
-	checkTopology(l.exits[1], []*Node{}, []*Node{}, t)
+	checkTopology(l.GetEntry(), []*Node{}, []*Node{nil}, t)
+	checkTopology(l.GetExit(0), []*Node{}, []*Node{}, t)
+	checkTopology(l.GetExit(1), []*Node{}, []*Node{}, t)
 
-	checkTopology(r.entry, []*Node{}, []*Node{n}, t)
-	checkTopology(n, []*Node{r.entry, n}, []*Node{n, r.exits[0]}, t)
-	checkTopology(r.exits[0], []*Node{n}, []*Node{}, t)
-	checkTopology(r.exits[1], []*Node{}, []*Node{}, t)
+	checkTopology(r.GetEntry(), []*Node{}, []*Node{n}, t)
+	checkTopology(n, []*Node{r.GetEntry(), n}, []*Node{n, r.GetExit(0)}, t)
+	checkTopology(r.GetExit(0), []*Node{n}, []*Node{}, t)
+	checkTopology(r.GetExit(1), []*Node{}, []*Node{}, t)
 }
 
 func TestWhileFlow(t *testing.T) {
@@ -165,15 +166,15 @@ func TestWhileFlow(t *testing.T) {
 
 	l.AttachDefaultExits(body)
 	l.Connect(0, cond)
-	decide.SetExit(1, l.exits[0])
+	decide.SetExit(1, l.GetExit(0))
 
 	r := CreateTestRegion()
 	r.Splice(0, l)
 
-	checkTopology(r.entry, []*Node{}, []*Node{cond}, t)
-	checkTopology(cond, []*Node{r.entry, body}, []*Node{decide, r.exits[1]}, t)
-	checkTopology(decide, []*Node{cond}, []*Node{body, r.exits[0]}, t)
-	checkTopology(body, []*Node{decide}, []*Node{cond, r.exits[1]}, t)
-	checkTopology(r.exits[0], []*Node{decide}, []*Node{}, t)
-	checkTopology(r.exits[1], []*Node{cond, body}, []*Node{}, t)
+	checkTopology(r.GetEntry(), []*Node{}, []*Node{cond}, t)
+	checkTopology(cond, []*Node{r.GetEntry(), body}, []*Node{decide, r.GetExit(1)}, t)
+	checkTopology(decide, []*Node{cond}, []*Node{body, r.GetExit(0)}, t)
+	checkTopology(body, []*Node{decide}, []*Node{cond, r.GetExit(1)}, t)
+	checkTopology(r.GetExit(0), []*Node{decide}, []*Node{}, t)
+	checkTopology(r.GetExit(1), []*Node{cond, body}, []*Node{}, t)
 }

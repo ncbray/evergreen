@@ -164,11 +164,13 @@ func CreateExit(flow int) *base.Node {
 }
 
 func CreateRegion() *base.Region {
-	return base.CreateRegion(
-		CreateEntry(),
-		[]*base.Node{
+	r := &base.Region{
+		Entry: CreateEntry(),
+		Exits: []*base.Node{
 			CreateExit(0),
 			CreateExit(1),
 		},
-	)
+	}
+	r.Entry.SetExit(0, r.Exits[0])
+	return r
 }
