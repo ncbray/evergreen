@@ -7,6 +7,10 @@ import (
 
 type DubRegister uint32
 
+type RegisterInfo struct {
+	T string
+}
+
 func RegisterName(reg DubRegister) string {
 	return fmt.Sprintf("r%d", reg)
 }

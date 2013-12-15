@@ -11,26 +11,22 @@ import (
 func main() {
 	l := dub.CreateRegion()
 	cond := dub.CreateBlock([]dub.DubOp{
-		&dub.GetLocalOp{Name: "counter", Dst: 1},
-		&dub.GetLocalOp{Name: "limit", Dst: 2},
 		&dub.BinaryOp{
-			Left:  1,
+			Left:  0,
 			Op:    "<",
-			Right: 2,
-			Dst:   3,
+			Right: 1,
+			Dst:   2,
 		},
 	})
-	decide := dub.CreateSwitch(3)
+	decide := dub.CreateSwitch(2)
 	body := dub.CreateBlock([]dub.DubOp{
-		&dub.GetLocalOp{Name: "counter", Dst: 4},
-		&dub.ConstantIntOp{Value: 1, Dst: 5},
+		&dub.ConstantIntOp{Value: 1, Dst: 3},
 		&dub.BinaryOp{
-			Left:  4,
+			Left:  0,
 			Op:    "+",
-			Right: 5,
-			Dst:   6,
+			Right: 3,
+			Dst:   0,
 		},
-		&dub.SetLocalOp{Src: 6, Name: "counter"},
 	})
 
 	l.Connect(0, cond)
@@ -43,6 +39,16 @@ func main() {
 	l.Connect(0, cond)
 	decide.SetExit(1, l.GetExit(0))
 
+	i := "integer"
+	b := "boolean"
+
+	registers := []dub.RegisterInfo{
+		dub.RegisterInfo{T: i},
+		dub.RegisterInfo{T: i},
+		dub.RegisterInfo{T: b},
+		dub.RegisterInfo{T: i},
+	}
+
 	dot := base.RegionToDot(l)
 	outfile := filepath.Join("output", "test.svg")
 
@@ -52,7 +58,7 @@ func main() {
 		result <- err
 	}()
 
-	fmt.Println(dub.GenerateGo(l))
+	fmt.Println(dub.GenerateGo(l, registers))
 
 	err := <-result
 	if err != nil {

@@ -97,20 +97,34 @@ func constInt(v int64) ast.Expr {
 }
 
 func reg(r DubRegister) ast.Expr {
-	return intLiteral(int(r))
+	return id(RegisterName(r))
 }
 
-var opToName = map[string]string{
-	"+": "Add",
-	"<": "Lt",
+var opToTok = map[string]token.Token{
+	"+": token.ADD,
+	"<": token.LSS,
 }
 
-func GenerateGo(r *base.Region) string {
+var dubToGoType = map[string]string{
+	"integer": "int",
+	"boolean": "bool",
+}
+
+func goType(t string) ast.Expr {
+	translated, ok := dubToGoType[t]
+	if !ok {
+		panic(t)
+	}
+	return id(translated)
+}
+
+func GenerateGo(r *base.Region, registers []RegisterInfo) string {
 	nodes := base.ReversePostorder(r)
 	//info := make([]blockInfo, len(nodes))
 	m := map[*base.Node]int{}
 	stmts := []ast.Stmt{}
 
+	// Map node -> ID.
 	for i, node := range nodes {
 		m[node] = i
 	}
@@ -119,6 +133,23 @@ func GenerateGo(r *base.Region) string {
 		return &ast.BranchStmt{Tok: token.GOTO, Label: id(blockName(m[next]))}
 	}
 
+	// Declare the variables.
+	// It is easier to do this up front than calculate where they need to be defined.
+	for i, info := range registers {
+		stmts = append(stmts, &ast.DeclStmt{
+			Decl: &ast.GenDecl{
+				Tok: token.VAR,
+				Specs: []ast.Spec{
+					&ast.ValueSpec{
+						Names: singleName(RegisterName(DubRegister(i))),
+						Type:  goType(info.T),
+					},
+				},
+			},
+		})
+	}
+
+	// Generate Go code from flow blocks
 	for i, node := range nodes {
 		block := []ast.Stmt{}
 		switch data := node.Data.(type) {
@@ -127,20 +158,32 @@ func GenerateGo(r *base.Region) string {
 		case *DubExit:
 			block = append(block, &ast.ReturnStmt{})
 		case *DubBlock:
+			// Generate statements.
 			for _, op := range data.Ops {
 				switch op := op.(type) {
-				case *GetLocalOp:
-					block = append(block, emitOp("GetLocal", strLiteral(op.Name), reg(op.Dst)))
-				case *SetLocalOp:
-					block = append(block, emitOp("GetLocal", reg(op.Src), strLiteral(op.Name)))
 				case *BinaryOp:
-					name, ok := opToName[op.Op]
+					tok, ok := opToTok[op.Op]
 					if !ok {
 						panic(op.Op)
 					}
-					block = append(block, emitOp(name, reg(op.Left), reg(op.Right), reg(op.Dst)))
+					block = append(block, &ast.AssignStmt{
+						Lhs: []ast.Expr{reg(op.Dst)},
+						Tok: token.ASSIGN,
+						Rhs: []ast.Expr{
+							&ast.BinaryExpr{
+								X:  reg(op.Left),
+								Op: tok,
+								Y:  reg(op.Right),
+							},
+						},
+					})
+
 				case *ConstantIntOp:
-					block = append(block, emitOp("ConstantInt", constInt(op.Value), reg(op.Dst)))
+					block = append(block, &ast.AssignStmt{
+						Lhs: []ast.Expr{reg(op.Dst)},
+						Tok: token.ASSIGN,
+						Rhs: []ast.Expr{constInt(op.Value)},
+					})
 				default:
 					panic(op)
 				}
@@ -148,7 +191,7 @@ func GenerateGo(r *base.Region) string {
 			block = append(block, gotoNode(node.GetNext(0)))
 		case *DubSwitch:
 			ifs := &ast.IfStmt{
-				Cond: emitOp("Bool", reg(data.Cond)).X,
+				Cond: reg(data.Cond),
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						gotoNode(node.GetNext(0)),
