@@ -52,7 +52,7 @@ func main() {
 		result <- err
 	}()
 
-	fmt.Println(dub.GenerateGo())
+	fmt.Println(dub.GenerateGo(l))
 
 	err := <-result
 	if err != nil {
