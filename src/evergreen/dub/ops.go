@@ -7,6 +7,8 @@ import (
 
 type DubRegister uint32
 
+var NoRegister DubRegister = ^DubRegister(0)
+
 type RegisterInfo struct {
 	T string
 }
@@ -50,6 +52,15 @@ func (n *ConstantIntOp) OpToString() string {
 	return formatAssignment(fmt.Sprintf("%d", n.Value), n.Dst)
 }
 
+type ConstantRuneOp struct {
+	Value rune
+	Dst   DubRegister
+}
+
+func (n *ConstantRuneOp) OpToString() string {
+	return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
+}
+
 type BinaryOp struct {
 	Left  DubRegister
 	Op    string
@@ -59,6 +70,37 @@ type BinaryOp struct {
 
 func (n *BinaryOp) OpToString() string {
 	return formatAssignment(fmt.Sprintf("%s %s %s", RegisterName(n.Left), n.Op, RegisterName(n.Right)), n.Dst)
+}
+
+type Checkpoint struct {
+	Dst DubRegister
+}
+
+func (n *Checkpoint) OpToString() string {
+	return formatAssignment("<checkpoint>", n.Dst)
+}
+
+type Recover struct {
+	Src DubRegister
+}
+
+func (n *Recover) OpToString() string {
+	return fmt.Sprintf("<recover> %s", RegisterName(n.Src))
+}
+
+type Fail struct {
+}
+
+func (n *Fail) OpToString() string {
+	return fmt.Sprintf("<fail>")
+}
+
+type Read struct {
+	Dst DubRegister
+}
+
+func (n *Read) OpToString() string {
+	return formatAssignment("<read>", n.Dst)
 }
 
 // Flow blocks

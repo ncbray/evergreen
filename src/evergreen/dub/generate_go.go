@@ -103,6 +103,7 @@ func reg(r DubRegister) ast.Expr {
 var opToTok = map[string]token.Token{
 	"+": token.ADD,
 	"<": token.LSS,
+	">": token.GTR,
 }
 
 var dubToGoType = map[string]string{
@@ -131,6 +132,26 @@ func GenerateGo(r *base.Region, registers []RegisterInfo) string {
 
 	gotoNode := func(next *base.Node) ast.Stmt {
 		return &ast.BranchStmt{Tok: token.GOTO, Label: id(blockName(m[next]))}
+	}
+
+	emitSwitch := func(cond ast.Expr, t *base.Node, f *base.Node) ast.Stmt {
+		if t != nil {
+			if f != nil {
+				return &ast.IfStmt{
+					Cond: cond,
+					Body: &ast.BlockStmt{
+						List: []ast.Stmt{
+							gotoNode(t),
+						},
+					},
+					Else: gotoNode(f),
+				}
+			} else {
+				return gotoNode(t)
+			}
+		} else {
+			return gotoNode(f)
+		}
 	}
 
 	// Declare the variables.
@@ -177,29 +198,60 @@ func GenerateGo(r *base.Region, registers []RegisterInfo) string {
 							},
 						},
 					})
-
 				case *ConstantIntOp:
 					block = append(block, &ast.AssignStmt{
 						Lhs: []ast.Expr{reg(op.Dst)},
 						Tok: token.ASSIGN,
 						Rhs: []ast.Expr{constInt(op.Value)},
 					})
+				case *ConstantRuneOp:
+					block = append(block, &ast.AssignStmt{
+						Lhs: []ast.Expr{reg(op.Dst)},
+						Tok: token.ASSIGN,
+						Rhs: []ast.Expr{
+							&ast.BasicLit{
+								Kind:  token.CHAR,
+								Value: strconv.QuoteRune(op.Value),
+							},
+						},
+					})
+				case *Read:
+					block = append(block, &ast.AssignStmt{
+						Lhs: []ast.Expr{reg(op.Dst)},
+						Tok: token.ASSIGN,
+						Rhs: []ast.Expr{emitOp("Read").X},
+					})
+				case *Fail:
+					block = append(block, emitOp("Fail"))
+				case *Checkpoint:
+					block = append(block, &ast.AssignStmt{
+						Lhs: []ast.Expr{reg(op.Dst)},
+						Tok: token.ASSIGN,
+						Rhs: []ast.Expr{emitOp("Checkpoint").X},
+					})
+				case *Recover:
+					block = append(block, emitOp("Recover", reg(op.Src)))
+				case *GetLocalOp:
+					block = append(block, &ast.AssignStmt{
+						Lhs: []ast.Expr{reg(op.Dst)},
+						Tok: token.ASSIGN,
+						Rhs: []ast.Expr{id(op.Name)},
+					})
+				case *SetLocalOp:
+					block = append(block, &ast.AssignStmt{
+						Lhs: []ast.Expr{id(op.Name)},
+						Tok: token.ASSIGN,
+						Rhs: []ast.Expr{reg(op.Src)},
+					})
 				default:
 					panic(op)
 				}
 			}
-			block = append(block, gotoNode(node.GetNext(0)))
+			next := emitSwitch(attr(id("space"), "Flow"), node.GetNext(0), node.GetNext(1))
+			block = append(block, next)
 		case *DubSwitch:
-			ifs := &ast.IfStmt{
-				Cond: reg(data.Cond),
-				Body: &ast.BlockStmt{
-					List: []ast.Stmt{
-						gotoNode(node.GetNext(0)),
-					},
-				},
-				Else: gotoNode(node.GetNext(1)),
-			}
-			block = append(block, ifs)
+			next := emitSwitch(reg(data.Cond), node.GetNext(0), node.GetNext(1))
+			block = append(block, next)
 		default:
 			panic(data)
 		}
