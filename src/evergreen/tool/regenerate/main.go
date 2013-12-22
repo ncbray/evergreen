@@ -95,6 +95,13 @@ func getPunc(s *scanner.Scanner, punc rune) {
 	}
 }
 
+var nameToOp = map[string]string{
+	"eq": "==",
+	"ne": "!=",
+	"gt": ">",
+	"lt": "<",
+}
+
 func parseExpr(s *scanner.Scanner) (result ASTExpr) {
 	tok := s.Scan()
 	text := s.TokenText()
@@ -102,6 +109,9 @@ func parseExpr(s *scanner.Scanner) (result ASTExpr) {
 	switch tok {
 	case scanner.Ident:
 		switch text {
+		case "star":
+			block := parseCodeBlock(s)
+			result = &Repeat{Block: block, Min: 0}
 		case "plus":
 			block := parseCodeBlock(s)
 			result = &Repeat{Block: block, Min: 1}
@@ -109,24 +119,25 @@ func parseExpr(s *scanner.Scanner) (result ASTExpr) {
 			expr := parseExpr(s)
 			block := parseCodeBlock(s)
 			result = &If{Expr: expr, Block: block}
+		case "define":
+			expr := parseExpr(s)
+			dst := getName(s)
+			result = &SetName{Expr: expr, Name: dst}
 		case "read":
 			result = &Read{}
 		case "fail":
 			result = &Fail{}
+		case "eq", "ne", "gt", "lt":
+			l := parseExpr(s)
+			r := parseExpr(s)
+			op := nameToOp[text]
+			result = &BinaryOp{Left: l, Op: op, Right: r}
 		default:
 			result = &GetName{Name: text}
 		}
 	case scanner.Char:
 		v, _ := strconv.Unquote(s.TokenText())
 		result = &RuneLiteral{Value: []rune(v)[0]}
-	case '=':
-		expr := parseExpr(s)
-		dst := getName(s)
-		result = &SetName{Expr: expr, Name: dst}
-	case '<', '>':
-		l := parseExpr(s)
-		r := parseExpr(s)
-		result = &BinaryOp{Left: l, Op: text, Right: r}
 	default:
 		panic(tok)
 	}
@@ -242,24 +253,21 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 
 		// Checkpoint
 		checkpoint := builder.CreateRegister()
-		{
-			body := dub.CreateBlock([]dub.DubOp{
-				&dub.Checkpoint{Dst: checkpoint},
-			})
+		head := dub.CreateBlock([]dub.DubOp{
+			&dub.Checkpoint{Dst: checkpoint},
+		})
 
-			r.Connect(0, body)
-			body.SetExit(0, r.GetExit(0))
-		}
+		r.Connect(0, head)
+		head.SetExit(0, r.GetExit(0))
 
 		// Handle the body
 		block := lowerBlock(expr.Block, builder)
 
 		// Normal flow iterates
-		block.GetExit(0).TransferEntries(block.Head())
+		// NOTE actually connects nodes in two different regions.  Kinda hackish.
+		block.GetExit(0).TransferEntries(head)
 		// Stop iterating on failure
 		block.GetExit(1).TransferEntries(block.GetExit(0))
-
-		r.Splice(0, block)
 
 		// Recover
 		{
@@ -267,9 +275,11 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 				&dub.Recover{Src: checkpoint},
 			})
 
-			r.Connect(0, body)
-			body.SetExit(0, r.GetExit(0))
+			block.Connect(0, body)
+			body.SetExit(0, block.GetExit(0))
 		}
+
+		r.Splice(0, block)
 
 		return dub.NoRegister
 
@@ -354,69 +364,42 @@ func lowerAST(decl *FuncDecl) *base.Region {
 func main() {
 	decls := parseDASM("dasm/math.dasm")
 	for _, decl := range decls {
-		r := lowerAST(decl)
-		dot := base.RegionToDot(r)
-		outfile := filepath.Join("output", fmt.Sprintf("%s.svg", decl.Name))
+		f := &dub.LLFunc{Name: decl.Name}
+		f.Region = lowerAST(decl)
+
+		// Dump flowgraph
+		dot := base.RegionToDot(f.Region)
+		outfile := filepath.Join("output", fmt.Sprintf("%s.svg", f.Name))
 		io.WriteDot(dot, outfile)
 
-		registers := []dub.RegisterInfo{}
-		fmt.Println(dub.GenerateGo(r, registers))
+		fmt.Println(dub.GenerateGo(f))
 	}
 
-	l := dub.CreateRegion()
-	cond := dub.CreateBlock([]dub.DubOp{
-		&dub.BinaryOp{
-			Left:  0,
-			Op:    "<",
-			Right: 1,
-			Dst:   2,
-		},
-	})
-	decide := dub.CreateSwitch(2)
-	body := dub.CreateBlock([]dub.DubOp{
-		&dub.ConstantIntOp{Value: 1, Dst: 3},
-		&dub.BinaryOp{
-			Left:  0,
-			Op:    "+",
-			Right: 3,
-			Dst:   0,
-		},
-	})
+	/*
+		i := "integer"
+		b := "boolean"
 
-	l.Connect(0, cond)
-	l.AttachDefaultExits(cond)
+		registers := []dub.RegisterInfo{
+			dub.RegisterInfo{T: i},
+			dub.RegisterInfo{T: i},
+			dub.RegisterInfo{T: b},
+			dub.RegisterInfo{T: i},
+		}
 
-	l.Connect(0, decide)
-	decide.SetExit(0, body)
+		dot := base.RegionToDot(l)
+		outfile := filepath.Join("output", "test.svg")
 
-	l.AttachDefaultExits(body)
-	l.Connect(0, cond)
-	decide.SetExit(1, l.GetExit(0))
+		result := make(chan error, 2)
+		go func() {
+			err := io.WriteDot(dot, outfile)
+			result <- err
+		}()
 
-	i := "integer"
-	b := "boolean"
+		fmt.Println(dub.GenerateGo(l, registers))
 
-	registers := []dub.RegisterInfo{
-		dub.RegisterInfo{T: i},
-		dub.RegisterInfo{T: i},
-		dub.RegisterInfo{T: b},
-		dub.RegisterInfo{T: i},
-	}
-
-	dot := base.RegionToDot(l)
-	outfile := filepath.Join("output", "test.svg")
-
-	result := make(chan error, 2)
-	go func() {
-		err := io.WriteDot(dot, outfile)
-		result <- err
-	}()
-
-	fmt.Println(dub.GenerateGo(l, registers))
-
-	err := <-result
-	if err != nil {
-		fmt.Println(err)
-	}
-
+		err := <-result
+		if err != nil {
+			fmt.Println(err)
+		}
+	*/
 }

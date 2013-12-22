@@ -88,7 +88,7 @@ func blockName(i int) string {
 }
 
 func emitOp(name string, args ...ast.Expr) *ast.ExprStmt {
-	return &ast.ExprStmt{X: &ast.CallExpr{Fun: attr(id("space"), name), Args: args}}
+	return &ast.ExprStmt{X: &ast.CallExpr{Fun: attr(id("frame"), name), Args: args}}
 }
 
 func constInt(v int64) ast.Expr {
@@ -101,9 +101,11 @@ func reg(r DubRegister) ast.Expr {
 }
 
 var opToTok = map[string]token.Token{
-	"+": token.ADD,
-	"<": token.LSS,
-	">": token.GTR,
+	"+":  token.ADD,
+	"==": token.EQL,
+	"!=": token.NEQ,
+	"<":  token.LSS,
+	">":  token.GTR,
 }
 
 var dubToGoType = map[string]string{
@@ -119,8 +121,8 @@ func goType(t string) ast.Expr {
 	return id(translated)
 }
 
-func GenerateGo(r *base.Region, registers []RegisterInfo) string {
-	nodes := base.ReversePostorder(r)
+func GenerateGo(f *LLFunc) string {
+	nodes := base.ReversePostorder(f.Region)
 	//info := make([]blockInfo, len(nodes))
 	m := map[*base.Node]int{}
 	stmts := []ast.Stmt{}
@@ -156,7 +158,7 @@ func GenerateGo(r *base.Region, registers []RegisterInfo) string {
 
 	// Declare the variables.
 	// It is easier to do this up front than calculate where they need to be defined.
-	for i, info := range registers {
+	for i, info := range f.Registers {
 		stmts = append(stmts, &ast.DeclStmt{
 			Decl: &ast.GenDecl{
 				Tok: token.VAR,
@@ -247,7 +249,13 @@ func GenerateGo(r *base.Region, registers []RegisterInfo) string {
 					panic(op)
 				}
 			}
-			next := emitSwitch(attr(id("space"), "Flow"), node.GetNext(0), node.GetNext(1))
+			cond := &ast.BinaryExpr{
+				X:  attr(id("frame"), "Flow"),
+				Op: token.EQL,
+				Y:  constInt(0),
+			}
+
+			next := emitSwitch(cond, node.GetNext(0), node.GetNext(1))
 			block = append(block, next)
 		case *DubSwitch:
 			next := emitSwitch(reg(data.Cond), node.GetNext(0), node.GetNext(1))
@@ -262,14 +270,10 @@ func GenerateGo(r *base.Region, registers []RegisterInfo) string {
 	}
 
 	funcDecl := &ast.FuncDecl{
-		Name: id("generated_function"),
+		Name: id(f.Name),
 		Type: &ast.FuncType{
 			Params: &ast.FieldList{
 				List: []*ast.Field{
-					&ast.Field{
-						Names: singleName("space"),
-						Type:  ptr(id("DubSpace")),
-					},
 					&ast.Field{
 						Names: singleName("frame"),
 						Type:  ptr(id("DubFrame")),
@@ -284,14 +288,14 @@ func GenerateGo(r *base.Region, registers []RegisterInfo) string {
 	}
 
 	decls := []ast.Decl{funcDecl}
-	f := &ast.File{
+	file := &ast.File{
 		Name:  id("dub"),
 		Decls: decls,
 	}
 
 	fset := token.NewFileSet()
 	var buf bytes.Buffer
-	printer.Fprint(&buf, fset, f)
+	printer.Fprint(&buf, fset, file)
 
 	return buf.String()
 }

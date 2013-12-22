@@ -13,6 +13,12 @@ type RegisterInfo struct {
 	T string
 }
 
+type LLFunc struct {
+	Name      string
+	Registers []RegisterInfo
+	Region    *base.Region
+}
+
 func RegisterName(reg DubRegister) string {
 	return fmt.Sprintf("r%d", reg)
 }

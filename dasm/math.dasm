@@ -1,10 +1,25 @@
+func S {
+  star {
+    define read c;
+    if ne c ' ' {
+      if ne c '\t' {
+        if ne c '\r' {
+          if ne c '\n' {
+            fail;
+          }
+        }
+      }
+    }
+  }
+}
+
 func digits {
   plus {
-    = read c;
-    if < c '0' {
+    define read c;
+    if lt c '0' {
       fail;
     }
-    if > c '9' {
+    if gt c '9' {
       fail;
     }
   }
