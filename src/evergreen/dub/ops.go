@@ -58,6 +58,9 @@ func RegisterName(reg DubRegister) string {
 }
 
 func formatAssignment(op string, dst DubRegister) string {
+	if dst == NoRegister {
+		return op
+	}
 	return fmt.Sprintf("%s := %s", RegisterName(dst), op)
 }
 
@@ -117,6 +120,15 @@ type Recover struct {
 
 func (n *Recover) OpToString() string {
 	return fmt.Sprintf("<recover> %s", RegisterName(n.Src))
+}
+
+type Slice struct {
+	Src DubRegister
+	Dst DubRegister
+}
+
+func (n *Slice) OpToString() string {
+	return formatAssignment(fmt.Sprintf("<slice> %s", RegisterName(n.Src)), n.Dst)
 }
 
 type Fail struct {

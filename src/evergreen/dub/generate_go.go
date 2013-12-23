@@ -100,6 +100,18 @@ func reg(r DubRegister) ast.Expr {
 	return id(RegisterName(r))
 }
 
+func opAssign(expr ast.Expr, dst DubRegister) ast.Stmt {
+	if dst != NoRegister {
+		return &ast.AssignStmt{
+			Lhs: []ast.Expr{reg(dst)},
+			Tok: token.ASSIGN,
+			Rhs: []ast.Expr{expr},
+		}
+	} else {
+		return &ast.ExprStmt{X: expr}
+	}
+}
+
 var opToTok = map[string]token.Token{
 	"+":  token.ADD,
 	"==": token.EQL,
@@ -195,56 +207,51 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 					if !ok {
 						panic(op.Op)
 					}
-					block = append(block, &ast.AssignStmt{
-						Lhs: []ast.Expr{reg(op.Dst)},
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{
-							&ast.BinaryExpr{
-								X:  reg(op.Left),
-								Op: tok,
-								Y:  reg(op.Right),
-							},
+					block = append(block, opAssign(
+						&ast.BinaryExpr{
+							X:  reg(op.Left),
+							Op: tok,
+							Y:  reg(op.Right),
 						},
-					})
+						op.Dst,
+					))
 				case *ConstantIntOp:
-					block = append(block, &ast.AssignStmt{
-						Lhs: []ast.Expr{reg(op.Dst)},
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{constInt(op.Value)},
-					})
+					block = append(block, opAssign(
+						constInt(op.Value),
+						op.Dst,
+					))
 				case *ConstantRuneOp:
-					block = append(block, &ast.AssignStmt{
-						Lhs: []ast.Expr{reg(op.Dst)},
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{
-							&ast.BasicLit{
-								Kind:  token.CHAR,
-								Value: strconv.QuoteRune(op.Value),
-							},
+					block = append(block, opAssign(
+						&ast.BasicLit{
+							Kind:  token.CHAR,
+							Value: strconv.QuoteRune(op.Value),
 						},
-					})
+						op.Dst,
+					))
 				case *Read:
-					block = append(block, &ast.AssignStmt{
-						Lhs: []ast.Expr{reg(op.Dst)},
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{emitOp("Read").X},
-					})
+					block = append(block, opAssign(
+						emitOp("Read").X,
+						op.Dst,
+					))
 				case *Fail:
 					block = append(block, emitOp("Fail"))
 				case *Checkpoint:
-					block = append(block, &ast.AssignStmt{
-						Lhs: []ast.Expr{reg(op.Dst)},
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{emitOp("Checkpoint").X},
-					})
+					block = append(block, opAssign(
+						emitOp("Checkpoint").X,
+						op.Dst,
+					))
 				case *Recover:
 					block = append(block, emitOp("Recover", reg(op.Src)))
+				case *Slice:
+					block = append(block, opAssign(
+						emitOp("Slice", reg(op.Src)).X,
+						op.Dst,
+					))
 				case *CopyOp:
-					block = append(block, &ast.AssignStmt{
-						Lhs: []ast.Expr{reg(op.Dst)},
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{reg(op.Src)},
-					})
+					block = append(block, opAssign(
+						reg(op.Src),
+						op.Dst,
+					))
 				default:
 					panic(op)
 				}

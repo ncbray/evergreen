@@ -32,6 +32,13 @@ type Repeat struct {
 func (node *Repeat) isASTExpr() {
 }
 
+type Slice struct {
+	Block []ASTExpr
+}
+
+func (node *Slice) isASTExpr() {
+}
+
 type BinaryOp struct {
 	Left  ASTExpr
 	Op    string
@@ -40,6 +47,13 @@ type BinaryOp struct {
 }
 
 func (node *BinaryOp) isASTExpr() {
+}
+
+type Call struct {
+	Name string
+}
+
+func (node *Call) isASTExpr() {
 }
 
 type GetName struct {
@@ -124,6 +138,9 @@ func parseExpr(s *scanner.Scanner) (result ASTExpr) {
 		case "plus":
 			block := parseCodeBlock(s)
 			result = &Repeat{Block: block, Min: 1}
+		case "slice":
+			block := parseCodeBlock(s)
+			result = &Slice{Block: block}
 		case "if":
 			expr := parseExpr(s)
 			block := parseCodeBlock(s)
@@ -141,6 +158,9 @@ func parseExpr(s *scanner.Scanner) (result ASTExpr) {
 			r := parseExpr(s)
 			op := nameToOp[text]
 			result = &BinaryOp{Left: l, Op: op, Right: r}
+		case "call":
+			name := getName(s)
+			result = &Call{Name: name}
 		default:
 			result = &GetName{Name: text}
 		}
@@ -273,6 +293,9 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope) dub.Du
 		decl.Locals = append(decl.Locals, &LocalInfo{Name: expr.Name, T: t})
 		scope.locals[expr.Name] = info
 		return t
+	case *Slice:
+		semanticBlockPass(decl, expr.Block, scope)
+		return &dub.StringType{}
 	case *Read:
 		return &dub.RuneType{}
 	case *RuneLiteral:
@@ -311,13 +334,13 @@ func (builder *DubBuilder) CreateRegister(t dub.DubType) dub.DubRegister {
 	return dub.DubRegister(len(builder.registers) - 1)
 }
 
-func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegister {
+func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub.DubRegister {
 	switch expr := expr.(type) {
 	case *If:
 		// TODO Min
 		//l := dub.CreateRegion()
 
-		cond := lowerExpr(expr.Expr, r, builder)
+		cond := lowerExpr(expr.Expr, r, builder, true)
 		block := lowerBlock(expr.Block, builder)
 
 		// TODO conditional
@@ -371,6 +394,9 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 		return dub.NoRegister
 
 	case *GetName:
+		if !used {
+			return dub.NoRegister
+		}
 		dst := builder.CreateRegister(builder.decl.Locals[expr.Info].T)
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.CopyOp{Src: builder.localMap[expr.Info], Dst: dst},
@@ -380,7 +406,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 		return dst
 
 	case *SetName:
-		src := lowerExpr(expr.Expr, r, builder)
+		src := lowerExpr(expr.Expr, r, builder, true)
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.CopyOp{Src: src, Dst: builder.localMap[expr.Info]},
 		})
@@ -389,6 +415,9 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 		return dub.NoRegister
 
 	case *RuneLiteral:
+		if !used {
+			return dub.NoRegister
+		}
 		dst := builder.CreateRegister(&dub.RuneType{})
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.ConstantRuneOp{Value: expr.Value, Dst: dst},
@@ -398,7 +427,10 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 		return dst
 
 	case *Read:
-		dst := builder.CreateRegister(&dub.RuneType{})
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateRegister(&dub.RuneType{})
+		}
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.Read{Dst: dst},
 		})
@@ -415,9 +447,12 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 		return dub.NoRegister
 
 	case *BinaryOp:
-		left := lowerExpr(expr.Left, r, builder)
-		right := lowerExpr(expr.Right, r, builder)
-		dst := builder.CreateRegister(expr.T)
+		left := lowerExpr(expr.Left, r, builder, true)
+		right := lowerExpr(expr.Right, r, builder, true)
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateRegister(expr.T)
+		}
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.BinaryOp{
 				Left:  left,
@@ -429,6 +464,33 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 		r.Connect(0, body)
 		body.SetExit(0, r.GetExit(0))
 		return dst
+	case *Slice:
+		start := builder.CreateRegister(&dub.IntType{})
+		// HACK assume checkpoint is just the index
+		{
+			head := dub.CreateBlock([]dub.DubOp{
+				&dub.Checkpoint{Dst: start},
+			})
+			r.Connect(0, head)
+			head.SetExit(0, r.GetExit(0))
+		}
+		block := lowerBlock(expr.Block, builder)
+		r.Splice(0, block)
+
+		// Create a slice
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateRegister(&dub.StringType{})
+		}
+		{
+			body := dub.CreateBlock([]dub.DubOp{
+				&dub.Slice{Src: start, Dst: dst},
+			})
+
+			r.Connect(0, body)
+			body.SetExit(0, r.GetExit(0))
+		}
+		return dst
 	default:
 		panic(expr)
 	}
@@ -438,7 +500,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 func lowerBlock(block []ASTExpr, builder *DubBuilder) *base.Region {
 	r := dub.CreateRegion()
 	for _, expr := range block {
-		lowerExpr(expr, r, builder)
+		lowerExpr(expr, r, builder, false)
 	}
 	return r
 }

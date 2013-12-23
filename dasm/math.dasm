@@ -24,3 +24,9 @@ func Digits {
     }
   }
 }
+
+func Integer {
+  slice {
+    read;
+  }
+}

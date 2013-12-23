@@ -14,28 +14,32 @@ type DubState struct {
 	Flow    int
 }
 
-func (frame *DubState) Checkpoint() int {
-	return frame.Index
+func (state *DubState) Checkpoint() int {
+	return state.Index
 }
 
-func (frame *DubState) Recover(index int) {
-	frame.Index = index
-	frame.Flow = NORMAL
+func (state *DubState) Recover(index int) {
+	state.Index = index
+	state.Flow = NORMAL
 }
 
-func (frame *DubState) Read() (r rune) {
-	if frame.Index < len(frame.Stream) {
-		r = frame.Stream[frame.Index]
-		frame.Index += 1
+func (state *DubState) Read() (r rune) {
+	if state.Index < len(state.Stream) {
+		r = state.Stream[state.Index]
+		state.Index += 1
 	} else {
-		frame.Fail()
+		state.Fail()
 	}
 	return
 }
 
-func (frame *DubState) Fail() {
-	if frame.Index > frame.Deepest {
-		frame.Deepest = frame.Index
+func (state *DubState) Slice(start int) string {
+	return string(state.Stream[start:state.Index])
+}
+
+func (state *DubState) Fail() {
+	if state.Index > state.Deepest {
+		state.Deepest = state.Index
 	}
-	frame.Flow = FAIL
+	state.Flow = FAIL
 }
