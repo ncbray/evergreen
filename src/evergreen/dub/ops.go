@@ -5,12 +5,46 @@ import (
 	"fmt"
 )
 
+type DubType interface {
+	isDubType()
+}
+
+type VoidType struct {
+}
+
+func (t *VoidType) isDubType() {
+}
+
+type BoolType struct {
+}
+
+func (t *BoolType) isDubType() {
+}
+
+type IntType struct {
+}
+
+func (t *IntType) isDubType() {
+}
+
+type RuneType struct {
+}
+
+func (t *RuneType) isDubType() {
+}
+
+type StringType struct {
+}
+
+func (t *StringType) isDubType() {
+}
+
 type DubRegister uint32
 
 var NoRegister DubRegister = ^DubRegister(0)
 
 type RegisterInfo struct {
-	T string
+	T DubType
 }
 
 type LLFunc struct {
@@ -31,22 +65,13 @@ type DubOp interface {
 	OpToString() string
 }
 
-type GetLocalOp struct {
-	Name string
-	Dst  DubRegister
+type CopyOp struct {
+	Src DubRegister
+	Dst DubRegister
 }
 
-func (n *GetLocalOp) OpToString() string {
-	return formatAssignment(n.Name, n.Dst)
-}
-
-type SetLocalOp struct {
-	Src  DubRegister
-	Name string
-}
-
-func (n *SetLocalOp) OpToString() string {
-	return fmt.Sprintf("%s := %s", n.Name, RegisterName(n.Src))
+func (n *CopyOp) OpToString() string {
+	return fmt.Sprintf("%s := %s", RegisterName(n.Dst), RegisterName(n.Src))
 }
 
 type ConstantIntOp struct {

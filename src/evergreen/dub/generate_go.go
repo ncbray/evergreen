@@ -108,19 +108,6 @@ var opToTok = map[string]token.Token{
 	">":  token.GTR,
 }
 
-var dubToGoType = map[string]string{
-	"integer": "int",
-	"boolean": "bool",
-}
-
-func goType(t string) ast.Expr {
-	translated, ok := dubToGoType[t]
-	if !ok {
-		panic(t)
-	}
-	return id(translated)
-}
-
 func GenerateGo(f *LLFunc) string {
 	nodes := base.ReversePostorder(f.Region)
 	//info := make([]blockInfo, len(nodes))
@@ -159,13 +146,29 @@ func GenerateGo(f *LLFunc) string {
 	// Declare the variables.
 	// It is easier to do this up front than calculate where they need to be defined.
 	for i, info := range f.Registers {
+		if info.T == nil {
+			continue
+		}
+		typeName := "unknown"
+		switch t := info.T.(type) {
+		case *BoolType:
+			typeName = "bool"
+		case *IntType:
+			typeName = "int"
+		case *RuneType:
+			typeName = "rune"
+		case *StringType:
+			typeName = "string"
+		default:
+			panic(t)
+		}
 		stmts = append(stmts, &ast.DeclStmt{
 			Decl: &ast.GenDecl{
 				Tok: token.VAR,
 				Specs: []ast.Spec{
 					&ast.ValueSpec{
 						Names: singleName(RegisterName(DubRegister(i))),
-						Type:  goType(info.T),
+						Type:  id(typeName),
 					},
 				},
 			},
@@ -233,15 +236,9 @@ func GenerateGo(f *LLFunc) string {
 					})
 				case *Recover:
 					block = append(block, emitOp("Recover", reg(op.Src)))
-				case *GetLocalOp:
+				case *CopyOp:
 					block = append(block, &ast.AssignStmt{
 						Lhs: []ast.Expr{reg(op.Dst)},
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{id(op.Name)},
-					})
-				case *SetLocalOp:
-					block = append(block, &ast.AssignStmt{
-						Lhs: []ast.Expr{id(op.Name)},
 						Tok: token.ASSIGN,
 						Rhs: []ast.Expr{reg(op.Src)},
 					})

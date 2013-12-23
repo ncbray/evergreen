@@ -36,6 +36,7 @@ type BinaryOp struct {
 	Left  ASTExpr
 	Op    string
 	Right ASTExpr
+	T     dub.DubType
 }
 
 func (node *BinaryOp) isASTExpr() {
@@ -43,6 +44,7 @@ func (node *BinaryOp) isASTExpr() {
 
 type GetName struct {
 	Name string
+	Info int
 }
 
 func (node *GetName) isASTExpr() {
@@ -58,6 +60,7 @@ func (node *RuneLiteral) isASTExpr() {
 type SetName struct {
 	Expr ASTExpr
 	Name string
+	Info int
 }
 
 func (node *SetName) isASTExpr() {
@@ -75,9 +78,15 @@ type Fail struct {
 func (node *Fail) isASTExpr() {
 }
 
+type LocalInfo struct {
+	Name string
+	T    dub.DubType
+}
+
 type FuncDecl struct {
-	Name  string
-	Block []ASTExpr
+	Name   string
+	Block  []ASTExpr
+	Locals []*LocalInfo
 }
 
 func getName(s *scanner.Scanner) string {
@@ -214,14 +223,92 @@ func parseDASM(filename string) []*FuncDecl {
 	return parseFile(s)
 }
 
-type DubBuilder struct {
-	nextRegister dub.DubRegister
+type semanticScope struct {
+	parent *semanticScope
+	locals map[string]int
 }
 
-func (builder *DubBuilder) CreateRegister() dub.DubRegister {
-	temp := builder.nextRegister
-	builder.nextRegister += 1
-	return temp
+func (scope *semanticScope) localInfo(name string) (int, bool) {
+	for scope != nil {
+		info, ok := scope.locals[name]
+		if ok {
+			return info, true
+		}
+		scope = scope.parent
+	}
+	return -1, false
+}
+
+func childScope(scope *semanticScope) *semanticScope {
+	return &semanticScope{parent: scope, locals: map[string]int{}}
+}
+
+func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope) dub.DubType {
+	switch expr := expr.(type) {
+	case *Repeat:
+		semanticBlockPass(decl, expr.Block, scope)
+		return &dub.VoidType{}
+	case *If:
+		semanticExprPass(decl, expr.Expr, scope)
+		// TODO check condition type
+		semanticBlockPass(decl, expr.Block, childScope(scope))
+		return &dub.VoidType{}
+	case *BinaryOp:
+		semanticExprPass(decl, expr.Left, scope)
+		semanticExprPass(decl, expr.Right, scope)
+		// HACK assume compare
+		t := &dub.BoolType{}
+		expr.T = t
+		return t
+	case *GetName:
+		info, found := scope.localInfo(expr.Name)
+		if !found {
+			panic(expr.Name)
+		}
+		expr.Info = info
+		return decl.Locals[info].T
+	case *SetName:
+		t := semanticExprPass(decl, expr.Expr, scope)
+		info := len(decl.Locals)
+		decl.Locals = append(decl.Locals, &LocalInfo{Name: expr.Name, T: t})
+		scope.locals[expr.Name] = info
+		return t
+	case *Read:
+		return &dub.RuneType{}
+	case *RuneLiteral:
+		return &dub.RuneType{}
+	case *Fail:
+		return &dub.VoidType{}
+	default:
+		panic(expr)
+	}
+}
+
+func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope) {
+	for _, expr := range block {
+		semanticExprPass(decl, expr, scope)
+	}
+}
+
+func semanticFuncPass(decl *FuncDecl) {
+	semanticBlockPass(decl, decl.Block, childScope(nil))
+}
+
+func semanticPass(decls []*FuncDecl) {
+	for _, decl := range decls {
+		semanticFuncPass(decl)
+	}
+}
+
+type DubBuilder struct {
+	decl      *FuncDecl
+	registers []dub.RegisterInfo
+	localMap  []dub.DubRegister
+}
+
+func (builder *DubBuilder) CreateRegister(t dub.DubType) dub.DubRegister {
+	builder.registers = append(builder.registers, dub.RegisterInfo{T: t})
+	return dub.DubRegister(len(builder.registers) - 1)
 }
 
 func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegister {
@@ -252,7 +339,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 		}
 
 		// Checkpoint
-		checkpoint := builder.CreateRegister()
+		checkpoint := builder.CreateRegister(&dub.IntType{})
 		head := dub.CreateBlock([]dub.DubOp{
 			&dub.Checkpoint{Dst: checkpoint},
 		})
@@ -284,9 +371,9 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 		return dub.NoRegister
 
 	case *GetName:
-		dst := builder.CreateRegister()
+		dst := builder.CreateRegister(builder.decl.Locals[expr.Info].T)
 		body := dub.CreateBlock([]dub.DubOp{
-			&dub.GetLocalOp{Name: expr.Name, Dst: dst},
+			&dub.CopyOp{Src: builder.localMap[expr.Info], Dst: dst},
 		})
 		r.Connect(0, body)
 		body.SetExit(0, r.GetExit(0))
@@ -295,14 +382,14 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 	case *SetName:
 		src := lowerExpr(expr.Expr, r, builder)
 		body := dub.CreateBlock([]dub.DubOp{
-			&dub.SetLocalOp{Src: src, Name: expr.Name},
+			&dub.CopyOp{Src: src, Dst: builder.localMap[expr.Info]},
 		})
 		r.Connect(0, body)
 		body.SetExit(0, r.GetExit(0))
 		return dub.NoRegister
 
 	case *RuneLiteral:
-		dst := builder.CreateRegister()
+		dst := builder.CreateRegister(&dub.RuneType{})
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.ConstantRuneOp{Value: expr.Value, Dst: dst},
 		})
@@ -311,7 +398,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 		return dst
 
 	case *Read:
-		dst := builder.CreateRegister()
+		dst := builder.CreateRegister(&dub.RuneType{})
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.Read{Dst: dst},
 		})
@@ -330,7 +417,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder) dub.DubRegiste
 	case *BinaryOp:
 		left := lowerExpr(expr.Left, r, builder)
 		right := lowerExpr(expr.Right, r, builder)
-		dst := builder.CreateRegister()
+		dst := builder.CreateRegister(expr.T)
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.BinaryOp{
 				Left:  left,
@@ -356,16 +443,24 @@ func lowerBlock(block []ASTExpr, builder *DubBuilder) *base.Region {
 	return r
 }
 
-func lowerAST(decl *FuncDecl) *base.Region {
-	builder := &DubBuilder{}
-	return lowerBlock(decl.Block, builder)
+func lowerAST(decl *FuncDecl) *dub.LLFunc {
+	f := &dub.LLFunc{Name: decl.Name}
+	builder := &DubBuilder{decl: decl}
+	// Allocate register for locals
+	builder.localMap = make([]dub.DubRegister, len(decl.Locals))
+	for i, info := range decl.Locals {
+		builder.localMap[i] = builder.CreateRegister(info.T)
+	}
+	f.Region = lowerBlock(decl.Block, builder)
+	f.Registers = builder.registers
+	return f
 }
 
 func main() {
 	decls := parseDASM("dasm/math.dasm")
+	semanticPass(decls)
 	for _, decl := range decls {
-		f := &dub.LLFunc{Name: decl.Name}
-		f.Region = lowerAST(decl)
+		f := lowerAST(decl)
 
 		// Dump flowgraph
 		dot := base.RegionToDot(f.Region)
