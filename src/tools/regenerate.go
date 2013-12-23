@@ -459,16 +459,21 @@ func lowerAST(decl *FuncDecl) *dub.LLFunc {
 func main() {
 	decls := parseDASM("dasm/math.dasm")
 	semanticPass(decls)
+
+	funcs := []*dub.LLFunc{}
 	for _, decl := range decls {
 		f := lowerAST(decl)
+		funcs = append(funcs, f)
 
 		// Dump flowgraph
 		dot := base.RegionToDot(f.Region)
 		outfile := filepath.Join("output", fmt.Sprintf("%s.svg", f.Name))
 		io.WriteDot(dot, outfile)
-
-		fmt.Println(dub.GenerateGo(f))
 	}
+
+	code := dub.GenerateGo("math", funcs)
+	fmt.Println(code)
+	io.WriteFile("src/generated/math/parser.go", []byte(code))
 
 	/*
 		i := "integer"

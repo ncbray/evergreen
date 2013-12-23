@@ -1,38 +1,41 @@
 package dub
 
-type Flow int
+// TODO flow type?
 
 const (
-	NORMAL Flow = iota
+	NORMAL = iota
 	FAIL
 )
 
 type DubState struct {
-	stream []rune
-	index  int
-	flow   Flow
+	Stream  []rune
+	Index   int
+	Deepest int
+	Flow    int
 }
 
-func (state *DubState) Read() rune {
-	if state.index < len(state.stream) {
-		temp := state.stream[state.index]
-		state.index += 1
-		return temp
+func (frame *DubState) Checkpoint() int {
+	return frame.Index
+}
+
+func (frame *DubState) Recover(index int) {
+	frame.Index = index
+	frame.Flow = NORMAL
+}
+
+func (frame *DubState) Read() (r rune) {
+	if frame.Index < len(frame.Stream) {
+		r = frame.Stream[frame.Index]
+		frame.Index += 1
 	} else {
-		state.flow = FAIL
-		return 0
+		frame.Fail()
 	}
+	return
 }
 
-func (state *DubState) Save() int {
-	return state.index
-}
-
-func (state *DubState) Restore(pos int) {
-	state.index = pos
-	state.flow = NORMAL
-}
-
-func (state *DubState) Reject() {
-	state.flow = FAIL
+func (frame *DubState) Fail() {
+	if frame.Index > frame.Deepest {
+		frame.Deepest = frame.Index
+	}
+	frame.Flow = FAIL
 }

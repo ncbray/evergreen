@@ -108,7 +108,7 @@ var opToTok = map[string]token.Token{
 	">":  token.GTR,
 }
 
-func GenerateGo(f *LLFunc) string {
+func GenerateGoFunc(f *LLFunc) ast.Decl {
 	nodes := base.ReversePostorder(f.Region)
 	//info := make([]blockInfo, len(nodes))
 	m := map[*base.Node]int{}
@@ -174,6 +174,9 @@ func GenerateGo(f *LLFunc) string {
 			},
 		})
 	}
+
+	// HACK otherwise first label is unused.
+	stmts = append(stmts, gotoNode(nodes[0]))
 
 	// Generate Go code from flow blocks
 	for i, node := range nodes {
@@ -273,7 +276,7 @@ func GenerateGo(f *LLFunc) string {
 				List: []*ast.Field{
 					&ast.Field{
 						Names: singleName("frame"),
-						Type:  ptr(id("DubFrame")),
+						Type:  ptr(attr(id("dub"), "DubState")),
 					},
 				},
 			},
@@ -284,9 +287,26 @@ func GenerateGo(f *LLFunc) string {
 		},
 	}
 
-	decls := []ast.Decl{funcDecl}
+	return funcDecl
+}
+
+func GenerateGo(module string, funcs []*LLFunc) string {
+	decls := []ast.Decl{}
+
+	decls = append([]ast.Decl{&ast.GenDecl{
+		Tok:    token.IMPORT,
+		Lparen: 1,
+		Specs: []ast.Spec{
+			&ast.ImportSpec{Path: strLiteral("evergreen/dub")},
+		},
+	}}, decls...)
+
+	for _, f := range funcs {
+		decls = append(decls, GenerateGoFunc(f))
+	}
+
 	file := &ast.File{
-		Name:  id("dub"),
+		Name:  id(module),
 		Decls: decls,
 	}
 
@@ -295,4 +315,5 @@ func GenerateGo(f *LLFunc) string {
 	printer.Fprint(&buf, fset, file)
 
 	return buf.String()
+
 }

@@ -13,7 +13,7 @@ func S {
   }
 }
 
-func digits {
+func Digits {
   plus {
     define read c;
     if lt c '0' {

@@ -2,7 +2,7 @@ package dub
 
 func Dub_ReadEscaped(state *DubState) rune {
 	r := state.Read()
-	if state.flow == FAIL {
+	if state.Flow == FAIL {
 		return r
 	}
 	switch r {
@@ -18,18 +18,18 @@ func Dub_ReadEscaped(state *DubState) rune {
 
 func Dub_RuneMatch(state *DubState) *RuneMatch {
 	r := state.Read()
-	if state.flow == FAIL {
+	if state.Flow == FAIL {
 		return nil
 	}
 	if r != '[' {
-		state.Reject()
+		state.Fail()
 		return nil
 	}
 
 	expr := &RuneMatch{Filters: []*RuneRange{}}
 
 	r = state.Read()
-	if state.flow == FAIL {
+	if state.Flow == FAIL {
 		return nil
 	}
 	if r == '^' {
@@ -41,7 +41,7 @@ func Dub_RuneMatch(state *DubState) *RuneMatch {
 
 Read:
 	r = state.Read()
-	if state.flow == FAIL {
+	if state.Flow == FAIL {
 		return nil
 	}
 Decode:
@@ -50,26 +50,26 @@ Decode:
 	}
 	if r == '\\' {
 		r = Dub_ReadEscaped(state)
-		if state.flow == FAIL {
+		if state.Flow == FAIL {
 			return nil
 		}
 	}
 	next := state.Read()
-	if state.flow == FAIL {
+	if state.Flow == FAIL {
 		return nil
 	}
 	if next == '-' {
 		other := state.Read()
-		if state.flow == FAIL {
+		if state.Flow == FAIL {
 			return nil
 		}
 		if other == ']' {
-			state.Reject()
+			state.Fail()
 			return nil
 		}
 		if other == '\\' {
 			other = Dub_ReadEscaped(state)
-			if state.flow == FAIL {
+			if state.Flow == FAIL {
 				return nil
 			}
 		}
@@ -83,12 +83,12 @@ Decode:
 
 func Dub_RunePostfix(state *DubState) Expr {
 	result := Dub_RuneMatch(state)
-	if state.flow == FAIL {
+	if state.Flow == FAIL {
 		return nil
 	}
-	pos := state.Save()
+	pos := state.Checkpoint()
 	next := state.Read()
-	if state.flow == FAIL {
+	if state.Flow == FAIL {
 		goto NoPostfix
 	}
 	if next == '*' {
@@ -98,6 +98,6 @@ func Dub_RunePostfix(state *DubState) Expr {
 	}
 
 NoPostfix:
-	state.Restore(pos)
+	state.Recover(pos)
 	return result
 }
