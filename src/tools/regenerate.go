@@ -16,6 +16,18 @@ type ASTExpr interface {
 	isASTExpr()
 }
 
+type ASTType interface {
+	isASTType()
+}
+
+type TypeRef struct {
+	Name string
+	T    dub.DubType
+}
+
+func (node *TypeRef) isASTType() {
+}
+
 type If struct {
 	Expr  ASTExpr
 	Block []ASTExpr
@@ -51,6 +63,7 @@ func (node *BinaryOp) isASTExpr() {
 
 type Call struct {
 	Name string
+	T    dub.DubType
 }
 
 func (node *Call) isASTExpr() {
@@ -86,6 +99,13 @@ type Read struct {
 func (node *Read) isASTExpr() {
 }
 
+type Return struct {
+	Exprs []ASTExpr
+}
+
+func (node *Return) isASTExpr() {
+}
+
 type Fail struct {
 }
 
@@ -98,9 +118,10 @@ type LocalInfo struct {
 }
 
 type FuncDecl struct {
-	Name   string
-	Block  []ASTExpr
-	Locals []*LocalInfo
+	Name        string
+	ReturnTypes []ASTType
+	Block       []ASTExpr
+	Locals      []*LocalInfo
 }
 
 func getName(s *scanner.Scanner) string {
@@ -118,11 +139,51 @@ func getPunc(s *scanner.Scanner, punc rune) {
 	}
 }
 
+func getInt(s *scanner.Scanner) int {
+	tok := s.Scan()
+	if tok != scanner.Int {
+		panic(tok)
+	}
+	count, _ := strconv.Atoi(s.TokenText())
+	return count
+}
+
+func parseExprList(s *scanner.Scanner) []ASTExpr {
+	count := getInt(s)
+	exprs := []ASTExpr{}
+	for i := 0; i < count; i++ {
+		exprs = append(exprs, parseExpr(s))
+	}
+	return exprs
+}
+
+func parseTypeList(s *scanner.Scanner) []ASTType {
+	count := getInt(s)
+	types := []ASTType{}
+	for i := 0; i < count; i++ {
+		types = append(types, parseType(s))
+	}
+	return types
+}
+
 var nameToOp = map[string]string{
 	"eq": "==",
 	"ne": "!=",
 	"gt": ">",
 	"lt": "<",
+}
+
+func parseType(s *scanner.Scanner) (result ASTType) {
+	tok := s.Scan()
+	text := s.TokenText()
+
+	switch tok {
+	case scanner.Ident:
+		result = &TypeRef{Name: text}
+	default:
+		panic(tok)
+	}
+	return
 }
 
 func parseExpr(s *scanner.Scanner) (result ASTExpr) {
@@ -161,6 +222,9 @@ func parseExpr(s *scanner.Scanner) (result ASTExpr) {
 		case "call":
 			name := getName(s)
 			result = &Call{Name: name}
+		case "return":
+			exprs := parseExprList(s)
+			result = &Return{Exprs: exprs}
 		default:
 			result = &GetName{Name: text}
 		}
@@ -202,8 +266,9 @@ func parseCodeBlock(s *scanner.Scanner) (result []ASTExpr) {
 
 func parseFunction(s *scanner.Scanner) *FuncDecl {
 	name := getName(s)
+	returnTypes := parseTypeList(s)
 	block := parseCodeBlock(s)
-	return &FuncDecl{Name: name, Block: block}
+	return &FuncDecl{Name: name, ReturnTypes: returnTypes, Block: block}
 }
 
 func parseFile(s *scanner.Scanner) (decls []*FuncDecl) {
@@ -300,10 +365,37 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope) dub.Du
 		return &dub.RuneType{}
 	case *RuneLiteral:
 		return &dub.RuneType{}
+	case *Return:
+		return &dub.VoidType{}
 	case *Fail:
 		return &dub.VoidType{}
+	case *Call:
+		// HACK need to infer actual return type
+		t := &dub.StringType{}
+		expr.T = t
+		return t
 	default:
 		panic(expr)
+	}
+}
+
+func resolveTypeName(name string) dub.DubType {
+	switch name {
+	case "string":
+		return &dub.StringType{}
+	default:
+		panic(name)
+	}
+}
+
+func semanticTypePass(decl *FuncDecl, node ASTType) dub.DubType {
+	switch node := node.(type) {
+	case *TypeRef:
+		t := resolveTypeName(node.Name)
+		node.T = t
+		return t
+	default:
+		panic(node)
 	}
 }
 
@@ -314,6 +406,9 @@ func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope) {
 }
 
 func semanticFuncPass(decl *FuncDecl) {
+	for _, t := range decl.ReturnTypes {
+		semanticTypePass(decl, t)
+	}
 	semanticBlockPass(decl, decl.Block, childScope(nil))
 }
 
@@ -346,19 +441,18 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		// TODO conditional
 		decide := dub.CreateSwitch(cond)
 
-		r.Connect(0, decide)
-		decide.SetExit(0, r.GetExit(0))
-		r.Splice(0, block)
-		decide.SetExit(1, r.GetExit(0))
+		r.Connect(dub.NORMAL, decide)
+		decide.SetExit(0, r.GetExit(dub.NORMAL))
+		r.Splice(dub.NORMAL, block)
+		decide.SetExit(1, r.GetExit(dub.NORMAL))
 
 		return dub.NoRegister
 
 	case *Repeat:
-
 		// HACK unroll
 		for i := 0; i < expr.Min; i++ {
 			block := lowerBlock(expr.Block, builder)
-			r.Splice(0, block)
+			r.Splice(dub.NORMAL, block)
 		}
 
 		// Checkpoint
@@ -367,17 +461,17 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 			&dub.Checkpoint{Dst: checkpoint},
 		})
 
-		r.Connect(0, head)
-		head.SetExit(0, r.GetExit(0))
+		r.Connect(dub.NORMAL, head)
+		head.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 
 		// Handle the body
 		block := lowerBlock(expr.Block, builder)
 
 		// Normal flow iterates
 		// NOTE actually connects nodes in two different regions.  Kinda hackish.
-		block.GetExit(0).TransferEntries(head)
+		block.GetExit(dub.NORMAL).TransferEntries(head)
 		// Stop iterating on failure
-		block.GetExit(1).TransferEntries(block.GetExit(0))
+		block.GetExit(dub.FAIL).TransferEntries(block.GetExit(dub.NORMAL))
 
 		// Recover
 		{
@@ -385,11 +479,11 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 				&dub.Recover{Src: checkpoint},
 			})
 
-			block.Connect(0, body)
-			body.SetExit(0, block.GetExit(0))
+			block.Connect(dub.NORMAL, body)
+			body.SetExit(dub.NORMAL, block.GetExit(dub.NORMAL))
 		}
 
-		r.Splice(0, block)
+		r.Splice(dub.NORMAL, block)
 
 		return dub.NoRegister
 
@@ -401,8 +495,8 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.CopyOp{Src: builder.localMap[expr.Info], Dst: dst},
 		})
-		r.Connect(0, body)
-		body.SetExit(0, r.GetExit(0))
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
 	case *SetName:
@@ -410,8 +504,8 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.CopyOp{Src: src, Dst: builder.localMap[expr.Info]},
 		})
-		r.Connect(0, body)
-		body.SetExit(0, r.GetExit(0))
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dub.NoRegister
 
 	case *RuneLiteral:
@@ -422,8 +516,8 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.ConstantRuneOp{Value: expr.Value, Dst: dst},
 		})
-		r.Connect(0, body)
-		body.SetExit(0, r.GetExit(0))
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
 	case *Read:
@@ -434,16 +528,29 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.Read{Dst: dst},
 		})
-		r.Connect(0, body)
+		r.Connect(dub.NORMAL, body)
 		r.AttachDefaultExits(body)
 		return dst
+
+	case *Return:
+		exprs := make([]dub.DubRegister, len(expr.Exprs))
+		for i, e := range expr.Exprs {
+			exprs[i] = lowerExpr(e, r, builder, true)
+		}
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.ReturnOp{Exprs: exprs},
+		})
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.RETURN))
+		return dub.NoRegister
 
 	case *Fail:
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.Fail{},
 		})
-		r.Connect(0, body)
-		body.SetExit(1, r.GetExit(1))
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.FAIL, r.GetExit(dub.FAIL))
+
 		return dub.NoRegister
 
 	case *BinaryOp:
@@ -461,8 +568,22 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 				Dst:   dst,
 			},
 		})
-		r.Connect(0, body)
-		body.SetExit(0, r.GetExit(0))
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		return dst
+	case *Call:
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateRegister(expr.T)
+		}
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.CallOp{
+				Name: expr.Name,
+				Dst:  dst,
+			},
+		})
+		r.Connect(dub.NORMAL, body)
+		r.AttachDefaultExits(body)
 		return dst
 	case *Slice:
 		start := builder.CreateRegister(&dub.IntType{})
@@ -471,11 +592,11 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 			head := dub.CreateBlock([]dub.DubOp{
 				&dub.Checkpoint{Dst: start},
 			})
-			r.Connect(0, head)
-			head.SetExit(0, r.GetExit(0))
+			r.Connect(dub.NORMAL, head)
+			head.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		}
 		block := lowerBlock(expr.Block, builder)
-		r.Splice(0, block)
+		r.Splice(dub.NORMAL, block)
 
 		// Create a slice
 		dst := dub.NoRegister
@@ -487,8 +608,8 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 				&dub.Slice{Src: start, Dst: dst},
 			})
 
-			r.Connect(0, body)
-			body.SetExit(0, r.GetExit(0))
+			r.Connect(dub.NORMAL, body)
+			body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		}
 		return dst
 	default:
@@ -507,6 +628,16 @@ func lowerBlock(block []ASTExpr, builder *DubBuilder) *base.Region {
 
 func lowerAST(decl *FuncDecl) *dub.LLFunc {
 	f := &dub.LLFunc{Name: decl.Name}
+	types := make([]dub.DubType, len(decl.ReturnTypes))
+	for i, node := range decl.ReturnTypes {
+		switch node := node.(type) {
+		case *TypeRef:
+			types[i] = node.T
+		default:
+			panic(node)
+		}
+	}
+	f.ReturnTypes = types
 	builder := &DubBuilder{decl: decl}
 	// Allocate register for locals
 	builder.localMap = make([]dub.DubRegister, len(decl.Locals))
@@ -514,6 +645,7 @@ func lowerAST(decl *FuncDecl) *dub.LLFunc {
 		builder.localMap[i] = builder.CreateRegister(info.T)
 	}
 	f.Region = lowerBlock(decl.Block, builder)
+	f.Region.GetExit(dub.RETURN).TransferEntries(f.Region.GetExit(dub.NORMAL))
 	f.Registers = builder.registers
 	return f
 }
@@ -536,32 +668,4 @@ func main() {
 	code := dub.GenerateGo("math", funcs)
 	fmt.Println(code)
 	io.WriteFile("src/generated/math/parser.go", []byte(code))
-
-	/*
-		i := "integer"
-		b := "boolean"
-
-		registers := []dub.RegisterInfo{
-			dub.RegisterInfo{T: i},
-			dub.RegisterInfo{T: i},
-			dub.RegisterInfo{T: b},
-			dub.RegisterInfo{T: i},
-		}
-
-		dot := base.RegionToDot(l)
-		outfile := filepath.Join("output", "test.svg")
-
-		result := make(chan error, 2)
-		go func() {
-			err := io.WriteDot(dot, outfile)
-			result <- err
-		}()
-
-		fmt.Println(dub.GenerateGo(l, registers))
-
-		err := <-result
-		if err != nil {
-			fmt.Println(err)
-		}
-	*/
 }

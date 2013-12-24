@@ -100,6 +100,10 @@ func reg(r DubRegister) ast.Expr {
 	return id(RegisterName(r))
 }
 
+func returnVarName(i int) string {
+	return fmt.Sprintf("ret%d", i)
+}
+
 func opAssign(expr ast.Expr, dst DubRegister) ast.Stmt {
 	if dst != NoRegister {
 		return &ast.AssignStmt{
@@ -118,6 +122,21 @@ var opToTok = map[string]token.Token{
 	"!=": token.NEQ,
 	"<":  token.LSS,
 	">":  token.GTR,
+}
+
+func goTypeName(t DubType) ast.Expr {
+	switch t := t.(type) {
+	case *BoolType:
+		return id("bool")
+	case *IntType:
+		return id("int")
+	case *RuneType:
+		return id("rune")
+	case *StringType:
+		return id("string")
+	default:
+		panic(t)
+	}
 }
 
 func GenerateGoFunc(f *LLFunc) ast.Decl {
@@ -158,29 +177,13 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 	// Declare the variables.
 	// It is easier to do this up front than calculate where they need to be defined.
 	for i, info := range f.Registers {
-		if info.T == nil {
-			continue
-		}
-		typeName := "unknown"
-		switch t := info.T.(type) {
-		case *BoolType:
-			typeName = "bool"
-		case *IntType:
-			typeName = "int"
-		case *RuneType:
-			typeName = "rune"
-		case *StringType:
-			typeName = "string"
-		default:
-			panic(t)
-		}
 		stmts = append(stmts, &ast.DeclStmt{
 			Decl: &ast.GenDecl{
 				Tok: token.VAR,
 				Specs: []ast.Spec{
 					&ast.ValueSpec{
 						Names: singleName(RegisterName(DubRegister(i))),
-						Type:  id(typeName),
+						Type:  goTypeName(info.T),
 					},
 				},
 			},
@@ -215,6 +218,16 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						},
 						op.Dst,
 					))
+				case *CallOp:
+					block = append(block, opAssign(
+						&ast.CallExpr{
+							Fun: id(op.Name),
+							Args: []ast.Expr{
+								id("frame"),
+							},
+						},
+						op.Dst,
+					))
 				case *ConstantIntOp:
 					block = append(block, opAssign(
 						constInt(op.Value),
@@ -233,6 +246,17 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						emitOp("Read").X,
 						op.Dst,
 					))
+				case *ReturnOp:
+					if len(op.Exprs) != len(f.ReturnTypes) {
+						panic(op.Exprs)
+					}
+					for i, e := range op.Exprs {
+						block = append(block, &ast.AssignStmt{
+							Lhs: []ast.Expr{id(returnVarName(i))},
+							Tok: token.ASSIGN,
+							Rhs: []ast.Expr{reg(e)},
+						})
+					}
 				case *Fail:
 					block = append(block, emitOp("Fail"))
 				case *Checkpoint:
@@ -276,6 +300,14 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 		stmts = append(stmts, block...)
 	}
 
+	results := []*ast.Field{}
+	for i, t := range f.ReturnTypes {
+		results = append(results, &ast.Field{
+			Names: singleName(returnVarName(i)),
+			Type:  goTypeName(t),
+		})
+	}
+
 	funcDecl := &ast.FuncDecl{
 		Name: id(f.Name),
 		Type: &ast.FuncType{
@@ -287,7 +319,7 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 					},
 				},
 			},
-			Results: nil,
+			Results: &ast.FieldList{List: results},
 		},
 		Body: &ast.BlockStmt{
 			List: stmts,

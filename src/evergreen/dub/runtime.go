@@ -3,8 +3,12 @@ package dub
 // TODO flow type?
 
 const (
+	// Real flows, used at runtime
 	NORMAL = iota
 	FAIL
+	EXCEPTION
+	// Virtual flows, only for graph construction
+	RETURN
 )
 
 type DubState struct {

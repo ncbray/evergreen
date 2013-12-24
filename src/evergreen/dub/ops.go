@@ -3,6 +3,7 @@ package dub
 import (
 	"evergreen/base"
 	"fmt"
+	"strings"
 )
 
 type DubType interface {
@@ -48,13 +49,22 @@ type RegisterInfo struct {
 }
 
 type LLFunc struct {
-	Name      string
-	Registers []RegisterInfo
-	Region    *base.Region
+	Name        string
+	ReturnTypes []DubType
+	Registers   []RegisterInfo
+	Region      *base.Region
 }
 
 func RegisterName(reg DubRegister) string {
 	return fmt.Sprintf("r%d", reg)
+}
+
+func RegisterList(regs []DubRegister) string {
+	names := make([]string, len(regs))
+	for i, reg := range regs {
+		names[i] = RegisterName(reg)
+	}
+	return strings.Join(names, ", ")
 }
 
 func formatAssignment(op string, dst DubRegister) string {
@@ -106,6 +116,15 @@ func (n *BinaryOp) OpToString() string {
 	return formatAssignment(fmt.Sprintf("%s %s %s", RegisterName(n.Left), n.Op, RegisterName(n.Right)), n.Dst)
 }
 
+type CallOp struct {
+	Name string
+	Dst  DubRegister
+}
+
+func (n *CallOp) OpToString() string {
+	return formatAssignment(fmt.Sprintf("%s()", n.Name), n.Dst)
+}
+
 type Checkpoint struct {
 	Dst DubRegister
 }
@@ -129,6 +148,14 @@ type Slice struct {
 
 func (n *Slice) OpToString() string {
 	return formatAssignment(fmt.Sprintf("<slice> %s", RegisterName(n.Src)), n.Dst)
+}
+
+type ReturnOp struct {
+	Exprs []DubRegister
+}
+
+func (n *ReturnOp) OpToString() string {
+	return fmt.Sprintf("<return> %s", RegisterList(n.Exprs))
 }
 
 type Fail struct {
@@ -177,6 +204,10 @@ func (n *DubExit) DotNodeStyle() string {
 		return `shape=invtriangle,label="n"`
 	case 1:
 		return `shape=invtriangle,label="f"`
+	case 2:
+		return `shape=invtriangle,label="e"`
+	case 3:
+		return `shape=invtriangle,label="r"`
 	default:
 		return `shape=invtriangle,label="?"`
 	}
@@ -258,6 +289,8 @@ func CreateRegion() *base.Region {
 		Exits: []*base.Node{
 			CreateExit(0),
 			CreateExit(1),
+			CreateExit(2),
+			CreateExit(3),
 		},
 	}
 	r.Entry.SetExit(0, r.Exits[0])
