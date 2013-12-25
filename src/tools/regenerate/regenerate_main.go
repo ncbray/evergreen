@@ -106,6 +106,13 @@ type RuneLiteral struct {
 func (node *RuneLiteral) isASTExpr() {
 }
 
+type StringLiteral struct {
+	Value string
+}
+
+func (node *StringLiteral) isASTExpr() {
+}
+
 type SetName struct {
 	Expr ASTExpr
 	Name string
@@ -141,7 +148,12 @@ type LocalInfo struct {
 
 type Decl interface {
 	AsType() (ASTType, bool)
+	AsFunc() (ASTFunc, bool)
 	isASTDecl()
+}
+
+type ASTFunc interface {
+	ReturnType() ASTType
 }
 
 type FuncDecl struct {
@@ -153,6 +165,21 @@ type FuncDecl struct {
 
 func (node *FuncDecl) AsType() (ASTType, bool) {
 	return nil, false
+}
+
+func (node *FuncDecl) AsFunc() (ASTFunc, bool) {
+	return node, true
+}
+
+func (node *FuncDecl) ReturnType() ASTType {
+	// HACK assume single return value
+	if len(node.ReturnTypes) == 0 {
+		return nil
+	}
+	if len(node.ReturnTypes) != 1 {
+		panic(node.Name)
+	}
+	return node.ReturnTypes[0].Resolve()
 }
 
 func (node *FuncDecl) isASTDecl() {
@@ -172,6 +199,10 @@ func (node *StructDecl) AsType() (ASTType, bool) {
 	return node, true
 }
 
+func (node *StructDecl) AsFunc() (ASTFunc, bool) {
+	return nil, false
+}
+
 func (node *StructDecl) isASTDecl() {
 }
 
@@ -186,6 +217,10 @@ func (node *BuiltinType) AsType() (ASTType, bool) {
 	return node, true
 }
 
+func (node *BuiltinType) AsFunc() (ASTFunc, bool) {
+	return nil, false
+}
+
 func (node *BuiltinType) isASTDecl() {
 }
 
@@ -198,6 +233,7 @@ const (
 	Ident DASMTokenType = iota
 	Int
 	Char
+	String
 	Punc
 	EOF
 )
@@ -226,6 +262,8 @@ func (s *DASMScanner) Scan() {
 		s.Next.Type = Int
 	case scanner.Char:
 		s.Next.Type = Char
+	case scanner.String:
+		s.Next.Type = String
 	case scanner.EOF:
 		s.Next.Type = EOF
 	default:
@@ -307,6 +345,9 @@ func parseKeyValueList(s *DASMScanner) ([]*KeyValue, bool) {
 		}
 		key, ok := getName(s)
 		if !ok {
+			return nil, false
+		}
+		if !getPunc(s, ":") {
 			return nil, false
 		}
 		e, ok := parseExpr(s)
@@ -452,6 +493,10 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 		v, _ := strconv.Unquote(s.Current.Text)
 		s.Scan()
 		return &RuneLiteral{Value: []rune(v)[0]}, true
+	case String:
+		v, _ := strconv.Unquote(s.Current.Text)
+		s.Scan()
+		return &StringLiteral{Value: v}, true
 	default:
 		return nil, false
 	}
@@ -616,6 +661,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		t := semanticExprPass(decl, expr.Expr, scope, glbls)
 		info := len(decl.Locals)
 		decl.Locals = append(decl.Locals, &LocalInfo{Name: expr.Name, T: t})
+		expr.Info = info
 		scope.locals[expr.Name] = info
 		return t
 	case *Slice:
@@ -625,6 +671,8 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		return glbls.Rune
 	case *RuneLiteral:
 		return glbls.Rune
+	case *StringLiteral:
+		return glbls.String
 	case *Return:
 		for _, e := range expr.Exprs {
 			semanticExprPass(decl, e, scope, glbls)
@@ -633,8 +681,16 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *Fail:
 		return glbls.Void
 	case *Call:
-		// HACK need to infer actual return type
-		t := glbls.String
+		// HACK resolve other scopes?
+		decl, ok := glbls.Module[expr.Name]
+		if !ok {
+			panic(expr.Name)
+		}
+		f, ok := decl.AsFunc()
+		if !ok {
+			panic(expr.Name)
+		}
+		t := f.ReturnType()
 		expr.T = t
 		return t
 	case *Construct:
@@ -860,6 +916,18 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		dst := builder.CreateLLRegister(builder.glbl.Rune)
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.ConstantRuneOp{Value: expr.Value, Dst: dst},
+		})
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		return dst
+
+	case *StringLiteral:
+		if !used {
+			return dub.NoRegister
+		}
+		dst := builder.CreateLLRegister(builder.glbl.String)
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.ConstantStringOp{Value: expr.Value, Dst: dst},
 		})
 		r.Connect(dub.NORMAL, body)
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))

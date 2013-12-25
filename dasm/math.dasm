@@ -2,6 +2,12 @@ struct IntLiteral {
   Text string
 }
 
+struct BinaryOp {
+  Left IntLiteral
+  Op string
+  Right IntLiteral
+}
+
 func S () {
   star {
     define read c;
@@ -34,5 +40,16 @@ func Integer (IntLiteral) {
     call Digits;
   } v;
   call S;
-  return (cons IntLiteral(Text v));
+  return (cons IntLiteral(Text: v));
+}
+
+func Add (BinaryOp) {
+  define call Integer l;
+  define read c;
+  if ne c '+' {
+    fail;
+  }
+  call S;
+  define call Integer r;
+  return (cons BinaryOp(Left: l Op: "+" Right: r));
 }

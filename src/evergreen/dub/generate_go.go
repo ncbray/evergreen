@@ -259,6 +259,14 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						},
 						op.Dst,
 					))
+				case *ConstantStringOp:
+					block = append(block, opAssign(
+						&ast.BasicLit{
+							Kind:  token.STRING,
+							Value: strconv.Quote(op.Value),
+						},
+						op.Dst,
+					))
 				case *Read:
 					block = append(block, opAssign(
 						emitOp("Read").X,

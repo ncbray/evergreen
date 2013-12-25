@@ -51,3 +51,21 @@ func TestInteger(t *testing.T) {
 		t.Errorf("Expected %#v, got %#v", nil, result)
 	}
 }
+
+func TestAddOK(t *testing.T) {
+	state := &dub.DubState{Stream: []rune("1  + 234 ")}
+	result := math.Add(state)
+	assertState(state, 9, 0, t)
+	assertString("1", result.Left.Text, t)
+	assertString("+", result.Op, t)
+	assertString("234", result.Right.Text, t)
+}
+
+func TestAddBad(t *testing.T) {
+	state := &dub.DubState{Stream: []rune("1 234")}
+	result := math.Add(state)
+	assertState(state, 3, 1, t)
+	if result != nil {
+		t.Errorf("Expected %#v, got %#v", nil, result)
+	}
+}
