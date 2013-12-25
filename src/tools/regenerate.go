@@ -17,12 +17,17 @@ type ASTExpr interface {
 }
 
 type ASTType interface {
+	DubType() dub.DubType
 	isASTType()
 }
 
 type TypeRef struct {
 	Name string
 	T    dub.DubType
+}
+
+func (node *TypeRef) DubType() dub.DubType {
+	return node.T
 }
 
 func (node *TypeRef) isASTType() {
@@ -117,11 +122,31 @@ type LocalInfo struct {
 	T    dub.DubType
 }
 
+type Decl interface {
+	isASTDecl()
+}
+
 type FuncDecl struct {
 	Name        string
 	ReturnTypes []ASTType
 	Block       []ASTExpr
 	Locals      []*LocalInfo
+}
+
+func (node *FuncDecl) isASTDecl() {
+}
+
+type FieldDecl struct {
+	Name string
+	Type ASTType
+}
+
+type StructDecl struct {
+	Name   string
+	Fields []*FieldDecl
+}
+
+func (node *StructDecl) isASTDecl() {
 }
 
 type DASMTokenType int
@@ -395,8 +420,38 @@ func parseFunction(s *DASMScanner) (*FuncDecl, bool) {
 	return &FuncDecl{Name: name, ReturnTypes: returnTypes, Block: block}, true
 }
 
-func parseFile(s *DASMScanner) ([]*FuncDecl, bool) {
-	decls := []*FuncDecl{}
+func parseStructure(s *DASMScanner) (*StructDecl, bool) {
+	name, ok := getName(s)
+	if !ok {
+		return nil, false
+	}
+
+	ok = getPunc(s, "{")
+	if !ok {
+		return nil, false
+	}
+
+	fields := []*FieldDecl{}
+	for {
+		if getPunc(s, "}") {
+			return &StructDecl{Name: name, Fields: fields}, true
+		}
+
+		name, ok := getName(s)
+		if !ok {
+			return nil, false
+		}
+
+		t, ok := parseType(s)
+		if !ok {
+			return nil, false
+		}
+		fields = append(fields, &FieldDecl{Name: name, Type: t})
+	}
+}
+
+func parseFile(s *DASMScanner) ([]Decl, bool) {
+	decls := []Decl{}
 	for {
 		switch s.Current.Type {
 		case Ident:
@@ -404,6 +459,13 @@ func parseFile(s *DASMScanner) ([]*FuncDecl, bool) {
 			case "func":
 				s.Scan()
 				f, ok := parseFunction(s)
+				if !ok {
+					return nil, false
+				}
+				decls = append(decls, f)
+			case "struct":
+				s.Scan()
+				f, ok := parseStructure(s)
 				if !ok {
 					return nil, false
 				}
@@ -419,7 +481,7 @@ func parseFile(s *DASMScanner) ([]*FuncDecl, bool) {
 	}
 }
 
-func parseDASM(filename string) []*FuncDecl {
+func parseDASM(filename string) []Decl {
 	data, _ := ioutil.ReadFile(filename)
 	s := CreateScanner(data)
 	f, ok := parseFile(s)
@@ -510,7 +572,7 @@ func resolveTypeName(name string) dub.DubType {
 	}
 }
 
-func semanticTypePass(decl *FuncDecl, node ASTType) dub.DubType {
+func semanticTypePass(node ASTType) dub.DubType {
 	switch node := node.(type) {
 	case *TypeRef:
 		t := resolveTypeName(node.Name)
@@ -529,14 +591,27 @@ func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope) {
 
 func semanticFuncPass(decl *FuncDecl) {
 	for _, t := range decl.ReturnTypes {
-		semanticTypePass(decl, t)
+		semanticTypePass(t)
 	}
 	semanticBlockPass(decl, decl.Block, childScope(nil))
 }
 
-func semanticPass(decls []*FuncDecl) {
+func semanticStructPass(decl *StructDecl) {
+	for _, f := range decl.Fields {
+		semanticTypePass(f.Type)
+	}
+}
+
+func semanticPass(decls []Decl) {
 	for _, decl := range decls {
-		semanticFuncPass(decl)
+		switch decl := decl.(type) {
+		case *FuncDecl:
+			semanticFuncPass(decl)
+		case *StructDecl:
+			semanticStructPass(decl)
+		default:
+			panic(decl)
+		}
 	}
 }
 
@@ -772,22 +847,41 @@ func lowerAST(decl *FuncDecl) *dub.LLFunc {
 	return f
 }
 
+func lowerStruct(decl *StructDecl) *dub.LLStruct {
+	fields := []*dub.LLField{}
+	for _, field := range decl.Fields {
+		fields = append(fields, &dub.LLField{
+			Name: field.Name,
+			T:    field.Type.DubType(),
+		})
+	}
+	return &dub.LLStruct{Name: decl.Name, Fields: fields}
+}
+
 func main() {
 	decls := parseDASM("dasm/math.dasm")
 	semanticPass(decls)
 
+	structs := []*dub.LLStruct{}
 	funcs := []*dub.LLFunc{}
 	for _, decl := range decls {
-		f := lowerAST(decl)
-		funcs = append(funcs, f)
+		switch decl := decl.(type) {
+		case *FuncDecl:
+			f := lowerAST(decl)
+			funcs = append(funcs, f)
 
-		// Dump flowgraph
-		dot := base.RegionToDot(f.Region)
-		outfile := filepath.Join("output", fmt.Sprintf("%s.svg", f.Name))
-		io.WriteDot(dot, outfile)
+			// Dump flowgraph
+			dot := base.RegionToDot(f.Region)
+			outfile := filepath.Join("output", fmt.Sprintf("%s.svg", f.Name))
+			io.WriteDot(dot, outfile)
+		case *StructDecl:
+			structs = append(structs, lowerStruct(decl))
+		default:
+			panic(decl)
+		}
 	}
 
-	code := dub.GenerateGo("math", funcs)
+	code := dub.GenerateGo("math", structs, funcs)
 	fmt.Println(code)
 	io.WriteFile("src/generated/math/parser.go", []byte(code))
 }

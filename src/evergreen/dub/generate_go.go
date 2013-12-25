@@ -329,7 +329,30 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 	return funcDecl
 }
 
-func GenerateGo(module string, funcs []*LLFunc) string {
+func GenerateGoStruct(s *LLStruct) ast.Decl {
+	fields := []*ast.Field{}
+	for _, f := range s.Fields {
+		fields = append(fields, &ast.Field{
+			Names: singleName(f.Name),
+			Type:  goTypeName(f.T),
+		})
+	}
+	return &ast.GenDecl{
+		Tok: token.TYPE,
+		Specs: []ast.Spec{
+			&ast.TypeSpec{
+				Name: id(s.Name),
+				Type: &ast.StructType{
+					Fields: &ast.FieldList{
+						List: fields,
+					},
+				},
+			},
+		},
+	}
+}
+
+func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
 	decls := []ast.Decl{}
 
 	decls = append([]ast.Decl{&ast.GenDecl{
@@ -339,6 +362,10 @@ func GenerateGo(module string, funcs []*LLFunc) string {
 			&ast.ImportSpec{Path: strLiteral("evergreen/dub")},
 		},
 	}}, decls...)
+
+	for _, f := range structs {
+		decls = append(decls, GenerateGoStruct(f))
+	}
 
 	for _, f := range funcs {
 		decls = append(decls, GenerateGoFunc(f))

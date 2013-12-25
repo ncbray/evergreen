@@ -40,6 +40,16 @@ type StringType struct {
 func (t *StringType) isDubType() {
 }
 
+type LLField struct {
+	Name string
+	T    DubType
+}
+
+type LLStruct struct {
+	Name   string
+	Fields []*LLField
+}
+
 type DubRegister uint32
 
 var NoRegister DubRegister = ^DubRegister(0)
