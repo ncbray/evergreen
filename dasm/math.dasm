@@ -1,4 +1,4 @@
-func S 0 {
+func S () {
   star {
     define read c;
     if ne c ' ' {
@@ -13,7 +13,7 @@ func S 0 {
   }
 }
 
-func Digits 0 {
+func Digits () {
   plus {
     define read c;
     if lt c '0' {
@@ -25,10 +25,10 @@ func Digits 0 {
   }
 }
 
-func Integer 1 string {
+func Integer (string) {
   define slice {
     call Digits;
   } v;
   call S;
-  return 1 v;
+  return (v);
 }

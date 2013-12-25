@@ -124,46 +124,125 @@ type FuncDecl struct {
 	Locals      []*LocalInfo
 }
 
-func getName(s *scanner.Scanner) string {
-	tok := s.Scan()
-	if tok != scanner.Ident {
-		panic(tok)
-	}
-	return s.TokenText()
+type DASMTokenType int
+
+const (
+	Ident DASMTokenType = iota
+	Int
+	Char
+	Punc
+	EOF
+)
+
+type DASMToken struct {
+	Type DASMTokenType
+	Text string
+	Pos  scanner.Position
 }
 
-func getPunc(s *scanner.Scanner, punc rune) {
-	tok := s.Scan()
-	if tok != punc {
-		panic(tok)
+type DASMScanner struct {
+	scanner *scanner.Scanner
+	Current DASMToken
+	Next    DASMToken
+}
+
+func (s *DASMScanner) Scan() {
+	s.Current = s.Next
+	tok := s.scanner.Scan()
+	s.Next.Text = s.scanner.TokenText()
+	s.Next.Pos = s.scanner.Pos()
+	switch tok {
+	case scanner.Ident:
+		s.Next.Type = Ident
+	case scanner.Int:
+		s.Next.Type = Int
+	case scanner.Char:
+		s.Next.Type = Char
+	case scanner.EOF:
+		s.Next.Type = EOF
+	default:
+		if tok > 0 {
+			s.Next.Type = Punc
+		} else {
+			panic(tok)
+		}
 	}
 }
 
-func getInt(s *scanner.Scanner) int {
-	tok := s.Scan()
-	if tok != scanner.Int {
-		panic(tok)
+func (s *DASMScanner) AssertType(t DASMTokenType) {
+	if s.Current.Type != t {
+		panic(s.Current.Type)
 	}
-	count, _ := strconv.Atoi(s.TokenText())
-	return count
 }
 
-func parseExprList(s *scanner.Scanner) []ASTExpr {
-	count := getInt(s)
+func CreateScanner(data []byte) *DASMScanner {
+	s := &DASMScanner{scanner: &scanner.Scanner{}}
+	s.scanner.Init(bytes.NewReader(data))
+	s.Scan()
+	s.Scan()
+	return s
+}
+
+func getName(s *DASMScanner) (string, bool) {
+	if s.Current.Type == Ident {
+		text := s.Current.Text
+		s.Scan()
+		return text, true
+	}
+	return "", false
+}
+
+func getPunc(s *DASMScanner, text string) bool {
+	if s.Current.Type == Punc && s.Current.Text == text {
+		s.Scan()
+		return true
+	}
+	return false
+}
+
+func getInt(s *DASMScanner) (int, bool) {
+	if s.Current.Type == Int {
+		count, _ := strconv.Atoi(s.Current.Text)
+		s.Scan()
+		return count, true
+	}
+	return 0, false
+}
+
+func parseExprList(s *DASMScanner) ([]ASTExpr, bool) {
+	ok := getPunc(s, "(")
+	if !ok {
+		return nil, false
+	}
 	exprs := []ASTExpr{}
-	for i := 0; i < count; i++ {
-		exprs = append(exprs, parseExpr(s))
+	for {
+		if getPunc(s, ")") {
+			return exprs, true
+		}
+		e, ok := parseExpr(s)
+		if !ok {
+			return nil, false
+		}
+		exprs = append(exprs, e)
 	}
-	return exprs
 }
 
-func parseTypeList(s *scanner.Scanner) []ASTType {
-	count := getInt(s)
-	types := []ASTType{}
-	for i := 0; i < count; i++ {
-		types = append(types, parseType(s))
+func parseTypeList(s *DASMScanner) ([]ASTType, bool) {
+	ok := getPunc(s, "(")
+	if !ok {
+		return nil, false
 	}
-	return types
+	types := []ASTType{}
+	for {
+		if getPunc(s, ")") {
+			return types, true
+		}
+		t, ok := parseType(s)
+		if !ok {
+			return nil, false
+		}
+		types = append(types, t)
+	}
 }
 
 var nameToOp = map[string]string{
@@ -173,139 +252,182 @@ var nameToOp = map[string]string{
 	"lt": "<",
 }
 
-func parseType(s *scanner.Scanner) (result ASTType) {
-	tok := s.Scan()
-	text := s.TokenText()
-
-	switch tok {
-	case scanner.Ident:
-		result = &TypeRef{Name: text}
+func parseType(s *DASMScanner) (ASTType, bool) {
+	switch s.Current.Type {
+	case Ident:
+		result := &TypeRef{Name: s.Current.Text}
+		s.Scan()
+		return result, true
 	default:
-		panic(tok)
+		panic(s.Current.Type)
 	}
-	return
 }
 
-func parseExpr(s *scanner.Scanner) (result ASTExpr) {
-	tok := s.Scan()
-	text := s.TokenText()
-
-	switch tok {
-	case scanner.Ident:
-		switch text {
+func parseExpr(s *DASMScanner) (ASTExpr, bool) {
+	switch s.Current.Type {
+	case Ident:
+		switch s.Current.Text {
 		case "star":
-			block := parseCodeBlock(s)
-			result = &Repeat{Block: block, Min: 0}
+			s.Scan()
+			block, ok := parseCodeBlock(s)
+			if !ok {
+				return nil, false
+			}
+			return &Repeat{Block: block, Min: 0}, true
 		case "plus":
-			block := parseCodeBlock(s)
-			result = &Repeat{Block: block, Min: 1}
+			s.Scan()
+			block, ok := parseCodeBlock(s)
+			if !ok {
+				return nil, false
+			}
+			return &Repeat{Block: block, Min: 1}, true
 		case "slice":
-			block := parseCodeBlock(s)
-			result = &Slice{Block: block}
+			s.Scan()
+			block, ok := parseCodeBlock(s)
+			if !ok {
+				return nil, false
+			}
+			return &Slice{Block: block}, true
 		case "if":
-			expr := parseExpr(s)
-			block := parseCodeBlock(s)
-			result = &If{Expr: expr, Block: block}
+			s.Scan()
+			expr, ok := parseExpr(s)
+			if !ok {
+				return nil, false
+			}
+			block, ok := parseCodeBlock(s)
+			if !ok {
+				return nil, false
+			}
+			return &If{Expr: expr, Block: block}, true
 		case "define":
-			expr := parseExpr(s)
-			dst := getName(s)
-			result = &SetName{Expr: expr, Name: dst}
+			s.Scan()
+			expr, ok := parseExpr(s)
+			if !ok {
+				return nil, false
+			}
+			dst, ok := getName(s)
+			if !ok {
+				return nil, false
+			}
+			return &SetName{Expr: expr, Name: dst}, true
 		case "read":
-			result = &Read{}
+			s.Scan()
+			return &Read{}, true
 		case "fail":
-			result = &Fail{}
+			s.Scan()
+			return &Fail{}, true
 		case "eq", "ne", "gt", "lt":
-			l := parseExpr(s)
-			r := parseExpr(s)
-			op := nameToOp[text]
-			result = &BinaryOp{Left: l, Op: op, Right: r}
+			op := nameToOp[s.Current.Text]
+			s.Scan()
+			l, ok := parseExpr(s)
+			if !ok {
+				return nil, false
+			}
+			r, ok := parseExpr(s)
+			if !ok {
+				return nil, false
+			}
+			return &BinaryOp{Left: l, Op: op, Right: r}, true
 		case "call":
-			name := getName(s)
-			result = &Call{Name: name}
+			s.Scan()
+			name, ok := getName(s)
+			if !ok {
+				return nil, false
+			}
+			return &Call{Name: name}, true
 		case "return":
-			exprs := parseExprList(s)
-			result = &Return{Exprs: exprs}
+			s.Scan()
+			exprs, ok := parseExprList(s)
+			if !ok {
+				return nil, false
+			}
+			return &Return{Exprs: exprs}, true
 		default:
-			result = &GetName{Name: text}
+			text := s.Current.Text
+			s.Scan()
+			return &GetName{Name: text}, true
 		}
-	case scanner.Char:
-		v, _ := strconv.Unquote(s.TokenText())
-		result = &RuneLiteral{Value: []rune(v)[0]}
+	case Char:
+		v, _ := strconv.Unquote(s.Current.Text)
+		s.Scan()
+		return &RuneLiteral{Value: []rune(v)[0]}, true
 	default:
-		panic(tok)
+		return nil, false
 	}
-	return
 }
 
-func parseCodeBlock(s *scanner.Scanner) (result []ASTExpr) {
-	getPunc(s, '{')
-	result = []ASTExpr{}
-	defer func() {
-		if r := recover(); r != nil {
-			if s.TokenText() == "}" {
-				// End of a block
-			} else {
-				panic(r)
-			}
-		}
-	}()
+func parseCodeBlock(s *DASMScanner) ([]ASTExpr, bool) {
+	ok := getPunc(s, "{")
+	if !ok {
+		return nil, false
+	}
+	result := []ASTExpr{}
 	for {
-		result = append(result, parseExpr(s))
-		if s.TokenText() != "}" {
-			tok := s.Scan()
-			switch tok {
-			case ';':
-			case '}':
-				return
-			default:
-				panic(tok)
-			}
+		if s.Current.Type == Punc && s.Current.Text == "}" {
+			s.Scan()
+			return result, true
+		}
+
+		expr, ok := parseExpr(s)
+		if !ok {
+			return nil, false
+		}
+		result = append(result, expr)
+		for s.Current.Type == Punc && s.Current.Text == ";" {
+			s.Scan()
 		}
 	}
 }
 
-func parseFunction(s *scanner.Scanner) *FuncDecl {
-	name := getName(s)
-	returnTypes := parseTypeList(s)
-	block := parseCodeBlock(s)
-	return &FuncDecl{Name: name, ReturnTypes: returnTypes, Block: block}
+func parseFunction(s *DASMScanner) (*FuncDecl, bool) {
+	name, ok := getName(s)
+	if !ok {
+		return nil, false
+	}
+	returnTypes, ok := parseTypeList(s)
+	if !ok {
+		return nil, false
+	}
+	block, ok := parseCodeBlock(s)
+	if !ok {
+		return nil, false
+	}
+	return &FuncDecl{Name: name, ReturnTypes: returnTypes, Block: block}, true
 }
 
-func parseFile(s *scanner.Scanner) (decls []*FuncDecl) {
-	decls = []*FuncDecl{}
-
-	tok := s.Scan()
+func parseFile(s *DASMScanner) ([]*FuncDecl, bool) {
+	decls := []*FuncDecl{}
 	for {
-		switch tok {
-		case scanner.Ident:
-			text := s.TokenText()
-			switch text {
+		switch s.Current.Type {
+		case Ident:
+			switch s.Current.Text {
 			case "func":
-				decls = append(decls, parseFunction(s))
+				s.Scan()
+				f, ok := parseFunction(s)
+				if !ok {
+					return nil, false
+				}
+				decls = append(decls, f)
 			default:
-				panic(tok)
+				panic(s.Current.Text)
 			}
-		case scanner.EOF:
-			return
+		case EOF:
+			return decls, true
 		default:
-			panic(tok)
+			return nil, false
 		}
-		// do something with tok
-		tok = s.Scan()
 	}
 }
 
 func parseDASM(filename string) []*FuncDecl {
 	data, _ := ioutil.ReadFile(filename)
-	s := &scanner.Scanner{}
-	s.Init(bytes.NewReader(data))
-
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("Unexpected %s @ %s\n", s.TokenText(), s.Pos())
-		}
-	}()
-	return parseFile(s)
+	s := CreateScanner(data)
+	f, ok := parseFile(s)
+	if !ok {
+		fmt.Printf("Unexpected %s @ %s\n", s.Current.Text, s.Current.Pos)
+		panic(s.Current.Pos)
+	}
+	return f
 }
 
 type semanticScope struct {
