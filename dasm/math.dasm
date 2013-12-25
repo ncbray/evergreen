@@ -29,10 +29,10 @@ func Digits () {
   }
 }
 
-func Integer (string) {
+func Integer (IntLiteral) {
   define slice {
     call Digits;
   } v;
   call S;
-  return (v);
+  return (cons IntLiteral(Text v));
 }

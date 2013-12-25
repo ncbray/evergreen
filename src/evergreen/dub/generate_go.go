@@ -134,6 +134,8 @@ func goTypeName(t DubType) ast.Expr {
 		return id("rune")
 	case *StringType:
 		return id("string")
+	case *StructType:
+		return ptr(id(t.Name))
 	default:
 		panic(t)
 	}
@@ -226,6 +228,22 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 								id("frame"),
 							},
 						},
+						op.Dst,
+					))
+				case *ConstructOp:
+					t, ok := op.Type.(*StructType)
+					if !ok {
+						panic(op.Type)
+					}
+					elts := make([]ast.Expr, len(op.Args))
+					for i, arg := range op.Args {
+						elts[i] = &ast.KeyValueExpr{Key: id(arg.Key), Value: reg(arg.Value)}
+					}
+					block = append(block, opAssign(
+						addr(&ast.CompositeLit{
+							Type: id(t.Name),
+							Elts: elts,
+						}),
 						op.Dst,
 					))
 				case *ConstantIntOp:

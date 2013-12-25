@@ -10,12 +10,6 @@ type DubType interface {
 	isDubType()
 }
 
-type VoidType struct {
-}
-
-func (t *VoidType) isDubType() {
-}
-
 type BoolType struct {
 }
 
@@ -38,6 +32,13 @@ type StringType struct {
 }
 
 func (t *StringType) isDubType() {
+}
+
+type StructType struct {
+	Name string
+}
+
+func (t *StructType) isDubType() {
 }
 
 type LLField struct {
@@ -73,6 +74,14 @@ func RegisterList(regs []DubRegister) string {
 	names := make([]string, len(regs))
 	for i, reg := range regs {
 		names[i] = RegisterName(reg)
+	}
+	return strings.Join(names, ", ")
+}
+
+func KeyValueList(args []*KeyValue) string {
+	names := make([]string, len(args))
+	for i, arg := range args {
+		names[i] = fmt.Sprintf("%s: %s", arg.Key, RegisterName(arg.Value))
 	}
 	return strings.Join(names, ", ")
 }
@@ -133,6 +142,22 @@ type CallOp struct {
 
 func (n *CallOp) OpToString() string {
 	return formatAssignment(fmt.Sprintf("%s()", n.Name), n.Dst)
+}
+
+type KeyValue struct {
+	Key   string
+	Value DubRegister
+}
+
+type ConstructOp struct {
+	Type DubType
+	Args []*KeyValue
+	Dst  DubRegister
+}
+
+func (n *ConstructOp) OpToString() string {
+	// TODO type name?
+	return formatAssignment(fmt.Sprintf("<construct> (%s)", KeyValueList(n.Args)), n.Dst)
 }
 
 type Checkpoint struct {

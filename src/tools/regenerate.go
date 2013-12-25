@@ -17,20 +17,24 @@ type ASTExpr interface {
 }
 
 type ASTType interface {
-	DubType() dub.DubType
 	isASTType()
+}
+
+type ASTTypeRef interface {
+	Resolve() ASTType
+	isASTTypeRef()
 }
 
 type TypeRef struct {
 	Name string
-	T    dub.DubType
+	T    ASTType
 }
 
-func (node *TypeRef) DubType() dub.DubType {
+func (node *TypeRef) Resolve() ASTType {
 	return node.T
 }
 
-func (node *TypeRef) isASTType() {
+func (node *TypeRef) isASTTypeRef() {
 }
 
 type If struct {
@@ -60,7 +64,7 @@ type BinaryOp struct {
 	Left  ASTExpr
 	Op    string
 	Right ASTExpr
-	T     dub.DubType
+	T     ASTType
 }
 
 func (node *BinaryOp) isASTExpr() {
@@ -68,10 +72,23 @@ func (node *BinaryOp) isASTExpr() {
 
 type Call struct {
 	Name string
-	T    dub.DubType
+	T    ASTType
 }
 
 func (node *Call) isASTExpr() {
+}
+
+type KeyValue struct {
+	Key   string
+	Value ASTExpr
+}
+
+type Construct struct {
+	Type ASTTypeRef
+	Args []*KeyValue
+}
+
+func (node *Construct) isASTExpr() {
 }
 
 type GetName struct {
@@ -119,18 +136,23 @@ func (node *Fail) isASTExpr() {
 
 type LocalInfo struct {
 	Name string
-	T    dub.DubType
+	T    ASTType
 }
 
 type Decl interface {
+	AsType() (ASTType, bool)
 	isASTDecl()
 }
 
 type FuncDecl struct {
 	Name        string
-	ReturnTypes []ASTType
+	ReturnTypes []ASTTypeRef
 	Block       []ASTExpr
 	Locals      []*LocalInfo
+}
+
+func (node *FuncDecl) AsType() (ASTType, bool) {
+	return nil, false
 }
 
 func (node *FuncDecl) isASTDecl() {
@@ -138,7 +160,7 @@ func (node *FuncDecl) isASTDecl() {
 
 type FieldDecl struct {
 	Name string
-	Type ASTType
+	Type ASTTypeRef
 }
 
 type StructDecl struct {
@@ -146,7 +168,28 @@ type StructDecl struct {
 	Fields []*FieldDecl
 }
 
+func (node *StructDecl) AsType() (ASTType, bool) {
+	return node, true
+}
+
 func (node *StructDecl) isASTDecl() {
+}
+
+func (node *StructDecl) isASTType() {
+}
+
+type BuiltinType struct {
+	Name string
+}
+
+func (node *BuiltinType) AsType() (ASTType, bool) {
+	return node, true
+}
+
+func (node *BuiltinType) isASTDecl() {
+}
+
+func (node *BuiltinType) isASTType() {
 }
 
 type DASMTokenType int
@@ -252,12 +295,34 @@ func parseExprList(s *DASMScanner) ([]ASTExpr, bool) {
 	}
 }
 
-func parseTypeList(s *DASMScanner) ([]ASTType, bool) {
+func parseKeyValueList(s *DASMScanner) ([]*KeyValue, bool) {
 	ok := getPunc(s, "(")
 	if !ok {
 		return nil, false
 	}
-	types := []ASTType{}
+	args := []*KeyValue{}
+	for {
+		if getPunc(s, ")") {
+			return args, true
+		}
+		key, ok := getName(s)
+		if !ok {
+			return nil, false
+		}
+		e, ok := parseExpr(s)
+		if !ok {
+			return nil, false
+		}
+		args = append(args, &KeyValue{Key: key, Value: e})
+	}
+}
+
+func parseTypeList(s *DASMScanner) ([]ASTTypeRef, bool) {
+	ok := getPunc(s, "(")
+	if !ok {
+		return nil, false
+	}
+	types := []ASTTypeRef{}
 	for {
 		if getPunc(s, ")") {
 			return types, true
@@ -277,7 +342,7 @@ var nameToOp = map[string]string{
 	"lt": "<",
 }
 
-func parseType(s *DASMScanner) (ASTType, bool) {
+func parseType(s *DASMScanner) (ASTTypeRef, bool) {
 	switch s.Current.Type {
 	case Ident:
 		result := &TypeRef{Name: s.Current.Text}
@@ -360,6 +425,17 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 				return nil, false
 			}
 			return &Call{Name: name}, true
+		case "cons":
+			s.Scan()
+			t, ok := parseType(s)
+			if !ok {
+				return nil, false
+			}
+			args, ok := parseKeyValueList(s)
+			if !ok {
+				return nil, false
+			}
+			return &Construct{Type: t, Args: args}, true
 		case "return":
 			s.Scan()
 			exprs, ok := parseExprList(s)
@@ -512,21 +588,21 @@ func childScope(scope *semanticScope) *semanticScope {
 	return &semanticScope{parent: scope, locals: map[string]int{}}
 }
 
-func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope) dub.DubType {
+func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls *ModuleScope) ASTType {
 	switch expr := expr.(type) {
 	case *Repeat:
-		semanticBlockPass(decl, expr.Block, scope)
-		return &dub.VoidType{}
+		semanticBlockPass(decl, expr.Block, scope, glbls)
+		return glbls.Void
 	case *If:
-		semanticExprPass(decl, expr.Expr, scope)
+		semanticExprPass(decl, expr.Expr, scope, glbls)
 		// TODO check condition type
-		semanticBlockPass(decl, expr.Block, childScope(scope))
-		return &dub.VoidType{}
+		semanticBlockPass(decl, expr.Block, childScope(scope), glbls)
+		return glbls.Void
 	case *BinaryOp:
-		semanticExprPass(decl, expr.Left, scope)
-		semanticExprPass(decl, expr.Right, scope)
+		semanticExprPass(decl, expr.Left, scope, glbls)
+		semanticExprPass(decl, expr.Right, scope, glbls)
 		// HACK assume compare
-		t := &dub.BoolType{}
+		t := glbls.Bool
 		expr.T = t
 		return t
 	case *GetName:
@@ -537,45 +613,55 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope) dub.Du
 		expr.Info = info
 		return decl.Locals[info].T
 	case *SetName:
-		t := semanticExprPass(decl, expr.Expr, scope)
+		t := semanticExprPass(decl, expr.Expr, scope, glbls)
 		info := len(decl.Locals)
 		decl.Locals = append(decl.Locals, &LocalInfo{Name: expr.Name, T: t})
 		scope.locals[expr.Name] = info
 		return t
 	case *Slice:
-		semanticBlockPass(decl, expr.Block, scope)
-		return &dub.StringType{}
+		semanticBlockPass(decl, expr.Block, scope, glbls)
+		return glbls.String
 	case *Read:
-		return &dub.RuneType{}
+		return glbls.Rune
 	case *RuneLiteral:
-		return &dub.RuneType{}
+		return glbls.Rune
 	case *Return:
-		return &dub.VoidType{}
+		for _, e := range expr.Exprs {
+			semanticExprPass(decl, e, scope, glbls)
+		}
+		return glbls.Void
 	case *Fail:
-		return &dub.VoidType{}
+		return glbls.Void
 	case *Call:
 		// HACK need to infer actual return type
-		t := &dub.StringType{}
+		t := glbls.String
 		expr.T = t
+		return t
+	case *Construct:
+		t := semanticTypePass(expr.Type, glbls)
+		for _, arg := range expr.Args {
+			semanticExprPass(decl, arg.Value, scope, glbls)
+		}
 		return t
 	default:
 		panic(expr)
 	}
 }
 
-func resolveTypeName(name string) dub.DubType {
-	switch name {
-	case "string":
-		return &dub.StringType{}
-	default:
-		panic(name)
-	}
-}
-
-func semanticTypePass(node ASTType) dub.DubType {
+func semanticTypePass(node ASTTypeRef, glbls *ModuleScope) ASTType {
 	switch node := node.(type) {
 	case *TypeRef:
-		t := resolveTypeName(node.Name)
+		d, ok := glbls.Module[node.Name]
+		if !ok {
+			d, ok = glbls.Builtin[node.Name]
+		}
+		if !ok {
+			panic(node.Name)
+		}
+		t, ok := d.AsType()
+		if !ok {
+			panic(node.Name)
+		}
 		node.T = t
 		return t
 	default:
@@ -583,45 +669,107 @@ func semanticTypePass(node ASTType) dub.DubType {
 	}
 }
 
-func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope) {
+func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope, glbls *ModuleScope) {
 	for _, expr := range block {
-		semanticExprPass(decl, expr, scope)
+		semanticExprPass(decl, expr, scope, glbls)
 	}
 }
 
-func semanticFuncPass(decl *FuncDecl) {
+func semanticFuncPass(decl *FuncDecl, glbls *ModuleScope) {
 	for _, t := range decl.ReturnTypes {
-		semanticTypePass(t)
+		semanticTypePass(t, glbls)
 	}
-	semanticBlockPass(decl, decl.Block, childScope(nil))
+	semanticBlockPass(decl, decl.Block, childScope(nil), glbls)
 }
 
-func semanticStructPass(decl *StructDecl) {
+func semanticStructPass(decl *StructDecl, glbls *ModuleScope) {
 	for _, f := range decl.Fields {
-		semanticTypePass(f.Type)
+		semanticTypePass(f.Type, glbls)
 	}
 }
 
-func semanticPass(decls []Decl) {
+type ModuleScope struct {
+	Builtin map[string]Decl
+	Module  map[string]Decl
+
+	String *BuiltinType
+	Rune   *BuiltinType
+	Int    *BuiltinType
+	Bool   *BuiltinType
+	Void   *BuiltinType
+}
+
+func semanticPass(decls []Decl) *ModuleScope {
+	glbls := &ModuleScope{
+		Builtin: map[string]Decl{},
+		Module:  map[string]Decl{},
+	}
+	glbls.String = &BuiltinType{"string"}
+	glbls.Builtin["string"] = glbls.String
+
+	glbls.Rune = &BuiltinType{"rune"}
+	glbls.Builtin["rune"] = glbls.Rune
+
+	glbls.Int = &BuiltinType{"int"}
+	glbls.Builtin["int"] = glbls.Int
+
+	glbls.Bool = &BuiltinType{"bool"}
+	glbls.Builtin["bool"] = glbls.Bool
+
+	glbls.Void = &BuiltinType{"void"}
+	glbls.Builtin["void"] = glbls.Void
+
 	for _, decl := range decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
-			semanticFuncPass(decl)
+			glbls.Module[decl.Name] = decl
 		case *StructDecl:
-			semanticStructPass(decl)
+			glbls.Module[decl.Name] = decl
 		default:
 			panic(decl)
 		}
 	}
+	for _, decl := range decls {
+		switch decl := decl.(type) {
+		case *FuncDecl:
+			semanticFuncPass(decl, glbls)
+		case *StructDecl:
+			semanticStructPass(decl, glbls)
+		default:
+			panic(decl)
+		}
+	}
+	return glbls
+}
+
+type GlobalDubBuilder struct {
+	types  map[ASTType]dub.DubType
+	String dub.DubType
+	Rune   dub.DubType
+	Int    dub.DubType
+	Bool   dub.DubType
+}
+
+func (builder *GlobalDubBuilder) TranslateType(t ASTType) dub.DubType {
+	dt, ok := builder.types[t]
+	if !ok {
+		panic(t)
+	}
+	return dt
 }
 
 type DubBuilder struct {
 	decl      *FuncDecl
 	registers []dub.RegisterInfo
 	localMap  []dub.DubRegister
+	glbl      *GlobalDubBuilder
 }
 
-func (builder *DubBuilder) CreateRegister(t dub.DubType) dub.DubRegister {
+func (builder *DubBuilder) CreateRegister(t ASTType) dub.DubRegister {
+	return builder.CreateLLRegister(builder.glbl.TranslateType(t))
+}
+
+func (builder *DubBuilder) CreateLLRegister(t dub.DubType) dub.DubRegister {
 	builder.registers = append(builder.registers, dub.RegisterInfo{T: t})
 	return dub.DubRegister(len(builder.registers) - 1)
 }
@@ -653,7 +801,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		}
 
 		// Checkpoint
-		checkpoint := builder.CreateRegister(&dub.IntType{})
+		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
 		head := dub.CreateBlock([]dub.DubOp{
 			&dub.Checkpoint{Dst: checkpoint},
 		})
@@ -709,7 +857,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		if !used {
 			return dub.NoRegister
 		}
-		dst := builder.CreateRegister(&dub.RuneType{})
+		dst := builder.CreateLLRegister(builder.glbl.Rune)
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.ConstantRuneOp{Value: expr.Value, Dst: dst},
 		})
@@ -720,7 +868,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 	case *Read:
 		dst := dub.NoRegister
 		if used {
-			dst = builder.CreateRegister(&dub.RuneType{})
+			dst = builder.CreateLLRegister(builder.glbl.Rune)
 		}
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.Read{Dst: dst},
@@ -782,8 +930,32 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		r.Connect(dub.NORMAL, body)
 		r.AttachDefaultExits(body)
 		return dst
+	case *Construct:
+		t := builder.glbl.TranslateType(expr.Type.Resolve())
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateLLRegister(t)
+		}
+		args := make([]*dub.KeyValue, len(expr.Args))
+		for i, arg := range expr.Args {
+			args[i] = &dub.KeyValue{
+				Key:   arg.Key,
+				Value: lowerExpr(arg.Value, r, builder, true),
+			}
+		}
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.ConstructOp{
+				Type: t,
+				Args: args,
+				Dst:  dst,
+			},
+		})
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		return dst
+
 	case *Slice:
-		start := builder.CreateRegister(&dub.IntType{})
+		start := builder.CreateLLRegister(builder.glbl.Int)
 		// HACK assume checkpoint is just the index
 		{
 			head := dub.CreateBlock([]dub.DubOp{
@@ -798,7 +970,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		// Create a slice
 		dst := dub.NoRegister
 		if used {
-			dst = builder.CreateRegister(&dub.StringType{})
+			dst = builder.CreateLLRegister(builder.glbl.String)
 		}
 		{
 			body := dub.CreateBlock([]dub.DubOp{
@@ -823,19 +995,15 @@ func lowerBlock(block []ASTExpr, builder *DubBuilder) *base.Region {
 	return r
 }
 
-func lowerAST(decl *FuncDecl) *dub.LLFunc {
+func lowerAST(decl *FuncDecl, glbl *GlobalDubBuilder) *dub.LLFunc {
+	builder := &DubBuilder{decl: decl, glbl: glbl}
+
 	f := &dub.LLFunc{Name: decl.Name}
 	types := make([]dub.DubType, len(decl.ReturnTypes))
 	for i, node := range decl.ReturnTypes {
-		switch node := node.(type) {
-		case *TypeRef:
-			types[i] = node.T
-		default:
-			panic(node)
-		}
+		types[i] = builder.glbl.TranslateType(node.Resolve())
 	}
 	f.ReturnTypes = types
-	builder := &DubBuilder{decl: decl}
 	// Allocate register for locals
 	builder.localMap = make([]dub.DubRegister, len(decl.Locals))
 	for i, info := range decl.Locals {
@@ -847,12 +1015,12 @@ func lowerAST(decl *FuncDecl) *dub.LLFunc {
 	return f
 }
 
-func lowerStruct(decl *StructDecl) *dub.LLStruct {
+func lowerStruct(decl *StructDecl, gbuilder *GlobalDubBuilder) *dub.LLStruct {
 	fields := []*dub.LLField{}
 	for _, field := range decl.Fields {
 		fields = append(fields, &dub.LLField{
 			Name: field.Name,
-			T:    field.Type.DubType(),
+			T:    gbuilder.TranslateType(field.Type.Resolve()),
 		})
 	}
 	return &dub.LLStruct{Name: decl.Name, Fields: fields}
@@ -860,14 +1028,38 @@ func lowerStruct(decl *StructDecl) *dub.LLStruct {
 
 func main() {
 	decls := parseDASM("dasm/math.dasm")
-	semanticPass(decls)
+	glbls := semanticPass(decls)
+	gbuilder := &GlobalDubBuilder{types: map[ASTType]dub.DubType{}}
+
+	gbuilder.String = &dub.StringType{}
+	gbuilder.types[glbls.String] = gbuilder.String
+
+	gbuilder.Rune = &dub.RuneType{}
+	gbuilder.types[glbls.Rune] = gbuilder.Rune
+
+	gbuilder.Int = &dub.IntType{}
+	gbuilder.types[glbls.Int] = gbuilder.Int
+
+	gbuilder.Bool = &dub.BoolType{}
+	gbuilder.types[glbls.Bool] = gbuilder.Bool
+
+	for _, decl := range decls {
+		switch decl := decl.(type) {
+		case *FuncDecl:
+		case *StructDecl:
+			// HACK struct type only keeps name
+			gbuilder.types[decl] = &dub.StructType{Name: decl.Name}
+		default:
+			panic(decl)
+		}
+	}
 
 	structs := []*dub.LLStruct{}
 	funcs := []*dub.LLFunc{}
 	for _, decl := range decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
-			f := lowerAST(decl)
+			f := lowerAST(decl, gbuilder)
 			funcs = append(funcs, f)
 
 			// Dump flowgraph
@@ -875,7 +1067,7 @@ func main() {
 			outfile := filepath.Join("output", fmt.Sprintf("%s.svg", f.Name))
 			io.WriteDot(dot, outfile)
 		case *StructDecl:
-			structs = append(structs, lowerStruct(decl))
+			structs = append(structs, lowerStruct(decl, gbuilder))
 		default:
 			panic(decl)
 		}

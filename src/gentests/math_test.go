@@ -39,13 +39,15 @@ func TestInteger(t *testing.T) {
 	state := &dub.DubState{Stream: []rune("123  4")}
 	result := math.Integer(state)
 	assertState(state, 5, 0, t)
-	assertString("123", result, t)
+	assertString("123", result.Text, t)
 
 	result = math.Integer(state)
 	assertState(state, 6, 0, t)
-	assertString("4", result, t)
+	assertString("4", result.Text, t)
 
 	result = math.Integer(state)
 	assertState(state, 6, 1, t)
-	assertString("", result, t)
+	if result != nil {
+		t.Errorf("Expected %#v, got %#v", nil, result)
+	}
 }
