@@ -999,17 +999,17 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		r.AttachDefaultExits(body)
 		return dst
 	case *Construct:
-		t := builder.glbl.TranslateType(expr.Type.Resolve())
-		dst := dub.NoRegister
-		if used {
-			dst = builder.CreateLLRegister(t)
-		}
 		args := make([]*dub.KeyValue, len(expr.Args))
 		for i, arg := range expr.Args {
 			args[i] = &dub.KeyValue{
 				Key:   arg.Key,
 				Value: lowerExpr(arg.Value, r, builder, true),
 			}
+		}
+		t := builder.glbl.TranslateType(expr.Type.Resolve())
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateLLRegister(t)
 		}
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.ConstructOp{
