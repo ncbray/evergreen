@@ -1140,13 +1140,17 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 			}
 		}
 		t := builder.glbl.TranslateType(expr.Type.Resolve())
+		s, ok := t.(*dub.LLStruct)
+		if !ok {
+			panic(t)
+		}
 		dst := dub.NoRegister
 		if used {
 			dst = builder.CreateLLRegister(t)
 		}
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.ConstructOp{
-				Type: t,
+				Type: s,
 				Args: args,
 				Dst:  dst,
 			},

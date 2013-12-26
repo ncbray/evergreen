@@ -165,14 +165,13 @@ type KeyValue struct {
 }
 
 type ConstructOp struct {
-	Type DubType
+	Type *LLStruct
 	Args []*KeyValue
 	Dst  DubRegister
 }
 
 func (n *ConstructOp) OpToString() string {
-	// TODO type name?
-	return formatAssignment(fmt.Sprintf("<construct> (%s)", KeyValueList(n.Args)), n.Dst)
+	return formatAssignment(fmt.Sprintf("%s{%s}", n.Type.Name, KeyValueList(n.Args)), n.Dst)
 }
 
 type Checkpoint struct {

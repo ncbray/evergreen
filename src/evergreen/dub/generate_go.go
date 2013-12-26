@@ -235,17 +235,13 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						op.Dst,
 					))
 				case *ConstructOp:
-					t, ok := op.Type.(*LLStruct)
-					if !ok {
-						panic(op.Type)
-					}
 					elts := make([]ast.Expr, len(op.Args))
 					for i, arg := range op.Args {
 						elts[i] = &ast.KeyValueExpr{Key: id(arg.Key), Value: reg(arg.Value)}
 					}
 					block = append(block, opAssign(
 						addr(&ast.CompositeLit{
-							Type: id(t.Name),
+							Type: id(op.Type.Name),
 							Elts: elts,
 						}),
 						op.Dst,
