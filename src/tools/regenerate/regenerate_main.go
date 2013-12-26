@@ -37,6 +37,18 @@ func (node *TypeRef) Resolve() ASTType {
 func (node *TypeRef) isASTTypeRef() {
 }
 
+type ListTypeRef struct {
+	Type ASTTypeRef
+	T    ASTType
+}
+
+func (node *ListTypeRef) Resolve() ASTType {
+	return node.T
+}
+
+func (node *ListTypeRef) isASTTypeRef() {
+}
+
 type If struct {
 	Expr  ASTExpr
 	Block []ASTExpr
@@ -96,6 +108,14 @@ type Construct struct {
 }
 
 func (node *Construct) isASTExpr() {
+}
+
+type ConstructList struct {
+	Type ASTTypeRef
+	Args []ASTExpr
+}
+
+func (node *ConstructList) isASTExpr() {
 }
 
 type GetName struct {
@@ -235,6 +255,13 @@ func (node *BuiltinType) isASTDecl() {
 }
 
 func (node *BuiltinType) isASTType() {
+}
+
+type ListType struct {
+	Type ASTType
+}
+
+func (node *ListType) isASTType() {
 }
 
 type DASMTokenType int
@@ -407,6 +434,17 @@ func parseType(s *DASMScanner) (ASTTypeRef, bool) {
 		result := &TypeRef{Name: s.Current.Text}
 		s.Scan()
 		return result, true
+	case Punc:
+		if s.Current.Text == "[" && s.Next.Text == "]" {
+			s.Scan()
+			s.Scan()
+			child, ok := parseType(s)
+			if !ok {
+				return nil, false
+			}
+			return &ListTypeRef{Type: child}, true
+		}
+		return nil, false
 	default:
 		panic(s.Current.Type)
 	}
@@ -533,6 +571,17 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 				return nil, false
 			}
 			return &Construct{Type: t, Args: args}, true
+		case "conl":
+			s.Scan()
+			t, ok := parseType(s)
+			if !ok {
+				return nil, false
+			}
+			args, ok := parseExprList(s)
+			if !ok {
+				return nil, false
+			}
+			return &ConstructList{Type: t, Args: args}, true
 		case "return":
 			s.Scan()
 			exprs, ok := parseExprList(s)
@@ -792,6 +841,12 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			semanticExprPass(decl, arg.Value, scope, glbls)
 		}
 		return t
+	case *ConstructList:
+		t := semanticTypePass(expr.Type, glbls)
+		for _, arg := range expr.Args {
+			semanticExprPass(decl, arg, scope, glbls)
+		}
+		return t
 	default:
 		panic(expr)
 	}
@@ -813,6 +868,11 @@ func semanticTypePass(node ASTTypeRef, glbls *ModuleScope) ASTType {
 		}
 		node.T = t
 		return t
+	case *ListTypeRef:
+		t := semanticTypePass(node.Type, glbls)
+		// TODO memoize list types
+		node.T = &ListType{Type: t}
+		return node.T
 	default:
 		panic(node)
 	}
@@ -903,11 +963,20 @@ type GlobalDubBuilder struct {
 }
 
 func (builder *GlobalDubBuilder) TranslateType(t ASTType) dub.DubType {
-	dt, ok := builder.types[t]
-	if !ok {
+	switch t := t.(type) {
+	case *StructDecl, *BuiltinType:
+		dt, ok := builder.types[t]
+		if !ok {
+			panic(t)
+		}
+		return dt
+	case *ListType:
+		parent := builder.TranslateType(t.Type)
+		// TODO memoize
+		return &dub.ListType{Type: parent}
+	default:
 		panic(t)
 	}
-	return dt
 }
 
 type DubBuilder struct {
@@ -962,25 +1031,27 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 			r.Splice(dub.NORMAL, block)
 		}
 
+		// Handle the body
+		block := lowerBlock(expr.Block, builder)
+
 		// Checkpoint
 		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
 		head := dub.CreateBlock([]dub.DubOp{
 			&dub.Checkpoint{Dst: checkpoint},
 		})
 
-		r.Connect(dub.NORMAL, head)
-		head.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
-
-		// Handle the body
-		block := lowerBlock(expr.Block, builder)
+		// Splice in the checkpoint as the first operation.
+		// Note: block may be empty, but this code is carefully designed to work in that case.
+		// Sure it's an infinite loop, but it would stange if that loop vanished.
+		oldHead := block.Head()
+		oldHead.TransferEntries(head)
+		head.SetExit(dub.NORMAL, oldHead)
 
 		// Normal flow iterates
-		// NOTE actually connects nodes in two different regions.  Kinda hackish.
 		block.GetExit(dub.NORMAL).TransferEntries(head)
-		// Stop iterating on failure
-		block.GetExit(dub.FAIL).TransferEntries(block.GetExit(dub.NORMAL))
 
-		// Recover
+		// Stop iterating on failure and recover
+		block.GetExit(dub.FAIL).TransferEntries(block.GetExit(dub.NORMAL))
 		{
 			body := dub.CreateBlock([]dub.DubOp{
 				&dub.Recover{Src: checkpoint},
@@ -1159,6 +1230,31 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
+	case *ConstructList:
+		args := make([]dub.DubRegister, len(expr.Args))
+		for i, arg := range expr.Args {
+			args[i] = lowerExpr(arg, r, builder, true)
+		}
+		t := builder.glbl.TranslateType(expr.Type.Resolve())
+		l, ok := t.(*dub.ListType)
+		if !ok {
+			panic(t)
+		}
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateLLRegister(t)
+		}
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.ConstructListOp{
+				Type: l,
+				Args: args,
+				Dst:  dst,
+			},
+		})
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		return dst
+
 	case *Slice:
 		start := builder.CreateLLRegister(builder.glbl.Int)
 		// HACK assume checkpoint is just the index
@@ -1305,4 +1401,5 @@ func processDASM(name string) {
 
 func main() {
 	processDASM("math")
+	processDASM("dubx")
 }

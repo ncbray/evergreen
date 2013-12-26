@@ -34,6 +34,13 @@ type StringType struct {
 func (t *StringType) isDubType() {
 }
 
+type ListType struct {
+	Type DubType
+}
+
+func (t *ListType) isDubType() {
+}
+
 type LLField struct {
 	Name string
 	T    DubType
@@ -62,6 +69,17 @@ type LLFunc struct {
 	ReturnTypes []DubType
 	Registers   []RegisterInfo
 	Region      *base.Region
+}
+
+func TypeName(t DubType) string {
+	switch t := t.(type) {
+	case *LLStruct:
+		return t.Name
+	case *ListType:
+		return fmt.Sprintf("[]%s", TypeName(t.Type))
+	default:
+		panic(t)
+	}
 }
 
 func RegisterName(reg DubRegister) string {
@@ -171,7 +189,17 @@ type ConstructOp struct {
 }
 
 func (n *ConstructOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%s{%s}", n.Type.Name, KeyValueList(n.Args)), n.Dst)
+	return formatAssignment(fmt.Sprintf("%s{%s}", TypeName(n.Type), KeyValueList(n.Args)), n.Dst)
+}
+
+type ConstructListOp struct {
+	Type *ListType
+	Args []DubRegister
+	Dst  DubRegister
+}
+
+func (n *ConstructListOp) OpToString() string {
+	return formatAssignment(fmt.Sprintf("%s{%s}", TypeName(n.Type), RegisterList(n.Args)), n.Dst)
 }
 
 type Checkpoint struct {

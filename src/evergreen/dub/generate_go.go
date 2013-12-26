@@ -134,6 +134,8 @@ func goTypeName(t DubType) ast.Expr {
 		return id("rune")
 	case *StringType:
 		return id("string")
+	case *ListType:
+		return &ast.ArrayType{Elt: goTypeName(t.Type)}
 	case *LLStruct:
 		if t.Abstract {
 			return id(t.Name)
@@ -246,6 +248,18 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						}),
 						op.Dst,
 					))
+				case *ConstructListOp:
+					elts := make([]ast.Expr, len(op.Args))
+					for i, arg := range op.Args {
+						elts[i] = reg(arg)
+					}
+					block = append(block, opAssign(
+						&ast.CompositeLit{
+							Type: goTypeName(op.Type),
+							Elts: elts,
+						},
+						op.Dst,
+					))
 				case *ConstantNilOp:
 					block = append(block, opAssign(
 						id("nil"),
@@ -279,7 +293,7 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 					))
 				case *ReturnOp:
 					if len(op.Exprs) != len(f.ReturnTypes) {
-						panic(op.Exprs)
+						panic(fmt.Sprintf("Wrong number of return values.  Expected %d, got %d.", len(f.ReturnTypes), len(op.Exprs)))
 					}
 					for i, e := range op.Exprs {
 						block = append(block, &ast.AssignStmt{
