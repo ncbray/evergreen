@@ -53,6 +53,13 @@ type Repeat struct {
 func (node *Repeat) isASTExpr() {
 }
 
+type Optional struct {
+	Block []ASTExpr
+}
+
+func (node *Optional) isASTExpr() {
+}
+
 type Slice struct {
 	Block []ASTExpr
 }
@@ -191,8 +198,9 @@ type FieldDecl struct {
 }
 
 type StructDecl struct {
-	Name   string
-	Fields []*FieldDecl
+	Name       string
+	Implements ASTTypeRef
+	Fields     []*FieldDecl
 }
 
 func (node *StructDecl) AsType() (ASTType, bool) {
@@ -306,6 +314,14 @@ func getPunc(s *DASMScanner, text string) bool {
 	return false
 }
 
+func getKeyword(s *DASMScanner, text string) bool {
+	if s.Current.Type == Ident && s.Current.Text == text {
+		s.Scan()
+		return true
+	}
+	return false
+}
+
 func getInt(s *DASMScanner) (int, bool) {
 	if s.Current.Type == Int {
 		count, _ := strconv.Atoi(s.Current.Text)
@@ -412,6 +428,13 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 				return nil, false
 			}
 			return &Repeat{Block: block, Min: 1}, true
+		case "question":
+			s.Scan()
+			block, ok := parseCodeBlock(s)
+			if !ok {
+				return nil, false
+			}
+			return &Optional{Block: block}, true
 		case "slice":
 			s.Scan()
 			block, ok := parseCodeBlock(s)
@@ -547,6 +570,15 @@ func parseStructure(s *DASMScanner) (*StructDecl, bool) {
 		return nil, false
 	}
 
+	var implements ASTTypeRef
+	ok = getKeyword(s, "implements")
+	if ok {
+		implements, ok = parseType(s)
+		if !ok {
+			return nil, false
+		}
+	}
+
 	ok = getPunc(s, "{")
 	if !ok {
 		return nil, false
@@ -555,7 +587,11 @@ func parseStructure(s *DASMScanner) (*StructDecl, bool) {
 	fields := []*FieldDecl{}
 	for {
 		if getPunc(s, "}") {
-			return &StructDecl{Name: name, Fields: fields}, true
+			return &StructDecl{
+				Name:       name,
+				Implements: implements,
+				Fields:     fields,
+			}, true
 		}
 
 		name, ok := getName(s)
@@ -636,6 +672,9 @@ func childScope(scope *semanticScope) *semanticScope {
 func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls *ModuleScope) ASTType {
 	switch expr := expr.(type) {
 	case *Repeat:
+		semanticBlockPass(decl, expr.Block, scope, glbls)
+		return glbls.Void
+	case *Optional:
 		semanticBlockPass(decl, expr.Block, scope, glbls)
 		return glbls.Void
 	case *If:
@@ -739,6 +778,9 @@ func semanticFuncPass(decl *FuncDecl, glbls *ModuleScope) {
 }
 
 func semanticStructPass(decl *StructDecl, glbls *ModuleScope) {
+	if decl.Implements != nil {
+		semanticTypePass(decl.Implements, glbls)
+	}
 	for _, f := range decl.Fields {
 		semanticTypePass(f.Type, glbls)
 	}
@@ -883,6 +925,28 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 			block.Connect(dub.NORMAL, body)
 			body.SetExit(dub.NORMAL, block.GetExit(dub.NORMAL))
 		}
+
+		r.Splice(dub.NORMAL, block)
+
+		return dub.NoRegister
+
+	case *Optional:
+		// Checkpoint
+		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
+		head := dub.CreateBlock([]dub.DubOp{
+			&dub.Checkpoint{Dst: checkpoint},
+		})
+		r.Connect(dub.NORMAL, head)
+		head.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+
+		block := lowerBlock(expr.Block, builder)
+
+		restore := dub.CreateBlock([]dub.DubOp{
+			&dub.Recover{Src: checkpoint},
+		})
+
+		block.Connect(dub.FAIL, restore)
+		restore.SetExit(dub.NORMAL, block.GetExit(dub.NORMAL))
 
 		r.Splice(dub.NORMAL, block)
 
@@ -1083,15 +1147,29 @@ func lowerAST(decl *FuncDecl, glbl *GlobalDubBuilder) *dub.LLFunc {
 	return f
 }
 
-func lowerStruct(decl *StructDecl, gbuilder *GlobalDubBuilder) *dub.LLStruct {
+func lowerStruct(decl *StructDecl, s *dub.LLStruct, gbuilder *GlobalDubBuilder) *dub.LLStruct {
 	fields := []*dub.LLField{}
+	var implements *dub.LLStruct
+	if decl.Implements != nil {
+		t := gbuilder.TranslateType(decl.Implements.Resolve())
+		var ok bool
+		implements, ok = t.(*dub.LLStruct)
+		if !ok {
+			panic(t)
+		}
+	}
 	for _, field := range decl.Fields {
 		fields = append(fields, &dub.LLField{
 			Name: field.Name,
 			T:    gbuilder.TranslateType(field.Type.Resolve()),
 		})
 	}
-	return &dub.LLStruct{Name: decl.Name, Fields: fields}
+	*s = dub.LLStruct{
+		Name:       decl.Name,
+		Implements: implements,
+		Fields:     fields,
+	}
+	return s
 }
 
 func main() {
@@ -1115,8 +1193,7 @@ func main() {
 		switch decl := decl.(type) {
 		case *FuncDecl:
 		case *StructDecl:
-			// HACK struct type only keeps name
-			gbuilder.types[decl] = &dub.StructType{Name: decl.Name}
+			gbuilder.types[decl] = &dub.LLStruct{}
 		default:
 			panic(decl)
 		}
@@ -1135,9 +1212,16 @@ func main() {
 			outfile := filepath.Join("output", fmt.Sprintf("%s.svg", f.Name))
 			io.WriteDot(dot, outfile)
 		case *StructDecl:
-			structs = append(structs, lowerStruct(decl, gbuilder))
+			t, _ := gbuilder.types[decl]
+			s, _ := t.(*dub.LLStruct)
+			structs = append(structs, lowerStruct(decl, s, gbuilder))
 		default:
 			panic(decl)
+		}
+	}
+	for _, s := range structs {
+		if s.Implements != nil {
+			s.Implements.Abstract = true
 		}
 	}
 

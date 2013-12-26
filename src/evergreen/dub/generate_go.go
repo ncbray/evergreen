@@ -134,8 +134,12 @@ func goTypeName(t DubType) ast.Expr {
 		return id("rune")
 	case *StringType:
 		return id("string")
-	case *StructType:
-		return ptr(id(t.Name))
+	case *LLStruct:
+		if t.Abstract {
+			return id(t.Name)
+		} else {
+			return ptr(id(t.Name))
+		}
 	default:
 		panic(t)
 	}
@@ -231,7 +235,7 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						op.Dst,
 					))
 				case *ConstructOp:
-					t, ok := op.Type.(*StructType)
+					t, ok := op.Type.(*LLStruct)
 					if !ok {
 						panic(op.Type)
 					}
@@ -355,27 +359,89 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 	return funcDecl
 }
 
-func GenerateGoStruct(s *LLStruct) ast.Decl {
-	fields := []*ast.Field{}
-	for _, f := range s.Fields {
-		fields = append(fields, &ast.Field{
-			Names: singleName(f.Name),
-			Type:  goTypeName(f.T),
-		})
-	}
-	return &ast.GenDecl{
-		Tok: token.TYPE,
-		Specs: []ast.Spec{
-			&ast.TypeSpec{
-				Name: id(s.Name),
-				Type: &ast.StructType{
-					Fields: &ast.FieldList{
-						List: fields,
+func tagName(s *LLStruct) string {
+	return fmt.Sprintf("is%s", s.Name)
+}
+
+func addTags(base *LLStruct, parent *LLStruct, decls []ast.Decl) []ast.Decl {
+	if parent != nil {
+		decls = addTags(base, parent.Implements, decls)
+		decls = append(decls, &ast.FuncDecl{
+			Name: id(tagName(parent)),
+			Recv: &ast.FieldList{
+				List: []*ast.Field{
+					&ast.Field{
+						Names: singleName("node"),
+						Type:  goTypeName(base),
 					},
 				},
 			},
-		},
+			Type: &ast.FuncType{
+				Params:  &ast.FieldList{},
+				Results: &ast.FieldList{},
+			},
+			Body: &ast.BlockStmt{},
+		})
 	}
+	return decls
+}
+
+func GenerateGoStruct(s *LLStruct, decls []ast.Decl) []ast.Decl {
+	var t ast.Expr
+	if s.Abstract {
+		if len(s.Fields) != 0 {
+			panic(s.Name)
+		}
+		fields := []*ast.Field{
+			&ast.Field{
+				Names: singleName(tagName(s)),
+				Type: &ast.FuncType{
+					Params:  &ast.FieldList{},
+					Results: &ast.FieldList{},
+				},
+			},
+		}
+
+		t = &ast.InterfaceType{
+			Methods: &ast.FieldList{
+				List: fields,
+			},
+		}
+		decls = append(decls, &ast.GenDecl{
+			Tok: token.TYPE,
+			Specs: []ast.Spec{
+				&ast.TypeSpec{
+					Name: id(s.Name),
+					Type: t,
+				},
+			},
+		})
+	} else {
+		fields := []*ast.Field{}
+		for _, f := range s.Fields {
+			fields = append(fields, &ast.Field{
+				Names: singleName(f.Name),
+				Type:  goTypeName(f.T),
+			})
+		}
+		t = &ast.StructType{
+			Fields: &ast.FieldList{
+				List: fields,
+			},
+		}
+		decls = append(decls, &ast.GenDecl{
+			Tok: token.TYPE,
+			Specs: []ast.Spec{
+				&ast.TypeSpec{
+					Name: id(s.Name),
+					Type: t,
+				},
+			},
+		})
+
+		decls = addTags(s, s.Implements, decls)
+	}
+	return decls
 }
 
 func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
@@ -390,7 +456,7 @@ func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
 	}}, decls...)
 
 	for _, f := range structs {
-		decls = append(decls, GenerateGoStruct(f))
+		decls = GenerateGoStruct(f, decls)
 	}
 
 	for _, f := range funcs {

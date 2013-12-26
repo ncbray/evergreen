@@ -1,11 +1,14 @@
-struct IntLiteral {
+struct Expr {
+}
+
+struct IntLiteral implements Expr {
   Text string
 }
 
-struct BinaryOp {
-  Left IntLiteral
+struct BinaryOp implements Expr {
+  Left Expr
   Op string
-  Right IntLiteral
+  Right Expr
 }
 
 func S () {
@@ -43,13 +46,16 @@ func Integer (IntLiteral) {
   return (cons IntLiteral(Text: v));
 }
 
-func Add (BinaryOp) {
+func Add (Expr) {
   define call Integer l;
-  define read c;
-  if ne c '+' {
-    fail;
+  question {
+    define read c;
+    if ne c '+' {
+      fail;
+    }
+    call S;
+    define call Integer r;
+    return (cons BinaryOp(Left: l Op: "+" Right: r));
   }
-  call S;
-  define call Integer r;
-  return (cons BinaryOp(Left: l Op: "+" Right: r));
+  return (l);
 }

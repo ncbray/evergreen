@@ -56,16 +56,34 @@ func TestAddOK(t *testing.T) {
 	state := &dub.DubState{Stream: []rune("1  + 234 ")}
 	result := math.Add(state)
 	assertState(state, 9, 0, t)
-	assertString("1", result.Left.Text, t)
-	assertString("+", result.Op, t)
-	assertString("234", result.Right.Text, t)
+	add, ok := result.(*math.BinaryOp)
+	if ok {
+		l, ok := add.Left.(*math.IntLiteral)
+		if ok {
+			assertString("1", l.Text, t)
+		} else {
+			t.Error("Not IntLiteral")
+		}
+		assertString("+", add.Op, t)
+		r, ok := add.Right.(*math.IntLiteral)
+		if ok {
+			assertString("234", r.Text, t)
+		} else {
+			t.Error("Not IntLiteral")
+		}
+	} else {
+		t.Error("Not BinaryOp")
+	}
 }
 
 func TestAddBad(t *testing.T) {
 	state := &dub.DubState{Stream: []rune("1 234")}
 	result := math.Add(state)
-	assertState(state, 3, 1, t)
-	if result != nil {
-		t.Errorf("Expected %#v, got %#v", nil, result)
+	assertState(state, 2, 0, t)
+	l, ok := result.(*math.IntLiteral)
+	if ok {
+		assertString("1", l.Text, t)
+	} else {
+		t.Error("Not IntLiteral")
 	}
 }

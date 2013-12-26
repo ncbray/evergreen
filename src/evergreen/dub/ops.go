@@ -34,21 +34,19 @@ type StringType struct {
 func (t *StringType) isDubType() {
 }
 
-type StructType struct {
-	Name string
-}
-
-func (t *StructType) isDubType() {
-}
-
 type LLField struct {
 	Name string
 	T    DubType
 }
 
 type LLStruct struct {
-	Name   string
-	Fields []*LLField
+	Name       string
+	Implements *LLStruct
+	Abstract   bool
+	Fields     []*LLField
+}
+
+func (t *LLStruct) isDubType() {
 }
 
 type DubRegister uint32
