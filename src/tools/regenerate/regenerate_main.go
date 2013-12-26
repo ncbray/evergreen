@@ -1245,8 +1245,8 @@ func lowerStruct(decl *StructDecl, s *dub.LLStruct, gbuilder *GlobalDubBuilder) 
 	return s
 }
 
-func main() {
-	decls := parseDASM("dasm/math.dasm")
+func processDASM(name string) {
+	decls := parseDASM(fmt.Sprintf("dasm/%s.dasm", name))
 	glbls := semanticPass(decls)
 	gbuilder := &GlobalDubBuilder{types: map[ASTType]dub.DubType{}}
 
@@ -1282,7 +1282,7 @@ func main() {
 
 			// Dump flowgraph
 			dot := base.RegionToDot(f.Region)
-			outfile := filepath.Join("output", fmt.Sprintf("%s.svg", f.Name))
+			outfile := filepath.Join("output", name, fmt.Sprintf("%s.svg", f.Name))
 			io.WriteDot(dot, outfile)
 		case *StructDecl:
 			t, _ := gbuilder.types[decl]
@@ -1298,7 +1298,11 @@ func main() {
 		}
 	}
 
-	code := dub.GenerateGo("math", structs, funcs)
+	code := dub.GenerateGo(name, structs, funcs)
 	fmt.Println(code)
-	io.WriteFile("src/generated/math/parser.go", []byte(code))
+	io.WriteFile(fmt.Sprintf("src/generated/%s/parser.go", name), []byte(code))
+}
+
+func main() {
+	processDASM("math")
 }
