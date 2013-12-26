@@ -62,17 +62,17 @@ func TestAddOK(t *testing.T) {
 		if ok {
 			assertString("1", l.Text, t)
 		} else {
-			t.Error("Not IntLiteral")
+			t.Error("Not IntLiteral: %v", add.Left)
 		}
 		assertString("+", add.Op, t)
 		r, ok := add.Right.(*math.IntLiteral)
 		if ok {
 			assertString("234", r.Text, t)
 		} else {
-			t.Error("Not IntLiteral")
+			t.Error("Not IntLiteral: %v", add.Right)
 		}
 	} else {
-		t.Error("Not BinaryOp")
+		t.Errorf("Not BinaryOp: %v", result)
 	}
 }
 
@@ -84,6 +84,6 @@ func TestAddBad(t *testing.T) {
 	if ok {
 		assertString("1", l.Text, t)
 	} else {
-		t.Error("Not IntLiteral")
+		t.Errorf("Not IntLiteral: %v", result)
 	}
 }

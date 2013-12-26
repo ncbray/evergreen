@@ -13,7 +13,7 @@ struct BinaryOp implements Expr {
 
 func S () {
   star {
-    define read c;
+    define c read;
     if ne c ' ' {
       if ne c '\t' {
         if ne c '\r' {
@@ -28,7 +28,7 @@ func S () {
 
 func Digits () {
   plus {
-    define read c;
+    define c read;
     if lt c '0' {
       fail;
     }
@@ -39,23 +39,24 @@ func Digits () {
 }
 
 func Integer (IntLiteral) {
-  define slice {
+  define v slice {
     call Digits;
-  } v;
+  };
   call S;
   return (cons IntLiteral(Text: v));
 }
 
 func Add (Expr) {
-  define call Integer l;
-  question {
-    define read c;
+  var e Expr;
+  assign e call Integer;
+  star {
+    define c read;
     if ne c '+' {
       fail;
     }
     call S;
-    define call Integer r;
-    return (cons BinaryOp(Left: l Op: "+" Right: r));
+    define r call Integer;
+    assign e cons BinaryOp(Left: e Op: "+" Right: r);
   }
-  return (l);
+  return (e);
 }

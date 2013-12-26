@@ -120,13 +120,15 @@ type StringLiteral struct {
 func (node *StringLiteral) isASTExpr() {
 }
 
-type SetName struct {
-	Expr ASTExpr
-	Name string
-	Info int
+type Assign struct {
+	Expr   ASTExpr
+	Name   string
+	Info   int
+	Type   ASTTypeRef
+	Define bool
 }
 
-func (node *SetName) isASTExpr() {
+func (node *Assign) isASTExpr() {
 }
 
 type Read struct {
@@ -453,17 +455,48 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 				return nil, false
 			}
 			return &If{Expr: expr, Block: block}, true
+		case "var":
+			s.Scan()
+			name, ok := getName(s)
+			if !ok {
+				return nil, false
+			}
+
+			t, ok := parseType(s)
+			if !ok {
+				return nil, false
+			}
+
+			var expr ASTExpr
+			if getPunc(s, "=") {
+				expr, ok = parseExpr(s)
+				if !ok {
+					return nil, false
+				}
+			}
+			return &Assign{Expr: expr, Name: name, Type: t, Define: true}, true
 		case "define":
 			s.Scan()
+			name, ok := getName(s)
+			if !ok {
+				return nil, false
+			}
 			expr, ok := parseExpr(s)
 			if !ok {
 				return nil, false
 			}
-			dst, ok := getName(s)
+			return &Assign{Expr: expr, Name: name, Define: true}, true
+		case "assign":
+			s.Scan()
+			name, ok := getName(s)
 			if !ok {
 				return nil, false
 			}
-			return &SetName{Expr: expr, Name: dst}, true
+			expr, ok := parseExpr(s)
+			if !ok {
+				return nil, false
+			}
+			return &Assign{Expr: expr, Name: name, Define: false}, true
 		case "read":
 			s.Scan()
 			return &Read{}, true
@@ -692,16 +725,37 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *GetName:
 		info, found := scope.localInfo(expr.Name)
 		if !found {
-			panic(expr.Name)
+			panic(fmt.Sprintf("Could not resolve name %#v", expr.Name))
 		}
 		expr.Info = info
 		return decl.Locals[info].T
-	case *SetName:
-		t := semanticExprPass(decl, expr.Expr, scope, glbls)
-		info := len(decl.Locals)
-		decl.Locals = append(decl.Locals, &LocalInfo{Name: expr.Name, T: t})
+	case *Assign:
+		var t ASTType
+		if expr.Type != nil {
+			t = semanticTypePass(expr.Type, glbls)
+		} else if expr.Expr != nil {
+			t = semanticExprPass(decl, expr.Expr, scope, glbls)
+		} else {
+			panic(fmt.Sprintf("Cannot infer the type of %#v", expr.Name))
+		}
+		var info int
+		var exists bool
+		if expr.Define {
+			_, exists = scope.locals[expr.Name]
+			if exists {
+				panic(fmt.Sprintf("Tried to redefine %#v", expr.Name))
+			}
+
+			info = len(decl.Locals)
+			decl.Locals = append(decl.Locals, &LocalInfo{Name: expr.Name, T: t})
+			scope.locals[expr.Name] = info
+		} else {
+			info, exists = scope.locals[expr.Name]
+			if !exists {
+				panic(fmt.Sprintf("Tried to assign to unknown variable %#v", expr.Name))
+			}
+		}
 		expr.Info = info
-		scope.locals[expr.Name] = info
 		return t
 	case *Slice:
 		semanticBlockPass(decl, expr.Block, scope, glbls)
@@ -872,6 +926,16 @@ func (builder *DubBuilder) CreateLLRegister(t dub.DubType) dub.DubRegister {
 	return dub.DubRegister(len(builder.registers) - 1)
 }
 
+func (builder *DubBuilder) ZeroRegister(dst dub.DubRegister) dub.DubOp {
+	info := builder.registers[dst]
+	switch info.T.(type) {
+	case *dub.LLStruct:
+		return &dub.ConstantNilOp{Dst: dst}
+	default:
+		panic(info.T)
+	}
+}
+
 func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub.DubRegister {
 	switch expr := expr.(type) {
 	case *If:
@@ -964,14 +1028,19 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *SetName:
-		src := lowerExpr(expr.Expr, r, builder, true)
-		body := dub.CreateBlock([]dub.DubOp{
-			&dub.CopyOp{Src: src, Dst: builder.localMap[expr.Info]},
-		})
+	case *Assign:
+		dst := builder.localMap[expr.Info]
+		var op dub.DubOp
+		if expr.Expr != nil {
+			src := lowerExpr(expr.Expr, r, builder, true)
+			op = &dub.CopyOp{Src: src, Dst: dst}
+		} else {
+			op = builder.ZeroRegister(dst)
+		}
+		body := dub.CreateBlock([]dub.DubOp{op})
 		r.Connect(dub.NORMAL, body)
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
-		return dub.NoRegister
+		return dst
 
 	case *RuneLiteral:
 		if !used {

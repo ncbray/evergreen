@@ -104,6 +104,14 @@ func (n *CopyOp) OpToString() string {
 	return fmt.Sprintf("%s := %s", RegisterName(n.Dst), RegisterName(n.Src))
 }
 
+type ConstantNilOp struct {
+	Dst DubRegister
+}
+
+func (n *ConstantNilOp) OpToString() string {
+	return formatAssignment("nil", n.Dst)
+}
+
 type ConstantIntOp struct {
 	Value int64
 	Dst   DubRegister

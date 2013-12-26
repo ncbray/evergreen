@@ -250,6 +250,11 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						}),
 						op.Dst,
 					))
+				case *ConstantNilOp:
+					block = append(block, opAssign(
+						id("nil"),
+						op.Dst,
+					))
 				case *ConstantIntOp:
 					block = append(block, opAssign(
 						constInt(op.Value),
