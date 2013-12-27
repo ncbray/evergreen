@@ -10,6 +10,25 @@ struct RuneMatch implements TextMatch {
   Filters []RuneFilter
 }
 
+struct MatchSequence implements TextMatch {
+  Matches []TextMatch
+}
+
+func S () {
+  star {
+    define c read;
+    if ne c ' ' {
+      if ne c '\t' {
+        if ne c '\r' {
+          if ne c '\n' {
+            fail;
+          }
+        }
+      }
+    }
+  }
+}
+
 func ParseRuneFilterRune (rune) {
   define c read;
   if eq c ']' {
@@ -47,5 +66,18 @@ func MatchRune (RuneMatch) {
   if ne read ']' {
     fail;
   }
+  call S;
   return (cons RuneMatch(Filters: filters))
+}
+
+func Sequence (TextMatch) {
+  var e TextMatch = call MatchRune;
+  question {
+    define l conl []TextMatch(e)
+    plus {
+      append l call MatchRune;
+    }
+    assign e cons MatchSequence(Matches: l)
+  }
+  return (e)
 }

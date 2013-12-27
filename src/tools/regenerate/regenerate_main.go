@@ -808,11 +808,13 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		return decl.Locals[info].T
 	case *Assign:
 		var t ASTType
+		if expr.Expr != nil {
+			t = semanticExprPass(decl, expr.Expr, scope, glbls)
+		}
 		if expr.Type != nil {
 			t = semanticTypePass(expr.Type, glbls)
-		} else if expr.Expr != nil {
-			t = semanticExprPass(decl, expr.Expr, scope, glbls)
-		} else {
+		}
+		if t == nil {
 			panic(fmt.Sprintf("Cannot infer the type of %#v", expr.Name))
 		}
 		var info int
