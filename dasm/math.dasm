@@ -46,6 +46,8 @@ func Integer (IntLiteral) {
   return (cons IntLiteral(Text: v));
 }
 
+test SimpleInteger Integer "123" IntLiteral{Text: "123"}
+
 func Add (Expr) {
   var e Expr;
   assign e call Integer;

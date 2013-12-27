@@ -273,6 +273,50 @@ type ListType struct {
 func (node *ListType) isASTType() {
 }
 
+type Destructure interface {
+	isDestructure()
+}
+
+type DestructureList struct {
+	Type *ListTypeRef
+	Args []Destructure
+}
+
+func (node *DestructureList) isDestructure() {
+}
+
+type DestructureField struct {
+	Name        string
+	Destructure Destructure
+}
+
+type DestructureStruct struct {
+	Type *TypeRef
+	Args []*DestructureField
+}
+
+func (node *DestructureStruct) isDestructure() {
+}
+
+type DestructureString struct {
+	Value string
+}
+
+func (node *DestructureString) isDestructure() {
+}
+
+type Test struct {
+	Name        string
+	Rule        string
+	Input       string
+	Destructure Destructure
+}
+
+type File struct {
+	Decls []Decl
+	Tests []*Test
+}
+
 type DASMTokenType int
 
 const (
@@ -369,6 +413,15 @@ func getInt(s *DASMScanner) (int, bool) {
 	return 0, false
 }
 
+func getString(s *DASMScanner) (string, bool) {
+	if s.Current.Type == String {
+		value, _ := strconv.Unquote(s.Current.Text)
+		s.Scan()
+		return value, true
+	}
+	return "", false
+}
+
 func parseExprList(s *DASMScanner) ([]ASTExpr, bool) {
 	ok := getPunc(s, "(")
 	if !ok {
@@ -455,7 +508,7 @@ func parseType(s *DASMScanner) (ASTTypeRef, bool) {
 		}
 		return nil, false
 	default:
-		panic(s.Current.Type)
+		return nil, false
 	}
 }
 
@@ -717,8 +770,95 @@ func parseStructure(s *DASMScanner) (*StructDecl, bool) {
 	}
 }
 
-func parseFile(s *DASMScanner) ([]Decl, bool) {
+func parseLiteralDestructure(s *DASMScanner) (Destructure, bool) {
+	switch s.Current.Type {
+	case String:
+		s, _ := getString(s)
+		return &DestructureString{Value: s}, true
+	default:
+		return nil, false
+	}
+}
+
+func parseDestructure(s *DASMScanner) (Destructure, bool) {
+	t, ok := parseType(s)
+	if !ok {
+		return parseLiteralDestructure(s)
+	}
+	ok = getPunc(s, "{")
+	if !ok {
+		return nil, false
+	}
+	switch t := t.(type) {
+	case *ListTypeRef:
+		args := []Destructure{}
+		for {
+			if getPunc(s, "}") {
+				return &DestructureList{
+					Type: t,
+					Args: args,
+				}, true
+			}
+
+			arg, ok := parseDestructure(s)
+			if !ok {
+				return nil, false
+			}
+			getPunc(s, ",")
+			args = append(args, arg)
+		}
+	case *TypeRef:
+		args := []*DestructureField{}
+		for {
+			if getPunc(s, "}") {
+				return &DestructureStruct{
+					Type: t,
+					Args: args,
+				}, true
+			}
+			name, ok := getName(s)
+			if !ok {
+				return nil, false
+			}
+			ok = getPunc(s, ":")
+			if !ok {
+				return nil, false
+			}
+			arg, ok := parseDestructure(s)
+			if !ok {
+				return nil, false
+			}
+			getPunc(s, ",")
+			args = append(args, &DestructureField{Name: name, Destructure: arg})
+		}
+	default:
+		panic(t)
+	}
+}
+
+func parseTest(s *DASMScanner) (*Test, bool) {
+	name, ok := getName(s)
+	if !ok {
+		return nil, false
+	}
+	rule, ok := getName(s)
+	if !ok {
+		return nil, false
+	}
+	input, ok := getString(s)
+	if !ok {
+		return nil, false
+	}
+	destructure, ok := parseDestructure(s)
+	if !ok {
+		return nil, false
+	}
+	return &Test{Name: name, Rule: rule, Input: input, Destructure: destructure}, true
+}
+
+func parseFile(s *DASMScanner) (*File, bool) {
 	decls := []Decl{}
+	tests := []*Test{}
 	for {
 		switch s.Current.Type {
 		case Ident:
@@ -737,18 +877,28 @@ func parseFile(s *DASMScanner) ([]Decl, bool) {
 					return nil, false
 				}
 				decls = append(decls, f)
+			case "test":
+				s.Scan()
+				t, ok := parseTest(s)
+				if !ok {
+					return nil, false
+				}
+				tests = append(tests, t)
 			default:
 				panic(s.Current.Text)
 			}
 		case EOF:
-			return decls, true
+			return &File{
+				Decls: decls,
+				Tests: tests,
+			}, true
 		default:
 			return nil, false
 		}
 	}
 }
 
-func parseDASM(filename string) []Decl {
+func parseDASM(filename string) *File {
 	data, _ := ioutil.ReadFile(filename)
 	s := CreateScanner(data)
 	f, ok := parseFile(s)
@@ -935,6 +1085,25 @@ func semanticStructPass(decl *StructDecl, glbls *ModuleScope) {
 	}
 }
 
+func semanticDestructurePass(d Destructure, glbls *ModuleScope) {
+	switch d := d.(type) {
+	case *DestructureStruct:
+		semanticTypePass(d.Type, glbls)
+		for _, arg := range d.Args {
+			semanticDestructurePass(arg.Destructure, glbls)
+		}
+	case *DestructureString:
+		// Leaf
+	default:
+		panic(d)
+	}
+}
+
+func semanticTestPass(tst *Test, glbls *ModuleScope) {
+	// TODO resolve function
+	semanticDestructurePass(tst.Destructure, glbls)
+}
+
 type ModuleScope struct {
 	Builtin map[string]Decl
 	Module  map[string]Decl
@@ -946,7 +1115,7 @@ type ModuleScope struct {
 	Void   *BuiltinType
 }
 
-func semanticPass(decls []Decl) *ModuleScope {
+func semanticPass(file *File) *ModuleScope {
 	glbls := &ModuleScope{
 		Builtin: map[string]Decl{},
 		Module:  map[string]Decl{},
@@ -966,7 +1135,7 @@ func semanticPass(decls []Decl) *ModuleScope {
 	glbls.Void = &BuiltinType{"void"}
 	glbls.Builtin["void"] = glbls.Void
 
-	for _, decl := range decls {
+	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
 			glbls.Module[decl.Name] = decl
@@ -976,7 +1145,7 @@ func semanticPass(decls []Decl) *ModuleScope {
 			panic(decl)
 		}
 	}
-	for _, decl := range decls {
+	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
 			semanticFuncPass(decl, glbls)
@@ -985,6 +1154,9 @@ func semanticPass(decls []Decl) *ModuleScope {
 		default:
 			panic(decl)
 		}
+	}
+	for _, tst := range file.Tests {
+		semanticTestPass(tst, glbls)
 	}
 	return glbls
 }
@@ -1396,8 +1568,8 @@ func lowerStruct(decl *StructDecl, s *dub.LLStruct, gbuilder *GlobalDubBuilder) 
 }
 
 func processDASM(name string) {
-	decls := parseDASM(fmt.Sprintf("dasm/%s.dasm", name))
-	glbls := semanticPass(decls)
+	file := parseDASM(fmt.Sprintf("dasm/%s.dasm", name))
+	glbls := semanticPass(file)
 	gbuilder := &GlobalDubBuilder{types: map[ASTType]dub.DubType{}}
 
 	gbuilder.String = &dub.StringType{}
@@ -1412,7 +1584,7 @@ func processDASM(name string) {
 	gbuilder.Bool = &dub.BoolType{}
 	gbuilder.types[glbls.Bool] = gbuilder.Bool
 
-	for _, decl := range decls {
+	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
 		case *StructDecl:
@@ -1424,7 +1596,7 @@ func processDASM(name string) {
 
 	structs := []*dub.LLStruct{}
 	funcs := []*dub.LLFunc{}
-	for _, decl := range decls {
+	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
 			f := lowerAST(decl, gbuilder)
