@@ -291,6 +291,17 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						emitOp("Read").X,
 						op.Dst,
 					))
+				case *AppendOp:
+					block = append(block, opAssign(
+						&ast.CallExpr{
+							Fun: id("append"),
+							Args: []ast.Expr{
+								reg(op.List),
+								reg(op.Value),
+							},
+						},
+						op.Dst,
+					))
 				case *ReturnOp:
 					if len(op.Exprs) != len(f.ReturnTypes) {
 						panic(fmt.Sprintf("Wrong number of return values.  Expected %d, got %d.", len(f.ReturnTypes), len(op.Exprs)))

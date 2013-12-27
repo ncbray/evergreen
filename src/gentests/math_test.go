@@ -21,6 +21,18 @@ func assertString(expected string, actual string, t *testing.T) {
 	}
 }
 
+func assertInt(expected int, actual int, t *testing.T) {
+	if actual != expected {
+		t.Errorf("Expected %#v, got %#v", expected, actual)
+	}
+}
+
+func assertRune(expected rune, actual rune, t *testing.T) {
+	if actual != expected {
+		t.Errorf("Expected %#U, got %#U", expected, actual)
+	}
+}
+
 func TestDigits(t *testing.T) {
 	state := &dub.DubState{Stream: []rune("123  4")}
 	math.Digits(state)

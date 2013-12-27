@@ -42,7 +42,7 @@ func MatchRune (RuneMatch) {
   }
   define filters conl []RuneFilter()
   star {
-    call ParseRuneFilter;
+    append filters call ParseRuneFilter;
   }
   if ne read ']' {
     fail;

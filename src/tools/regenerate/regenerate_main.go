@@ -157,6 +157,15 @@ type Read struct {
 func (node *Read) isASTExpr() {
 }
 
+type Append struct {
+	List  ASTExpr
+	Value ASTExpr
+	T     ASTType
+}
+
+func (node *Append) isASTExpr() {
+}
+
 type Return struct {
 	Exprs []ASTExpr
 }
@@ -582,6 +591,25 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 				return nil, false
 			}
 			return &ConstructList{Type: t, Args: args}, true
+		case "append":
+			s.Scan()
+			name, ok := getName(s)
+			if !ok {
+				return nil, false
+			}
+			expr, ok := parseExpr(s)
+			if !ok {
+				return nil, false
+			}
+			return &Assign{
+				Expr: &Append{
+					List: &GetName{
+						Name: name,
+					},
+					Value: expr,
+				},
+				Name: name,
+			}, true
 		case "return":
 			s.Scan()
 			exprs, ok := parseExprList(s)
@@ -833,6 +861,11 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			panic(expr.Name)
 		}
 		t := f.ReturnType()
+		expr.T = t
+		return t
+	case *Append:
+		t := semanticExprPass(decl, expr.List, scope, glbls)
+		semanticExprPass(decl, expr.Value, scope, glbls)
 		expr.T = t
 		return t
 	case *Construct:
@@ -1188,6 +1221,25 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		r.Connect(dub.NORMAL, body)
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
+	case *Append:
+		l := lowerExpr(expr.List, r, builder, true)
+		v := lowerExpr(expr.Value, r, builder, true)
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateRegister(expr.T)
+		}
+
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.AppendOp{
+				List:  l,
+				Value: v,
+				Dst:   dst,
+			},
+		})
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		return dst
+
 	case *Call:
 		dst := dub.NoRegister
 		if used {

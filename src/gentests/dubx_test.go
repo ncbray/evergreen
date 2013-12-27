@@ -10,8 +10,16 @@ func TestRuneMatchOK(t *testing.T) {
 	state := &dub.DubState{Stream: []rune("[a-z_]")}
 	result := dubx.MatchRune(state)
 	assertState(state, 6, 0, t)
-	if len(result.Filters) != 0 {
-		t.Errorf("Expected %d filters, got %d", 0, len(result.Filters))
+	assertInt(len(result.Filters), 2, t)
+	{
+		f := result.Filters[0]
+		assertRune('a', f.Min, t)
+		assertRune('z', f.Max, t)
+	}
+	{
+		f := result.Filters[1]
+		assertRune('_', f.Min, t)
+		assertRune('_', f.Max, t)
 	}
 }
 

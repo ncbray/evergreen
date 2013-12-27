@@ -227,6 +227,16 @@ func (n *Slice) OpToString() string {
 	return formatAssignment(fmt.Sprintf("<slice> %s", RegisterName(n.Src)), n.Dst)
 }
 
+type AppendOp struct {
+	List  DubRegister
+	Value DubRegister
+	Dst   DubRegister
+}
+
+func (n *AppendOp) OpToString() string {
+	return formatAssignment(fmt.Sprintf("<append> %s %s", RegisterName(n.List), RegisterName(n.Value)), n.Dst)
+}
+
 type ReturnOp struct {
 	Exprs []DubRegister
 }
