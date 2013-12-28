@@ -30,10 +30,6 @@ struct IdTok implements Token {
   Text string
 }
 
-struct PuncTok implements Token {
-  Text string
-}
-
 struct IntTok implements Token {
   Text string
   Value int
@@ -176,43 +172,38 @@ func Rune (RuneTok) {
   return (cons RuneTok(Text: text))
 }
 
-func Tokenize (Token) {
-  question {
-    return (call Ident);
-  }
-  question {
-    return (call Int);
-  }
-  question {
-    return (call StrT);
-  }
-  question {
-    return (call Rune);
-  }
-  define text slice {
-    read;
+func MatchExpr (TextMatch) {
+  define c read;
+  if ne c '/' {
+    fail;
   }
   call S;
-  return (cons PuncTok(Text: text))
+
+  define e call Choice;
+
+  assign c read;
+  if ne c '/' {
+    fail;
+  }
+  call S;
+
+  return (e);
 }
 
-test Tokenize Alpha "a_B_c "
+test Ident Alpha "a_B_c "
   IdTok{Text: "a_B_c"}
 
-test Tokenize AlphaNum "a_1_7  "
+test Ident AlphaNum "a_1_7  "
   IdTok{Text: "a_1_7"}
 
-test Tokenize Num "1234567890  "
+test Int Num "1234567890  "
   IntTok{Text: "1234567890"}
 
-test Tokenize Str "\"hello, world\"  "
+test StrT Str "\"hello, world\"  "
   StrTok{Text: "\"hello, world\""}
 
-test Tokenize Rune "'a'  "
+test Rune Rune "'a'  "
   RuneTok{Text: "'a'"}
-
-test Tokenize Punc "+  "
-  PuncTok{Text: "+"}
 
 
 func ParseRuneFilterRune (rune) {

@@ -50,13 +50,6 @@ type IdTok struct {
 func (node *IdTok) isToken() {
 }
 
-type PuncTok struct {
-	Text string
-}
-
-func (node *PuncTok) isToken() {
-}
-
 type IntTok struct {
 	Text  string
 	Value int
@@ -980,122 +973,111 @@ block29:
 block30:
 	return
 }
-func Tokenize(frame *dub.DubState) (ret0 Token) {
-	var r0 string
-	var r1 int
-	var r2 *IdTok
-	var r3 int
-	var r4 *IntTok
-	var r5 int
-	var r6 *StrTok
-	var r7 int
-	var r8 *RuneTok
-	var r9 int
-	var r10 string
-	var r11 string
-	var r12 *PuncTok
+func MatchExpr(frame *dub.DubState) (ret0 TextMatch) {
+	var r0 rune
+	var r1 TextMatch
+	var r2 rune
+	var r3 rune
+	var r4 rune
+	var r5 bool
+	var r6 TextMatch
+	var r7 rune
+	var r8 rune
+	var r9 rune
+	var r10 bool
+	var r11 TextMatch
 	goto block0
 block0:
 	goto block1
 block1:
-	r1 = frame.Checkpoint()
-	goto block2
-block2:
-	r2 = Ident(frame)
+	r2 = frame.Read()
 	if frame.Flow == 0 {
-		goto block3
+		goto block2
 	} else {
-		goto block4
+		goto block22
 	}
+block2:
+	r0 = r2
+	goto block3
 block3:
-	ret0 = r2
-	goto block25
+	r3 = r0
+	goto block4
 block4:
-	frame.Recover(r1)
+	r4 = '/'
 	goto block5
 block5:
-	r3 = frame.Checkpoint()
+	r5 = r3 != r4
 	goto block6
 block6:
-	r4 = Int(frame)
-	if frame.Flow == 0 {
+	if r5 {
 		goto block7
 	} else {
 		goto block8
 	}
 block7:
-	ret0 = r4
-	goto block25
+	frame.Fail()
+	goto block22
 block8:
-	frame.Recover(r3)
-	goto block9
-block9:
-	r5 = frame.Checkpoint()
-	goto block10
-block10:
-	r6 = StrT(frame)
+	S(frame)
 	if frame.Flow == 0 {
-		goto block11
+		goto block9
 	} else {
-		goto block12
+		goto block22
 	}
+block9:
+	r6 = Choice(frame)
+	if frame.Flow == 0 {
+		goto block10
+	} else {
+		goto block22
+	}
+block10:
+	r1 = r6
+	goto block11
 block11:
-	ret0 = r6
-	goto block25
+	r7 = frame.Read()
+	if frame.Flow == 0 {
+		goto block12
+	} else {
+		goto block22
+	}
 block12:
-	frame.Recover(r5)
+	r0 = r7
 	goto block13
 block13:
-	r7 = frame.Checkpoint()
+	r8 = r0
 	goto block14
 block14:
-	r8 = Rune(frame)
-	if frame.Flow == 0 {
-		goto block15
-	} else {
-		goto block16
-	}
+	r9 = '/'
+	goto block15
 block15:
-	ret0 = r8
-	goto block25
+	r10 = r8 != r9
+	goto block16
 block16:
-	frame.Recover(r7)
-	goto block17
+	if r10 {
+		goto block17
+	} else {
+		goto block18
+	}
 block17:
-	r9 = frame.Checkpoint()
-	goto block18
+	frame.Fail()
+	goto block22
 block18:
-	frame.Read()
+	S(frame)
 	if frame.Flow == 0 {
 		goto block19
 	} else {
-		goto block26
+		goto block22
 	}
 block19:
-	r10 = frame.Slice(r9)
+	r11 = r1
 	goto block20
 block20:
-	r0 = r10
+	ret0 = r11
 	goto block21
 block21:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block22
-	} else {
-		goto block26
-	}
-block22:
-	r11 = r0
-	goto block23
-block23:
-	r12 = &PuncTok{Text: r11}
-	goto block24
-block24:
-	ret0 = r12
-	goto block25
-block25:
 	return
-block26:
+block22:
 	return
 }
 func ParseRuneFilterRune(frame *dub.DubState) (ret0 rune) {
