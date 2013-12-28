@@ -67,29 +67,16 @@ func Ident (IdTok) {
 }
 
 func Int (IntTok) {
-  define text slice {
-    plus {
-      define c read;
-      if lt c '0' {
-        fail;
-      }
-      if gt c '9' {
-        fail;
-      }
-    }
-  }
+  define text /[0-9]+/;
   call S;
   return (cons IntTok(Text: text))
 }
 
 func StrT (StrTok) {
   define text slice {
-    define c read;
-    if ne c '"' {
-      fail;
-    }
+    /["]/;
     star {
-      assign c read;
+      define c read;
       if eq c '\\' {
         read;
       }
@@ -97,10 +84,7 @@ func StrT (StrTok) {
         fail;
       }
     }
-    assign c read;
-    if ne c '"' {
-      fail;
-    }
+    /["]/;
   }
   call S;
   return (cons StrTok(Text: text))
@@ -108,38 +92,23 @@ func StrT (StrTok) {
 
 func Rune (RuneTok) {
   define text slice {
+    /[']/;
     define c read;
-    if ne c '\'' {
-      fail;
-    }
-    assign c read;
     if eq c '\\' {
       read;
     }
-    assign c read;
-    if ne c '\'' {
-      fail;
-    }
+    /[']/;
   }
   call S;
   return (cons RuneTok(Text: text))
 }
 
 func MatchExpr (TextMatch) {
-  define c read;
-  if ne c '/' {
-    fail;
-  }
+  /[/]/;
   call S;
-
   define e call Choice;
-
-  assign c read;
-  if ne c '/' {
-    fail;
-  }
+  /[/]/;
   call S;
-
   return (e);
 }
 
@@ -203,15 +172,10 @@ func Atom (TextMatch) {
   question {
     return (call MatchRune);
   }
-  define c read;
-  if eq c '(' {
-    define e call Choice;
-    assign c read;
-    if eq c ')' {
-      return (e);
-    }
-  }
-  fail;
+  /[(]/;
+  define e call Choice;
+  /[)]/;
+  return (e);
 }
 
 func Postfix (TextMatch) {
@@ -252,10 +216,7 @@ func Choice (TextMatch) {
   question {
     define l conl []TextMatch(e)
     plus {
-      define c read;
-      if ne c '|' {
-        fail;
-      }
+      /[|]/;
       call S;
       append l call Sequence;
     }
