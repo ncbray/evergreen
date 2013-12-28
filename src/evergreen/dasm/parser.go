@@ -179,6 +179,8 @@ var nameToOp = map[string]string{
 	"ne": "!=",
 	"gt": ">",
 	"lt": "<",
+	"ge": ">=",
+	"le": "<=",
 }
 
 func parseType(s *DASMScanner) (ASTTypeRef, bool) {
@@ -294,7 +296,7 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 		case "fail":
 			s.Scan()
 			return &Fail{}, true
-		case "eq", "ne", "gt", "lt":
+		case "eq", "ne", "gt", "lt", "ge", "le":
 			op := nameToOp[s.Current.Text]
 			s.Scan()
 			l, ok := parseExpr(s)

@@ -23,6 +23,32 @@ struct MatchRepeat implements TextMatch {
   Min int
 }
 
+struct Token {
+}
+
+struct IdTok implements Token {
+  Text string
+}
+
+struct PuncTok implements Token {
+  Text string
+}
+
+struct IntTok implements Token {
+  Text string
+  Value int
+}
+
+struct StrTok implements Token {
+  Text string
+  Value string
+}
+
+struct RuneTok implements Token {
+  Text string
+  Value rune
+}
+
 func S () {
   star {
     define c read;
@@ -37,6 +63,157 @@ func S () {
     }
   }
 }
+
+func Alpha () {
+  define c read;
+  if ge c 'a' {
+    if le c 'z' {
+      return ();
+    }
+  }
+  if ge c 'A' {
+    if le c 'Z' {
+      return ();
+    }
+  }
+  if eq c '_' {
+    return ();
+  }
+  fail;
+}
+
+func AlphaNum () {
+  define c read;
+  if ge c 'a' {
+    if le c 'z' {
+      return ();
+    }
+  }
+  if ge c 'A' {
+    if le c 'Z' {
+      return ();
+    }
+  }
+  if ge c '0' {
+    if le c '9' {
+      return ();
+    }
+  }
+  if eq c '_' {
+    return ();
+  }
+  fail;
+}
+
+
+func Ident (Token) {
+  define text slice {
+    call Alpha;
+    star {
+      call AlphaNum;
+    }
+  }
+  call S;
+  return (cons IdTok(Text: text));
+}
+
+func Int (Token) {
+  define text slice {
+    plus {
+      define c read;
+      if lt c '0' {
+        fail;
+      }
+      if gt c '9' {
+        fail;
+      }
+    }
+  }
+  call S;
+  return (cons IntTok(Text: text))
+}
+
+func StrT (Token) {
+  define text slice {
+    define c read;
+    if ne c '"' {
+      fail;
+    }
+    star {
+      assign c read;
+      if eq c '\\' {
+        read;
+      }
+      if eq c '"' {
+        fail;
+      }
+    }
+    assign c read;
+    if ne c '"' {
+      fail;
+    }
+  }
+  call S;
+  return (cons StrTok(Text: text))
+}
+
+func Rune (Token) {
+  define text slice {
+    define c read;
+    if ne c '\'' {
+      fail;
+    }
+    assign c read;
+    if eq c '\\' {
+      read;
+    }
+    assign c read;
+    if ne c '\'' {
+      fail;
+    }
+  }
+  call S;
+  return (cons RuneTok(Text: text))
+}
+
+func Tokenize (Token) {
+  question {
+    return (call Ident);
+  }
+  question {
+    return (call Int);
+  }
+  question {
+    return (call StrT);
+  }
+  question {
+    return (call Rune);
+  }
+  define text slice {
+    read;
+  }
+  call S;
+  return (cons PuncTok(Text: text))
+}
+
+test Tokenize Alpha "a_B_c "
+  IdTok{Text: "a_B_c"}
+
+test Tokenize AlphaNum "a_1_7  "
+  IdTok{Text: "a_1_7"}
+
+test Tokenize Num "1234567890  "
+  IntTok{Text: "1234567890"}
+
+test Tokenize Str "\"hello, world\"  "
+  StrTok{Text: "\"hello, world\""}
+
+test Tokenize Rune "'a'  "
+  RuneTok{Text: "'a'"}
+
+test Tokenize Punc "+  "
+  PuncTok{Text: "+"}
+
 
 func ParseRuneFilterRune (rune) {
   define c read;

@@ -122,6 +122,8 @@ var opToTok = map[string]token.Token{
 	"!=": token.NEQ,
 	"<":  token.LSS,
 	">":  token.GTR,
+	"<=": token.LEQ,
+	">=": token.GEQ,
 }
 
 func goTypeName(t DubType) ast.Expr {
