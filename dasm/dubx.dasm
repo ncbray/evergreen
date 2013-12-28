@@ -106,7 +106,7 @@ func AlphaNum () {
 }
 
 
-func Ident (Token) {
+func Ident (IdTok) {
   define text slice {
     call Alpha;
     star {
@@ -117,7 +117,7 @@ func Ident (Token) {
   return (cons IdTok(Text: text));
 }
 
-func Int (Token) {
+func Int (IntTok) {
   define text slice {
     plus {
       define c read;
@@ -133,7 +133,7 @@ func Int (Token) {
   return (cons IntTok(Text: text))
 }
 
-func StrT (Token) {
+func StrT (StrTok) {
   define text slice {
     define c read;
     if ne c '"' {
@@ -157,7 +157,7 @@ func StrT (Token) {
   return (cons StrTok(Text: text))
 }
 
-func Rune (Token) {
+func Rune (RuneTok) {
   define text slice {
     define c read;
     if ne c '\'' {

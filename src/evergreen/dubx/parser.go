@@ -459,7 +459,7 @@ block36:
 block37:
 	return
 }
-func Ident(frame *dub.DubState) (ret0 Token) {
+func Ident(frame *dub.DubState) (ret0 *IdTok) {
 	var r0 string
 	var r1 int
 	var r2 int
@@ -519,7 +519,7 @@ block12:
 block13:
 	return
 }
-func Int(frame *dub.DubState) (ret0 Token) {
+func Int(frame *dub.DubState) (ret0 *IntTok) {
 	var r0 rune
 	var r1 string
 	var r2 int
@@ -672,7 +672,7 @@ block34:
 block35:
 	return
 }
-func StrT(frame *dub.DubState) (ret0 Token) {
+func StrT(frame *dub.DubState) (ret0 *StrTok) {
 	var r0 rune
 	var r1 string
 	var r2 int
@@ -840,7 +840,7 @@ block36:
 block37:
 	return
 }
-func Rune(frame *dub.DubState) (ret0 Token) {
+func Rune(frame *dub.DubState) (ret0 *RuneTok) {
 	var r0 rune
 	var r1 string
 	var r2 int
@@ -983,13 +983,13 @@ block30:
 func Tokenize(frame *dub.DubState) (ret0 Token) {
 	var r0 string
 	var r1 int
-	var r2 Token
+	var r2 *IdTok
 	var r3 int
-	var r4 Token
+	var r4 *IntTok
 	var r5 int
-	var r6 Token
+	var r6 *StrTok
 	var r7 int
-	var r8 Token
+	var r8 *RuneTok
 	var r9 int
 	var r10 string
 	var r11 string
