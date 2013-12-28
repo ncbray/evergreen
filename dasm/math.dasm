@@ -46,7 +46,10 @@ func Integer (IntLiteral) {
   return (cons IntLiteral(Text: v));
 }
 
-test SimpleInteger Integer "123" IntLiteral{Text: "123"}
+test Integer Simple "123"
+  IntLiteral{
+    Text: "123"
+  }
 
 func Add (Expr) {
   var e Expr;
@@ -62,3 +65,36 @@ func Add (Expr) {
   }
   return (e);
 }
+
+test Add Zero "7"
+  IntLiteral{
+    Text: "7"
+  }
+
+test Add One "8+9"
+  BinaryOp{
+    Left: IntLiteral{
+      Text: "8"
+    }
+    Op: "+"
+    Right: IntLiteral{
+      Text: "9"
+    }
+  }
+
+test Add Two "11 + 12 + 13"
+  BinaryOp{
+    Left: BinaryOp{
+      Left: IntLiteral{
+        Text: "11"
+      }
+      Op: "+"
+      Right: IntLiteral{
+        Text: "12"
+      }
+    }
+    Op: "+"
+    Right: IntLiteral{
+      Text: "13"
+    }
+  }

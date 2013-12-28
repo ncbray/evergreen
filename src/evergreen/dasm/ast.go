@@ -1,5 +1,9 @@
 package dasm
 
+import (
+	"evergreen/dub"
+)
+
 type ASTExpr interface {
 	isASTExpr()
 }
@@ -222,6 +226,15 @@ type StructDecl struct {
 	Fields     []*FieldDecl
 }
 
+func (node *StructDecl) FieldType(name string) ASTType {
+	for _, decl := range node.Fields {
+		if decl.Name == name {
+			return decl.Type.Resolve()
+		}
+	}
+	panic(name)
+}
+
 func (node *StructDecl) AsType() (ASTType, bool) {
 	return node, true
 }
@@ -279,8 +292,12 @@ type DestructureField struct {
 }
 
 type DestructureStruct struct {
-	Type *TypeRef
-	Args []*DestructureField
+	Type    *TypeRef
+	Actual  *StructDecl   // HACK
+	General *StructDecl   // HACK
+	AT      *dub.LLStruct // HACK
+	GT      *dub.LLStruct // HACK
+	Args    []*DestructureField
 }
 
 func (node *DestructureStruct) isDestructure() {

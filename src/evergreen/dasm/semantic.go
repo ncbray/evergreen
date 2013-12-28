@@ -98,16 +98,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *Fail:
 		return glbls.Void
 	case *Call:
-		// HACK resolve other scopes?
-		decl, ok := glbls.Module[expr.Name]
-		if !ok {
-			panic(expr.Name)
-		}
-		f, ok := decl.AsFunc()
-		if !ok {
-			panic(expr.Name)
-		}
-		t := f.ReturnType()
+		t := glbls.ReturnType(expr.Name)
 		expr.T = t
 		return t
 	case *Append:
@@ -180,12 +171,24 @@ func semanticStructPass(decl *StructDecl, glbls *ModuleScope) {
 	}
 }
 
-func semanticDestructurePass(d Destructure, glbls *ModuleScope) {
+func semanticDestructurePass(d Destructure, general ASTType, glbls *ModuleScope) {
 	switch d := d.(type) {
 	case *DestructureStruct:
 		semanticTypePass(d.Type, glbls)
+		switch t := d.Type.Resolve().(type) {
+		case *StructDecl:
+			d.Actual = t
+		default:
+			panic(t)
+		}
+		switch t := general.(type) {
+		case *StructDecl:
+			d.General = t
+		default:
+			panic(t)
+		}
 		for _, arg := range d.Args {
-			semanticDestructurePass(arg.Destructure, glbls)
+			semanticDestructurePass(arg.Destructure, d.Actual.FieldType(arg.Name), glbls)
 		}
 	case *DestructureString:
 		// Leaf
@@ -195,8 +198,8 @@ func semanticDestructurePass(d Destructure, glbls *ModuleScope) {
 }
 
 func semanticTestPass(tst *Test, glbls *ModuleScope) {
-	// TODO resolve function
-	semanticDestructurePass(tst.Destructure, glbls)
+	general := glbls.ReturnType(tst.Rule)
+	semanticDestructurePass(tst.Destructure, general, glbls)
 }
 
 type ModuleScope struct {
@@ -208,6 +211,19 @@ type ModuleScope struct {
 	Int    *BuiltinType
 	Bool   *BuiltinType
 	Void   *BuiltinType
+}
+
+func (glbls *ModuleScope) ReturnType(name string) ASTType {
+	// HACK resolve other scopes?
+	decl, ok := glbls.Module[name]
+	if !ok {
+		panic(name)
+	}
+	f, ok := decl.AsFunc()
+	if !ok {
+		panic(name)
+	}
+	return f.ReturnType()
 }
 
 func SemanticPass(file *File) *ModuleScope {

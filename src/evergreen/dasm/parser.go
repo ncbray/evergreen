@@ -528,11 +528,11 @@ func parseDestructure(s *DASMScanner) (Destructure, bool) {
 }
 
 func parseTest(s *DASMScanner) (*Test, bool) {
-	name, ok := getName(s)
+	rule, ok := getName(s)
 	if !ok {
 		return nil, false
 	}
-	rule, ok := getName(s)
+	name, ok := getName(s)
 	if !ok {
 		return nil, false
 	}
