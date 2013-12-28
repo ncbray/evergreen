@@ -8,14 +8,6 @@ import (
 	"strconv"
 )
 
-func getName(state *dub.DubState) string {
-	tok := dubx.Ident(state)
-	if state.Flow != 0 {
-		return ""
-	}
-	return tok.Text
-}
-
 func getPunc(state *dub.DubState, value string) {
 	for _, expected := range []rune(value) {
 		c := state.Read()
@@ -27,9 +19,9 @@ func getPunc(state *dub.DubState, value string) {
 	dubx.S(state)
 }
 
-func getKeyword(state *dub.DubState, text string) {
-	tok := dubx.Ident(state)
-	if state.Flow != 0 || tok.Text != text {
+func getKeyword(state *dub.DubState, expected string) {
+	text := dubx.Ident(state)
+	if state.Flow != 0 || text != expected {
 		state.Fail()
 	}
 }
@@ -73,7 +65,7 @@ func parseKeyValueList(state *dub.DubState) []*KeyValue {
 	args := []*KeyValue{}
 	for {
 		checkpoint := state.Checkpoint()
-		key := getName(state)
+		key := dubx.Ident(state)
 		if state.Flow != 0 {
 			state.Recover(checkpoint)
 			break
@@ -130,9 +122,9 @@ var nameToOp = map[string]string{
 
 func parseType(state *dub.DubState) ASTTypeRef {
 	checkpoint := state.Checkpoint()
-	tok := dubx.Ident(state)
+	text := dubx.Ident(state)
 	if state.Flow == 0 {
-		return &TypeRef{Name: tok.Text}
+		return &TypeRef{Name: text}
 	}
 	state.Recover(checkpoint)
 
@@ -149,9 +141,9 @@ func parseType(state *dub.DubState) ASTTypeRef {
 
 func parseExpr(state *dub.DubState) ASTExpr {
 	checkpoint := state.Checkpoint()
-	tok := dubx.Ident(state)
+	text := dubx.Ident(state)
 	if state.Flow == 0 {
-		switch tok.Text {
+		switch text {
 		case "star":
 			block := parseCodeBlock(state)
 			if state.Flow == 0 {
@@ -181,7 +173,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				}
 			}
 		case "var":
-			name := getName(state)
+			name := dubx.Ident(state)
 			if state.Flow == 0 {
 				t := parseType(state)
 				if state.Flow == 0 {
@@ -198,7 +190,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				}
 			}
 		case "define":
-			name := getName(state)
+			name := dubx.Ident(state)
 			if state.Flow == 0 {
 				expr := parseExpr(state)
 				if state.Flow == 0 {
@@ -206,7 +198,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				}
 			}
 		case "assign":
-			name := getName(state)
+			name := dubx.Ident(state)
 			if state.Flow == 0 {
 				expr := parseExpr(state)
 				if state.Flow == 0 {
@@ -218,7 +210,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 		case "fail":
 			return &Fail{}
 		case "eq", "ne", "gt", "lt", "ge", "le":
-			op := nameToOp[tok.Text]
+			op := nameToOp[text]
 			l := parseExpr(state)
 			if state.Flow == 0 {
 				r := parseExpr(state)
@@ -227,7 +219,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				}
 			}
 		case "call":
-			name := getName(state)
+			name := dubx.Ident(state)
 			if state.Flow == 0 {
 				return &Call{Name: name}
 			}
@@ -248,7 +240,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				}
 			}
 		case "append":
-			name := getName(state)
+			name := dubx.Ident(state)
 			if state.Flow == 0 {
 				expr := parseExpr(state)
 				if state.Flow == 0 {
@@ -269,7 +261,6 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				return &Return{Exprs: exprs}
 			}
 		default:
-			text := tok.Text
 			return &GetName{Name: text}
 		}
 	}
@@ -340,7 +331,7 @@ func parseCodeBlock(state *dub.DubState) []ASTExpr {
 }
 
 func parseFunction(state *dub.DubState) *FuncDecl {
-	name := getName(state)
+	name := dubx.Ident(state)
 	if state.Flow != 0 {
 		return nil
 	}
@@ -366,7 +357,7 @@ func parseImplements(state *dub.DubState) ASTTypeRef {
 }
 
 func parseStructure(state *dub.DubState) *StructDecl {
-	name := getName(state)
+	name := dubx.Ident(state)
 	if state.Flow != 0 {
 		return nil
 	}
@@ -384,7 +375,7 @@ func parseStructure(state *dub.DubState) *StructDecl {
 	fields := []*FieldDecl{}
 	for {
 		checkpoint := state.Checkpoint()
-		name := getName(state)
+		name := dubx.Ident(state)
 		if state.Flow != 0 {
 			state.Recover(checkpoint)
 			break
@@ -482,7 +473,7 @@ func parseDestructure(state *dub.DubState) Destructure {
 		args := []*DestructureField{}
 		for {
 			checkpoint := state.Checkpoint()
-			name := getName(state)
+			name := dubx.Ident(state)
 			if state.Flow != 0 {
 				state.Recover(checkpoint)
 				break
@@ -523,11 +514,11 @@ func parseDestructure(state *dub.DubState) Destructure {
 }
 
 func parseTest(state *dub.DubState) *Test {
-	rule := getName(state)
+	rule := dubx.Ident(state)
 	if state.Flow != 0 {
 		return nil
 	}
-	name := getName(state)
+	name := dubx.Ident(state)
 	if state.Flow != 0 {
 		return nil
 	}
@@ -547,12 +538,12 @@ func parseFile(state *dub.DubState) *File {
 	tests := []*Test{}
 	for {
 		checkpoint := state.Checkpoint()
-		tok := dubx.Ident(state)
+		text := dubx.Ident(state)
 		if state.Flow != 0 {
 			state.Recover(checkpoint)
 			goto done
 		}
-		switch tok.Text {
+		switch text {
 		case "func":
 			f := parseFunction(state)
 			if state.Flow != 0 {

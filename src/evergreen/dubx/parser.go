@@ -43,13 +43,6 @@ func (node *MatchRepeat) isTextMatch() {
 type Token interface {
 	isToken()
 }
-type IdTok struct {
-	Text string
-}
-
-func (node *IdTok) isToken() {
-}
-
 type IntTok struct {
 	Text  string
 	Value int
@@ -174,7 +167,7 @@ block21:
 block22:
 	return
 }
-func Ident(frame *dub.DubState) (ret0 *IdTok) {
+func Ident(frame *dub.DubState) (ret0 string) {
 	var r0 string
 	var r1 int
 	var r2 rune
@@ -206,7 +199,6 @@ func Ident(frame *dub.DubState) (ret0 *IdTok) {
 	var r28 bool
 	var r29 string
 	var r30 string
-	var r31 *IdTok
 	goto block0
 block0:
 	goto block1
@@ -218,7 +210,7 @@ block2:
 	if frame.Flow == 0 {
 		goto block3
 	} else {
-		goto block51
+		goto block50
 	}
 block3:
 	r3 = 'a'
@@ -278,7 +270,7 @@ block17:
 	if r12 {
 		goto block18
 	} else {
-		goto block50
+		goto block49
 	}
 block18:
 	r13 = frame.Checkpoint()
@@ -391,23 +383,20 @@ block45:
 	if frame.Flow == 0 {
 		goto block46
 	} else {
-		goto block51
+		goto block50
 	}
 block46:
 	r30 = r0
 	goto block47
 block47:
-	r31 = &IdTok{Text: r30}
+	ret0 = r30
 	goto block48
 block48:
-	ret0 = r31
-	goto block49
-block49:
 	return
-block50:
+block49:
 	frame.Fail()
-	goto block51
-block51:
+	goto block50
+block50:
 	return
 }
 func Int(frame *dub.DubState) (ret0 *IntTok) {
