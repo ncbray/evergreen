@@ -172,6 +172,8 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 		stmts = append(stmts, makeFatalTest(checkNE(id(name), strLiteral(d.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(d.Value), id(name)))
 	case *DestructureRune:
 		stmts = append(stmts, makeFatalTest(checkNE(id(name), runeLiteral(d.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(d.Value), id(name)))
+	case *DestructureInt:
+		stmts = append(stmts, makeFatalTest(checkNE(id(name), intLiteral(d.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(d.Value), id(name)))
 	default:
 		panic(d)
 	}

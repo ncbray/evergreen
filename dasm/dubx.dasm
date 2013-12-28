@@ -14,6 +14,15 @@ struct MatchSequence implements TextMatch {
   Matches []TextMatch
 }
 
+struct MatchChoice implements TextMatch {
+  Matches []TextMatch
+}
+
+struct MatchRepeat implements TextMatch {
+  Match TextMatch
+  Min int
+}
+
 func S () {
   star {
     define c read;
@@ -70,20 +79,73 @@ func MatchRune (RuneMatch) {
   return (cons RuneMatch(Filters: filters))
 }
 
+func Atom (TextMatch) {
+  question {
+    return (call MatchRune);
+  }
+  define c read;
+  if eq c '(' {
+    define e call Choice;
+    assign c read;
+    if eq c ')' {
+      return (e);
+    }
+  }
+  fail;
+}
+
+func Postfix (TextMatch) {
+  define e call Atom;
+  question {
+    define c read;
+    if eq c '*' {
+      call S;
+      return (cons MatchRepeat(Match: e Min: 0));
+    }
+    if eq c '+' {
+      call S;
+      return (cons MatchRepeat(Match: e Min: 1));
+    }
+    if eq c '?' {
+      call S;
+      return (cons MatchChoice(Matches: conl []TextMatch(e cons MatchSequence(Matches: conl []TextMatch()))));
+    }
+    fail;
+  }
+  return (e);
+}
+
 func Sequence (TextMatch) {
-  var e TextMatch = call MatchRune;
+  var e TextMatch = call Postfix;
   question {
     define l conl []TextMatch(e)
     plus {
-      append l call MatchRune;
+      append l call Postfix;
     }
     assign e cons MatchSequence(Matches: l)
   }
   return (e)
 }
 
+func Choice (TextMatch) {
+  var e TextMatch = call Sequence;
+  question {
+    define l conl []TextMatch(e)
+    plus {
+      define c read;
+      if ne c '|' {
+        fail;
+      }
+      call S;
+      append l call Sequence;
+    }
+    assign e cons MatchChoice(Matches: l)
+  }
+  return (e)
+}
 
-test Sequence One "[pq]"
+
+test Choice One "[pq]"
   RuneMatch {
     Filters: []RuneFilter {
       RuneFilter {
@@ -97,7 +159,7 @@ test Sequence One "[pq]"
     }
   }
 
-test Sequence Three "[a][b][c]"
+test Choice Three "[a][b][c]"
   MatchSequence {
     Matches: []TextMatch {
       RuneMatch {
@@ -121,6 +183,82 @@ test Sequence Three "[a][b][c]"
           RuneFilter {
             Min: 'c'
             Max: 'c'
+          }
+        }
+      }
+    }
+  }
+
+test Choice Repeat "[0-9] + "
+  MatchRepeat {
+    Match: RuneMatch {
+      Filters: []RuneFilter {
+        RuneFilter {
+          Min: '0'
+          Max: '9'
+        }
+      }
+    }
+    Min: 1
+  }
+
+test Choice Question "[*]?"
+  MatchChoice {
+    Matches: []TextMatch {
+      RuneMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: '*'
+            Max: '*'
+          }
+        }
+      }
+      MatchSequence {
+        Matches: []TextMatch{}
+      }
+    }
+  }
+
+test Choice Complex "[a]([b]|[c])|[d]"
+  MatchChoice {
+    Matches: []TextMatch {
+      MatchSequence {
+        Matches: []TextMatch{
+          RuneMatch {
+            Filters: []RuneFilter {
+              RuneFilter {
+                Min: 'a'
+                Max: 'a'
+               }
+            }
+          }
+          MatchChoice {
+            Matches: []TextMatch {
+              RuneMatch {
+                Filters: []RuneFilter {
+                  RuneFilter {
+                    Min: 'b'
+                    Max: 'b'
+                  }
+                }
+              }
+              RuneMatch {
+                Filters: []RuneFilter {
+                  RuneFilter {
+                    Min: 'c'
+                    Max: 'c'
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      RuneMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: 'd'
+            Max: 'd'
           }
         }
       }

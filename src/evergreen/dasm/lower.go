@@ -82,14 +82,14 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 			r.Splice(dub.NORMAL, block)
 		}
 
-		// Handle the body
-		block := lowerBlock(expr.Block, builder)
-
 		// Checkpoint
 		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
 		head := dub.CreateBlock([]dub.DubOp{
 			&dub.Checkpoint{Dst: checkpoint},
 		})
+
+		// Handle the body
+		block := lowerBlock(expr.Block, builder)
 
 		// Splice in the checkpoint as the first operation.
 		// Note: block may be empty, but this code is carefully designed to work in that case.
@@ -183,6 +183,18 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		dst := builder.CreateLLRegister(builder.glbl.String)
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.ConstantStringOp{Value: expr.Value, Dst: dst},
+		})
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		return dst
+
+	case *IntLiteral:
+		if !used {
+			return dub.NoRegister
+		}
+		dst := builder.CreateLLRegister(builder.glbl.Int)
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.ConstantIntOp{Value: int64(expr.Value), Dst: dst},
 		})
 		r.Connect(dub.NORMAL, body)
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))

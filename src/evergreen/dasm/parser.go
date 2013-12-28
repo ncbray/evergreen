@@ -374,6 +374,10 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 		v, _ := strconv.Unquote(s.Current.Text)
 		s.Scan()
 		return &StringLiteral{Value: v}, true
+	case Int:
+		v, _ := strconv.Atoi(s.Current.Text)
+		s.Scan()
+		return &IntLiteral{Value: v}, true
 	default:
 		return nil, false
 	}
@@ -470,6 +474,10 @@ func parseLiteralDestructure(s *DASMScanner) (Destructure, bool) {
 		v, _ := strconv.Unquote(s.Current.Text)
 		s.Scan()
 		return &DestructureRune{Value: []rune(v)[0]}, true
+	case Int:
+		v, _ := strconv.Atoi(s.Current.Text)
+		s.Scan()
+		return &DestructureInt{Value: v}, true
 	default:
 		return nil, false
 	}

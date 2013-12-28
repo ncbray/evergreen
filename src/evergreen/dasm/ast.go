@@ -132,6 +132,13 @@ type StringLiteral struct {
 func (node *StringLiteral) isASTExpr() {
 }
 
+type IntLiteral struct {
+	Value int
+}
+
+func (node *IntLiteral) isASTExpr() {
+}
+
 type Assign struct {
 	Expr   ASTExpr
 	Name   string
@@ -315,6 +322,13 @@ type DestructureRune struct {
 }
 
 func (node *DestructureRune) isDestructure() {
+}
+
+type DestructureInt struct {
+	Value int
+}
+
+func (node *DestructureInt) isDestructure() {
 }
 
 type Test struct {

@@ -60,12 +60,12 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			t = semanticTypePass(expr.Type, glbls)
 		}
 		if t == nil {
-			panic(fmt.Sprintf("Cannot infer the type of %#v", expr.Name))
+			panic(fmt.Sprintf("%s: Cannot infer the type of %#v", decl.Name, expr.Name))
 		}
 		var info int
 		var exists bool
 		if expr.Define {
-			_, exists = scope.locals[expr.Name]
+			_, exists = scope.localInfo(expr.Name)
 			if exists {
 				panic(fmt.Sprintf("Tried to redefine %#v", expr.Name))
 			}
@@ -74,9 +74,9 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			decl.Locals = append(decl.Locals, &LocalInfo{Name: expr.Name, T: t})
 			scope.locals[expr.Name] = info
 		} else {
-			info, exists = scope.locals[expr.Name]
+			info, exists = scope.localInfo(expr.Name)
 			if !exists {
-				panic(fmt.Sprintf("Tried to assign to unknown variable %#v", expr.Name))
+				panic(fmt.Sprintf("%s: Tried to assign to unknown variable %#v", decl.Name, expr.Name))
 			}
 		}
 		expr.Info = info
@@ -90,6 +90,8 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		return glbls.Rune
 	case *StringLiteral:
 		return glbls.String
+	case *IntLiteral:
+		return glbls.Int
 	case *Return:
 		for _, e := range expr.Exprs {
 			semanticExprPass(decl, e, scope, glbls)
@@ -155,10 +157,13 @@ func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope, gl
 	}
 }
 
-func semanticFuncPass(decl *FuncDecl, glbls *ModuleScope) {
+func semanticFuncSignaturePass(decl *FuncDecl, glbls *ModuleScope) {
 	for _, t := range decl.ReturnTypes {
 		semanticTypePass(t, glbls)
 	}
+}
+
+func semanticFuncBodyPass(decl *FuncDecl, glbls *ModuleScope) {
 	semanticBlockPass(decl, decl.Block, childScope(nil), glbls)
 }
 
@@ -201,7 +206,7 @@ func semanticDestructurePass(d Destructure, general ASTType, glbls *ModuleScope)
 			semanticDestructurePass(arg, dt.Type, glbls)
 		}
 
-	case *DestructureString, *DestructureRune:
+	case *DestructureString, *DestructureRune, *DestructureInt:
 		// Leaf
 	default:
 		panic(d)
@@ -257,6 +262,7 @@ func SemanticPass(file *File) *ModuleScope {
 	glbls.Void = &BuiltinType{"void"}
 	glbls.Builtin["void"] = glbls.Void
 
+	// Index the module namespace.
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
@@ -267,10 +273,23 @@ func SemanticPass(file *File) *ModuleScope {
 			panic(decl)
 		}
 	}
+	// Resolve function signatures.
+	// Needed for resolving calls in the next step.
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
-			semanticFuncPass(decl, glbls)
+			semanticFuncSignaturePass(decl, glbls)
+		case *StructDecl:
+		default:
+			panic(decl)
+		}
+	}
+
+	// Resolve the declaration contents.
+	for _, decl := range file.Decls {
+		switch decl := decl.(type) {
+		case *FuncDecl:
+			semanticFuncBodyPass(decl, glbls)
 		case *StructDecl:
 			semanticStructPass(decl, glbls)
 		default:
