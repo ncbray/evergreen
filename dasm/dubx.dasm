@@ -81,3 +81,48 @@ func Sequence (TextMatch) {
   }
   return (e)
 }
+
+
+test Sequence One "[pq]"
+  RuneMatch {
+    Filters: []RuneFilter {
+      RuneFilter {
+        Min: 'p'
+        Max: 'p'
+      }
+      RuneFilter {
+        Min: 'q'
+        Max: 'q'
+      }
+    }
+  }
+
+test Sequence Three "[a][b][c]"
+  MatchSequence {
+    Matches: []TextMatch {
+      RuneMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: 'a'
+            Max: 'a'
+          }
+        }
+      }
+      RuneMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: 'b'
+            Max: 'b'
+          }
+        }
+      }
+      RuneMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: 'c'
+            Max: 'c'
+          }
+        }
+      }
+    }
+  }

@@ -13,7 +13,7 @@ type DASMTokenType int
 const (
 	Ident DASMTokenType = iota
 	Int
-	Char
+	Rune
 	String
 	Punc
 	EOF
@@ -42,7 +42,7 @@ func (s *DASMScanner) Scan() {
 	case scanner.Int:
 		s.Next.Type = Int
 	case scanner.Char:
-		s.Next.Type = Char
+		s.Next.Type = Rune
 	case scanner.String:
 		s.Next.Type = String
 	case scanner.EOF:
@@ -366,7 +366,7 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 			s.Scan()
 			return &GetName{Name: text}, true
 		}
-	case Char:
+	case Rune:
 		v, _ := strconv.Unquote(s.Current.Text)
 		s.Scan()
 		return &RuneLiteral{Value: []rune(v)[0]}, true
@@ -466,6 +466,10 @@ func parseLiteralDestructure(s *DASMScanner) (Destructure, bool) {
 	case String:
 		s, _ := getString(s)
 		return &DestructureString{Value: s}, true
+	case Rune:
+		v, _ := strconv.Unquote(s.Current.Text)
+		s.Scan()
+		return &DestructureRune{Value: []rune(v)[0]}, true
 	default:
 		return nil, false
 	}

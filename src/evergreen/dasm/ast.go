@@ -310,6 +310,13 @@ type DestructureString struct {
 func (node *DestructureString) isDestructure() {
 }
 
+type DestructureRune struct {
+	Value rune
+}
+
+func (node *DestructureRune) isDestructure() {
+}
+
 type Test struct {
 	Name        string
 	Rule        string

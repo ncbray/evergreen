@@ -190,7 +190,18 @@ func semanticDestructurePass(d Destructure, general ASTType, glbls *ModuleScope)
 		for _, arg := range d.Args {
 			semanticDestructurePass(arg.Destructure, d.Actual.FieldType(arg.Name), glbls)
 		}
-	case *DestructureString:
+	case *DestructureList:
+		semanticTypePass(d.Type, glbls)
+		t := d.Type.Resolve()
+		dt, ok := t.(*ListType)
+		if !ok {
+			panic(t)
+		}
+		for _, arg := range d.Args {
+			semanticDestructurePass(arg, dt.Type, glbls)
+		}
+
+	case *DestructureString, *DestructureRune:
 		// Leaf
 	default:
 		panic(d)

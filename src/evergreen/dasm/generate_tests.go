@@ -45,6 +45,13 @@ func strLiteral(name string) *ast.BasicLit {
 	}
 }
 
+func runeLiteral(value rune) *ast.BasicLit {
+	return &ast.BasicLit{
+		Kind:  token.CHAR,
+		Value: strconv.QuoteRune(value),
+	}
+}
+
 func intLiteral(value int) *ast.BasicLit {
 	return &ast.BasicLit{
 		Kind:  token.INT,
@@ -66,6 +73,15 @@ func makeFatalTest(cond ast.Expr, f string, args ...ast.Expr) ast.Stmt {
 					},
 				},
 			},
+		},
+	}
+}
+
+func makeLen(expr ast.Expr) ast.Expr {
+	return &ast.CallExpr{
+		Fun: id("len"),
+		Args: []ast.Expr{
+			expr,
 		},
 	}
 }
@@ -127,8 +143,35 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 			childstmts = generateDestructure(child_name, child_path, arg.Destructure, childstmts)
 			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
 		}
+	case *DestructureList:
+		stmts = append(stmts, makeFatalTest(
+			checkNE(makeLen(id(name)), intLiteral(len(d.Args))),
+			fmt.Sprintf("%s: expected length %d but got %%d", path, len(d.Args)),
+			makeLen(id(name)),
+		))
+		for i, arg := range d.Args {
+			childstmts := []ast.Stmt{}
+			child_name := fmt.Sprintf("%s_%d", name, i)
+			child_path := fmt.Sprintf("%s[%d]", path, i)
+			childstmts = append(childstmts, &ast.AssignStmt{
+				Lhs: []ast.Expr{
+					id(child_name),
+				},
+				Tok: token.DEFINE,
+				Rhs: []ast.Expr{
+					&ast.IndexExpr{
+						X:     id(name),
+						Index: intLiteral(i),
+					},
+				},
+			})
+			childstmts = generateDestructure(child_name, child_path, arg, childstmts)
+			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
+		}
 	case *DestructureString:
 		stmts = append(stmts, makeFatalTest(checkNE(id(name), strLiteral(d.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(d.Value), id(name)))
+	case *DestructureRune:
+		stmts = append(stmts, makeFatalTest(checkNE(id(name), runeLiteral(d.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(d.Value), id(name)))
 	default:
 		panic(d)
 	}
