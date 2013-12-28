@@ -2,6 +2,7 @@ package dasm
 
 import (
 	"evergreen/dub"
+	"evergreen/dubx"
 )
 
 type ASTExpr interface {
@@ -176,6 +177,13 @@ type Fail struct {
 }
 
 func (node *Fail) isASTExpr() {
+}
+
+type Match struct {
+	Expr dubx.TextMatch
+}
+
+func (node *Match) isASTExpr() {
 }
 
 type LocalInfo struct {

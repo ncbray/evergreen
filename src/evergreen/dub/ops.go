@@ -145,7 +145,7 @@ type ConstantRuneOp struct {
 }
 
 func (n *ConstantRuneOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%#v", n.Value), n.Dst)
+	return formatAssignment(fmt.Sprintf("%#U", n.Value), n.Dst)
 }
 
 type ConstantStringOp struct {

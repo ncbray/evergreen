@@ -3,6 +3,7 @@ package dasm
 import (
 	"evergreen/base"
 	"evergreen/dub"
+	"evergreen/dubx"
 )
 
 type GlobalDubBuilder struct {
@@ -53,6 +54,128 @@ func (builder *DubBuilder) ZeroRegister(dst dub.DubRegister) dub.DubOp {
 		return &dub.ConstantNilOp{Dst: dst}
 	default:
 		panic(info.T)
+	}
+}
+
+func makeRuneSwitch(cond dub.DubRegister, op string, value rune, builder *DubBuilder) (*base.Node, *base.Node) {
+	vreg := builder.CreateLLRegister(builder.glbl.Rune)
+	make_value := dub.CreateBlock([]dub.DubOp{
+		&dub.ConstantRuneOp{Value: value, Dst: vreg},
+	})
+
+	breg := builder.CreateLLRegister(builder.glbl.Bool)
+	compare := dub.CreateBlock([]dub.DubOp{
+		&dub.BinaryOp{
+			Left:  cond,
+			Op:    op,
+			Right: vreg,
+			Dst:   breg,
+		},
+	})
+
+	decide := dub.CreateSwitch(breg)
+
+	make_value.SetExit(dub.NORMAL, compare)
+	compare.SetExit(dub.NORMAL, decide)
+
+	return make_value, decide
+}
+
+func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
+	switch match := match.(type) {
+	case *dubx.RuneMatch:
+		// Read
+		cond := builder.CreateLLRegister(builder.glbl.Rune)
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.Read{Dst: cond},
+		})
+		r.Connect(dub.NORMAL, body)
+		r.AttachDefaultExits(body)
+
+		filters := dub.CreateRegion()
+		// Fail by default.
+		filters.GetExit(dub.NORMAL).TransferEntries(filters.GetExit(dub.FAIL))
+
+		for _, flt := range match.Filters {
+			if flt.Min > flt.Max {
+				panic(flt.Min)
+			}
+			if flt.Min != flt.Max {
+				minEntry, minDecide := makeRuneSwitch(cond, ">=", flt.Min, builder)
+				maxEntry, maxDecide := makeRuneSwitch(cond, "<=", flt.Max, builder)
+
+				// Check only if we haven't found a match.
+				filters.Connect(dub.FAIL, minEntry)
+
+				// Match
+				minDecide.SetExit(0, maxEntry)
+				maxDecide.SetExit(0, filters.GetExit(dub.NORMAL))
+
+				// No match
+				minDecide.SetExit(1, filters.GetExit(dub.FAIL))
+				maxDecide.SetExit(1, filters.GetExit(dub.FAIL))
+			} else {
+				entry, decide := makeRuneSwitch(cond, "==", flt.Min, builder)
+
+				// Check only if we haven't found a match.
+				filters.Connect(dub.FAIL, entry)
+
+				// Match
+				decide.SetExit(0, filters.GetExit(dub.NORMAL))
+
+				// No match
+				decide.SetExit(1, filters.GetExit(dub.FAIL))
+			}
+		}
+
+		// Make the fail official.
+		body = dub.CreateBlock([]dub.DubOp{
+			&dub.Fail{},
+		})
+		filters.Connect(dub.FAIL, body)
+		body.SetExit(dub.FAIL, filters.GetExit(dub.FAIL))
+
+		r.Splice(0, filters)
+	case *dubx.MatchSequence:
+		for _, child := range match.Matches {
+			lowerMatch(child, r, builder)
+		}
+	case *dubx.MatchRepeat:
+		// HACK unroll
+		for i := 0; i < match.Min; i++ {
+			lowerMatch(match.Match, r, builder)
+		}
+
+		child := dub.CreateRegion()
+
+		// Checkpoint
+		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
+		head := dub.CreateBlock([]dub.DubOp{
+			&dub.Checkpoint{Dst: checkpoint},
+		})
+		child.Connect(dub.NORMAL, head)
+		head.SetExit(dub.NORMAL, child.GetExit(dub.NORMAL))
+
+		// Handle the body
+		lowerMatch(match.Match, child, builder)
+
+		// Normal flow iterates
+		child.GetExit(dub.NORMAL).TransferEntries(head)
+
+		// Stop iterating on failure and recover
+		{
+			body := dub.CreateBlock([]dub.DubOp{
+				&dub.Recover{Src: checkpoint},
+			})
+
+			child.Connect(dub.FAIL, body)
+			body.SetExit(dub.NORMAL, child.GetExit(dub.NORMAL))
+		}
+
+		r.Splice(dub.NORMAL, child)
+
+	default:
+		panic(match)
 	}
 }
 
@@ -349,6 +472,34 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		}
 		block := lowerBlock(expr.Block, builder)
 		r.Splice(dub.NORMAL, block)
+
+		// Create a slice
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateLLRegister(builder.glbl.String)
+		}
+		{
+			body := dub.CreateBlock([]dub.DubOp{
+				&dub.Slice{Src: start, Dst: dst},
+			})
+
+			r.Connect(dub.NORMAL, body)
+			body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		}
+		return dst
+
+	case *Match:
+		start := builder.CreateLLRegister(builder.glbl.Int)
+		// HACK assume checkpoint is just the index
+		{
+			head := dub.CreateBlock([]dub.DubOp{
+				&dub.Checkpoint{Dst: start},
+			})
+			r.Connect(dub.NORMAL, head)
+			head.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		}
+
+		lowerMatch(expr.Expr, r, builder)
 
 		// Create a slice
 		dst := dub.NoRegister

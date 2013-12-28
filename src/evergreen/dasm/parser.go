@@ -273,7 +273,13 @@ func parseExpr(state *dub.DubState) ASTExpr {
 			return &GetName{Name: text}
 		}
 	}
-
+	state.Recover(checkpoint)
+	{
+		e := dubx.MatchExpr(state)
+		if state.Flow == 0 {
+			return &Match{Expr: e}
+		}
+	}
 	state.Recover(checkpoint)
 	{
 		tok := dubx.Rune(state)

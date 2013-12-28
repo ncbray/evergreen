@@ -60,55 +60,8 @@ func S () {
   }
 }
 
-func Alpha () {
-  define c read;
-  if ge c 'a' {
-    if le c 'z' {
-      return ();
-    }
-  }
-  if ge c 'A' {
-    if le c 'Z' {
-      return ();
-    }
-  }
-  if eq c '_' {
-    return ();
-  }
-  fail;
-}
-
-func AlphaNum () {
-  define c read;
-  if ge c 'a' {
-    if le c 'z' {
-      return ();
-    }
-  }
-  if ge c 'A' {
-    if le c 'Z' {
-      return ();
-    }
-  }
-  if ge c '0' {
-    if le c '9' {
-      return ();
-    }
-  }
-  if eq c '_' {
-    return ();
-  }
-  fail;
-}
-
-
 func Ident (IdTok) {
-  define text slice {
-    call Alpha;
-    star {
-      call AlphaNum;
-    }
-  }
+  define text /[a-zA-Z_][a-zA-Z_0-9]*/;
   call S;
   return (cons IdTok(Text: text));
 }
