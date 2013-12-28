@@ -8,166 +8,115 @@ import (
 	"strconv"
 )
 
-type DASMTokenType int
-
-type DASMToken struct {
-	Tok dubx.Token
-	Pos int
-}
-
-type DASMScanner struct {
-	state   *dub.DubState
-	Current DASMToken
-	Next    DASMToken
-}
-
-func (s *DASMScanner) Scan() {
-	s.Current = s.Next
-
-	// HACK
-	s.Next.Pos = s.state.Index
-
-	var next dubx.Token
-	if s.state.Flow == 0 {
-		next = dubx.Tokenize(s.state)
+func getName(state *dub.DubState) string {
+	tok := dubx.Ident(state)
+	if state.Flow != 0 {
+		return ""
 	}
-	// HACK
-	if s.state.Flow != 0 {
-		if s.state.Index != len(s.state.Stream) {
-			panic(s.state.Index)
-		}
-		s.Next.Tok = nil
-		return
-	}
-	s.Next.Tok = next
-	switch next := next.(type) {
-	case *dubx.IdTok:
-	case *dubx.PuncTok:
-	case *dubx.RuneTok:
-		v, _ := strconv.Unquote(next.Text)
-		next.Value = []rune(v)[0]
-	case *dubx.StrTok:
-		v, _ := strconv.Unquote(next.Text)
-		next.Value = v
-	case *dubx.IntTok:
-		v, _ := strconv.Atoi(next.Text)
-		next.Value = v
-	default:
-		panic(next)
-	}
+	return tok.Text
 }
 
-func CreateScanner(data []byte) *DASMScanner {
-	state := &dub.DubState{Stream: []rune(string(data))}
-	s := &DASMScanner{state: state}
-	s.Scan()
-	s.Scan()
-	return s
-}
-
-func getName(s *DASMScanner) (string, bool) {
-	switch tok := s.Current.Tok.(type) {
-	case *dubx.IdTok:
-		text := tok.Text
-		s.Scan()
-		return text, true
-	default:
-		return "", false
-	}
-}
-
-func getPunc(s *DASMScanner, text string) bool {
-	switch tok := s.Current.Tok.(type) {
-	case *dubx.PuncTok:
-		if tok.Text == text {
-			s.Scan()
-			return true
+func getPunc(state *dub.DubState, value string) {
+	for _, expected := range []rune(value) {
+		c := state.Read()
+		if state.Flow != 0 || c != expected {
+			state.Fail()
+			return
 		}
 	}
-	return false
+	dubx.S(state)
 }
 
-func getKeyword(s *DASMScanner, text string) bool {
-	switch tok := s.Current.Tok.(type) {
-	case *dubx.IdTok:
-		if tok.Text == text {
-			s.Scan()
-			return true
-		}
-	}
-	return false
-}
-
-func getString(s *DASMScanner) (string, bool) {
-	switch tok := s.Current.Tok.(type) {
-	case *dubx.StrTok:
-		value := tok.Value
-		s.Scan()
-		return value, true
-	default:
-		return "", false
+func getKeyword(state *dub.DubState, text string) {
+	tok := dubx.Ident(state)
+	if state.Flow != 0 || tok.Text != text {
+		state.Fail()
 	}
 }
 
-func parseExprList(s *DASMScanner) ([]ASTExpr, bool) {
-	ok := getPunc(s, "(")
-	if !ok {
-		return nil, false
+func getString(state *dub.DubState) string {
+	tok := dubx.StrT(state)
+	if state.Flow != 0 {
+		return ""
+	}
+	v, _ := strconv.Unquote(tok.Text)
+	return v
+}
+
+func parseExprList(state *dub.DubState) []ASTExpr {
+	getPunc(state, "(")
+	if state.Flow != 0 {
+		return nil
 	}
 	exprs := []ASTExpr{}
 	for {
-		if getPunc(s, ")") {
-			return exprs, true
-		}
-		e, ok := parseExpr(s)
-		if !ok {
-			return nil, false
+		checkpoint := state.Checkpoint()
+		e := parseExpr(state)
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
 		}
 		exprs = append(exprs, e)
 	}
+	getPunc(state, ")")
+	if state.Flow != 0 {
+		return nil
+	}
+	return exprs
 }
 
-func parseKeyValueList(s *DASMScanner) ([]*KeyValue, bool) {
-	ok := getPunc(s, "(")
-	if !ok {
-		return nil, false
+func parseKeyValueList(state *dub.DubState) []*KeyValue {
+	getPunc(state, "(")
+	if state.Flow != 0 {
+		return nil
 	}
 	args := []*KeyValue{}
 	for {
-		if getPunc(s, ")") {
-			return args, true
+		checkpoint := state.Checkpoint()
+		key := getName(state)
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
 		}
-		key, ok := getName(s)
-		if !ok {
-			return nil, false
+		getPunc(state, ":")
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
 		}
-		if !getPunc(s, ":") {
-			return nil, false
+		value := parseExpr(state)
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
 		}
-		e, ok := parseExpr(s)
-		if !ok {
-			return nil, false
-		}
-		args = append(args, &KeyValue{Key: key, Value: e})
+		args = append(args, &KeyValue{Key: key, Value: value})
 	}
+	getPunc(state, ")")
+	if state.Flow != 0 {
+		return nil
+	}
+	return args
 }
 
-func parseTypeList(s *DASMScanner) ([]ASTTypeRef, bool) {
-	ok := getPunc(s, "(")
-	if !ok {
-		return nil, false
+func parseTypeList(state *dub.DubState) []ASTTypeRef {
+	getPunc(state, "(")
+	if state.Flow != 0 {
+		return nil
 	}
 	types := []ASTTypeRef{}
 	for {
-		if getPunc(s, ")") {
-			return types, true
-		}
-		t, ok := parseType(s)
-		if !ok {
-			return nil, false
+		checkpoint := state.Checkpoint()
+		t := parseType(state)
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
 		}
 		types = append(types, t)
 	}
+	getPunc(state, ")")
+	if state.Flow != 0 {
+		return nil
+	}
+	return types
 }
 
 var nameToOp = map[string]string{
@@ -179,438 +128,502 @@ var nameToOp = map[string]string{
 	"le": "<=",
 }
 
-func parseType(s *DASMScanner) (ASTTypeRef, bool) {
-	switch tok := s.Current.Tok.(type) {
-	case *dubx.IdTok:
-		result := &TypeRef{Name: tok.Text}
-		s.Scan()
-		return result, true
-	case *dubx.PuncTok:
-		if tok.Text != "[" {
-			return nil, false
-		}
-		// HACKish lookahead
-		n, ok := s.Next.Tok.(*dubx.PuncTok)
-		if !ok || n.Text != "]" {
-			return nil, false
-		}
-		s.Scan()
-		s.Scan()
-		child, ok := parseType(s)
-		if !ok {
-			return nil, false
-		}
-		return &ListTypeRef{Type: child}, true
-	default:
-		return nil, false
+func parseType(state *dub.DubState) ASTTypeRef {
+	checkpoint := state.Checkpoint()
+	tok := dubx.Ident(state)
+	if state.Flow == 0 {
+		return &TypeRef{Name: tok.Text}
 	}
+	state.Recover(checkpoint)
+
+	getPunc(state, "[]")
+	if state.Flow != 0 {
+		return nil
+	}
+	t := parseType(state)
+	if state.Flow != 0 {
+		return nil
+	}
+	return &ListTypeRef{Type: t}
 }
 
-func parseExpr(s *DASMScanner) (ASTExpr, bool) {
-	switch tok := s.Current.Tok.(type) {
-	case *dubx.IdTok:
+func parseExpr(state *dub.DubState) ASTExpr {
+	checkpoint := state.Checkpoint()
+	tok := dubx.Ident(state)
+	if state.Flow == 0 {
 		switch tok.Text {
 		case "star":
-			s.Scan()
-			block, ok := parseCodeBlock(s)
-			if !ok {
-				return nil, false
+			block := parseCodeBlock(state)
+			if state.Flow == 0 {
+				return &Repeat{Block: block, Min: 0}
 			}
-			return &Repeat{Block: block, Min: 0}, true
 		case "plus":
-			s.Scan()
-			block, ok := parseCodeBlock(s)
-			if !ok {
-				return nil, false
+			block := parseCodeBlock(state)
+			if state.Flow == 0 {
+				return &Repeat{Block: block, Min: 1}
 			}
-			return &Repeat{Block: block, Min: 1}, true
 		case "question":
-			s.Scan()
-			block, ok := parseCodeBlock(s)
-			if !ok {
-				return nil, false
+			block := parseCodeBlock(state)
+			if state.Flow == 0 {
+				return &Optional{Block: block}
 			}
-			return &Optional{Block: block}, true
 		case "slice":
-			s.Scan()
-			block, ok := parseCodeBlock(s)
-			if !ok {
-				return nil, false
+			block := parseCodeBlock(state)
+			if state.Flow == 0 {
+				return &Slice{Block: block}
 			}
-			return &Slice{Block: block}, true
 		case "if":
-			s.Scan()
-			expr, ok := parseExpr(s)
-			if !ok {
-				return nil, false
-			}
-			block, ok := parseCodeBlock(s)
-			if !ok {
-				return nil, false
-			}
-			return &If{Expr: expr, Block: block}, true
-		case "var":
-			s.Scan()
-			name, ok := getName(s)
-			if !ok {
-				return nil, false
-			}
-
-			t, ok := parseType(s)
-			if !ok {
-				return nil, false
-			}
-
-			var expr ASTExpr
-			if getPunc(s, "=") {
-				expr, ok = parseExpr(s)
-				if !ok {
-					return nil, false
+			expr := parseExpr(state)
+			if state.Flow == 0 {
+				block := parseCodeBlock(state)
+				if state.Flow == 0 {
+					return &If{Expr: expr, Block: block}
 				}
 			}
-			return &Assign{Expr: expr, Name: name, Type: t, Define: true}, true
+		case "var":
+			name := getName(state)
+			if state.Flow == 0 {
+				t := parseType(state)
+				if state.Flow == 0 {
+					checkpoint := state.Checkpoint()
+					getPunc(state, "=")
+					if state.Flow == 0 {
+						expr := parseExpr(state)
+						if state.Flow == 0 {
+							return &Assign{Expr: expr, Name: name, Type: t, Define: true}
+						}
+					}
+					state.Recover(checkpoint)
+					return &Assign{Name: name, Type: t, Define: true}
+				}
+			}
 		case "define":
-			s.Scan()
-			name, ok := getName(s)
-			if !ok {
-				return nil, false
+			name := getName(state)
+			if state.Flow == 0 {
+				expr := parseExpr(state)
+				if state.Flow == 0 {
+					return &Assign{Expr: expr, Name: name, Define: true}
+				}
 			}
-			expr, ok := parseExpr(s)
-			if !ok {
-				return nil, false
-			}
-			return &Assign{Expr: expr, Name: name, Define: true}, true
 		case "assign":
-			s.Scan()
-			name, ok := getName(s)
-			if !ok {
-				return nil, false
+			name := getName(state)
+			if state.Flow == 0 {
+				expr := parseExpr(state)
+				if state.Flow == 0 {
+					return &Assign{Expr: expr, Name: name, Define: false}
+				}
 			}
-			expr, ok := parseExpr(s)
-			if !ok {
-				return nil, false
-			}
-			return &Assign{Expr: expr, Name: name, Define: false}, true
 		case "read":
-			s.Scan()
-			return &Read{}, true
+			return &Read{}
 		case "fail":
-			s.Scan()
-			return &Fail{}, true
+			return &Fail{}
 		case "eq", "ne", "gt", "lt", "ge", "le":
 			op := nameToOp[tok.Text]
-			s.Scan()
-			l, ok := parseExpr(s)
-			if !ok {
-				return nil, false
+			l := parseExpr(state)
+			if state.Flow == 0 {
+				r := parseExpr(state)
+				if state.Flow == 0 {
+					return &BinaryOp{Left: l, Op: op, Right: r}
+				}
 			}
-			r, ok := parseExpr(s)
-			if !ok {
-				return nil, false
-			}
-			return &BinaryOp{Left: l, Op: op, Right: r}, true
 		case "call":
-			s.Scan()
-			name, ok := getName(s)
-			if !ok {
-				return nil, false
+			name := getName(state)
+			if state.Flow == 0 {
+				return &Call{Name: name}
 			}
-			return &Call{Name: name}, true
 		case "cons":
-			s.Scan()
-			t, ok := parseType(s)
-			if !ok {
-				return nil, false
+			t := parseType(state)
+			if state.Flow == 0 {
+				args := parseKeyValueList(state)
+				if state.Flow == 0 {
+					return &Construct{Type: t, Args: args}
+				}
 			}
-			args, ok := parseKeyValueList(s)
-			if !ok {
-				return nil, false
-			}
-			return &Construct{Type: t, Args: args}, true
 		case "conl":
-			s.Scan()
-			t, ok := parseType(s)
-			if !ok {
-				return nil, false
+			t := parseType(state)
+			if state.Flow == 0 {
+				args := parseExprList(state)
+				if state.Flow == 0 {
+					return &ConstructList{Type: t, Args: args}
+				}
 			}
-			args, ok := parseExprList(s)
-			if !ok {
-				return nil, false
-			}
-			return &ConstructList{Type: t, Args: args}, true
 		case "append":
-			s.Scan()
-			name, ok := getName(s)
-			if !ok {
-				return nil, false
-			}
-			expr, ok := parseExpr(s)
-			if !ok {
-				return nil, false
-			}
-			return &Assign{
-				Expr: &Append{
-					List: &GetName{
+			name := getName(state)
+			if state.Flow == 0 {
+				expr := parseExpr(state)
+				if state.Flow == 0 {
+					return &Assign{
+						Expr: &Append{
+							List: &GetName{
+								Name: name,
+							},
+							Value: expr,
+						},
 						Name: name,
-					},
-					Value: expr,
-				},
-				Name: name,
-			}, true
-		case "return":
-			s.Scan()
-			exprs, ok := parseExprList(s)
-			if !ok {
-				return nil, false
+					}
+				}
 			}
-			return &Return{Exprs: exprs}, true
+		case "return":
+			exprs := parseExprList(state)
+			if state.Flow == 0 {
+				return &Return{Exprs: exprs}
+			}
 		default:
 			text := tok.Text
-			s.Scan()
-			return &GetName{Name: text}, true
+			return &GetName{Name: text}
 		}
-	case *dubx.RuneTok:
-		v := tok.Value
-		s.Scan()
-		return &RuneLiteral{Value: v}, true
-	case *dubx.StrTok:
-		v := tok.Value
-		s.Scan()
-		return &StringLiteral{Value: v}, true
-	case *dubx.IntTok:
-		v := tok.Value
-		s.Scan()
-		return &IntLiteral{Value: v}, true
-	default:
-		return nil, false
 	}
+
+	state.Recover(checkpoint)
+	{
+		tok := dubx.Rune(state)
+		if state.Flow == 0 {
+			v, _ := strconv.Unquote(tok.Text)
+			return &RuneLiteral{Value: []rune(v)[0]}
+		}
+	}
+	state.Recover(checkpoint)
+	{
+		tok := dubx.StrT(state)
+		if state.Flow == 0 {
+			v, _ := strconv.Unquote(tok.Text)
+			return &StringLiteral{Value: v}
+		}
+	}
+	state.Recover(checkpoint)
+	{
+		tok := dubx.Int(state)
+		if state.Flow == 0 {
+			v, _ := strconv.Atoi(tok.Text)
+			return &IntLiteral{Value: v}
+		}
+	}
+	// Fail through
+	return nil
 }
 
-func parseCodeBlock(s *DASMScanner) ([]ASTExpr, bool) {
-	ok := getPunc(s, "{")
-	if !ok {
-		return nil, false
+func parseCodeBlock(state *dub.DubState) []ASTExpr {
+	getPunc(state, "{")
+	if state.Flow != 0 {
+		return nil
 	}
 	result := []ASTExpr{}
 	for {
-		if getPunc(s, "}") {
-			return result, true
-		}
-
-		expr, ok := parseExpr(s)
-		if !ok {
-			return nil, false
+		checkpoint := state.Checkpoint()
+		expr := parseExpr(state)
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
 		}
 		result = append(result, expr)
-		for getPunc(s, ";") {
+		for {
+			checkpoint := state.Checkpoint()
+			getPunc(state, ";")
+			if state.Flow != 0 {
+				state.Recover(checkpoint)
+				break
+			}
+
 		}
 	}
+	getPunc(state, "}")
+	if state.Flow != 0 {
+		return nil
+	}
+	return result
 }
 
-func parseFunction(s *DASMScanner) (*FuncDecl, bool) {
-	name, ok := getName(s)
-	if !ok {
-		return nil, false
+func parseFunction(state *dub.DubState) *FuncDecl {
+	name := getName(state)
+	if state.Flow != 0 {
+		return nil
 	}
-	returnTypes, ok := parseTypeList(s)
-	if !ok {
-		return nil, false
+	returnTypes := parseTypeList(state)
+	if state.Flow != 0 {
+		return nil
 	}
-	block, ok := parseCodeBlock(s)
-	if !ok {
-		return nil, false
+	block := parseCodeBlock(state)
+	if state.Flow != 0 {
+		return nil
 	}
-	return &FuncDecl{Name: name, ReturnTypes: returnTypes, Block: block}, true
+	return &FuncDecl{Name: name, ReturnTypes: returnTypes, Block: block}
 }
 
-func parseStructure(s *DASMScanner) (*StructDecl, bool) {
-	name, ok := getName(s)
-	if !ok {
-		return nil, false
+func parseImplements(state *dub.DubState) ASTTypeRef {
+	checkpoint := state.Checkpoint()
+	getKeyword(state, "implements")
+	if state.Flow != 0 {
+		state.Recover(checkpoint)
+		return nil
+	}
+	return parseType(state)
+}
+
+func parseStructure(state *dub.DubState) *StructDecl {
+	name := getName(state)
+	if state.Flow != 0 {
+		return nil
 	}
 
-	var implements ASTTypeRef
-	ok = getKeyword(s, "implements")
-	if ok {
-		implements, ok = parseType(s)
-		if !ok {
-			return nil, false
-		}
+	implements := parseImplements(state)
+	if state.Flow != 0 {
+		return nil
 	}
 
-	ok = getPunc(s, "{")
-	if !ok {
-		return nil, false
+	getPunc(state, "{")
+	if state.Flow != 0 {
+		return nil
 	}
 
 	fields := []*FieldDecl{}
 	for {
-		if getPunc(s, "}") {
-			return &StructDecl{
-				Name:       name,
-				Implements: implements,
-				Fields:     fields,
-			}, true
+		checkpoint := state.Checkpoint()
+		name := getName(state)
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
 		}
-
-		name, ok := getName(s)
-		if !ok {
-			return nil, false
-		}
-
-		t, ok := parseType(s)
-		if !ok {
-			return nil, false
+		t := parseType(state)
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
 		}
 		fields = append(fields, &FieldDecl{Name: name, Type: t})
 	}
-}
 
-func parseLiteralDestructure(s *DASMScanner) (Destructure, bool) {
-	switch tok := s.Current.Tok.(type) {
-	case *dubx.StrTok:
-		v := tok.Value
-		s.Scan()
-		return &DestructureString{Value: v}, true
-	case *dubx.RuneTok:
-		v := tok.Value
-		s.Scan()
-		return &DestructureRune{Value: v}, true
-	case *dubx.IntTok:
-		v := tok.Value
-		s.Scan()
-		return &DestructureInt{Value: v}, true
-	default:
-		return nil, false
+	getPunc(state, "}")
+	if state.Flow != 0 {
+		return nil
+	}
+
+	return &StructDecl{
+		Name:       name,
+		Implements: implements,
+		Fields:     fields,
 	}
 }
 
-func parseDestructure(s *DASMScanner) (Destructure, bool) {
-	t, ok := parseType(s)
-	if !ok {
-		return parseLiteralDestructure(s)
+func parseLiteralDestructure(state *dub.DubState) Destructure {
+	checkpoint := state.Checkpoint()
+
+	{
+		tok := dubx.Rune(state)
+		if state.Flow == 0 {
+			v, _ := strconv.Unquote(tok.Text)
+			return &DestructureRune{Value: []rune(v)[0]}
+		}
 	}
-	ok = getPunc(s, "{")
-	if !ok {
-		return nil, false
+	state.Recover(checkpoint)
+	{
+		tok := dubx.StrT(state)
+		if state.Flow == 0 {
+			v, _ := strconv.Unquote(tok.Text)
+			return &DestructureString{Value: v}
+		}
+	}
+	state.Recover(checkpoint)
+	{
+		tok := dubx.Int(state)
+		if state.Flow == 0 {
+			v, _ := strconv.Atoi(tok.Text)
+			return &DestructureInt{Value: v}
+		}
+	}
+	return nil
+}
+
+func parseDestructure(state *dub.DubState) Destructure {
+	checkpoint := state.Checkpoint()
+	t := parseType(state)
+	if state.Flow != 0 {
+		state.Recover(checkpoint)
+		return parseLiteralDestructure(state)
+	}
+	getPunc(state, "{")
+	if state.Flow != 0 {
+		return nil
 	}
 	switch t := t.(type) {
 	case *ListTypeRef:
 		args := []Destructure{}
 		for {
-			if getPunc(s, "}") {
-				return &DestructureList{
-					Type: t,
-					Args: args,
-				}, true
+			checkpoint := state.Checkpoint()
+			arg := parseDestructure(state)
+			if state.Flow != 0 {
+				state.Recover(checkpoint)
+				break
 			}
-
-			arg, ok := parseDestructure(s)
-			if !ok {
-				return nil, false
-			}
-			getPunc(s, ",")
 			args = append(args, arg)
+
+			/*
+				checkpoint = state.Checkpoint()
+				getPunc(state, ",")
+				if state.Flow != 0 {
+					state.Recover(checkpoint)
+					break
+				}
+			*/
+		}
+		getPunc(state, "}")
+		if state.Flow != 0 {
+			return nil
+		}
+		return &DestructureList{
+			Type: t,
+			Args: args,
 		}
 	case *TypeRef:
 		args := []*DestructureField{}
 		for {
-			if getPunc(s, "}") {
-				return &DestructureStruct{
-					Type: t,
-					Args: args,
-				}, true
+			checkpoint := state.Checkpoint()
+			name := getName(state)
+			if state.Flow != 0 {
+				state.Recover(checkpoint)
+				break
 			}
-			name, ok := getName(s)
-			if !ok {
-				return nil, false
+			getPunc(state, ":")
+			if state.Flow != 0 {
+				state.Recover(checkpoint)
+				break
 			}
-			ok = getPunc(s, ":")
-			if !ok {
-				return nil, false
+
+			arg := parseDestructure(state)
+			if state.Flow != 0 {
+				state.Recover(checkpoint)
+				break
 			}
-			arg, ok := parseDestructure(s)
-			if !ok {
-				return nil, false
-			}
-			getPunc(s, ",")
 			args = append(args, &DestructureField{Name: name, Destructure: arg})
+
+			/*
+				checkpoint = state.Checkpoint()
+				getPunc(state, ",")
+				if state.Flow != 0 {
+					state.Recover(checkpoint)
+					break
+				}
+			*/
+		}
+		getPunc(state, "}")
+		if state.Flow != 0 {
+			return nil
+		}
+		return &DestructureStruct{
+			Type: t,
+			Args: args,
 		}
 	default:
 		panic(t)
 	}
 }
 
-func parseTest(s *DASMScanner) (*Test, bool) {
-	rule, ok := getName(s)
-	if !ok {
-		return nil, false
+func parseTest(state *dub.DubState) *Test {
+	rule := getName(state)
+	if state.Flow != 0 {
+		return nil
 	}
-	name, ok := getName(s)
-	if !ok {
-		return nil, false
+	name := getName(state)
+	if state.Flow != 0 {
+		return nil
 	}
-	input, ok := getString(s)
-	if !ok {
-		return nil, false
+	input := getString(state)
+	if state.Flow != 0 {
+		return nil
 	}
-	destructure, ok := parseDestructure(s)
-	if !ok {
-		return nil, false
+	destructure := parseDestructure(state)
+	if state.Flow != 0 {
+		return nil
 	}
-	return &Test{Name: name, Rule: rule, Input: input, Destructure: destructure}, true
+	return &Test{Name: name, Rule: rule, Input: input, Destructure: destructure}
 }
 
-func parseFile(s *DASMScanner) (*File, bool) {
+func parseFile(state *dub.DubState) *File {
 	decls := []Decl{}
 	tests := []*Test{}
 	for {
-		if s.Current.Tok == nil {
-			return &File{
-				Decls: decls,
-				Tests: tests,
-			}, true
+		checkpoint := state.Checkpoint()
+		tok := dubx.Ident(state)
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			goto done
 		}
-		switch tok := s.Current.Tok.(type) {
-		case *dubx.IdTok:
-			switch tok.Text {
-			case "func":
-				s.Scan()
-				f, ok := parseFunction(s)
-				if !ok {
-					return nil, false
-				}
-				decls = append(decls, f)
-			case "struct":
-				s.Scan()
-				f, ok := parseStructure(s)
-				if !ok {
-					return nil, false
-				}
-				decls = append(decls, f)
-			case "test":
-				s.Scan()
-				t, ok := parseTest(s)
-				if !ok {
-					return nil, false
-				}
-				tests = append(tests, t)
-			default:
-				panic(tok.Text)
+		switch tok.Text {
+		case "func":
+			f := parseFunction(state)
+			if state.Flow != 0 {
+				state.Recover(checkpoint)
+				goto done
 			}
+			decls = append(decls, f)
+		case "struct":
+			f := parseStructure(state)
+			if state.Flow != 0 {
+				state.Recover(checkpoint)
+				goto done
+			}
+			decls = append(decls, f)
+		case "test":
+			t := parseTest(state)
+			if state.Flow != 0 {
+				state.Recover(checkpoint)
+				goto done
+			}
+			tests = append(tests, t)
 		default:
-			return nil, false
+			panic("foo")
+			state.Recover(checkpoint)
+			goto done
 		}
 	}
+done:
+	if state.Index != len(state.Stream) {
+		state.Fail()
+		return nil
+	}
+	return &File{
+		Decls: decls,
+		Tests: tests,
+	}
+}
+
+func FindLines(stream []rune) []int {
+	lines := []int{}
+	for i, r := range stream {
+		if r == '\n' {
+			lines = append(lines, i+1)
+		}
+	}
+	lines = append(lines, len(stream))
+	return lines
+}
+
+func PrintError(filename string, deepest int, stream []rune, lines []int) {
+	// Stupid linear search
+	var line int
+	var col int
+	var start int
+	var end int
+	for i, s := range lines {
+		end = s
+		if deepest < s {
+			break
+		}
+		start = s
+		line = i
+		col = deepest - start
+	}
+	text := string(stream[start:end])
+	fmt.Printf("%s: Unexpected @ %d:%d\n%s", filename, line, col, text)
 }
 
 func ParseDASM(filename string) *File {
 	data, _ := ioutil.ReadFile(filename)
-	s := CreateScanner(data)
-	f, ok := parseFile(s)
-	if !ok {
-		fmt.Printf("%s: Unexpected %v @ %v\n", filename, s.Current.Tok, s.Current.Pos)
-		panic(s.Current.Pos)
+	stream := []rune(string(data))
+	state := &dub.DubState{Stream: stream}
+	f := parseFile(state)
+	if state.Flow != 0 {
+		lines := FindLines(stream)
+		PrintError(filename, state.Deepest, stream, lines)
+		panic(state.Deepest)
 	}
 	return f
 }
