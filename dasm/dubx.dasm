@@ -223,7 +223,6 @@ func ParseRuneFilterRune (rune) {
   if eq c '-' {
     fail;
   }
-  // TODO unescape
   return (c);
 }
 

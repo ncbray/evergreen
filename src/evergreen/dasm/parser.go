@@ -1,116 +1,112 @@
 package dasm
 
 import (
-	"bytes"
+	"evergreen/dub"
+	"evergreen/dubx"
 	"fmt"
 	"io/ioutil"
 	"strconv"
-	"text/scanner"
 )
 
 type DASMTokenType int
 
-const (
-	Ident DASMTokenType = iota
-	Int
-	Rune
-	String
-	Punc
-	EOF
-)
-
 type DASMToken struct {
-	Type DASMTokenType
-	Text string
-	Pos  scanner.Position
+	Tok dubx.Token
+	Pos int
 }
 
 type DASMScanner struct {
-	scanner *scanner.Scanner
+	state   *dub.DubState
 	Current DASMToken
 	Next    DASMToken
 }
 
 func (s *DASMScanner) Scan() {
 	s.Current = s.Next
-	tok := s.scanner.Scan()
-	s.Next.Text = s.scanner.TokenText()
-	s.Next.Pos = s.scanner.Pos()
-	switch tok {
-	case scanner.Ident:
-		s.Next.Type = Ident
-	case scanner.Int:
-		s.Next.Type = Int
-	case scanner.Char:
-		s.Next.Type = Rune
-	case scanner.String:
-		s.Next.Type = String
-	case scanner.EOF:
-		s.Next.Type = EOF
-	default:
-		if tok > 0 {
-			s.Next.Type = Punc
-		} else {
-			panic(tok)
-		}
-	}
-}
 
-func (s *DASMScanner) AssertType(t DASMTokenType) {
-	if s.Current.Type != t {
-		panic(s.Current.Type)
+	// HACK
+	s.Next.Pos = s.state.Index
+
+	var next dubx.Token
+	if s.state.Flow == 0 {
+		next = dubx.Tokenize(s.state)
+	}
+	// HACK
+	if s.state.Flow != 0 {
+		if s.state.Index != len(s.state.Stream) {
+			panic(s.state.Index)
+		}
+		s.Next.Tok = nil
+		return
+	}
+	s.Next.Tok = next
+	switch next := next.(type) {
+	case *dubx.IdTok:
+	case *dubx.PuncTok:
+	case *dubx.RuneTok:
+		v, _ := strconv.Unquote(next.Text)
+		next.Value = []rune(v)[0]
+	case *dubx.StrTok:
+		v, _ := strconv.Unquote(next.Text)
+		next.Value = v
+	case *dubx.IntTok:
+		v, _ := strconv.Atoi(next.Text)
+		next.Value = v
+	default:
+		panic(next)
 	}
 }
 
 func CreateScanner(data []byte) *DASMScanner {
-	s := &DASMScanner{scanner: &scanner.Scanner{}}
-	s.scanner.Init(bytes.NewReader(data))
+	state := &dub.DubState{Stream: []rune(string(data))}
+	s := &DASMScanner{state: state}
 	s.Scan()
 	s.Scan()
 	return s
 }
 
 func getName(s *DASMScanner) (string, bool) {
-	if s.Current.Type == Ident {
-		text := s.Current.Text
+	switch tok := s.Current.Tok.(type) {
+	case *dubx.IdTok:
+		text := tok.Text
 		s.Scan()
 		return text, true
+	default:
+		return "", false
 	}
-	return "", false
 }
 
 func getPunc(s *DASMScanner, text string) bool {
-	if s.Current.Type == Punc && s.Current.Text == text {
-		s.Scan()
-		return true
+	switch tok := s.Current.Tok.(type) {
+	case *dubx.PuncTok:
+		if tok.Text == text {
+			s.Scan()
+			return true
+		}
 	}
 	return false
 }
 
 func getKeyword(s *DASMScanner, text string) bool {
-	if s.Current.Type == Ident && s.Current.Text == text {
-		s.Scan()
-		return true
+	switch tok := s.Current.Tok.(type) {
+	case *dubx.IdTok:
+		if tok.Text == text {
+			s.Scan()
+			return true
+		}
 	}
 	return false
 }
 
-func getInt(s *DASMScanner) (int, bool) {
-	if s.Current.Type == Int {
-		count, _ := strconv.Atoi(s.Current.Text)
-		s.Scan()
-		return count, true
-	}
-	return 0, false
-}
-
 func getString(s *DASMScanner) (string, bool) {
-	if s.Current.Type == String {
-		value, _ := strconv.Unquote(s.Current.Text)
+	switch tok := s.Current.Tok.(type) {
+	case *dubx.StrTok:
+		value := tok.Value
 		s.Scan()
 		return value, true
+	default:
+		return "", false
 	}
-	return "", false
 }
 
 func parseExprList(s *DASMScanner) ([]ASTExpr, bool) {
@@ -184,31 +180,36 @@ var nameToOp = map[string]string{
 }
 
 func parseType(s *DASMScanner) (ASTTypeRef, bool) {
-	switch s.Current.Type {
-	case Ident:
-		result := &TypeRef{Name: s.Current.Text}
+	switch tok := s.Current.Tok.(type) {
+	case *dubx.IdTok:
+		result := &TypeRef{Name: tok.Text}
 		s.Scan()
 		return result, true
-	case Punc:
-		if s.Current.Text == "[" && s.Next.Text == "]" {
-			s.Scan()
-			s.Scan()
-			child, ok := parseType(s)
-			if !ok {
-				return nil, false
-			}
-			return &ListTypeRef{Type: child}, true
+	case *dubx.PuncTok:
+		if tok.Text != "[" {
+			return nil, false
 		}
-		return nil, false
+		// HACKish lookahead
+		n, ok := s.Next.Tok.(*dubx.PuncTok)
+		if !ok || n.Text != "]" {
+			return nil, false
+		}
+		s.Scan()
+		s.Scan()
+		child, ok := parseType(s)
+		if !ok {
+			return nil, false
+		}
+		return &ListTypeRef{Type: child}, true
 	default:
 		return nil, false
 	}
 }
 
 func parseExpr(s *DASMScanner) (ASTExpr, bool) {
-	switch s.Current.Type {
-	case Ident:
-		switch s.Current.Text {
+	switch tok := s.Current.Tok.(type) {
+	case *dubx.IdTok:
+		switch tok.Text {
 		case "star":
 			s.Scan()
 			block, ok := parseCodeBlock(s)
@@ -297,7 +298,7 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 			s.Scan()
 			return &Fail{}, true
 		case "eq", "ne", "gt", "lt", "ge", "le":
-			op := nameToOp[s.Current.Text]
+			op := nameToOp[tok.Text]
 			s.Scan()
 			l, ok := parseExpr(s)
 			if !ok {
@@ -364,20 +365,20 @@ func parseExpr(s *DASMScanner) (ASTExpr, bool) {
 			}
 			return &Return{Exprs: exprs}, true
 		default:
-			text := s.Current.Text
+			text := tok.Text
 			s.Scan()
 			return &GetName{Name: text}, true
 		}
-	case Rune:
-		v, _ := strconv.Unquote(s.Current.Text)
+	case *dubx.RuneTok:
+		v := tok.Value
 		s.Scan()
-		return &RuneLiteral{Value: []rune(v)[0]}, true
-	case String:
-		v, _ := strconv.Unquote(s.Current.Text)
+		return &RuneLiteral{Value: v}, true
+	case *dubx.StrTok:
+		v := tok.Value
 		s.Scan()
 		return &StringLiteral{Value: v}, true
-	case Int:
-		v, _ := strconv.Atoi(s.Current.Text)
+	case *dubx.IntTok:
+		v := tok.Value
 		s.Scan()
 		return &IntLiteral{Value: v}, true
 	default:
@@ -392,8 +393,7 @@ func parseCodeBlock(s *DASMScanner) ([]ASTExpr, bool) {
 	}
 	result := []ASTExpr{}
 	for {
-		if s.Current.Type == Punc && s.Current.Text == "}" {
-			s.Scan()
+		if getPunc(s, "}") {
 			return result, true
 		}
 
@@ -402,8 +402,7 @@ func parseCodeBlock(s *DASMScanner) ([]ASTExpr, bool) {
 			return nil, false
 		}
 		result = append(result, expr)
-		for s.Current.Type == Punc && s.Current.Text == ";" {
-			s.Scan()
+		for getPunc(s, ";") {
 		}
 	}
 }
@@ -468,16 +467,17 @@ func parseStructure(s *DASMScanner) (*StructDecl, bool) {
 }
 
 func parseLiteralDestructure(s *DASMScanner) (Destructure, bool) {
-	switch s.Current.Type {
-	case String:
-		s, _ := getString(s)
-		return &DestructureString{Value: s}, true
-	case Rune:
-		v, _ := strconv.Unquote(s.Current.Text)
+	switch tok := s.Current.Tok.(type) {
+	case *dubx.StrTok:
+		v := tok.Value
 		s.Scan()
-		return &DestructureRune{Value: []rune(v)[0]}, true
-	case Int:
-		v, _ := strconv.Atoi(s.Current.Text)
+		return &DestructureString{Value: v}, true
+	case *dubx.RuneTok:
+		v := tok.Value
+		s.Scan()
+		return &DestructureRune{Value: v}, true
+	case *dubx.IntTok:
+		v := tok.Value
 		s.Scan()
 		return &DestructureInt{Value: v}, true
 	default:
@@ -565,9 +565,15 @@ func parseFile(s *DASMScanner) (*File, bool) {
 	decls := []Decl{}
 	tests := []*Test{}
 	for {
-		switch s.Current.Type {
-		case Ident:
-			switch s.Current.Text {
+		if s.Current.Tok == nil {
+			return &File{
+				Decls: decls,
+				Tests: tests,
+			}, true
+		}
+		switch tok := s.Current.Tok.(type) {
+		case *dubx.IdTok:
+			switch tok.Text {
 			case "func":
 				s.Scan()
 				f, ok := parseFunction(s)
@@ -590,13 +596,8 @@ func parseFile(s *DASMScanner) (*File, bool) {
 				}
 				tests = append(tests, t)
 			default:
-				panic(s.Current.Text)
+				panic(tok.Text)
 			}
-		case EOF:
-			return &File{
-				Decls: decls,
-				Tests: tests,
-			}, true
 		default:
 			return nil, false
 		}
@@ -608,7 +609,7 @@ func ParseDASM(filename string) *File {
 	s := CreateScanner(data)
 	f, ok := parseFile(s)
 	if !ok {
-		fmt.Printf("Unexpected %s @ %s\n", s.Current.Text, s.Current.Pos)
+		fmt.Printf("%s: Unexpected %v @ %v\n", filename, s.Current.Tok, s.Current.Pos)
 		panic(s.Current.Pos)
 	}
 	return f

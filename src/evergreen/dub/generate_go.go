@@ -501,5 +501,4 @@ func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
 	printer.Fprint(&buf, fset, file)
 
 	return buf.String()
-
 }
