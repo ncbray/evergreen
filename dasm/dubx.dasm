@@ -59,13 +59,48 @@ func S () {
 func Ident (string) {
   define text /[a-zA-Z_][a-zA-Z_0-9]*/;
   call S;
-  return (text);
+  return text;
 }
 
 func Int (IntTok) {
   define text /[0-9]+/;
   call S;
-  return (cons IntTok(Text: text))
+  return cons IntTok(Text: text);
+}
+
+func EscapedChar (rune) {
+  define c read;
+  if eq c 'a' {
+    return '\a';
+  }
+  if eq c 'b' {
+    return '\b';
+  }
+  if eq c 'f' {
+    return '\f';
+  }
+  if eq c 'n' {
+    return '\n';
+  }
+  if eq c 'r' {
+    return '\r';
+  }
+  if eq c 't' {
+    return '\t';
+  }
+  if eq c 'v' {
+    return '\v';
+  }
+  if eq c '\\' {
+    return '\\';
+  }
+  if eq c '\'' {
+    return '\'';
+  }
+  if eq c '"' {
+    return '"';
+  }
+  fail;
 }
 
 func StrT (StrTok) {
@@ -73,17 +108,17 @@ func StrT (StrTok) {
     /["]/;
     star {
       define c read;
-      if eq c '\\' {
-        read;
-      }
       if eq c '"' {
         fail;
+      }
+      if eq c '\\' {
+        call EscapedChar;
       }
     }
     /["]/;
   }
   call S;
-  return (cons StrTok(Text: text))
+  return cons StrTok(Text: text);
 }
 
 func Rune (RuneTok) {
@@ -91,12 +126,12 @@ func Rune (RuneTok) {
     /[']/;
     define c read;
     if eq c '\\' {
-      read;
+      call EscapedChar;
     }
     /[']/;
   }
   call S;
-  return (cons RuneTok(Text: text))
+  return cons RuneTok(Text: text);
 }
 
 func MatchExpr (TextMatch) {
@@ -105,7 +140,7 @@ func MatchExpr (TextMatch) {
   define e call Choice;
   /[/]/;
   call S;
-  return (e);
+  return e;
 }
 
 test Ident Alpha "a_B_c "
@@ -132,7 +167,13 @@ func ParseRuneFilterRune (rune) {
   if eq c '-' {
     fail;
   }
-  return (c);
+  if eq c '\\' {
+    question {
+      return call EscapedChar;
+    }
+    return read;
+  }
+  return c;
 }
 
 func ParseRuneFilter (RuneFilter) {
@@ -235,6 +276,21 @@ test Choice One "[pq]"
       }
     }
   }
+
+test Choice Escape "[\\]\\n]"
+  RuneMatch {
+    Filters: []RuneFilter {
+      RuneFilter {
+        Min: ']'
+        Max: ']'
+      }
+      RuneFilter {
+        Min: '\n'
+        Max: '\n'
+      }
+    }
+  }
+
 
 test Choice Three "[a][b][c]"
   MatchSequence {

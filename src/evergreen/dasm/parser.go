@@ -256,10 +256,18 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				}
 			}
 		case "return":
+			checkpoint := state.Checkpoint()
 			exprs := parseExprList(state)
 			if state.Flow == 0 {
 				return &Return{Exprs: exprs}
 			}
+			state.Recover(checkpoint)
+			expr := parseExpr(state)
+			if state.Flow == 0 {
+				return &Return{Exprs: []ASTExpr{expr}}
+			}
+			state.Recover(checkpoint)
+			return &Return{Exprs: []ASTExpr{}}
 		default:
 			return &GetName{Name: text}
 		}
