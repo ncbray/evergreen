@@ -35,7 +35,7 @@ func lowerDestructure(d dasm.Destructure, gbuilder *dasm.GlobalDubBuilder) {
 		for _, arg := range d.Args {
 			lowerDestructure(arg, gbuilder)
 		}
-	case *dasm.DestructureString, *dasm.DestructureRune, *dasm.DestructureInt:
+	case *dasm.DestructureString, *dasm.DestructureRune, *dasm.DestructureInt, *dasm.DestructureBool:
 		//Leaf
 	default:
 		panic(d)

@@ -92,6 +92,10 @@ func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 		r.Connect(dub.NORMAL, body)
 		r.AttachDefaultExits(body)
 
+		if match.Invert {
+			panic("Not implemented.")
+		}
+
 		filters := dub.CreateRegion()
 		// Fail by default.
 		filters.GetExit(dub.NORMAL).TransferEntries(filters.GetExit(dub.FAIL))
@@ -318,6 +322,18 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		dst := builder.CreateLLRegister(builder.glbl.Int)
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.ConstantIntOp{Value: int64(expr.Value), Dst: dst},
+		})
+		r.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		return dst
+
+	case *BoolLiteral:
+		if !used {
+			return dub.NoRegister
+		}
+		dst := builder.CreateLLRegister(builder.glbl.Bool)
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.ConstantBoolOp{Value: expr.Value, Dst: dst},
 		})
 		r.Connect(dub.NORMAL, body)
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))

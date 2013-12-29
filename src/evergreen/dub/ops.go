@@ -136,7 +136,16 @@ type ConstantIntOp struct {
 }
 
 func (n *ConstantIntOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%d", n.Value), n.Dst)
+	return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
+}
+
+type ConstantBoolOp struct {
+	Value bool
+	Dst   DubRegister
+}
+
+func (n *ConstantBoolOp) OpToString() string {
+	return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
 }
 
 type ConstantRuneOp struct {

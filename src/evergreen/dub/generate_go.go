@@ -267,6 +267,11 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						id("nil"),
 						op.Dst,
 					))
+				case *ConstantBoolOp:
+					block = append(block, opAssign(
+						id(fmt.Sprintf("%v", op.Value)),
+						op.Dst,
+					))
 				case *ConstantIntOp:
 					block = append(block, opAssign(
 						constInt(op.Value),

@@ -12,6 +12,7 @@ type RuneFilter struct {
 	Max rune
 }
 type RuneMatch struct {
+	Invert  bool
 	Filters []*RuneFilter
 }
 
@@ -1354,114 +1355,165 @@ block19:
 	return
 }
 func MatchRune(frame *dub.DubState) (ret0 *RuneMatch) {
-	var r0 []*RuneFilter
-	var r1 rune
+	var r0 bool
+	var r1 []*RuneFilter
 	var r2 rune
-	var r3 bool
-	var r4 []*RuneFilter
-	var r5 int
+	var r3 rune
+	var r4 bool
+	var r5 bool
 	var r6 []*RuneFilter
-	var r7 *RuneFilter
-	var r8 []*RuneFilter
+	var r7 int
+	var r8 rune
 	var r9 rune
-	var r10 rune
+	var r10 bool
 	var r11 bool
-	var r12 []*RuneFilter
-	var r13 *RuneMatch
+	var r12 int
+	var r13 []*RuneFilter
+	var r14 *RuneFilter
+	var r15 []*RuneFilter
+	var r16 rune
+	var r17 rune
+	var r18 bool
+	var r19 bool
+	var r20 []*RuneFilter
+	var r21 *RuneMatch
 	goto block0
 block0:
 	goto block1
 block1:
-	r1 = frame.Read()
+	r2 = frame.Read()
 	if frame.Flow == 0 {
 		goto block2
 	} else {
-		goto block24
+		goto block36
 	}
 block2:
-	r2 = '['
+	r3 = '['
 	goto block3
 block3:
-	r3 = r1 == r2
+	r4 = r2 == r3
 	goto block4
 block4:
-	if r3 {
+	if r4 {
 		goto block5
+	} else {
+		goto block35
+	}
+block5:
+	r5 = false
+	goto block6
+block6:
+	r0 = r5
+	goto block7
+block7:
+	r6 = []*RuneFilter{}
+	goto block8
+block8:
+	r1 = r6
+	goto block9
+block9:
+	r7 = frame.Checkpoint()
+	goto block10
+block10:
+	r8 = frame.Read()
+	if frame.Flow == 0 {
+		goto block11
+	} else {
+		goto block17
+	}
+block11:
+	r9 = '^'
+	goto block12
+block12:
+	r10 = r8 == r9
+	goto block13
+block13:
+	if r10 {
+		goto block14
+	} else {
+		goto block16
+	}
+block14:
+	r11 = true
+	goto block15
+block15:
+	r0 = r11
+	goto block18
+block16:
+	frame.Fail()
+	goto block17
+block17:
+	frame.Recover(r7)
+	goto block18
+block18:
+	r12 = frame.Checkpoint()
+	goto block19
+block19:
+	r13 = r1
+	goto block20
+block20:
+	r14 = ParseRuneFilter(frame)
+	if frame.Flow == 0 {
+		goto block21
 	} else {
 		goto block23
 	}
-block5:
-	r4 = []*RuneFilter{}
-	goto block6
-block6:
-	r0 = r4
-	goto block7
-block7:
-	r5 = frame.Checkpoint()
-	goto block8
-block8:
-	r6 = r0
-	goto block9
-block9:
-	r7 = ParseRuneFilter(frame)
-	if frame.Flow == 0 {
-		goto block10
-	} else {
-		goto block12
-	}
-block10:
-	r8 = append(r6, r7)
-	goto block11
-block11:
-	r0 = r8
-	goto block7
-block12:
-	frame.Recover(r5)
-	goto block13
-block13:
-	r9 = frame.Read()
-	if frame.Flow == 0 {
-		goto block14
-	} else {
-		goto block24
-	}
-block14:
-	r10 = ']'
-	goto block15
-block15:
-	r11 = r9 == r10
-	goto block16
-block16:
-	if r11 {
-		goto block17
-	} else {
-		goto block22
-	}
-block17:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block18
-	} else {
-		goto block24
-	}
-block18:
-	r12 = r0
-	goto block19
-block19:
-	r13 = &RuneMatch{Filters: r12}
-	goto block20
-block20:
-	ret0 = r13
-	goto block21
 block21:
-	return
+	r15 = append(r13, r14)
+	goto block22
 block22:
-	frame.Fail()
-	goto block24
+	r1 = r15
+	goto block18
 block23:
-	frame.Fail()
+	frame.Recover(r12)
 	goto block24
 block24:
+	r16 = frame.Read()
+	if frame.Flow == 0 {
+		goto block25
+	} else {
+		goto block36
+	}
+block25:
+	r17 = ']'
+	goto block26
+block26:
+	r18 = r16 == r17
+	goto block27
+block27:
+	if r18 {
+		goto block28
+	} else {
+		goto block34
+	}
+block28:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block29
+	} else {
+		goto block36
+	}
+block29:
+	r19 = r0
+	goto block30
+block30:
+	r20 = r1
+	goto block31
+block31:
+	r21 = &RuneMatch{Invert: r19, Filters: r20}
+	goto block32
+block32:
+	ret0 = r21
+	goto block33
+block33:
+	return
+block34:
+	frame.Fail()
+	goto block36
+block35:
+	frame.Fail()
+	goto block36
+block36:
 	return
 }
 func Atom(frame *dub.DubState) (ret0 TextMatch) {

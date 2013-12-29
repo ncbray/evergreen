@@ -289,6 +289,10 @@ func parseExpr(state *dub.DubState) ASTExpr {
 			}
 			state.Recover(checkpoint)
 			return &Return{Exprs: []ASTExpr{}}
+		case "true":
+			return &BoolLiteral{Value: true}
+		case "false":
+			return &BoolLiteral{Value: false}
 		default:
 			return &GetName{Name: text}
 		}
@@ -431,7 +435,6 @@ func parseStructure(state *dub.DubState) *StructDecl {
 
 func parseLiteralDestructure(state *dub.DubState) Destructure {
 	checkpoint := state.Checkpoint()
-
 	{
 		tok := dubx.Rune(state)
 		if state.Flow == 0 {
@@ -455,19 +458,32 @@ func parseLiteralDestructure(state *dub.DubState) Destructure {
 			return &DestructureInt{Value: v}
 		}
 	}
+	state.Recover(checkpoint)
+	{
+		getKeyword(state, "true")
+		if state.Flow == 0 {
+			return &DestructureBool{Value: true}
+		}
+	}
+	state.Recover(checkpoint)
+	{
+		getKeyword(state, "false")
+		if state.Flow == 0 {
+			return &DestructureBool{Value: false}
+		}
+	}
 	return nil
 }
 
 func parseDestructure(state *dub.DubState) Destructure {
 	checkpoint := state.Checkpoint()
 	t := parseType(state)
+	if state.Flow == 0 {
+		getPunc(state, "{")
+	}
 	if state.Flow != 0 {
 		state.Recover(checkpoint)
 		return parseLiteralDestructure(state)
-	}
-	getPunc(state, "{")
-	if state.Flow != 0 {
-		return nil
 	}
 	switch t := t.(type) {
 	case *ListTypeRef:

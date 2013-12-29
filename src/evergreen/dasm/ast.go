@@ -140,6 +140,13 @@ type IntLiteral struct {
 func (node *IntLiteral) isASTExpr() {
 }
 
+type BoolLiteral struct {
+	Value bool
+}
+
+func (node *BoolLiteral) isASTExpr() {
+}
+
 type Assign struct {
 	Expr   ASTExpr
 	Name   string
@@ -337,6 +344,13 @@ type DestructureInt struct {
 }
 
 func (node *DestructureInt) isDestructure() {
+}
+
+type DestructureBool struct {
+	Value bool
+}
+
+func (node *DestructureBool) isDestructure() {
 }
 
 type Test struct {

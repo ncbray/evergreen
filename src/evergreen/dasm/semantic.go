@@ -94,6 +94,8 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		return glbls.String
 	case *IntLiteral:
 		return glbls.Int
+	case *BoolLiteral:
+		return glbls.Bool
 	case *Return:
 		for _, e := range expr.Exprs {
 			semanticExprPass(decl, e, scope, glbls)
@@ -208,7 +210,7 @@ func semanticDestructurePass(d Destructure, general ASTType, glbls *ModuleScope)
 			semanticDestructurePass(arg, dt.Type, glbls)
 		}
 
-	case *DestructureString, *DestructureRune, *DestructureInt:
+	case *DestructureString, *DestructureRune, *DestructureInt, *DestructureBool:
 		// Leaf
 	default:
 		panic(d)

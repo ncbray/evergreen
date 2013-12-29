@@ -59,6 +59,10 @@ func intLiteral(value int) *ast.BasicLit {
 	}
 }
 
+func boolLiteral(value bool) ast.Expr {
+	return id(fmt.Sprintf("%v", value))
+}
+
 func makeFatalTest(cond ast.Expr, f string, args ...ast.Expr) ast.Stmt {
 	wrapped := []ast.Expr{strLiteral(f)}
 	wrapped = append(wrapped, args...)
@@ -174,6 +178,8 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 		stmts = append(stmts, makeFatalTest(checkNE(id(name), runeLiteral(d.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(d.Value), id(name)))
 	case *DestructureInt:
 		stmts = append(stmts, makeFatalTest(checkNE(id(name), intLiteral(d.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(d.Value), id(name)))
+	case *DestructureBool:
+		stmts = append(stmts, makeFatalTest(checkNE(id(name), boolLiteral(d.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(d.Value), id(name)))
 	default:
 		panic(d)
 	}

@@ -7,6 +7,7 @@ struct RuneFilter {
 }
 
 struct RuneMatch implements TextMatch {
+  Invert bool
   Filters []RuneFilter
 }
 
@@ -177,13 +178,18 @@ func ParseRuneFilter (RuneFilter) {
 
 func MatchRune (RuneMatch) {
   /[\[]/;
-  define filters conl []RuneFilter()
+  define invert false;
+  define filters conl []RuneFilter();
+  question {
+    /[\^]/;
+    assign invert true;
+  }
   star {
     append filters call ParseRuneFilter;
   }
   /[\]]/;
   call S;
-  return cons RuneMatch(Filters: filters)
+  return cons RuneMatch(Invert: invert, Filters: filters)
 }
 
 func Atom (TextMatch) {
@@ -214,7 +220,7 @@ func Postfix (TextMatch) {
     }
     fail;
   }
-  return (e);
+  return e;
 }
 
 func Sequence (TextMatch) {
@@ -224,28 +230,29 @@ func Sequence (TextMatch) {
     plus {
       append l call Postfix;
     }
-    assign e cons MatchSequence(Matches: l)
+    assign e cons MatchSequence(Matches: l);
   }
-  return (e)
+  return e;
 }
 
 func Choice (TextMatch) {
   var e TextMatch = call Sequence;
   question {
-    define l conl []TextMatch(e)
+    define l conl []TextMatch(e);
     plus {
       /[|]/;
       call S;
       append l call Sequence;
     }
-    assign e cons MatchChoice(Matches: l)
+    assign e cons MatchChoice(Matches: l);
   }
-  return (e)
+  return e;
 }
 
 
 test Choice One "[pq]"
   RuneMatch {
+    Invert: false
     Filters: []RuneFilter {
       RuneFilter {
         Min: 'p'
@@ -254,6 +261,17 @@ test Choice One "[pq]"
       RuneFilter {
         Min: 'q'
         Max: 'q'
+      }
+    }
+  }
+
+test Choice Invert "[^.]"
+  RuneMatch {
+    Invert: true
+    Filters: []RuneFilter {
+      RuneFilter {
+        Min: '.'
+        Max: '.'
       }
     }
   }
