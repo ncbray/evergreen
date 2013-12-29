@@ -67,104 +67,84 @@ type RuneTok struct {
 func (node *RuneTok) isToken() {
 }
 func S(frame *dub.DubState) {
-	var r0 rune
-	var r1 int
+	var r0 int
+	var r1 rune
 	var r2 rune
-	var r3 rune
+	var r3 bool
 	var r4 rune
 	var r5 bool
 	var r6 rune
-	var r7 rune
-	var r8 bool
-	var r9 rune
-	var r10 rune
-	var r11 bool
-	var r12 rune
-	var r13 rune
-	var r14 bool
+	var r7 bool
+	var r8 rune
+	var r9 bool
 	goto block0
 block0:
 	goto block1
 block1:
-	r1 = frame.Checkpoint()
+	r0 = frame.Checkpoint()
 	goto block2
 block2:
-	r2 = frame.Read()
+	r1 = frame.Read()
 	if frame.Flow == 0 {
 		goto block3
 	} else {
-		goto block21
+		goto block16
 	}
 block3:
-	r0 = r2
+	r2 = ' '
 	goto block4
 block4:
-	r3 = r0
+	r3 = r1 == r2
 	goto block5
 block5:
-	r4 = ' '
-	goto block6
+	if r3 {
+		goto block1
+	} else {
+		goto block6
+	}
 block6:
-	r5 = r3 != r4
+	r4 = '\t'
 	goto block7
 block7:
-	if r5 {
-		goto block8
-	} else {
-		goto block1
-	}
+	r5 = r1 == r4
+	goto block8
 block8:
-	r6 = r0
-	goto block9
+	if r5 {
+		goto block1
+	} else {
+		goto block9
+	}
 block9:
-	r7 = '\t'
+	r6 = '\r'
 	goto block10
 block10:
-	r8 = r6 != r7
+	r7 = r1 == r6
 	goto block11
 block11:
-	if r8 {
-		goto block12
-	} else {
+	if r7 {
 		goto block1
+	} else {
+		goto block12
 	}
 block12:
-	r9 = r0
+	r8 = '\n'
 	goto block13
 block13:
-	r10 = '\r'
+	r9 = r1 == r8
 	goto block14
 block14:
-	r11 = r9 != r10
-	goto block15
-block15:
-	if r11 {
-		goto block16
-	} else {
+	if r9 {
 		goto block1
+	} else {
+		goto block15
 	}
+block15:
+	frame.Fail()
+	goto block16
 block16:
-	r12 = r0
+	frame.Recover(r0)
 	goto block17
 block17:
-	r13 = '\n'
-	goto block18
-block18:
-	r14 = r12 != r13
-	goto block19
-block19:
-	if r14 {
-		goto block20
-	} else {
-		goto block1
-	}
-block20:
-	frame.Fail()
-	goto block21
-block21:
-	frame.Recover(r1)
-	goto block22
-block22:
 	return
 }
 func Ident(frame *dub.DubState) (ret0 string) {

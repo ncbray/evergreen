@@ -42,18 +42,7 @@ struct RuneTok implements Token {
 }
 
 func S () {
-  star {
-    define c read;
-    if ne c ' ' {
-      if ne c '\t' {
-        if ne c '\r' {
-          if ne c '\n' {
-            fail;
-          }
-        }
-      }
-    }
-  }
+  /[ \t\r\n]*/;
 }
 
 func Ident (string) {

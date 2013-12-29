@@ -12,36 +12,15 @@ struct BinaryOp implements Expr {
 }
 
 func S () {
-  star {
-    define c read;
-    if ne c ' ' {
-      if ne c '\t' {
-        if ne c '\r' {
-          if ne c '\n' {
-            fail;
-          }
-        }
-      }
-    }
-  }
+  /[ \t\r\n]*/;
 }
 
-func Digits () {
-  plus {
-    define c read;
-    if lt c '0' {
-      fail;
-    }
-    if gt c '9' {
-      fail;
-    }
-  }
+func Digits (string) {
+  return /[0-9]+/;
 }
 
 func Integer (IntLiteral) {
-  define v slice {
-    call Digits;
-  };
+  define v call Digits;
   call S;
   return cons IntLiteral(Text: v);
 }
@@ -55,10 +34,7 @@ func Add (Expr) {
   var e Expr;
   assign e call Integer;
   star {
-    define c read;
-    if ne c '+' {
-      fail;
-    }
+    /[+]/;
     call S;
     define r call Integer;
     assign e cons BinaryOp(Left: e, Op: "+", Right: r);
