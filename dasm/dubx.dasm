@@ -183,7 +183,7 @@ func ParseRuneFilter (RuneFilter) {
     /[\-]/;
     assign max call ParseRuneFilterRune;
   }
-  return (cons RuneFilter(Min: min Max: max));
+  return cons RuneFilter(Min: min, Max: max);
 }
 
 func MatchRune (RuneMatch) {
@@ -194,17 +194,17 @@ func MatchRune (RuneMatch) {
   }
   /[\]]/;
   call S;
-  return (cons RuneMatch(Filters: filters))
+  return cons RuneMatch(Filters: filters)
 }
 
 func Atom (TextMatch) {
   question {
-    return (call MatchRune);
+    return call MatchRune;
   }
   /[(]/;
   define e call Choice;
   /[)]/;
-  return (e);
+  return e;
 }
 
 func Postfix (TextMatch) {
@@ -213,15 +213,15 @@ func Postfix (TextMatch) {
     define c read;
     if eq c '*' {
       call S;
-      return (cons MatchRepeat(Match: e Min: 0));
+      return cons MatchRepeat(Match: e, Min: 0);
     }
     if eq c '+' {
       call S;
-      return (cons MatchRepeat(Match: e Min: 1));
+      return cons MatchRepeat(Match: e, Min: 1);
     }
     if eq c '?' {
       call S;
-      return (cons MatchChoice(Matches: conl []TextMatch(e cons MatchSequence(Matches: conl []TextMatch()))));
+      return cons MatchChoice(Matches: conl []TextMatch(e, cons MatchSequence(Matches: conl []TextMatch())));
     }
     fail;
   }

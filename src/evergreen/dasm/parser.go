@@ -49,6 +49,13 @@ func parseExprList(state *dub.DubState) []ASTExpr {
 			break
 		}
 		exprs = append(exprs, e)
+
+		checkpoint = state.Checkpoint()
+		getPunc(state, ",")
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
+		}
 	}
 	getPunc(state, ")")
 	if state.Flow != 0 {
@@ -81,6 +88,13 @@ func parseKeyValueList(state *dub.DubState) []*KeyValue {
 			break
 		}
 		args = append(args, &KeyValue{Key: key, Value: value})
+
+		checkpoint = state.Checkpoint()
+		getPunc(state, ",")
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
+		}
 	}
 	getPunc(state, ")")
 	if state.Flow != 0 {
@@ -103,6 +117,13 @@ func parseTypeList(state *dub.DubState) []ASTTypeRef {
 			break
 		}
 		types = append(types, t)
+
+		checkpoint = state.Checkpoint()
+		getPunc(state, ",")
+		if state.Flow != 0 {
+			state.Recover(checkpoint)
+			break
+		}
 	}
 	getPunc(state, ")")
 	if state.Flow != 0 {
@@ -608,16 +629,23 @@ func PrintError(filename string, deepest int, stream []rune, lines []int) {
 	var start int
 	var end int
 	for i, s := range lines {
+		start = end
 		end = s
-		if deepest < s {
+		line = i + 1
+		if deepest < end {
 			break
 		}
-		start = s
-		line = i
-		col = deepest - start
 	}
+	col = deepest - start
 	text := string(stream[start:end])
 	fmt.Printf("%s: Unexpected @ %d:%d\n%s", filename, line, col, text)
+	// TODO tabs?
+	arrow := []rune{}
+	for i := 0; i < col; i++ {
+		arrow = append(arrow, ' ')
+	}
+	arrow = append(arrow, '^')
+	fmt.Println(string(arrow))
 }
 
 func ParseDASM(filename string) *File {
