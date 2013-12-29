@@ -180,27 +180,19 @@ func ParseRuneFilter (RuneFilter) {
   define min call ParseRuneFilterRune;
   define max min;
   question {
-    define c read;
-    if ne c '-' {
-      fail;
-    }
+    /[\-]/;
     assign max call ParseRuneFilterRune;
   }
   return (cons RuneFilter(Min: min Max: max));
 }
 
 func MatchRune (RuneMatch) {
-  define c read;
-  if ne c '[' {
-    fail;
-  }
+  /[\[]/;
   define filters conl []RuneFilter()
   star {
     append filters call ParseRuneFilter;
   }
-  if ne read ']' {
-    fail;
-  }
+  /[\]]/;
   call S;
   return (cons RuneMatch(Filters: filters))
 }

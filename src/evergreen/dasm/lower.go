@@ -489,24 +489,27 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		return dst
 
 	case *Match:
-		start := builder.CreateLLRegister(builder.glbl.Int)
-		// HACK assume checkpoint is just the index
-		{
-			head := dub.CreateBlock([]dub.DubOp{
-				&dub.Checkpoint{Dst: start},
-			})
-			r.Connect(dub.NORMAL, head)
-			head.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+		dst := dub.NoRegister
+		start := dub.NoRegister
+
+		// Checkpoint
+		if used {
+			start = builder.CreateLLRegister(builder.glbl.Int)
+			// HACK assume checkpoint is just the index
+			{
+				head := dub.CreateBlock([]dub.DubOp{
+					&dub.Checkpoint{Dst: start},
+				})
+				r.Connect(dub.NORMAL, head)
+				head.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
+			}
 		}
 
 		lowerMatch(expr.Expr, r, builder)
 
 		// Create a slice
-		dst := dub.NoRegister
 		if used {
 			dst = builder.CreateLLRegister(builder.glbl.String)
-		}
-		{
 			body := dub.CreateBlock([]dub.DubOp{
 				&dub.Slice{Src: start, Dst: dst},
 			})
