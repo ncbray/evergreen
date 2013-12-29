@@ -58,6 +58,14 @@ type Repeat struct {
 func (node *Repeat) isASTExpr() {
 }
 
+type Choice struct {
+	// TODO wrap blocks
+	Blocks [][]ASTExpr
+}
+
+func (node *Choice) isASTExpr() {
+}
+
 type Optional struct {
 	Block []ASTExpr
 }

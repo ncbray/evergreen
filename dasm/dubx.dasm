@@ -193,60 +193,61 @@ func MatchRune (RuneMatch) {
 }
 
 func Atom (TextMatch) {
-  question {
+  choose {
     return call MatchRune;
+  } or {
+    /[(]/;
+    define e call Choice;
+    /[)]/;
+    return e;
   }
-  /[(]/;
-  define e call Choice;
-  /[)]/;
-  return e;
 }
 
 func Postfix (TextMatch) {
   define e call Atom;
-  question {
-    define c read;
-    if eq c '*' {
-      call S;
-      return cons MatchRepeat(Match: e, Min: 0);
-    }
-    if eq c '+' {
-      call S;
-      return cons MatchRepeat(Match: e, Min: 1);
-    }
-    if eq c '?' {
-      call S;
-      return cons MatchChoice(Matches: conl []TextMatch(e, cons MatchSequence(Matches: conl []TextMatch())));
-    }
-    fail;
+  choose {
+    /[*]/;
+    call S;
+    return cons MatchRepeat(Match: e, Min: 0);
+  } or {
+    /[+]/;
+    call S;
+    return cons MatchRepeat(Match: e, Min: 1);
+  } or {
+    /[?]/;
+    call S;
+    return cons MatchChoice(Matches: conl []TextMatch(e, cons MatchSequence(Matches: conl []TextMatch())));
+  } or {
+    return e;
   }
-  return e;
 }
 
 func Sequence (TextMatch) {
-  var e TextMatch = call Postfix;
-  question {
+  define e call Postfix;
+  choose {
     define l conl []TextMatch(e)
     plus {
       append l call Postfix;
     }
-    assign e cons MatchSequence(Matches: l);
+    return cons MatchSequence(Matches: l);
+  } or {
+    return e;
   }
-  return e;
 }
 
 func Choice (TextMatch) {
-  var e TextMatch = call Sequence;
-  question {
+  define e call Sequence;
+  choose {
     define l conl []TextMatch(e);
     plus {
       /[|]/;
       call S;
       append l call Sequence;
     }
-    assign e cons MatchChoice(Matches: l);
+    return cons MatchChoice(Matches: l);
+  } or {
+    return e;
   }
-  return e;
 }
 
 

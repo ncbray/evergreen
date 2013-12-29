@@ -175,6 +175,25 @@ func parseExpr(state *dub.DubState) ASTExpr {
 			if state.Flow == 0 {
 				return &Repeat{Block: block, Min: 1}
 			}
+		case "choose":
+			blocks := [][]ASTExpr{parseCodeBlock(state)}
+			if state.Flow == 0 {
+				for {
+					checkpoint := state.Checkpoint()
+					getKeyword(state, "or")
+					if state.Flow != 0 {
+						state.Recover(checkpoint)
+						break
+					}
+					block := parseCodeBlock(state)
+					if state.Flow != 0 {
+						state.Recover(checkpoint)
+						break
+					}
+					blocks = append(blocks, block)
+				}
+				return &Choice{Blocks: blocks}
+			}
 		case "question":
 			block := parseCodeBlock(state)
 			if state.Flow == 0 {

@@ -177,7 +177,6 @@ func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 		}
 
 		r.Splice(dub.NORMAL, child)
-
 	default:
 		panic(match)
 	}
@@ -241,6 +240,35 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 
 		r.Splice(dub.NORMAL, block)
 
+		return dub.NoRegister
+	case *Choice:
+		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
+		head := dub.CreateBlock([]dub.DubOp{
+			&dub.Checkpoint{Dst: checkpoint},
+		})
+		r.Connect(dub.NORMAL, head)
+
+		for i, block := range expr.Blocks {
+			block := lowerBlock(block, builder)
+
+			// Connect the head to the entry of this block
+			entryNode := block.Head()
+			entryEdge := block.Entry.GetExit(0)
+			entryNode.ReplaceEntry(entryEdge, []*base.Edge{head.GetExit(0)})
+
+			// Recover if not the last block.
+			if i < len(expr.Blocks)-1 {
+				head = dub.CreateBlock([]dub.DubOp{
+					&dub.Recover{Src: checkpoint},
+				})
+				block.Connect(dub.FAIL, head)
+			} else {
+				head = nil
+			}
+
+			// Absorb the exits that have not been directed to head.
+			r.AbsorbExits(block)
+		}
 		return dub.NoRegister
 
 	case *Optional:

@@ -124,6 +124,10 @@ func (r *Region) Splice(flow int, other *Region) {
 	otherEntry := other.Entry.GetExit(0)
 	otherHead := otherEntry.dst
 	otherHead.ReplaceEntry(otherEntry, r.Exits[flow].popEntries())
+	r.AbsorbExits(other)
+}
+
+func (r *Region) AbsorbExits(other *Region) {
 	for i, exit := range r.Exits {
 		other.Exits[i].TransferEntries(exit)
 	}

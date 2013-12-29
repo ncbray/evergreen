@@ -29,6 +29,11 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *Repeat:
 		semanticBlockPass(decl, expr.Block, scope, glbls)
 		return glbls.Void
+	case *Choice:
+		for _, block := range expr.Blocks {
+			semanticBlockPass(decl, block, scope, glbls)
+		}
+		return glbls.Void
 	case *Optional:
 		semanticBlockPass(decl, expr.Block, scope, glbls)
 		return glbls.Void

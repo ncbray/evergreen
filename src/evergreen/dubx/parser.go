@@ -1614,102 +1614,104 @@ block20:
 }
 func Postfix(frame *dub.DubState) (ret0 TextMatch) {
 	var r0 TextMatch
-	var r1 rune
-	var r2 TextMatch
-	var r3 int
+	var r1 TextMatch
+	var r2 int
+	var r3 rune
 	var r4 rune
-	var r5 rune
-	var r6 rune
-	var r7 bool
-	var r8 TextMatch
-	var r9 int
-	var r10 *MatchRepeat
-	var r11 rune
-	var r12 rune
-	var r13 bool
-	var r14 TextMatch
-	var r15 int
-	var r16 *MatchRepeat
-	var r17 rune
-	var r18 rune
-	var r19 bool
-	var r20 TextMatch
+	var r5 bool
+	var r6 TextMatch
+	var r7 int
+	var r8 *MatchRepeat
+	var r9 rune
+	var r10 rune
+	var r11 bool
+	var r12 TextMatch
+	var r13 int
+	var r14 *MatchRepeat
+	var r15 rune
+	var r16 rune
+	var r17 bool
+	var r18 TextMatch
+	var r19 []TextMatch
+	var r20 *MatchSequence
 	var r21 []TextMatch
-	var r22 *MatchSequence
-	var r23 []TextMatch
-	var r24 *MatchChoice
-	var r25 TextMatch
+	var r22 *MatchChoice
+	var r23 TextMatch
 	goto block0
 block0:
 	goto block1
 block1:
-	r2 = Atom(frame)
+	r1 = Atom(frame)
 	if frame.Flow == 0 {
 		goto block2
 	} else {
-		goto block40
+		goto block42
 	}
 block2:
-	r0 = r2
+	r0 = r1
 	goto block3
 block3:
-	r3 = frame.Checkpoint()
+	r2 = frame.Checkpoint()
 	goto block4
 block4:
-	r4 = frame.Read()
+	r3 = frame.Read()
 	if frame.Flow == 0 {
 		goto block5
 	} else {
-		goto block36
+		goto block14
 	}
 block5:
-	r1 = r4
+	r4 = '*'
 	goto block6
 block6:
-	r5 = r1
+	r5 = r3 == r4
 	goto block7
 block7:
-	r6 = '*'
-	goto block8
-block8:
-	r7 = r5 == r6
-	goto block9
-block9:
-	if r7 {
-		goto block10
+	if r5 {
+		goto block8
 	} else {
-		goto block15
+		goto block13
 	}
-block10:
+block8:
 	S(frame)
 	if frame.Flow == 0 {
-		goto block11
+		goto block9
 	} else {
-		goto block36
+		goto block14
 	}
+block9:
+	r6 = r0
+	goto block10
+block10:
+	r7 = 0
+	goto block11
 block11:
-	r8 = r0
+	r8 = &MatchRepeat{Match: r6, Min: r7}
 	goto block12
 block12:
-	r9 = 0
-	goto block13
+	ret0 = r8
+	goto block41
 block13:
-	r10 = &MatchRepeat{Match: r8, Min: r9}
+	frame.Fail()
 	goto block14
 block14:
-	ret0 = r10
-	goto block39
+	frame.Recover(r2)
+	goto block15
 block15:
-	r11 = r1
-	goto block16
+	r9 = frame.Read()
+	if frame.Flow == 0 {
+		goto block16
+	} else {
+		goto block25
+	}
 block16:
-	r12 = '+'
+	r10 = '+'
 	goto block17
 block17:
-	r13 = r11 == r12
+	r11 = r9 == r10
 	goto block18
 block18:
-	if r13 {
+	if r11 {
 		goto block19
 	} else {
 		goto block24
@@ -1719,75 +1721,85 @@ block19:
 	if frame.Flow == 0 {
 		goto block20
 	} else {
-		goto block36
+		goto block25
 	}
 block20:
-	r14 = r0
+	r12 = r0
 	goto block21
 block21:
-	r15 = 1
+	r13 = 1
 	goto block22
 block22:
-	r16 = &MatchRepeat{Match: r14, Min: r15}
+	r14 = &MatchRepeat{Match: r12, Min: r13}
 	goto block23
 block23:
-	ret0 = r16
-	goto block39
+	ret0 = r14
+	goto block41
 block24:
-	r17 = r1
+	frame.Fail()
 	goto block25
 block25:
-	r18 = '?'
+	frame.Recover(r2)
 	goto block26
 block26:
-	r19 = r17 == r18
-	goto block27
-block27:
-	if r19 {
-		goto block28
+	r15 = frame.Read()
+	if frame.Flow == 0 {
+		goto block27
 	} else {
-		goto block35
+		goto block38
 	}
+block27:
+	r16 = '?'
+	goto block28
 block28:
+	r17 = r15 == r16
+	goto block29
+block29:
+	if r17 {
+		goto block30
+	} else {
+		goto block37
+	}
+block30:
 	S(frame)
 	if frame.Flow == 0 {
-		goto block29
+		goto block31
 	} else {
-		goto block36
+		goto block38
 	}
-block29:
-	r20 = r0
-	goto block30
-block30:
-	r21 = []TextMatch{}
-	goto block31
 block31:
-	r22 = &MatchSequence{Matches: r21}
+	r18 = r0
 	goto block32
 block32:
-	r23 = []TextMatch{r20, r22}
+	r19 = []TextMatch{}
 	goto block33
 block33:
-	r24 = &MatchChoice{Matches: r23}
+	r20 = &MatchSequence{Matches: r19}
 	goto block34
 block34:
-	ret0 = r24
-	goto block39
+	r21 = []TextMatch{r18, r20}
+	goto block35
 block35:
-	frame.Fail()
+	r22 = &MatchChoice{Matches: r21}
 	goto block36
 block36:
-	frame.Recover(r3)
-	goto block37
+	ret0 = r22
+	goto block41
 block37:
-	r25 = r0
+	frame.Fail()
 	goto block38
 block38:
-	ret0 = r25
+	frame.Recover(r2)
 	goto block39
 block39:
-	return
+	r23 = r0
+	goto block40
 block40:
+	ret0 = r23
+	goto block41
+block41:
+	return
+block42:
 	return
 }
 func Sequence(frame *dub.DubState) (ret0 TextMatch) {
@@ -1877,8 +1889,8 @@ block18:
 	r14 = &MatchSequence{Matches: r13}
 	goto block19
 block19:
-	r0 = r14
-	goto block21
+	ret0 = r14
+	goto block23
 block20:
 	frame.Recover(r3)
 	goto block21
@@ -2041,8 +2053,8 @@ block29:
 	r20 = &MatchChoice{Matches: r19}
 	goto block30
 block30:
-	r0 = r20
-	goto block33
+	ret0 = r20
+	goto block35
 block31:
 	frame.Fail()
 	goto block32
