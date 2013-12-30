@@ -104,8 +104,6 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		return glbls.String
 	case *RuneMatch:
 		return glbls.Rune
-	case *Read:
-		return glbls.Rune
 	case *RuneLiteral:
 		return glbls.Rune
 	case *StringLiteral:

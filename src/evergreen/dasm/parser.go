@@ -268,8 +268,6 @@ func parseExpr(state *dub.DubState) ASTExpr {
 					return &Assign{Expr: expr, Name: name, Define: false}
 				}
 			}
-		case "read":
-			return &Read{}
 		case "fail":
 			return &Fail{}
 		case "call":

@@ -412,18 +412,6 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *Read:
-		dst := dub.NoRegister
-		if used {
-			dst = builder.CreateLLRegister(builder.glbl.Rune)
-		}
-		body := dub.CreateBlock([]dub.DubOp{
-			&dub.Read{Dst: dst},
-		})
-		r.Connect(dub.NORMAL, body)
-		r.AttachDefaultExits(body)
-		return dst
-
 	case *Return:
 		exprs := make([]dub.DubRegister, len(expr.Exprs))
 		for i, e := range expr.Exprs {

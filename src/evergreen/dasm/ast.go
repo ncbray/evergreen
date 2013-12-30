@@ -174,12 +174,6 @@ type Assign struct {
 func (node *Assign) isASTExpr() {
 }
 
-type Read struct {
-}
-
-func (node *Read) isASTExpr() {
-}
-
 type Append struct {
 	List  ASTExpr
 	Value ASTExpr
