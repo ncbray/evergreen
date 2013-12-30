@@ -52,6 +52,10 @@ func (builder *DubBuilder) ZeroRegister(dst dub.DubRegister) dub.DubOp {
 	switch info.T.(type) {
 	case *dub.LLStruct:
 		return &dub.ConstantNilOp{Dst: dst}
+	case *dub.StringType:
+		return &dub.ConstantStringOp{Value: "", Dst: dst}
+	case *dub.IntType:
+		return &dub.ConstantIntOp{Value: 0, Dst: dst}
 	case *dub.RuneType:
 		return &dub.ConstantRuneOp{Value: 0, Dst: dst}
 	default:

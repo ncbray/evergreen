@@ -52,19 +52,19 @@ func Ident (string) {
   return text;
 }
 
-func BinaryOperator (string) {
-  define op /[+\-*/]|([<>][=]?)|([!=][=])/;
-  call S;
-  return op;
-}
-
-func Int (IntTok) {
-  define text slice {
-    define value 0;
+func DecodeInt (int) {
+    var value int;
     plus {
       define digit - coerce int $[0-9] coerce int '0';
       assign value + * value 10 digit;
     }
+    return value;
+}
+
+func Int (IntTok) {
+  define value 0;
+  define text slice {
+    assign value call DecodeInt;
   }
   call S;
   return cons IntTok(Text: text, Value: value);
@@ -104,38 +104,56 @@ func EscapedChar (rune) {
   }
 }
 
-func StrT (StrTok) {
-  define text slice {
-    /["]/;
-    define contents conl []rune()
-    star {
-      choose {
-        append contents $[^"\\];
-      } or {
-        /[\\]/;
-        append contents call EscapedChar;
-      }
+func DecodeString (string) {
+  /["]/;
+  define contents conl []rune()
+  star {
+    choose {
+      append contents $[^"\\];
+    } or {
+      /[\\]/;
+      append contents call EscapedChar;
     }
-    /["]/;
+  }
+  /["]/;
+  return coerce string contents;
+}
+
+func StrT (StrTok) {
+  var value string
+  define text slice {
+    assign value call DecodeString;
   }
   call S;
-  return cons StrTok(Text: text, Value: coerce string contents);
+  return cons StrTok(Text: text, Value: value);
+}
+
+func DecodeRune (rune) {
+  var value rune;
+  /[']/;
+  choose {
+    assign value $[^\\'];
+  } or {
+    /[\\]/;
+    assign value call EscapedChar;
+  }
+  /[']/;
+  return value;
 }
 
 func Rune (RuneTok) {
   var value rune;
   define text slice {
-    /[']/;
-    choose {
-      assign value $[^\\'];
-    } or {
-      /[\\]/;
-      assign value call EscapedChar;
-    }
-    /[']/;
+    assign value call DecodeRune;
   }
   call S;
   return cons RuneTok(Text: text, Value: value);
+}
+
+func BinaryOperator (string) {
+  define op /[+\-*/]|([<>][=]?)|([!=][=])/;
+  call S;
+  return op;
 }
 
 func StringMatchExpr (TextMatch) {
