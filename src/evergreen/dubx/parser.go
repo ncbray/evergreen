@@ -41,31 +41,39 @@ type MatchRepeat struct {
 func (node *MatchRepeat) isTextMatch() {
 }
 
-type Token interface {
-	isToken()
+type ASTExpr interface {
+	isASTExpr()
 }
-type IntTok struct {
-	Text  string
-	Value int
-}
-
-func (node *IntTok) isToken() {
-}
-
-type StrTok struct {
-	Text  string
-	Value string
-}
-
-func (node *StrTok) isToken() {
-}
-
-type RuneTok struct {
+type RuneLiteral struct {
 	Text  string
 	Value rune
 }
 
-func (node *RuneTok) isToken() {
+func (node *RuneLiteral) isASTExpr() {
+}
+
+type StringLiteral struct {
+	Text  string
+	Value string
+}
+
+func (node *StringLiteral) isASTExpr() {
+}
+
+type IntLiteral struct {
+	Text  string
+	Value int
+}
+
+func (node *IntLiteral) isASTExpr() {
+}
+
+type BoolLiteral struct {
+	Text  string
+	Value bool
+}
+
+func (node *BoolLiteral) isASTExpr() {
 }
 func S(frame *dub.DubState) {
 	var r0 int
@@ -583,68 +591,6 @@ block46:
 	frame.Fail()
 	goto block47
 block47:
-	return
-}
-func Int(frame *dub.DubState) (ret0 *IntTok) {
-	var r0 int
-	var r1 string
-	var r2 int
-	var r3 int
-	var r4 int
-	var r5 string
-	var r6 string
-	var r7 int
-	var r8 *IntTok
-	goto block0
-block0:
-	goto block1
-block1:
-	r2 = 0
-	goto block2
-block2:
-	r0 = r2
-	goto block3
-block3:
-	r3 = frame.Checkpoint()
-	goto block4
-block4:
-	r4 = DecodeInt(frame)
-	if frame.Flow == 0 {
-		goto block5
-	} else {
-		goto block14
-	}
-block5:
-	r0 = r4
-	goto block6
-block6:
-	r5 = frame.Slice(r3)
-	goto block7
-block7:
-	r1 = r5
-	goto block8
-block8:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block9
-	} else {
-		goto block14
-	}
-block9:
-	r6 = r1
-	goto block10
-block10:
-	r7 = r0
-	goto block11
-block11:
-	r8 = &IntTok{Text: r6, Value: r7}
-	goto block12
-block12:
-	ret0 = r8
-	goto block13
-block13:
-	return
-block14:
 	return
 }
 func EscapedChar(frame *dub.DubState) (ret0 rune) {
@@ -1235,64 +1181,6 @@ block44:
 block45:
 	return
 }
-func StrT(frame *dub.DubState) (ret0 *StrTok) {
-	var r0 string
-	var r1 string
-	var r2 int
-	var r3 string
-	var r4 string
-	var r5 string
-	var r6 string
-	var r7 *StrTok
-	goto block0
-block0:
-	goto block1
-block1:
-	r0 = ""
-	goto block2
-block2:
-	r2 = frame.Checkpoint()
-	goto block3
-block3:
-	r3 = DecodeString(frame)
-	if frame.Flow == 0 {
-		goto block4
-	} else {
-		goto block13
-	}
-block4:
-	r0 = r3
-	goto block5
-block5:
-	r4 = frame.Slice(r2)
-	goto block6
-block6:
-	r1 = r4
-	goto block7
-block7:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block8
-	} else {
-		goto block13
-	}
-block8:
-	r5 = r1
-	goto block9
-block9:
-	r6 = r0
-	goto block10
-block10:
-	r7 = &StrTok{Text: r5, Value: r6}
-	goto block11
-block11:
-	ret0 = r7
-	goto block12
-block12:
-	return
-block13:
-	return
-}
 func DecodeRune(frame *dub.DubState) (ret0 rune) {
 	var r0 rune
 	var r1 rune
@@ -1458,64 +1346,6 @@ block36:
 	frame.Fail()
 	goto block37
 block37:
-	return
-}
-func Rune(frame *dub.DubState) (ret0 *RuneTok) {
-	var r0 rune
-	var r1 string
-	var r2 int
-	var r3 rune
-	var r4 string
-	var r5 string
-	var r6 rune
-	var r7 *RuneTok
-	goto block0
-block0:
-	goto block1
-block1:
-	r0 = '\x00'
-	goto block2
-block2:
-	r2 = frame.Checkpoint()
-	goto block3
-block3:
-	r3 = DecodeRune(frame)
-	if frame.Flow == 0 {
-		goto block4
-	} else {
-		goto block13
-	}
-block4:
-	r0 = r3
-	goto block5
-block5:
-	r4 = frame.Slice(r2)
-	goto block6
-block6:
-	r1 = r4
-	goto block7
-block7:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block8
-	} else {
-		goto block13
-	}
-block8:
-	r5 = r1
-	goto block9
-block9:
-	r6 = r0
-	goto block10
-block10:
-	r7 = &RuneTok{Text: r5, Value: r6}
-	goto block11
-block11:
-	ret0 = r7
-	goto block12
-block12:
-	return
-block13:
 	return
 }
 func DecodeBool(frame *dub.DubState) (ret0 bool) {
@@ -1798,6 +1628,224 @@ block61:
 	frame.Fail()
 	goto block62
 block62:
+	return
+}
+func Literal(frame *dub.DubState) (ret0 ASTExpr) {
+	var r0 rune
+	var r1 string
+	var r2 string
+	var r3 string
+	var r4 int
+	var r5 string
+	var r6 bool
+	var r7 string
+	var r8 int
+	var r9 int
+	var r10 rune
+	var r11 string
+	var r12 string
+	var r13 rune
+	var r14 *RuneLiteral
+	var r15 int
+	var r16 string
+	var r17 string
+	var r18 string
+	var r19 string
+	var r20 *StringLiteral
+	var r21 int
+	var r22 int
+	var r23 string
+	var r24 string
+	var r25 int
+	var r26 *IntLiteral
+	var r27 int
+	var r28 bool
+	var r29 string
+	var r30 string
+	var r31 bool
+	var r32 *BoolLiteral
+	goto block0
+block0:
+	goto block1
+block1:
+	r8 = frame.Checkpoint()
+	goto block2
+block2:
+	r0 = '\x00'
+	goto block3
+block3:
+	r9 = frame.Checkpoint()
+	goto block4
+block4:
+	r10 = DecodeRune(frame)
+	if frame.Flow == 0 {
+		goto block5
+	} else {
+		goto block13
+	}
+block5:
+	r0 = r10
+	goto block6
+block6:
+	r11 = frame.Slice(r9)
+	goto block7
+block7:
+	r1 = r11
+	goto block8
+block8:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block9
+	} else {
+		goto block13
+	}
+block9:
+	r12 = r1
+	goto block10
+block10:
+	r13 = r0
+	goto block11
+block11:
+	r14 = &RuneLiteral{Text: r12, Value: r13}
+	goto block12
+block12:
+	ret0 = r14
+	goto block49
+block13:
+	frame.Recover(r8)
+	goto block14
+block14:
+	r2 = ""
+	goto block15
+block15:
+	r15 = frame.Checkpoint()
+	goto block16
+block16:
+	r16 = DecodeString(frame)
+	if frame.Flow == 0 {
+		goto block17
+	} else {
+		goto block25
+	}
+block17:
+	r2 = r16
+	goto block18
+block18:
+	r17 = frame.Slice(r15)
+	goto block19
+block19:
+	r3 = r17
+	goto block20
+block20:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block21
+	} else {
+		goto block25
+	}
+block21:
+	r18 = r3
+	goto block22
+block22:
+	r19 = r2
+	goto block23
+block23:
+	r20 = &StringLiteral{Text: r18, Value: r19}
+	goto block24
+block24:
+	ret0 = r20
+	goto block49
+block25:
+	frame.Recover(r8)
+	goto block26
+block26:
+	r4 = 0
+	goto block27
+block27:
+	r21 = frame.Checkpoint()
+	goto block28
+block28:
+	r22 = DecodeInt(frame)
+	if frame.Flow == 0 {
+		goto block29
+	} else {
+		goto block37
+	}
+block29:
+	r4 = r22
+	goto block30
+block30:
+	r23 = frame.Slice(r21)
+	goto block31
+block31:
+	r5 = r23
+	goto block32
+block32:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block33
+	} else {
+		goto block37
+	}
+block33:
+	r24 = r5
+	goto block34
+block34:
+	r25 = r4
+	goto block35
+block35:
+	r26 = &IntLiteral{Text: r24, Value: r25}
+	goto block36
+block36:
+	ret0 = r26
+	goto block49
+block37:
+	frame.Recover(r8)
+	goto block38
+block38:
+	r6 = false
+	goto block39
+block39:
+	r27 = frame.Checkpoint()
+	goto block40
+block40:
+	r28 = DecodeBool(frame)
+	if frame.Flow == 0 {
+		goto block41
+	} else {
+		goto block50
+	}
+block41:
+	r6 = r28
+	goto block42
+block42:
+	r29 = frame.Slice(r27)
+	goto block43
+block43:
+	r7 = r29
+	goto block44
+block44:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block45
+	} else {
+		goto block50
+	}
+block45:
+	r30 = r7
+	goto block46
+block46:
+	r31 = r6
+	goto block47
+block47:
+	r32 = &BoolLiteral{Text: r30, Value: r31}
+	goto block48
+block48:
+	ret0 = r32
+	goto block49
+block49:
+	return
+block50:
 	return
 }
 func BinaryOperator(frame *dub.DubState) (ret0 string) {

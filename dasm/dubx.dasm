@@ -24,22 +24,27 @@ struct MatchRepeat implements TextMatch {
   Min int
 }
 
-struct Token {
+struct ASTExpr {
 }
 
-struct IntTok implements Token {
+struct RuneLiteral implements ASTExpr {
   Text string
-  Value int
+  Value rune
 }
 
-struct StrTok implements Token {
+struct StringLiteral implements ASTExpr {
   Text string
   Value string
 }
 
-struct RuneTok implements Token {
+struct IntLiteral implements ASTExpr {
   Text string
-  Value rune
+  Value int
+}
+
+struct BoolLiteral implements ASTExpr {
+  Text string
+  Value bool
 }
 
 func S () {
@@ -59,15 +64,6 @@ func DecodeInt (int) {
       assign value + * value 10 digit;
     }
     return value;
-}
-
-func Int (IntTok) {
-  define value 0;
-  define text slice {
-    assign value call DecodeInt;
-  }
-  call S;
-  return cons IntTok(Text: text, Value: value);
 }
 
 func EscapedChar (rune) {
@@ -119,15 +115,6 @@ func DecodeString (string) {
   return coerce string contents;
 }
 
-func StrT (StrTok) {
-  var value string
-  define text slice {
-    assign value call DecodeString;
-  }
-  call S;
-  return cons StrTok(Text: text, Value: value);
-}
-
 func DecodeRune (rune) {
   var value rune;
   /[']/;
@@ -141,15 +128,6 @@ func DecodeRune (rune) {
   return value;
 }
 
-func Rune (RuneTok) {
-  var value rune;
-  define text slice {
-    assign value call DecodeRune;
-  }
-  call S;
-  return cons RuneTok(Text: text, Value: value);
-}
-
 func DecodeBool (bool) {
   choose {
     /[t][r][u][e]/;
@@ -157,6 +135,38 @@ func DecodeBool (bool) {
   } or {
     /[f][a][l][s][e]/;
     return false;
+  }
+}
+
+func Literal (ASTExpr) {
+  choose {
+    var value rune;
+    define text slice {
+      assign value call DecodeRune;
+    }
+    call S;
+    return cons RuneLiteral(Text: text, Value: value);
+  } or {
+    var value string;
+    define text slice {
+      assign value call DecodeString;
+    }
+    call S;
+    return cons StringLiteral(Text: text, Value: value);
+  } or {
+    var value int;
+    define text slice {
+      assign value call DecodeInt;
+    }
+    call S;
+    return cons IntLiteral(Text: text, Value: value);
+  } or {
+    var value bool;
+    define text slice {
+      assign value call DecodeBool;
+    }
+    call S;
+    return cons BoolLiteral(Text: text, Value: value);
   }
 }
 
@@ -189,26 +199,26 @@ test Ident Alpha "a_B_c "
 test Ident AlphaNum "a_1_7  "
   "a_1_7"
 
-test Int Num "1234567890  "
-  IntTok{
+test Literal Num "1234567890  "
+  IntLiteral{
     Text: "1234567890"
     Value: 1234567890
  }
 
-test StrT Str "\"hello, world\\n\"  "
-  StrTok{
+test Literal Str "\"hello, world\\n\"  "
+  StringLiteral{
     Text: "\"hello, world\\n\""
     Value: "hello, world\n"
   }
 
-test Rune Rune "'a'  "
-  RuneTok{
+test Literal Rune "'a'  "
+  RuneLiteral{
     Text: "'a'"
     Value: 'a'
   }
 
-test Rune Escaped "'\\n'  "
-  RuneTok{
+test Literal EscapedRune "'\\n'  "
+  RuneLiteral{
     Text: "'\\n'"
     Value: '\n'
   }
