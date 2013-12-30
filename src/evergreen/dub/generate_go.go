@@ -262,6 +262,16 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						},
 						op.Dst,
 					))
+				case *CoerceOp:
+					block = append(block, opAssign(
+						&ast.CallExpr{
+							Fun: goTypeName(op.T),
+							Args: []ast.Expr{
+								reg(op.Src),
+							},
+						},
+						op.Dst,
+					))
 				case *ConstantNilOp:
 					block = append(block, opAssign(
 						id("nil"),

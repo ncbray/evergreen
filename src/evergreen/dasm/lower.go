@@ -516,6 +516,24 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
+	case *Coerce:
+		t := builder.glbl.TranslateType(expr.Type.Resolve())
+		src := lowerExpr(expr.Expr, r, builder, true)
+		dst := dub.NoRegister
+		if used {
+			dst = builder.CreateLLRegister(t)
+		}
+		body := dub.CreateBlock([]dub.DubOp{
+			&dub.CoerceOp{
+				Src: src,
+				T:   t,
+				Dst: dst,
+			},
+		})
+		r.Connect(dub.NORMAL, body)
+		r.AttachDefaultExits(body)
+		return dst
+
 	case *Slice:
 		start := builder.CreateLLRegister(builder.glbl.Int)
 		// HACK assume checkpoint is just the index

@@ -119,6 +119,14 @@ type ConstructList struct {
 func (node *ConstructList) isASTExpr() {
 }
 
+type Coerce struct {
+	Type ASTTypeRef
+	Expr ASTExpr
+}
+
+func (node *Coerce) isASTExpr() {
+}
+
 type GetName struct {
 	Name string
 	Info int

@@ -95,18 +95,19 @@ func EscapedChar (rune) {
 func StrT (StrTok) {
   define text slice {
     /["]/;
+    define contents conl []rune()
     star {
       choose {
-        /[^"\\]/;
+        append contents $[^"\\];
       } or {
         /[\\]/;
-        call EscapedChar;
+        append contents call EscapedChar;
       }
     }
     /["]/;
   }
   call S;
-  return cons StrTok(Text: text);
+  return cons StrTok(Text: text, Value: coerce string contents);
 }
 
 func Rune (RuneTok) {
@@ -151,8 +152,11 @@ test Ident AlphaNum "a_1_7  "
 test Int Num "1234567890  "
   IntTok{Text: "1234567890"}
 
-test StrT Str "\"hello, world\"  "
-  StrTok{Text: "\"hello, world\""}
+test StrT Str "\"hello, world\\n\"  "
+  StrTok{
+    Text: "\"hello, world\\n\""
+    Value: "hello, world\n"
+  }
 
 test Rune Rune "'a'  "
   RuneTok{

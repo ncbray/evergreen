@@ -77,6 +77,10 @@ func TypeName(t DubType) string {
 		return t.Name
 	case *ListType:
 		return fmt.Sprintf("[]%s", TypeName(t.Type))
+	case *StringType:
+		return "string"
+	case *RuneType:
+		return "rune"
 	default:
 		panic(t)
 	}
@@ -111,6 +115,16 @@ func formatAssignment(op string, dst DubRegister) string {
 
 type DubOp interface {
 	OpToString() string
+}
+
+type CoerceOp struct {
+	Src DubRegister
+	T   DubType
+	Dst DubRegister
+}
+
+func (n *CoerceOp) OpToString() string {
+	return formatAssignment(fmt.Sprintf("%s(%s)", TypeName(n.T), RegisterName(n.Src)), n.Dst)
 }
 
 type CopyOp struct {

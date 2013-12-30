@@ -279,6 +279,15 @@ func parseExpr(state *dub.DubState) ASTExpr {
 					return &ConstructList{Type: t, Args: args}
 				}
 			}
+		case "coerce":
+			t := parseType(state)
+			if state.Flow == 0 {
+				expr := parseExpr(state)
+				if state.Flow == 0 {
+					return &Coerce{Type: t, Expr: expr}
+				}
+			}
+
 		case "append":
 			name := dubx.Ident(state)
 			if state.Flow == 0 {
@@ -334,16 +343,14 @@ func parseExpr(state *dub.DubState) ASTExpr {
 	{
 		tok := dubx.Rune(state)
 		if state.Flow == 0 {
-			v, _ := strconv.Unquote(tok.Text)
-			return &RuneLiteral{Value: []rune(v)[0]}
+			return &RuneLiteral{Value: tok.Value}
 		}
 	}
 	state.Recover(checkpoint)
 	{
 		tok := dubx.StrT(state)
 		if state.Flow == 0 {
-			v, _ := strconv.Unquote(tok.Text)
-			return &StringLiteral{Value: v}
+			return &StringLiteral{Value: tok.Value}
 		}
 	}
 	state.Recover(checkpoint)

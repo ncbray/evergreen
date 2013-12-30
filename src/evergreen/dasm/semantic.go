@@ -131,6 +131,10 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			semanticExprPass(decl, arg, scope, glbls)
 		}
 		return t
+	case *Coerce:
+		t := semanticTypePass(expr.Type, glbls)
+		semanticExprPass(decl, expr.Expr, scope, glbls)
+		return t
 	default:
 		panic(expr)
 	}
