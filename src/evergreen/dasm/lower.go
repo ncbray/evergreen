@@ -92,13 +92,17 @@ func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 		r.Connect(dub.NORMAL, body)
 		r.AttachDefaultExits(body)
 
-		if match.Invert {
-			panic("Not implemented.")
-		}
-
 		filters := dub.CreateRegion()
-		// Fail by default.
-		filters.GetExit(dub.NORMAL).TransferEntries(filters.GetExit(dub.FAIL))
+
+		onMatch := dub.NORMAL
+		onNoMatch := dub.FAIL
+
+		if match.Invert {
+			onMatch, onNoMatch = onNoMatch, onMatch
+		} else {
+			// Fail by default.
+			filters.GetExit(dub.NORMAL).TransferEntries(filters.GetExit(dub.FAIL))
+		}
 
 		for _, flt := range match.Filters {
 			if flt.Min > flt.Max {
@@ -109,26 +113,26 @@ func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 				maxEntry, maxDecide := makeRuneSwitch(cond, "<=", flt.Max, builder)
 
 				// Check only if we haven't found a match.
-				filters.Connect(dub.FAIL, minEntry)
+				filters.Connect(onNoMatch, minEntry)
 
 				// Match
 				minDecide.SetExit(0, maxEntry)
-				maxDecide.SetExit(0, filters.GetExit(dub.NORMAL))
+				maxDecide.SetExit(0, filters.GetExit(onMatch))
 
 				// No match
-				minDecide.SetExit(1, filters.GetExit(dub.FAIL))
-				maxDecide.SetExit(1, filters.GetExit(dub.FAIL))
+				minDecide.SetExit(1, filters.GetExit(onNoMatch))
+				maxDecide.SetExit(1, filters.GetExit(onNoMatch))
 			} else {
 				entry, decide := makeRuneSwitch(cond, "==", flt.Min, builder)
 
 				// Check only if we haven't found a match.
-				filters.Connect(dub.FAIL, entry)
+				filters.Connect(onNoMatch, entry)
 
 				// Match
-				decide.SetExit(0, filters.GetExit(dub.NORMAL))
+				decide.SetExit(0, filters.GetExit(onMatch))
 
 				// No match
-				decide.SetExit(1, filters.GetExit(dub.FAIL))
+				decide.SetExit(1, filters.GetExit(onNoMatch))
 			}
 		}
 

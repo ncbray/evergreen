@@ -114,8 +114,10 @@ func StrT (StrTok) {
 func Rune (RuneTok) {
   define text slice {
     /[']/;
-    define c read;
-    if eq c '\\' {
+    choose {
+      /[^\\']/;
+    } or {
+      /[\\]/;
       call EscapedChar;
     }
     /[']/;
