@@ -37,6 +37,19 @@ func (state *DubState) Read() (r rune) {
 	return
 }
 
+func (state *DubState) Peek() (r rune) {
+	if state.Index < len(state.Stream) {
+		return state.Stream[state.Index]
+	} else {
+		state.Fail()
+		return 0
+	}
+}
+
+func (state *DubState) Consume() {
+	state.Index += 1
+}
+
 func (state *DubState) Slice(start int) string {
 	return string(state.Stream[start:state.Index])
 }

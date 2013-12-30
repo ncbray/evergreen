@@ -279,12 +279,19 @@ func (n *Fail) OpToString() string {
 	return fmt.Sprintf("<fail>")
 }
 
-type Read struct {
+type Peek struct {
 	Dst DubRegister
 }
 
-func (n *Read) OpToString() string {
-	return formatAssignment("<read>", n.Dst)
+func (n *Peek) OpToString() string {
+	return formatAssignment("<peek>", n.Dst)
+}
+
+type Consume struct {
+}
+
+func (n *Consume) OpToString() string {
+	return "<consume>"
 }
 
 // Flow blocks

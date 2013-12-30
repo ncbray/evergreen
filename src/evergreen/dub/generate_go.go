@@ -306,11 +306,15 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 						},
 						op.Dst,
 					))
-				case *Read:
+				case *Peek:
 					block = append(block, opAssign(
-						emitOp("Read").X,
+						emitOp("Peek").X,
 						op.Dst,
 					))
+				case *Consume:
+					block = append(block,
+						emitOp("Consume"),
+					)
 				case *AppendOp:
 					block = append(block, opAssign(
 						&ast.CallExpr{

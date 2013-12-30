@@ -91,7 +91,7 @@ func lowerRuneMatch(match *dubx.RuneMatch, r *base.Region, builder *DubBuilder) 
 	// Read
 	cond := builder.CreateLLRegister(builder.glbl.Rune)
 	body := dub.CreateBlock([]dub.DubOp{
-		&dub.Read{Dst: cond},
+		&dub.Peek{Dst: cond},
 	})
 	r.Connect(dub.NORMAL, body)
 	r.AttachDefaultExits(body)
@@ -140,13 +140,22 @@ func lowerRuneMatch(match *dubx.RuneMatch, r *base.Region, builder *DubBuilder) 
 		}
 	}
 
-	// Make the fail official.
-	body = dub.CreateBlock([]dub.DubOp{
-		&dub.Fail{},
-	})
-	filters.Connect(dub.FAIL, body)
-	body.SetExit(dub.FAIL, filters.GetExit(dub.FAIL))
-
+	{
+		// The rune matched, consume it.
+		body = dub.CreateBlock([]dub.DubOp{
+			&dub.Consume{},
+		})
+		filters.Connect(dub.NORMAL, body)
+		body.SetExit(dub.NORMAL, filters.GetExit(dub.NORMAL))
+	}
+	{
+		// Make the fail official.
+		body = dub.CreateBlock([]dub.DubOp{
+			&dub.Fail{},
+		})
+		filters.Connect(dub.FAIL, body)
+		body.SetExit(dub.FAIL, filters.GetExit(dub.FAIL))
+	}
 	r.Splice(0, filters)
 
 	return cond
@@ -552,7 +561,8 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 			},
 		})
 		r.Connect(dub.NORMAL, body)
-		r.AttachDefaultExits(body)
+		// TODO can coersion fail?
+		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
 	case *Slice:

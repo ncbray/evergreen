@@ -19,10 +19,18 @@ func getPunc(state *dub.DubState, value string) {
 }
 
 func getKeyword(state *dub.DubState, expected string) {
-	text := dubx.Ident(state)
-	if state.Flow != 0 || text != expected {
-		state.Fail()
+	for _, expected := range []rune(expected) {
+		actual := state.Peek()
+		if state.Flow != 0 {
+			return
+		}
+		if actual != expected {
+			state.Fail()
+			return
+		}
+		state.Consume()
 	}
+	dubx.S(state)
 }
 
 func parseExprList(state *dub.DubState) []ASTExpr {
