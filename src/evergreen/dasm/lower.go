@@ -503,7 +503,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 				Value: lowerExpr(arg.Value, r, builder, true),
 			}
 		}
-		t := builder.glbl.TranslateType(expr.Type.Resolve())
+		t := builder.glbl.TranslateType(ResolveType(expr.Type))
 		s, ok := t.(*dub.LLStruct)
 		if !ok {
 			panic(t)
@@ -528,7 +528,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		for i, arg := range expr.Args {
 			args[i] = lowerExpr(arg, r, builder, true)
 		}
-		t := builder.glbl.TranslateType(expr.Type.Resolve())
+		t := builder.glbl.TranslateType(ResolveType(expr.Type))
 		l, ok := t.(*dub.ListType)
 		if !ok {
 			panic(t)
@@ -549,7 +549,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		return dst
 
 	case *Coerce:
-		t := builder.glbl.TranslateType(expr.Type.Resolve())
+		t := builder.glbl.TranslateType(ResolveType(expr.Type))
 		src := lowerExpr(expr.Expr, r, builder, true)
 		dst := dub.NoRegister
 		if used {
@@ -648,7 +648,7 @@ func LowerAST(decl *FuncDecl, glbl *GlobalDubBuilder) *dub.LLFunc {
 	f := &dub.LLFunc{Name: decl.Name}
 	types := make([]dub.DubType, len(decl.ReturnTypes))
 	for i, node := range decl.ReturnTypes {
-		types[i] = builder.glbl.TranslateType(node.Resolve())
+		types[i] = builder.glbl.TranslateType(ResolveType(node))
 	}
 	f.ReturnTypes = types
 	// Allocate register for locals
@@ -666,7 +666,7 @@ func LowerStruct(decl *StructDecl, s *dub.LLStruct, gbuilder *GlobalDubBuilder) 
 	fields := []*dub.LLField{}
 	var implements *dub.LLStruct
 	if decl.Implements != nil {
-		t := gbuilder.TranslateType(decl.Implements.Resolve())
+		t := gbuilder.TranslateType(ResolveType(decl.Implements))
 		var ok bool
 		implements, ok = t.(*dub.LLStruct)
 		if !ok {
@@ -676,7 +676,7 @@ func LowerStruct(decl *StructDecl, s *dub.LLStruct, gbuilder *GlobalDubBuilder) 
 	for _, field := range decl.Fields {
 		fields = append(fields, &dub.LLField{
 			Name: field.Name,
-			T:    gbuilder.TranslateType(field.Type.Resolve()),
+			T:    gbuilder.TranslateType(ResolveType(field.Type)),
 		})
 	}
 	*s = dub.LLStruct{

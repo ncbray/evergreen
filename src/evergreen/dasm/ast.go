@@ -14,32 +14,18 @@ type ASTType interface {
 }
 
 type ASTTypeRef interface {
-	Resolve() ASTType
 	IsASTTypeRef()
 }
 
-type TypeRef struct {
-	Name string
-	T    ASTType
-}
-
-func (node *TypeRef) Resolve() ASTType {
-	return node.T
-}
-
-func (node *TypeRef) IsASTTypeRef() {
-}
-
-type ListTypeRef struct {
-	Type ASTTypeRef
-	T    ASTType
-}
-
-func (node *ListTypeRef) Resolve() ASTType {
-	return node.T
-}
-
-func (node *ListTypeRef) IsASTTypeRef() {
+func ResolveType(ref ASTTypeRef) ASTType {
+	switch ref := ref.(type) {
+	case *dubx.TypeRef:
+		return ref.T
+	case *dubx.ListTypeRef:
+		return ref.T
+	default:
+		panic(ref)
+	}
 }
 
 type If struct {
@@ -220,7 +206,7 @@ func (node *FuncDecl) ReturnType() ASTType {
 	if len(node.ReturnTypes) != 1 {
 		panic(node.Name)
 	}
-	return node.ReturnTypes[0].Resolve()
+	return ResolveType(node.ReturnTypes[0])
 }
 
 func (node *FuncDecl) IsASTDecl() {
@@ -240,7 +226,7 @@ type StructDecl struct {
 func (node *StructDecl) FieldType(name string) ASTType {
 	for _, decl := range node.Fields {
 		if decl.Name == name {
-			return decl.Type.Resolve()
+			return ResolveType(decl.Type)
 		}
 	}
 	panic(name)
@@ -290,7 +276,7 @@ type Destructure interface {
 }
 
 type DestructureList struct {
-	Type *ListTypeRef
+	Type *dubx.ListTypeRef
 	Args []Destructure
 }
 
@@ -303,7 +289,7 @@ type DestructureField struct {
 }
 
 type DestructureStruct struct {
-	Type    *TypeRef
+	Type    *dubx.TypeRef
 	Actual  *StructDecl   // HACK
 	General *StructDecl   // HACK
 	AT      *dub.LLStruct // HACK

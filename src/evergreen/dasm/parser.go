@@ -109,7 +109,7 @@ func parseTypeList(state *dub.DubState) []ASTTypeRef {
 	types := []ASTTypeRef{}
 	for {
 		checkpoint := state.Checkpoint()
-		t := parseType(state)
+		t := dubx.ParseTypeRef(state)
 		if state.Flow != 0 {
 			state.Recover(checkpoint)
 			break
@@ -128,25 +128,6 @@ func parseTypeList(state *dub.DubState) []ASTTypeRef {
 		return nil
 	}
 	return types
-}
-
-func parseType(state *dub.DubState) ASTTypeRef {
-	checkpoint := state.Checkpoint()
-	text := dubx.Ident(state)
-	if state.Flow == 0 {
-		return &TypeRef{Name: text}
-	}
-	state.Recover(checkpoint)
-
-	getPunc(state, "[]")
-	if state.Flow != 0 {
-		return nil
-	}
-	t := parseType(state)
-	if state.Flow != 0 {
-		return nil
-	}
-	return &ListTypeRef{Type: t}
 }
 
 func parseExpr(state *dub.DubState) ASTExpr {
@@ -209,7 +190,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 		case "var":
 			name := dubx.Ident(state)
 			if state.Flow == 0 {
-				t := parseType(state)
+				t := dubx.ParseTypeRef(state)
 				if state.Flow == 0 {
 					checkpoint := state.Checkpoint()
 					getPunc(state, "=")
@@ -247,7 +228,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				return &Call{Name: name}
 			}
 		case "cons":
-			t := parseType(state)
+			t := dubx.ParseTypeRef(state)
 			if state.Flow == 0 {
 				args := parseKeyValueList(state)
 				if state.Flow == 0 {
@@ -255,7 +236,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				}
 			}
 		case "conl":
-			t := parseType(state)
+			t := dubx.ParseTypeRef(state)
 			if state.Flow == 0 {
 				args := parseExprList(state)
 				if state.Flow == 0 {
@@ -263,7 +244,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 				}
 			}
 		case "coerce":
-			t := parseType(state)
+			t := dubx.ParseTypeRef(state)
 			if state.Flow == 0 {
 				expr := parseExpr(state)
 				if state.Flow == 0 {
@@ -389,7 +370,7 @@ func parseImplements(state *dub.DubState) ASTTypeRef {
 		state.Recover(checkpoint)
 		return nil
 	}
-	return parseType(state)
+	return dubx.ParseTypeRef(state)
 }
 
 func parseStructure(state *dub.DubState) *StructDecl {
@@ -416,7 +397,7 @@ func parseStructure(state *dub.DubState) *StructDecl {
 			state.Recover(checkpoint)
 			break
 		}
-		t := parseType(state)
+		t := dubx.ParseTypeRef(state)
 		if state.Flow != 0 {
 			state.Recover(checkpoint)
 			break
@@ -446,7 +427,7 @@ func parseLiteralDestructure(state *dub.DubState) Destructure {
 
 func parseDestructure(state *dub.DubState) Destructure {
 	checkpoint := state.Checkpoint()
-	t := parseType(state)
+	t := dubx.ParseTypeRef(state)
 	if state.Flow == 0 {
 		getPunc(state, "{")
 	}
@@ -455,7 +436,7 @@ func parseDestructure(state *dub.DubState) Destructure {
 		return parseLiteralDestructure(state)
 	}
 	switch t := t.(type) {
-	case *ListTypeRef:
+	case *dubx.ListTypeRef:
 		args := []Destructure{}
 		for {
 			checkpoint := state.Checkpoint()
@@ -483,7 +464,7 @@ func parseDestructure(state *dub.DubState) Destructure {
 			Type: t,
 			Args: args,
 		}
-	case *TypeRef:
+	case *dubx.TypeRef:
 		args := []*DestructureField{}
 		for {
 			checkpoint := state.Checkpoint()

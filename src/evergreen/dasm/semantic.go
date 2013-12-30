@@ -1,8 +1,8 @@
 package dasm
 
 import (
-	"fmt"
 	"evergreen/dubx"
+	"fmt"
 )
 
 type semanticScope struct {
@@ -152,7 +152,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 
 func semanticTypePass(node ASTTypeRef, glbls *ModuleScope) ASTType {
 	switch node := node.(type) {
-	case *TypeRef:
+	case *dubx.TypeRef:
 		d, ok := glbls.Module[node.Name]
 		if !ok {
 			d, ok = glbls.Builtin[node.Name]
@@ -166,7 +166,7 @@ func semanticTypePass(node ASTTypeRef, glbls *ModuleScope) ASTType {
 		}
 		node.T = t
 		return t
-	case *ListTypeRef:
+	case *dubx.ListTypeRef:
 		t := semanticTypePass(node.Type, glbls)
 		// TODO memoize list types
 		node.T = &ListType{Type: t}
@@ -205,7 +205,7 @@ func semanticDestructurePass(decl *FuncDecl, d Destructure, general ASTType, sco
 	switch d := d.(type) {
 	case *DestructureStruct:
 		semanticTypePass(d.Type, glbls)
-		switch t := d.Type.Resolve().(type) {
+		switch t := ResolveType(d.Type).(type) {
 		case *StructDecl:
 			d.Actual = t
 		default:
@@ -222,7 +222,7 @@ func semanticDestructurePass(decl *FuncDecl, d Destructure, general ASTType, sco
 		}
 	case *DestructureList:
 		semanticTypePass(d.Type, glbls)
-		t := d.Type.Resolve()
+		t := ResolveType(d.Type)
 		dt, ok := t.(*ListType)
 		if !ok {
 			panic(t)

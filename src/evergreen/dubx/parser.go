@@ -8,12 +8,12 @@ type TextMatch interface {
 	IsTextMatch()
 }
 type RuneFilter struct {
-	Min	rune
-	Max	rune
+	Min rune
+	Max rune
 }
 type RuneMatch struct {
-	Invert	bool
-	Filters	[]*RuneFilter
+	Invert  bool
+	Filters []*RuneFilter
 }
 
 func (node *RuneMatch) IsTextMatch() {
@@ -34,8 +34,8 @@ func (node *MatchChoice) IsTextMatch() {
 }
 
 type MatchRepeat struct {
-	Match	TextMatch
-	Min	int
+	Match TextMatch
+	Min   int
 }
 
 func (node *MatchRepeat) IsTextMatch() {
@@ -45,35 +45,63 @@ type ASTExpr interface {
 	IsASTExpr()
 }
 type RuneLiteral struct {
-	Text	string
-	Value	rune
+	Text  string
+	Value rune
 }
 
 func (node *RuneLiteral) IsASTExpr() {
 }
 
 type StringLiteral struct {
-	Text	string
-	Value	string
+	Text  string
+	Value string
 }
 
 func (node *StringLiteral) IsASTExpr() {
 }
 
 type IntLiteral struct {
-	Text	string
-	Value	int
+	Text  string
+	Value int
 }
 
 func (node *IntLiteral) IsASTExpr() {
 }
 
 type BoolLiteral struct {
-	Text	string
-	Value	bool
+	Text  string
+	Value bool
 }
 
 func (node *BoolLiteral) IsASTExpr() {
+}
+
+type ASTType interface {
+	IsASTType()
+}
+type Fake struct {
+}
+
+func (node *Fake) IsASTType() {
+}
+
+type ASTTypeRef interface {
+	IsASTTypeRef()
+}
+type TypeRef struct {
+	Name string
+	T    ASTType
+}
+
+func (node *TypeRef) IsASTTypeRef() {
+}
+
+type ListTypeRef struct {
+	Type ASTTypeRef
+	T    ASTType
+}
+
+func (node *ListTypeRef) IsASTTypeRef() {
 }
 func S(frame *dub.DubState) {
 	var r0 int
@@ -2269,6 +2297,164 @@ block12:
 	frame.Fail()
 	goto block13
 block13:
+	return
+}
+func ParseStructTypeRef(frame *dub.DubState) (ret0 *TypeRef) {
+	var r0 string
+	var r1 string
+	var r2 string
+	var r3 *TypeRef
+	goto block0
+block0:
+	goto block1
+block1:
+	r1 = Ident(frame)
+	if frame.Flow == 0 {
+		goto block2
+	} else {
+		goto block7
+	}
+block2:
+	r0 = r1
+	goto block3
+block3:
+	r2 = r0
+	goto block4
+block4:
+	r3 = &TypeRef{Name: r2}
+	goto block5
+block5:
+	ret0 = r3
+	goto block6
+block6:
+	return
+block7:
+	return
+}
+func ParseListTypeRef(frame *dub.DubState) (ret0 *ListTypeRef) {
+	var r0 ASTTypeRef
+	var r1 rune
+	var r2 rune
+	var r3 bool
+	var r4 rune
+	var r5 rune
+	var r6 bool
+	var r7 ASTTypeRef
+	var r8 ASTTypeRef
+	var r9 *ListTypeRef
+	goto block0
+block0:
+	goto block1
+block1:
+	r1 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block2
+	} else {
+		goto block19
+	}
+block2:
+	r2 = '['
+	goto block3
+block3:
+	r3 = r1 == r2
+	goto block4
+block4:
+	if r3 {
+		goto block5
+	} else {
+		goto block18
+	}
+block5:
+	frame.Consume()
+	goto block6
+block6:
+	r4 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block7
+	} else {
+		goto block19
+	}
+block7:
+	r5 = ']'
+	goto block8
+block8:
+	r6 = r4 == r5
+	goto block9
+block9:
+	if r6 {
+		goto block10
+	} else {
+		goto block17
+	}
+block10:
+	frame.Consume()
+	goto block11
+block11:
+	r7 = ParseTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block12
+	} else {
+		goto block19
+	}
+block12:
+	r0 = r7
+	goto block13
+block13:
+	r8 = r0
+	goto block14
+block14:
+	r9 = &ListTypeRef{Type: r8}
+	goto block15
+block15:
+	ret0 = r9
+	goto block16
+block16:
+	return
+block17:
+	frame.Fail()
+	goto block19
+block18:
+	frame.Fail()
+	goto block19
+block19:
+	return
+}
+func ParseTypeRef(frame *dub.DubState) (ret0 ASTTypeRef) {
+	var r0 int
+	var r1 *TypeRef
+	var r2 *ListTypeRef
+	goto block0
+block0:
+	goto block1
+block1:
+	r0 = frame.Checkpoint()
+	goto block2
+block2:
+	r1 = ParseStructTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block3
+	} else {
+		goto block4
+	}
+block3:
+	ret0 = r1
+	goto block7
+block4:
+	frame.Recover(r0)
+	goto block5
+block5:
+	r2 = ParseListTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block6
+	} else {
+		goto block8
+	}
+block6:
+	ret0 = r2
+	goto block7
+block7:
+	return
+block8:
 	return
 }
 func ParseRuneFilterRune(frame *dub.DubState) (ret0 rune) {

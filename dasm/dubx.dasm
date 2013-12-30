@@ -223,6 +223,53 @@ test Literal EscapedRune "'\\n'  "
     Value: '\n'
   }
 
+struct ASTType {
+}
+
+struct Fake implements ASTType {
+}
+
+struct ASTTypeRef {
+}
+
+struct TypeRef implements ASTTypeRef {
+  Name string
+  T ASTType
+}
+
+struct ListTypeRef implements ASTTypeRef {
+  Type ASTTypeRef
+  T ASTType
+}
+
+func ParseStructTypeRef (TypeRef) {
+    define name call Ident;
+    return cons TypeRef(Name: name);
+}
+
+func ParseListTypeRef (ListTypeRef) {
+    /[\[][\]]/;
+    define t call ParseTypeRef;
+    return cons ListTypeRef(Type: t);
+}
+
+
+func ParseTypeRef (ASTTypeRef) {
+  choose {
+    return call ParseStructTypeRef;
+  } or {
+    return call ParseListTypeRef;
+  }
+}
+
+test ParseTypeRef ListOfList "[][]Foo"
+  ListTypeRef{
+    Type: ListTypeRef{
+      Type: TypeRef{
+        Name: "Foo"
+      }
+    }
+  }
 
 func ParseRuneFilterRune (rune) {
   choose {
