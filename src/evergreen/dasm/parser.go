@@ -318,9 +318,16 @@ func parseExpr(state *dub.DubState) ASTExpr {
 	}
 	state.Recover(checkpoint)
 	{
-		e := dubx.MatchExpr(state)
+		e := dubx.StringMatchExpr(state)
 		if state.Flow == 0 {
-			return &Match{Expr: e}
+			return &StringMatch{Expr: e}
+		}
+	}
+	state.Recover(checkpoint)
+	{
+		e := dubx.RuneMatchExpr(state)
+		if state.Flow == 0 {
+			return &RuneMatch{Expr: e}
 		}
 	}
 	state.Recover(checkpoint)

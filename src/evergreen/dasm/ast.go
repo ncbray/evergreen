@@ -194,11 +194,18 @@ type Fail struct {
 func (node *Fail) isASTExpr() {
 }
 
-type Match struct {
+type StringMatch struct {
 	Expr dubx.TextMatch
 }
 
-func (node *Match) isASTExpr() {
+func (node *StringMatch) isASTExpr() {
+}
+
+type RuneMatch struct {
+	Expr *dubx.RuneMatch
+}
+
+func (node *RuneMatch) isASTExpr() {
 }
 
 type LocalInfo struct {

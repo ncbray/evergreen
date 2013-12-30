@@ -59,49 +59,47 @@ func Int (IntTok) {
 }
 
 func EscapedChar (rune) {
-  define c read;
-  if eq c 'a' {
+  choose {
+    /[a]/;
     return '\a';
-  }
-  if eq c 'b' {
+  } or {
+    /[b]/;
     return '\b';
-  }
-  if eq c 'f' {
+  } or {
+    /[f]/;
     return '\f';
-  }
-  if eq c 'n' {
+  } or {
+    /[n]/;
     return '\n';
-  }
-  if eq c 'r' {
+  } or {
+    /[r]/;
     return '\r';
-  }
-  if eq c 't' {
+  } or {
+    /[t]/;
     return '\t';
-  }
-  if eq c 'v' {
+  } or {
+    /[v]/;
     return '\v';
-  }
-  if eq c '\\' {
+  } or {
+    /[\\]/;
     return '\\';
-  }
-  if eq c '\'' {
+  } or {
+    /[']/;
     return '\'';
-  }
-  if eq c '"' {
+  } or {
+    /["]/;
     return '"';
   }
-  fail;
 }
 
 func StrT (StrTok) {
   define text slice {
     /["]/;
     star {
-      define c read;
-      if eq c '"' {
-        fail;
-      }
-      if eq c '\\' {
+      choose {
+        /[^"\\]/;
+      } or {
+        /[\\]/;
         call EscapedChar;
       }
     }
@@ -112,21 +110,22 @@ func StrT (StrTok) {
 }
 
 func Rune (RuneTok) {
+  var value rune;
   define text slice {
     /[']/;
     choose {
-      /[^\\']/;
+      assign value $[^\\'];
     } or {
       /[\\]/;
-      call EscapedChar;
+      assign value call EscapedChar;
     }
     /[']/;
   }
   call S;
-  return cons RuneTok(Text: text);
+  return cons RuneTok(Text: text, Value: value);
 }
 
-func MatchExpr (TextMatch) {
+func StringMatchExpr (TextMatch) {
   /[/]/;
   call S;
   define e call Choice;
@@ -134,6 +133,14 @@ func MatchExpr (TextMatch) {
   call S;
   return e;
 }
+
+func RuneMatchExpr (RuneMatch) {
+  /[$]/;
+  call S;
+  define e call MatchRune;
+  return e;
+}
+
 
 test Ident Alpha "a_B_c "
   "a_B_c"
@@ -148,24 +155,29 @@ test StrT Str "\"hello, world\"  "
   StrTok{Text: "\"hello, world\""}
 
 test Rune Rune "'a'  "
-  RuneTok{Text: "'a'"}
+  RuneTok{
+    Text: "'a'"
+    Value: 'a'
+  }
+
+test Rune Escaped "'\\n'  "
+  RuneTok{
+    Text: "'\\n'"
+    Value: '\n'
+  }
 
 
 func ParseRuneFilterRune (rune) {
-  define c read;
-  if eq c ']' {
-    fail;
-  }
-  if eq c '-' {
-    fail;
-  }
-  if eq c '\\' {
-    question {
+  choose {
+    return $[^\]\-\\];
+  } or {
+    /[\\]/;
+    choose {
       return call EscapedChar;
+    } or {
+      return $[^];
     }
-    return read;
   }
-  return c;
 }
 
 func ParseRuneFilter (RuneFilter) {

@@ -89,8 +89,10 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *Slice:
 		semanticBlockPass(decl, expr.Block, scope, glbls)
 		return glbls.String
-	case *Match:
+	case *StringMatch:
 		return glbls.String
+	case *RuneMatch:
+		return glbls.Rune
 	case *Read:
 		return glbls.Rune
 	case *RuneLiteral:

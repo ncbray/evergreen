@@ -52,6 +52,8 @@ func (builder *DubBuilder) ZeroRegister(dst dub.DubRegister) dub.DubOp {
 	switch info.T.(type) {
 	case *dub.LLStruct:
 		return &dub.ConstantNilOp{Dst: dst}
+	case *dub.RuneType:
+		return &dub.ConstantRuneOp{Value: 0, Dst: dst}
 	default:
 		panic(info.T)
 	}
@@ -81,69 +83,75 @@ func makeRuneSwitch(cond dub.DubRegister, op string, value rune, builder *DubBui
 	return make_value, decide
 }
 
+func lowerRuneMatch(match *dubx.RuneMatch, r *base.Region, builder *DubBuilder) dub.DubRegister {
+	// Read
+	cond := builder.CreateLLRegister(builder.glbl.Rune)
+	body := dub.CreateBlock([]dub.DubOp{
+		&dub.Read{Dst: cond},
+	})
+	r.Connect(dub.NORMAL, body)
+	r.AttachDefaultExits(body)
+
+	filters := dub.CreateRegion()
+
+	onMatch := dub.NORMAL
+	onNoMatch := dub.FAIL
+
+	if match.Invert {
+		onMatch, onNoMatch = onNoMatch, onMatch
+	} else {
+		// Fail by default.
+		filters.GetExit(dub.NORMAL).TransferEntries(filters.GetExit(dub.FAIL))
+	}
+
+	for _, flt := range match.Filters {
+		if flt.Min > flt.Max {
+			panic(flt.Min)
+		}
+		if flt.Min != flt.Max {
+			minEntry, minDecide := makeRuneSwitch(cond, ">=", flt.Min, builder)
+			maxEntry, maxDecide := makeRuneSwitch(cond, "<=", flt.Max, builder)
+
+			// Check only if we haven't found a match.
+			filters.Connect(onNoMatch, minEntry)
+
+			// Match
+			minDecide.SetExit(0, maxEntry)
+			maxDecide.SetExit(0, filters.GetExit(onMatch))
+
+			// No match
+			minDecide.SetExit(1, filters.GetExit(onNoMatch))
+			maxDecide.SetExit(1, filters.GetExit(onNoMatch))
+		} else {
+			entry, decide := makeRuneSwitch(cond, "==", flt.Min, builder)
+
+			// Check only if we haven't found a match.
+			filters.Connect(onNoMatch, entry)
+
+			// Match
+			decide.SetExit(0, filters.GetExit(onMatch))
+
+			// No match
+			decide.SetExit(1, filters.GetExit(onNoMatch))
+		}
+	}
+
+	// Make the fail official.
+	body = dub.CreateBlock([]dub.DubOp{
+		&dub.Fail{},
+	})
+	filters.Connect(dub.FAIL, body)
+	body.SetExit(dub.FAIL, filters.GetExit(dub.FAIL))
+
+	r.Splice(0, filters)
+
+	return cond
+}
+
 func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 	switch match := match.(type) {
 	case *dubx.RuneMatch:
-		// Read
-		cond := builder.CreateLLRegister(builder.glbl.Rune)
-		body := dub.CreateBlock([]dub.DubOp{
-			&dub.Read{Dst: cond},
-		})
-		r.Connect(dub.NORMAL, body)
-		r.AttachDefaultExits(body)
-
-		filters := dub.CreateRegion()
-
-		onMatch := dub.NORMAL
-		onNoMatch := dub.FAIL
-
-		if match.Invert {
-			onMatch, onNoMatch = onNoMatch, onMatch
-		} else {
-			// Fail by default.
-			filters.GetExit(dub.NORMAL).TransferEntries(filters.GetExit(dub.FAIL))
-		}
-
-		for _, flt := range match.Filters {
-			if flt.Min > flt.Max {
-				panic(flt.Min)
-			}
-			if flt.Min != flt.Max {
-				minEntry, minDecide := makeRuneSwitch(cond, ">=", flt.Min, builder)
-				maxEntry, maxDecide := makeRuneSwitch(cond, "<=", flt.Max, builder)
-
-				// Check only if we haven't found a match.
-				filters.Connect(onNoMatch, minEntry)
-
-				// Match
-				minDecide.SetExit(0, maxEntry)
-				maxDecide.SetExit(0, filters.GetExit(onMatch))
-
-				// No match
-				minDecide.SetExit(1, filters.GetExit(onNoMatch))
-				maxDecide.SetExit(1, filters.GetExit(onNoMatch))
-			} else {
-				entry, decide := makeRuneSwitch(cond, "==", flt.Min, builder)
-
-				// Check only if we haven't found a match.
-				filters.Connect(onNoMatch, entry)
-
-				// Match
-				decide.SetExit(0, filters.GetExit(onMatch))
-
-				// No match
-				decide.SetExit(1, filters.GetExit(onNoMatch))
-			}
-		}
-
-		// Make the fail official.
-		body = dub.CreateBlock([]dub.DubOp{
-			&dub.Fail{},
-		})
-		filters.Connect(dub.FAIL, body)
-		body.SetExit(dub.FAIL, filters.GetExit(dub.FAIL))
-
-		r.Splice(0, filters)
+		lowerRuneMatch(match, r, builder)
 	case *dubx.MatchSequence:
 		for _, child := range match.Matches {
 			lowerMatch(child, r, builder)
@@ -536,7 +544,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		}
 		return dst
 
-	case *Match:
+	case *StringMatch:
 		dst := dub.NoRegister
 		start := dub.NoRegister
 
@@ -566,6 +574,9 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 			body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		}
 		return dst
+
+	case *RuneMatch:
+		return lowerRuneMatch(expr.Expr, r, builder)
 	default:
 		panic(expr)
 	}
