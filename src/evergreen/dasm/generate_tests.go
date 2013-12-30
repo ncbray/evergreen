@@ -107,11 +107,21 @@ func checkNE(x ast.Expr, y ast.Expr) ast.Expr {
 	}
 }
 
-func generateDestructure(name string, path string, d Destructure, stmts []ast.Stmt) []ast.Stmt {
+func generateDestructure(name string, path string, d Destructure, general ASTType, gbuilder *GlobalDubBuilder, stmts []ast.Stmt) []ast.Stmt {
 	switch d := d.(type) {
 	case *DestructureStruct:
 		actual_name := name
-		if d.GT != d.AT {
+
+		t := ResolveType(d.Type)
+		dt, ok := t.(*StructDecl)
+		if !ok {
+			panic(t)
+		}
+
+		at := gbuilder.TranslateType(t)
+		gt := gbuilder.TranslateType(general)
+
+		if gt != at {
 			actual_name = fmt.Sprintf("typed_%s", name)
 			stmts = append(stmts, &ast.AssignStmt{
 				Lhs: []ast.Expr{
@@ -125,7 +135,7 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 			})
 			stmts = append(stmts, makeFatalTest(
 				&ast.UnaryExpr{Op: token.NOT, X: id("ok")},
-				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, d.AT.Name),
+				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, dt.Name),
 				id(name),
 			))
 		}
@@ -145,7 +155,7 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 					attr(id(actual_name), arg.Name),
 				},
 			})
-			childstmts = generateDestructure(child_name, child_path, arg.Destructure, childstmts)
+			childstmts = generateDestructure(child_name, child_path, arg.Destructure, dt.FieldType(arg.Name), gbuilder, childstmts)
 			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
 		}
 	case *DestructureList:
@@ -154,6 +164,11 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 			fmt.Sprintf("%s: expected length %d but got %%d", path, len(d.Args)),
 			makeLen(id(name)),
 		))
+		t := ResolveType(d.Type)
+		dt, ok := t.(*ListType)
+		if !ok {
+			panic(t)
+		}
 		for i, arg := range d.Args {
 			childstmts := []ast.Stmt{}
 			child_name := fmt.Sprintf("%s_%d", name, i)
@@ -170,7 +185,7 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 					},
 				},
 			})
-			childstmts = generateDestructure(child_name, child_path, arg, childstmts)
+			childstmts = generateDestructure(child_name, child_path, arg, dt.Type, gbuilder, childstmts)
 			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
 		}
 	case *DestructureValue:
@@ -193,7 +208,7 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 	return stmts
 }
 
-func generateGoTest(tst *Test) *ast.FuncDecl {
+func generateGoTest(tst *Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 	stmts := []ast.Stmt{}
 
 	state := "state"
@@ -241,7 +256,7 @@ func generateGoTest(tst *Test) *ast.FuncDecl {
 		attr(id(state), "Flow"),
 	))
 
-	stmts = generateDestructure(root, root, tst.Destructure, stmts)
+	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, gbuilder, stmts)
 
 	return &ast.FuncDecl{
 		Name: id(fmt.Sprintf("Test_%s_%s", tst.Rule, tst.Name)),
@@ -260,7 +275,7 @@ func generateGoTest(tst *Test) *ast.FuncDecl {
 	}
 }
 
-func GenerateTests(module string, tests []*Test) string {
+func GenerateTests(module string, tests []*Test, gbuilder *GlobalDubBuilder) string {
 	decls := []ast.Decl{}
 	decls = append([]ast.Decl{&ast.GenDecl{
 		Tok:    token.IMPORT,
@@ -273,7 +288,7 @@ func GenerateTests(module string, tests []*Test) string {
 
 	// TODO
 	for _, tst := range tests {
-		decls = append(decls, generateGoTest(tst))
+		decls = append(decls, generateGoTest(tst, gbuilder))
 	}
 
 	file := &ast.File{

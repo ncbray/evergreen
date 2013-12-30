@@ -201,34 +201,17 @@ func semanticStructPass(decl *StructDecl, glbls *ModuleScope) {
 	}
 }
 
-func semanticDestructurePass(decl *FuncDecl, d Destructure, general ASTType, scope *semanticScope, glbls *ModuleScope) {
+func semanticDestructurePass(decl *FuncDecl, d Destructure, scope *semanticScope, glbls *ModuleScope) {
 	switch d := d.(type) {
 	case *DestructureStruct:
 		semanticTypePass(d.Type, glbls)
-		switch t := ResolveType(d.Type).(type) {
-		case *StructDecl:
-			d.Actual = t
-		default:
-			panic(t)
-		}
-		switch t := general.(type) {
-		case *StructDecl:
-			d.General = t
-		default:
-			panic(t)
-		}
 		for _, arg := range d.Args {
-			semanticDestructurePass(decl, arg.Destructure, d.Actual.FieldType(arg.Name), scope, glbls)
+			semanticDestructurePass(decl, arg.Destructure, scope, glbls)
 		}
 	case *DestructureList:
 		semanticTypePass(d.Type, glbls)
-		t := ResolveType(d.Type)
-		dt, ok := t.(*ListType)
-		if !ok {
-			panic(t)
-		}
 		for _, arg := range d.Args {
-			semanticDestructurePass(decl, arg, dt.Type, scope, glbls)
+			semanticDestructurePass(decl, arg, scope, glbls)
 		}
 
 	case *DestructureValue:
@@ -239,9 +222,9 @@ func semanticDestructurePass(decl *FuncDecl, d Destructure, general ASTType, sco
 }
 
 func semanticTestPass(tst *Test, glbls *ModuleScope) {
-	general := glbls.ReturnType(tst.Rule)
+	tst.Type = glbls.ReturnType(tst.Rule)
 	// HACK no real context
-	semanticDestructurePass(nil, tst.Destructure, general, nil, glbls)
+	semanticDestructurePass(nil, tst.Destructure, nil, glbls)
 }
 
 type ModuleScope struct {

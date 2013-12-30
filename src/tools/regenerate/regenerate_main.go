@@ -9,39 +9,6 @@ import (
 	"path/filepath"
 )
 
-func lowerDestructure(d dasm.Destructure, gbuilder *dasm.GlobalDubBuilder) {
-	switch d := d.(type) {
-	case *dasm.DestructureStruct:
-		{
-			t := gbuilder.TranslateType(d.Actual)
-			dt, ok := t.(*dub.LLStruct)
-			if !ok {
-				panic(t)
-			}
-			d.AT = dt
-		}
-		{
-			t := gbuilder.TranslateType(d.General)
-			dt, ok := t.(*dub.LLStruct)
-			if !ok {
-				panic(t)
-			}
-			d.GT = dt
-		}
-		for _, arg := range d.Args {
-			lowerDestructure(arg.Destructure, gbuilder)
-		}
-	case *dasm.DestructureList:
-		for _, arg := range d.Args {
-			lowerDestructure(arg, gbuilder)
-		}
-	case *dasm.DestructureValue:
-		//Leaf
-	default:
-		panic(d)
-	}
-}
-
 func processDASM(name string) {
 	file := dasm.ParseDASM(fmt.Sprintf("dasm/%s.dasm", name))
 	glbls := dasm.SemanticPass(file)
@@ -89,9 +56,6 @@ func processDASM(name string) {
 			panic(decl)
 		}
 	}
-	for _, tst := range file.Tests {
-		lowerDestructure(tst.Destructure, gbuilder)
-	}
 
 	// Analysis
 	for _, s := range structs {
@@ -105,7 +69,7 @@ func processDASM(name string) {
 	io.WriteFile(fmt.Sprintf("src/generated/%s/parser.go", name), []byte(code))
 
 	if len(file.Tests) != 0 {
-		tests := dasm.GenerateTests(name, file.Tests)
+		tests := dasm.GenerateTests(name, file.Tests, gbuilder)
 		//fmt.Println(tests)
 		io.WriteFile(fmt.Sprintf("src/generated/%s/parser_test.go", name), []byte(tests))
 	}

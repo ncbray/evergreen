@@ -1,7 +1,6 @@
 package dasm
 
 import (
-	"evergreen/dub"
 	"evergreen/dubx"
 )
 
@@ -229,6 +228,7 @@ func (node *StructDecl) FieldType(name string) ASTType {
 			return ResolveType(decl.Type)
 		}
 	}
+
 	panic(name)
 }
 
@@ -289,12 +289,8 @@ type DestructureField struct {
 }
 
 type DestructureStruct struct {
-	Type    *dubx.TypeRef
-	Actual  *StructDecl   // HACK
-	General *StructDecl   // HACK
-	AT      *dub.LLStruct // HACK
-	GT      *dub.LLStruct // HACK
-	Args    []*DestructureField
+	Type *dubx.TypeRef
+	Args []*DestructureField
 }
 
 func (node *DestructureStruct) IsDestructure() {
@@ -310,6 +306,7 @@ func (node *DestructureValue) IsDestructure() {
 type Test struct {
 	Name        string
 	Rule        string
+	Type        ASTType
 	Input       string
 	Destructure Destructure
 }
