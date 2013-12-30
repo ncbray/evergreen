@@ -5,75 +5,75 @@ import (
 )
 
 type TextMatch interface {
-	isTextMatch()
+	IsTextMatch()
 }
 type RuneFilter struct {
-	Min rune
-	Max rune
+	Min	rune
+	Max	rune
 }
 type RuneMatch struct {
-	Invert  bool
-	Filters []*RuneFilter
+	Invert	bool
+	Filters	[]*RuneFilter
 }
 
-func (node *RuneMatch) isTextMatch() {
+func (node *RuneMatch) IsTextMatch() {
 }
 
 type MatchSequence struct {
 	Matches []TextMatch
 }
 
-func (node *MatchSequence) isTextMatch() {
+func (node *MatchSequence) IsTextMatch() {
 }
 
 type MatchChoice struct {
 	Matches []TextMatch
 }
 
-func (node *MatchChoice) isTextMatch() {
+func (node *MatchChoice) IsTextMatch() {
 }
 
 type MatchRepeat struct {
-	Match TextMatch
-	Min   int
+	Match	TextMatch
+	Min	int
 }
 
-func (node *MatchRepeat) isTextMatch() {
+func (node *MatchRepeat) IsTextMatch() {
 }
 
 type ASTExpr interface {
-	isASTExpr()
+	IsASTExpr()
 }
 type RuneLiteral struct {
-	Text  string
-	Value rune
+	Text	string
+	Value	rune
 }
 
-func (node *RuneLiteral) isASTExpr() {
+func (node *RuneLiteral) IsASTExpr() {
 }
 
 type StringLiteral struct {
-	Text  string
-	Value string
+	Text	string
+	Value	string
 }
 
-func (node *StringLiteral) isASTExpr() {
+func (node *StringLiteral) IsASTExpr() {
 }
 
 type IntLiteral struct {
-	Text  string
-	Value int
+	Text	string
+	Value	int
 }
 
-func (node *IntLiteral) isASTExpr() {
+func (node *IntLiteral) IsASTExpr() {
 }
 
 type BoolLiteral struct {
-	Text  string
-	Value bool
+	Text	string
+	Value	bool
 }
 
-func (node *BoolLiteral) isASTExpr() {
+func (node *BoolLiteral) IsASTExpr() {
 }
 func S(frame *dub.DubState) {
 	var r0 int

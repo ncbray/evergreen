@@ -149,46 +149,9 @@ func parseType(state *dub.DubState) ASTTypeRef {
 	return &ListTypeRef{Type: t}
 }
 
-func parseLiteral(state *dub.DubState) ASTExpr {
-	checkpoint := state.Checkpoint()
-	{
-		value := dubx.DecodeRune(state)
-		if state.Flow == 0 {
-			dubx.S(state)
-			return &RuneLiteral{Value: value}
-		}
-	}
-	state.Recover(checkpoint)
-	{
-		value := dubx.DecodeString(state)
-		if state.Flow == 0 {
-			dubx.S(state)
-			return &StringLiteral{Value: value}
-		}
-	}
-	state.Recover(checkpoint)
-	{
-		value := dubx.DecodeInt(state)
-		if state.Flow == 0 {
-			dubx.S(state)
-			return &IntLiteral{Value: value}
-		}
-	}
-	state.Recover(checkpoint)
-	{
-		value := dubx.DecodeBool(state)
-		if state.Flow == 0 {
-			dubx.S(state)
-			return &BoolLiteral{Value: value}
-		}
-	}
-	// Fail through
-	return nil
-}
-
 func parseExpr(state *dub.DubState) ASTExpr {
 	checkpoint := state.Checkpoint()
-	e := parseLiteral(state)
+	e := dubx.Literal(state)
 	if state.Flow == 0 {
 		return e
 	}
@@ -474,7 +437,7 @@ func parseStructure(state *dub.DubState) *StructDecl {
 }
 
 func parseLiteralDestructure(state *dub.DubState) Destructure {
-	expr := parseLiteral(state)
+	expr := dubx.Literal(state)
 	if state.Flow == 0 {
 		return &DestructureValue{Expr: expr}
 	}

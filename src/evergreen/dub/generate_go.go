@@ -410,7 +410,8 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 }
 
 func tagName(s *LLStruct) string {
-	return fmt.Sprintf("is%s", s.Name)
+	// HACK make the tag public so it can be implemented by other modules.
+	return fmt.Sprintf("Is%s", s.Name)
 }
 
 func addTags(base *LLStruct, parent *LLStruct, decls []ast.Decl) []ast.Decl {

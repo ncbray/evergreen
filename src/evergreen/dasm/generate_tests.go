@@ -3,6 +3,7 @@ package dasm
 import (
 	"bytes"
 	"evergreen/dub"
+	"evergreen/dubx"
 	"fmt"
 	"go/ast"
 	"go/printer"
@@ -174,13 +175,13 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 		}
 	case *DestructureValue:
 		switch expr := d.Expr.(type) {
-		case *StringLiteral:
+		case *dubx.StringLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), id(name)))
-		case *RuneLiteral:
+		case *dubx.RuneLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), runeLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(expr.Value), id(name)))
-		case *IntLiteral:
+		case *dubx.IntLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), id(name)))
-		case *BoolLiteral:
+		case *dubx.BoolLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), id(name)))
 		default:
 			panic(expr)

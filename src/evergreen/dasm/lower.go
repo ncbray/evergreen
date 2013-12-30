@@ -375,7 +375,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *RuneLiteral:
+	case *dubx.RuneLiteral:
 		if !used {
 			return dub.NoRegister
 		}
@@ -387,7 +387,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *StringLiteral:
+	case *dubx.StringLiteral:
 		if !used {
 			return dub.NoRegister
 		}
@@ -399,7 +399,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *IntLiteral:
+	case *dubx.IntLiteral:
 		if !used {
 			return dub.NoRegister
 		}
@@ -411,7 +411,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *BoolLiteral:
+	case *dubx.BoolLiteral:
 		if !used {
 			return dub.NoRegister
 		}

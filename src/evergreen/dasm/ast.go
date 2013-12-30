@@ -6,16 +6,16 @@ import (
 )
 
 type ASTExpr interface {
-	isASTExpr()
+	IsASTExpr()
 }
 
 type ASTType interface {
-	isASTType()
+	IsASTType()
 }
 
 type ASTTypeRef interface {
 	Resolve() ASTType
-	isASTTypeRef()
+	IsASTTypeRef()
 }
 
 type TypeRef struct {
@@ -27,7 +27,7 @@ func (node *TypeRef) Resolve() ASTType {
 	return node.T
 }
 
-func (node *TypeRef) isASTTypeRef() {
+func (node *TypeRef) IsASTTypeRef() {
 }
 
 type ListTypeRef struct {
@@ -39,7 +39,7 @@ func (node *ListTypeRef) Resolve() ASTType {
 	return node.T
 }
 
-func (node *ListTypeRef) isASTTypeRef() {
+func (node *ListTypeRef) IsASTTypeRef() {
 }
 
 type If struct {
@@ -47,7 +47,7 @@ type If struct {
 	Block []ASTExpr
 }
 
-func (node *If) isASTExpr() {
+func (node *If) IsASTExpr() {
 }
 
 type Repeat struct {
@@ -55,7 +55,7 @@ type Repeat struct {
 	Min   int
 }
 
-func (node *Repeat) isASTExpr() {
+func (node *Repeat) IsASTExpr() {
 }
 
 type Choice struct {
@@ -63,21 +63,21 @@ type Choice struct {
 	Blocks [][]ASTExpr
 }
 
-func (node *Choice) isASTExpr() {
+func (node *Choice) IsASTExpr() {
 }
 
 type Optional struct {
 	Block []ASTExpr
 }
 
-func (node *Optional) isASTExpr() {
+func (node *Optional) IsASTExpr() {
 }
 
 type Slice struct {
 	Block []ASTExpr
 }
 
-func (node *Slice) isASTExpr() {
+func (node *Slice) IsASTExpr() {
 }
 
 type BinaryOp struct {
@@ -87,7 +87,7 @@ type BinaryOp struct {
 	T     ASTType
 }
 
-func (node *BinaryOp) isASTExpr() {
+func (node *BinaryOp) IsASTExpr() {
 }
 
 type Call struct {
@@ -95,7 +95,7 @@ type Call struct {
 	T    ASTType
 }
 
-func (node *Call) isASTExpr() {
+func (node *Call) IsASTExpr() {
 }
 
 type KeyValue struct {
@@ -108,7 +108,7 @@ type Construct struct {
 	Args []*KeyValue
 }
 
-func (node *Construct) isASTExpr() {
+func (node *Construct) IsASTExpr() {
 }
 
 type ConstructList struct {
@@ -116,7 +116,7 @@ type ConstructList struct {
 	Args []ASTExpr
 }
 
-func (node *ConstructList) isASTExpr() {
+func (node *ConstructList) IsASTExpr() {
 }
 
 type Coerce struct {
@@ -124,7 +124,7 @@ type Coerce struct {
 	Expr ASTExpr
 }
 
-func (node *Coerce) isASTExpr() {
+func (node *Coerce) IsASTExpr() {
 }
 
 type GetName struct {
@@ -132,35 +132,7 @@ type GetName struct {
 	Info int
 }
 
-func (node *GetName) isASTExpr() {
-}
-
-type RuneLiteral struct {
-	Value rune
-}
-
-func (node *RuneLiteral) isASTExpr() {
-}
-
-type StringLiteral struct {
-	Value string
-}
-
-func (node *StringLiteral) isASTExpr() {
-}
-
-type IntLiteral struct {
-	Value int
-}
-
-func (node *IntLiteral) isASTExpr() {
-}
-
-type BoolLiteral struct {
-	Value bool
-}
-
-func (node *BoolLiteral) isASTExpr() {
+func (node *GetName) IsASTExpr() {
 }
 
 type Assign struct {
@@ -171,7 +143,7 @@ type Assign struct {
 	Define bool
 }
 
-func (node *Assign) isASTExpr() {
+func (node *Assign) IsASTExpr() {
 }
 
 type Append struct {
@@ -180,34 +152,34 @@ type Append struct {
 	T     ASTType
 }
 
-func (node *Append) isASTExpr() {
+func (node *Append) IsASTExpr() {
 }
 
 type Return struct {
 	Exprs []ASTExpr
 }
 
-func (node *Return) isASTExpr() {
+func (node *Return) IsASTExpr() {
 }
 
 type Fail struct {
 }
 
-func (node *Fail) isASTExpr() {
+func (node *Fail) IsASTExpr() {
 }
 
 type StringMatch struct {
 	Expr dubx.TextMatch
 }
 
-func (node *StringMatch) isASTExpr() {
+func (node *StringMatch) IsASTExpr() {
 }
 
 type RuneMatch struct {
 	Expr *dubx.RuneMatch
 }
 
-func (node *RuneMatch) isASTExpr() {
+func (node *RuneMatch) IsASTExpr() {
 }
 
 type LocalInfo struct {
@@ -218,7 +190,7 @@ type LocalInfo struct {
 type Decl interface {
 	AsType() (ASTType, bool)
 	AsFunc() (ASTFunc, bool)
-	isASTDecl()
+	IsASTDecl()
 }
 
 type ASTFunc interface {
@@ -251,7 +223,7 @@ func (node *FuncDecl) ReturnType() ASTType {
 	return node.ReturnTypes[0].Resolve()
 }
 
-func (node *FuncDecl) isASTDecl() {
+func (node *FuncDecl) IsASTDecl() {
 }
 
 type FieldDecl struct {
@@ -282,10 +254,10 @@ func (node *StructDecl) AsFunc() (ASTFunc, bool) {
 	return nil, false
 }
 
-func (node *StructDecl) isASTDecl() {
+func (node *StructDecl) IsASTDecl() {
 }
 
-func (node *StructDecl) isASTType() {
+func (node *StructDecl) IsASTType() {
 }
 
 type BuiltinType struct {
@@ -300,21 +272,21 @@ func (node *BuiltinType) AsFunc() (ASTFunc, bool) {
 	return nil, false
 }
 
-func (node *BuiltinType) isASTDecl() {
+func (node *BuiltinType) IsASTDecl() {
 }
 
-func (node *BuiltinType) isASTType() {
+func (node *BuiltinType) IsASTType() {
 }
 
 type ListType struct {
 	Type ASTType
 }
 
-func (node *ListType) isASTType() {
+func (node *ListType) IsASTType() {
 }
 
 type Destructure interface {
-	isDestructure()
+	IsDestructure()
 }
 
 type DestructureList struct {
@@ -322,7 +294,7 @@ type DestructureList struct {
 	Args []Destructure
 }
 
-func (node *DestructureList) isDestructure() {
+func (node *DestructureList) IsDestructure() {
 }
 
 type DestructureField struct {
@@ -339,14 +311,14 @@ type DestructureStruct struct {
 	Args    []*DestructureField
 }
 
-func (node *DestructureStruct) isDestructure() {
+func (node *DestructureStruct) IsDestructure() {
 }
 
 type DestructureValue struct {
 	Expr ASTExpr
 }
 
-func (node *DestructureValue) isDestructure() {
+func (node *DestructureValue) IsDestructure() {
 }
 
 type Test struct {

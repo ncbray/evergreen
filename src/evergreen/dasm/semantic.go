@@ -2,6 +2,7 @@ package dasm
 
 import (
 	"fmt"
+	"evergreen/dubx"
 )
 
 type semanticScope struct {
@@ -104,13 +105,13 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		return glbls.String
 	case *RuneMatch:
 		return glbls.Rune
-	case *RuneLiteral:
+	case *dubx.RuneLiteral:
 		return glbls.Rune
-	case *StringLiteral:
+	case *dubx.StringLiteral:
 		return glbls.String
-	case *IntLiteral:
+	case *dubx.IntLiteral:
 		return glbls.Int
-	case *BoolLiteral:
+	case *dubx.BoolLiteral:
 		return glbls.Bool
 	case *Return:
 		for _, e := range expr.Exprs {
