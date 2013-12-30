@@ -81,6 +81,10 @@ func TypeName(t DubType) string {
 		return "string"
 	case *RuneType:
 		return "rune"
+	case *IntType:
+		return "int"
+	case *BoolType:
+		return "bool"
 	default:
 		panic(t)
 	}

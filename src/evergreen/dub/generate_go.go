@@ -118,6 +118,9 @@ func opAssign(expr ast.Expr, dst DubRegister) ast.Stmt {
 
 var opToTok = map[string]token.Token{
 	"+":  token.ADD,
+	"-":  token.SUB,
+	"*":  token.MUL,
+	"/":  token.QUO,
 	"==": token.EQL,
 	"!=": token.NEQ,
 	"<":  token.LSS,

@@ -380,23 +380,38 @@ block49:
 block50:
 	return
 }
-func Int(frame *dub.DubState) (ret0 *IntTok) {
+func BinaryOperator(frame *dub.DubState) (ret0 string) {
 	var r0 string
 	var r1 int
-	var r2 rune
+	var r2 int
 	var r3 rune
-	var r4 bool
-	var r5 rune
-	var r6 bool
-	var r7 int
+	var r4 rune
+	var r5 bool
+	var r6 rune
+	var r7 bool
 	var r8 rune
-	var r9 rune
-	var r10 bool
-	var r11 rune
-	var r12 bool
-	var r13 string
-	var r14 string
-	var r15 *IntTok
+	var r9 bool
+	var r10 rune
+	var r11 bool
+	var r12 rune
+	var r13 rune
+	var r14 bool
+	var r15 rune
+	var r16 bool
+	var r17 int
+	var r18 rune
+	var r19 rune
+	var r20 bool
+	var r21 rune
+	var r22 rune
+	var r23 bool
+	var r24 rune
+	var r25 bool
+	var r26 rune
+	var r27 rune
+	var r28 bool
+	var r29 string
+	var r30 string
 	goto block0
 block0:
 	goto block1
@@ -404,104 +419,449 @@ block1:
 	r1 = frame.Checkpoint()
 	goto block2
 block2:
-	r2 = frame.Read()
-	if frame.Flow == 0 {
-		goto block3
-	} else {
-		goto block27
-	}
+	r2 = frame.Checkpoint()
+	goto block3
 block3:
-	r3 = '0'
-	goto block4
+	r3 = frame.Read()
+	if frame.Flow == 0 {
+		goto block4
+	} else {
+		goto block17
+	}
 block4:
-	r4 = r2 >= r3
+	r4 = '+'
 	goto block5
 block5:
-	if r4 {
-		goto block6
-	} else {
-		goto block26
-	}
+	r5 = r3 == r4
+	goto block6
 block6:
-	r5 = '9'
-	goto block7
+	if r5 {
+		goto block45
+	} else {
+		goto block7
+	}
 block7:
-	r6 = r2 <= r5
+	r6 = '-'
 	goto block8
 block8:
-	if r6 {
-		goto block9
-	} else {
-		goto block26
-	}
+	r7 = r3 == r6
+	goto block9
 block9:
-	r7 = frame.Checkpoint()
-	goto block10
-block10:
-	r8 = frame.Read()
-	if frame.Flow == 0 {
-		goto block11
+	if r7 {
+		goto block45
 	} else {
-		goto block18
+		goto block10
 	}
+block10:
+	r8 = '*'
+	goto block11
 block11:
-	r9 = '0'
+	r9 = r3 == r8
 	goto block12
 block12:
-	r10 = r8 >= r9
-	goto block13
-block13:
-	if r10 {
-		goto block14
+	if r9 {
+		goto block45
 	} else {
-		goto block17
+		goto block13
 	}
+block13:
+	r10 = '/'
+	goto block14
 block14:
-	r11 = '9'
+	r11 = r3 == r10
 	goto block15
 block15:
-	r12 = r8 <= r11
-	goto block16
-block16:
-	if r12 {
-		goto block9
+	if r11 {
+		goto block45
 	} else {
-		goto block17
+		goto block16
 	}
-block17:
+block16:
 	frame.Fail()
+	goto block17
+block17:
+	frame.Recover(r2)
 	goto block18
 block18:
-	frame.Recover(r7)
-	goto block19
+	r12 = frame.Read()
+	if frame.Flow == 0 {
+		goto block19
+	} else {
+		goto block33
+	}
 block19:
-	r13 = frame.Slice(r1)
+	r13 = '<'
 	goto block20
 block20:
-	r0 = r13
+	r14 = r12 == r13
 	goto block21
 block21:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block22
+	if r14 {
+		goto block25
 	} else {
-		goto block27
+		goto block22
 	}
 block22:
-	r14 = r0
+	r15 = '>'
 	goto block23
 block23:
-	r15 = &IntTok{Text: r14}
+	r16 = r12 == r15
 	goto block24
 block24:
-	ret0 = r15
+	if r16 {
+		goto block25
+	} else {
+		goto block32
+	}
+block25:
+	r17 = frame.Checkpoint()
+	goto block26
+block26:
+	r18 = frame.Read()
+	if frame.Flow == 0 {
+		goto block27
+	} else {
+		goto block31
+	}
+block27:
+	r19 = '='
+	goto block28
+block28:
+	r20 = r18 == r19
+	goto block29
+block29:
+	if r20 {
+		goto block45
+	} else {
+		goto block30
+	}
+block30:
+	frame.Fail()
+	goto block31
+block31:
+	frame.Recover(r17)
+	goto block45
+block32:
+	frame.Fail()
+	goto block33
+block33:
+	frame.Recover(r2)
+	goto block34
+block34:
+	r21 = frame.Read()
+	if frame.Flow == 0 {
+		goto block35
+	} else {
+		goto block53
+	}
+block35:
+	r22 = '!'
+	goto block36
+block36:
+	r23 = r21 == r22
+	goto block37
+block37:
+	if r23 {
+		goto block41
+	} else {
+		goto block38
+	}
+block38:
+	r24 = '='
+	goto block39
+block39:
+	r25 = r21 == r24
+	goto block40
+block40:
+	if r25 {
+		goto block41
+	} else {
+		goto block52
+	}
+block41:
+	r26 = frame.Read()
+	if frame.Flow == 0 {
+		goto block42
+	} else {
+		goto block53
+	}
+block42:
+	r27 = '='
+	goto block43
+block43:
+	r28 = r26 == r27
+	goto block44
+block44:
+	if r28 {
+		goto block45
+	} else {
+		goto block51
+	}
+block45:
+	r29 = frame.Slice(r1)
+	goto block46
+block46:
+	r0 = r29
+	goto block47
+block47:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block48
+	} else {
+		goto block53
+	}
+block48:
+	r30 = r0
+	goto block49
+block49:
+	ret0 = r30
+	goto block50
+block50:
+	return
+block51:
+	frame.Fail()
+	goto block53
+block52:
+	frame.Fail()
+	goto block53
+block53:
+	return
+}
+func Int(frame *dub.DubState) (ret0 *IntTok) {
+	var r0 int
+	var r1 int
+	var r2 string
+	var r3 int
+	var r4 int
+	var r5 rune
+	var r6 rune
+	var r7 bool
+	var r8 rune
+	var r9 bool
+	var r10 int
+	var r11 rune
+	var r12 int
+	var r13 int
+	var r14 int
+	var r15 int
+	var r16 int
+	var r17 int
+	var r18 int
+	var r19 int
+	var r20 rune
+	var r21 rune
+	var r22 bool
+	var r23 rune
+	var r24 bool
+	var r25 int
+	var r26 rune
+	var r27 int
+	var r28 int
+	var r29 int
+	var r30 int
+	var r31 int
+	var r32 int
+	var r33 int
+	var r34 string
+	var r35 string
+	var r36 int
+	var r37 *IntTok
+	goto block0
+block0:
+	goto block1
+block1:
+	r3 = frame.Checkpoint()
+	goto block2
+block2:
+	r4 = 0
+	goto block3
+block3:
+	r0 = r4
+	goto block4
+block4:
+	r5 = frame.Read()
+	if frame.Flow == 0 {
+		goto block5
+	} else {
+		goto block52
+	}
+block5:
+	r6 = '0'
+	goto block6
+block6:
+	r7 = r5 >= r6
+	goto block7
+block7:
+	if r7 {
+		goto block8
+	} else {
+		goto block51
+	}
+block8:
+	r8 = '9'
+	goto block9
+block9:
+	r9 = r5 <= r8
+	goto block10
+block10:
+	if r9 {
+		goto block11
+	} else {
+		goto block51
+	}
+block11:
+	r10 = int(r5)
+	if frame.Flow == 0 {
+		goto block12
+	} else {
+		goto block52
+	}
+block12:
+	r11 = '0'
+	goto block13
+block13:
+	r12 = int(r11)
+	if frame.Flow == 0 {
+		goto block14
+	} else {
+		goto block52
+	}
+block14:
+	r13 = r10 - r12
+	goto block15
+block15:
+	r1 = r13
+	goto block16
+block16:
+	r14 = r0
+	goto block17
+block17:
+	r15 = 10
+	goto block18
+block18:
+	r16 = r14 * r15
+	goto block19
+block19:
+	r17 = r1
+	goto block20
+block20:
+	r18 = r16 + r17
+	goto block21
+block21:
+	r0 = r18
+	goto block22
+block22:
+	r19 = frame.Checkpoint()
+	goto block23
+block23:
+	r20 = frame.Read()
+	if frame.Flow == 0 {
+		goto block24
+	} else {
+		goto block42
+	}
+block24:
+	r21 = '0'
 	goto block25
 block25:
-	return
+	r22 = r20 >= r21
+	goto block26
 block26:
-	frame.Fail()
-	goto block27
+	if r22 {
+		goto block27
+	} else {
+		goto block41
+	}
 block27:
+	r23 = '9'
+	goto block28
+block28:
+	r24 = r20 <= r23
+	goto block29
+block29:
+	if r24 {
+		goto block30
+	} else {
+		goto block41
+	}
+block30:
+	r25 = int(r20)
+	if frame.Flow == 0 {
+		goto block31
+	} else {
+		goto block42
+	}
+block31:
+	r26 = '0'
+	goto block32
+block32:
+	r27 = int(r26)
+	if frame.Flow == 0 {
+		goto block33
+	} else {
+		goto block42
+	}
+block33:
+	r28 = r25 - r27
+	goto block34
+block34:
+	r1 = r28
+	goto block35
+block35:
+	r29 = r0
+	goto block36
+block36:
+	r30 = 10
+	goto block37
+block37:
+	r31 = r29 * r30
+	goto block38
+block38:
+	r32 = r1
+	goto block39
+block39:
+	r33 = r31 + r32
+	goto block40
+block40:
+	r0 = r33
+	goto block22
+block41:
+	frame.Fail()
+	goto block42
+block42:
+	frame.Recover(r19)
+	goto block43
+block43:
+	r34 = frame.Slice(r3)
+	goto block44
+block44:
+	r2 = r34
+	goto block45
+block45:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block46
+	} else {
+		goto block52
+	}
+block46:
+	r35 = r2
+	goto block47
+block47:
+	r36 = r0
+	goto block48
+block48:
+	r37 = &IntTok{Text: r35, Value: r36}
+	goto block49
+block49:
+	ret0 = r37
+	goto block50
+block50:
+	return
+block51:
+	frame.Fail()
+	goto block52
+block52:
 	return
 }
 func EscapedChar(frame *dub.DubState) (ret0 rune) {

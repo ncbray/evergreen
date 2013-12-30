@@ -156,6 +156,35 @@ func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 		for _, child := range match.Matches {
 			lowerMatch(child, r, builder)
 		}
+	case *dubx.MatchChoice:
+		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
+		head := dub.CreateBlock([]dub.DubOp{
+			&dub.Checkpoint{Dst: checkpoint},
+		})
+		r.Connect(dub.NORMAL, head)
+
+		for i, child := range match.Matches {
+			block := dub.CreateRegion()
+			lowerMatch(child, block, builder)
+
+			// Connect the head to the entry of this block
+			entryNode := block.Head()
+			entryEdge := block.Entry.GetExit(0)
+			entryNode.ReplaceEntry(entryEdge, []*base.Edge{head.GetExit(0)})
+
+			// Recover if not the last block.
+			if i < len(match.Matches)-1 {
+				head = dub.CreateBlock([]dub.DubOp{
+					&dub.Recover{Src: checkpoint},
+				})
+				block.Connect(dub.FAIL, head)
+			} else {
+				head = nil
+			}
+
+			// Absorb the exits that have not been directed to head.
+			r.AbsorbExits(block)
+		}
 	case *dubx.MatchRepeat:
 		// HACK unroll
 		for i := 0; i < match.Min; i++ {

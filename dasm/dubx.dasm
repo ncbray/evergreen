@@ -52,10 +52,22 @@ func Ident (string) {
   return text;
 }
 
-func Int (IntTok) {
-  define text /[0-9]+/;
+func BinaryOperator (string) {
+  define op /[+\-*/]|([<>][=]?)|([!=][=])/;
   call S;
-  return cons IntTok(Text: text);
+  return op;
+}
+
+func Int (IntTok) {
+  define text slice {
+    define value 0;
+    plus {
+      define digit - coerce int $[0-9] coerce int '0';
+      assign value + * value 10 digit;
+    }
+  }
+  call S;
+  return cons IntTok(Text: text, Value: value);
 }
 
 func EscapedChar (rune) {
@@ -150,7 +162,10 @@ test Ident AlphaNum "a_1_7  "
   "a_1_7"
 
 test Int Num "1234567890  "
-  IntTok{Text: "1234567890"}
+  IntTok{
+    Text: "1234567890"
+    Value: 1234567890
+ }
 
 test StrT Str "\"hello, world\\n\"  "
   StrTok{

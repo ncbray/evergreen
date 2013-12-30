@@ -43,10 +43,21 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		semanticBlockPass(decl, expr.Block, childScope(scope), glbls)
 		return glbls.Void
 	case *BinaryOp:
-		semanticExprPass(decl, expr.Left, scope, glbls)
-		semanticExprPass(decl, expr.Right, scope, glbls)
-		// HACK assume compare
-		t := glbls.Bool
+		l := semanticExprPass(decl, expr.Left, scope, glbls)
+		r := semanticExprPass(decl, expr.Right, scope, glbls)
+		lt, ok := l.(*BuiltinType)
+		if !ok {
+			panic(l)
+		}
+		rt, ok := r.(*BuiltinType)
+		if !ok {
+			panic(r)
+		}
+		sig := fmt.Sprintf("%s%s%s", lt.Name, expr.Op, rt.Name)
+		t, ok := glbls.BinaryOps[sig]
+		if !ok {
+			panic(sig)
+		}
 		expr.T = t
 		return t
 	case *GetName:
@@ -237,6 +248,8 @@ type ModuleScope struct {
 	Builtin map[string]Decl
 	Module  map[string]Decl
 
+	BinaryOps map[string]*BuiltinType
+
 	String *BuiltinType
 	Rune   *BuiltinType
 	Int    *BuiltinType
@@ -259,8 +272,9 @@ func (glbls *ModuleScope) ReturnType(name string) ASTType {
 
 func SemanticPass(file *File) *ModuleScope {
 	glbls := &ModuleScope{
-		Builtin: map[string]Decl{},
-		Module:  map[string]Decl{},
+		Builtin:   map[string]Decl{},
+		Module:    map[string]Decl{},
+		BinaryOps: map[string]*BuiltinType{},
 	}
 	glbls.String = &BuiltinType{"string"}
 	glbls.Builtin["string"] = glbls.String
@@ -276,6 +290,11 @@ func SemanticPass(file *File) *ModuleScope {
 
 	glbls.Void = &BuiltinType{"void"}
 	glbls.Builtin["void"] = glbls.Void
+
+	glbls.BinaryOps["int+int"] = glbls.Int
+	glbls.BinaryOps["int-int"] = glbls.Int
+	glbls.BinaryOps["int*int"] = glbls.Int
+	glbls.BinaryOps["int/int"] = glbls.Int
 
 	// Index the module namespace.
 	for _, decl := range file.Decls {

@@ -5,7 +5,6 @@ import (
 	"evergreen/dubx"
 	"fmt"
 	"io/ioutil"
-	"strconv"
 )
 
 func getPunc(state *dub.DubState, value string) {
@@ -24,15 +23,6 @@ func getKeyword(state *dub.DubState, expected string) {
 	if state.Flow != 0 || text != expected {
 		state.Fail()
 	}
-}
-
-func getString(state *dub.DubState) string {
-	tok := dubx.StrT(state)
-	if state.Flow != 0 {
-		return ""
-	}
-	v, _ := strconv.Unquote(tok.Text)
-	return v
 }
 
 func parseExprList(state *dub.DubState) []ASTExpr {
@@ -130,15 +120,6 @@ func parseTypeList(state *dub.DubState) []ASTTypeRef {
 		return nil
 	}
 	return types
-}
-
-var nameToOp = map[string]string{
-	"eq": "==",
-	"ne": "!=",
-	"gt": ">",
-	"lt": "<",
-	"ge": ">=",
-	"le": "<=",
 }
 
 func parseType(state *dub.DubState) ASTTypeRef {
@@ -249,15 +230,6 @@ func parseExpr(state *dub.DubState) ASTExpr {
 			return &Read{}
 		case "fail":
 			return &Fail{}
-		case "eq", "ne", "gt", "lt", "ge", "le":
-			op := nameToOp[text]
-			l := parseExpr(state)
-			if state.Flow == 0 {
-				r := parseExpr(state)
-				if state.Flow == 0 {
-					return &BinaryOp{Left: l, Op: op, Right: r}
-				}
-			}
 		case "call":
 			name := dubx.Ident(state)
 			if state.Flow == 0 {
@@ -327,6 +299,19 @@ func parseExpr(state *dub.DubState) ASTExpr {
 	}
 	state.Recover(checkpoint)
 	{
+		op := dubx.BinaryOperator(state)
+		if state.Flow == 0 {
+			l := parseExpr(state)
+			if state.Flow == 0 {
+				r := parseExpr(state)
+				if state.Flow == 0 {
+					return &BinaryOp{Left: l, Op: op, Right: r}
+				}
+			}
+		}
+	}
+	state.Recover(checkpoint)
+	{
 		e := dubx.StringMatchExpr(state)
 		if state.Flow == 0 {
 			return &StringMatch{Expr: e}
@@ -357,8 +342,7 @@ func parseExpr(state *dub.DubState) ASTExpr {
 	{
 		tok := dubx.Int(state)
 		if state.Flow == 0 {
-			v, _ := strconv.Atoi(tok.Text)
-			return &IntLiteral{Value: v}
+			return &IntLiteral{Value: tok.Value}
 		}
 	}
 	// Fail through
@@ -471,24 +455,21 @@ func parseLiteralDestructure(state *dub.DubState) Destructure {
 	{
 		tok := dubx.Rune(state)
 		if state.Flow == 0 {
-			v, _ := strconv.Unquote(tok.Text)
-			return &DestructureRune{Value: []rune(v)[0]}
+			return &DestructureRune{Value: tok.Value}
 		}
 	}
 	state.Recover(checkpoint)
 	{
 		tok := dubx.StrT(state)
 		if state.Flow == 0 {
-			v, _ := strconv.Unquote(tok.Text)
-			return &DestructureString{Value: v}
+			return &DestructureString{Value: tok.Value}
 		}
 	}
 	state.Recover(checkpoint)
 	{
 		tok := dubx.Int(state)
 		if state.Flow == 0 {
-			v, _ := strconv.Atoi(tok.Text)
-			return &DestructureInt{Value: v}
+			return &DestructureInt{Value: tok.Value}
 		}
 	}
 	state.Recover(checkpoint)
@@ -600,10 +581,11 @@ func parseTest(state *dub.DubState) *Test {
 	if state.Flow != 0 {
 		return nil
 	}
-	input := getString(state)
+	tok := dubx.StrT(state)
 	if state.Flow != 0 {
 		return nil
 	}
+	input := tok.Value
 	destructure := parseDestructure(state)
 	if state.Flow != 0 {
 		return nil
