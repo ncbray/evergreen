@@ -202,7 +202,7 @@ func semanticStructPass(decl *StructDecl, glbls *ModuleScope) {
 	}
 }
 
-func semanticDestructurePass(d Destructure, general ASTType, glbls *ModuleScope) {
+func semanticDestructurePass(decl *FuncDecl, d Destructure, general ASTType, scope *semanticScope, glbls *ModuleScope) {
 	switch d := d.(type) {
 	case *DestructureStruct:
 		semanticTypePass(d.Type, glbls)
@@ -219,7 +219,7 @@ func semanticDestructurePass(d Destructure, general ASTType, glbls *ModuleScope)
 			panic(t)
 		}
 		for _, arg := range d.Args {
-			semanticDestructurePass(arg.Destructure, d.Actual.FieldType(arg.Name), glbls)
+			semanticDestructurePass(decl, arg.Destructure, d.Actual.FieldType(arg.Name), scope, glbls)
 		}
 	case *DestructureList:
 		semanticTypePass(d.Type, glbls)
@@ -229,11 +229,11 @@ func semanticDestructurePass(d Destructure, general ASTType, glbls *ModuleScope)
 			panic(t)
 		}
 		for _, arg := range d.Args {
-			semanticDestructurePass(arg, dt.Type, glbls)
+			semanticDestructurePass(decl, arg, dt.Type, scope, glbls)
 		}
 
-	case *DestructureString, *DestructureRune, *DestructureInt, *DestructureBool:
-		// Leaf
+	case *DestructureValue:
+		semanticExprPass(decl, d.Expr, scope, glbls)
 	default:
 		panic(d)
 	}
@@ -241,7 +241,8 @@ func semanticDestructurePass(d Destructure, general ASTType, glbls *ModuleScope)
 
 func semanticTestPass(tst *Test, glbls *ModuleScope) {
 	general := glbls.ReturnType(tst.Rule)
-	semanticDestructurePass(tst.Destructure, general, glbls)
+	// HACK no real context
+	semanticDestructurePass(nil, tst.Destructure, general, nil, glbls)
 }
 
 type ModuleScope struct {

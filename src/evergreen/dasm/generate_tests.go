@@ -172,14 +172,19 @@ func generateDestructure(name string, path string, d Destructure, stmts []ast.St
 			childstmts = generateDestructure(child_name, child_path, arg, childstmts)
 			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
 		}
-	case *DestructureString:
-		stmts = append(stmts, makeFatalTest(checkNE(id(name), strLiteral(d.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(d.Value), id(name)))
-	case *DestructureRune:
-		stmts = append(stmts, makeFatalTest(checkNE(id(name), runeLiteral(d.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(d.Value), id(name)))
-	case *DestructureInt:
-		stmts = append(stmts, makeFatalTest(checkNE(id(name), intLiteral(d.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(d.Value), id(name)))
-	case *DestructureBool:
-		stmts = append(stmts, makeFatalTest(checkNE(id(name), boolLiteral(d.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(d.Value), id(name)))
+	case *DestructureValue:
+		switch expr := d.Expr.(type) {
+		case *StringLiteral:
+			stmts = append(stmts, makeFatalTest(checkNE(id(name), strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), id(name)))
+		case *RuneLiteral:
+			stmts = append(stmts, makeFatalTest(checkNE(id(name), runeLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(expr.Value), id(name)))
+		case *IntLiteral:
+			stmts = append(stmts, makeFatalTest(checkNE(id(name), intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), id(name)))
+		case *BoolLiteral:
+			stmts = append(stmts, makeFatalTest(checkNE(id(name), boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), id(name)))
+		default:
+			panic(expr)
+		}
 	default:
 		panic(d)
 	}

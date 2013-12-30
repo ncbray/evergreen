@@ -468,37 +468,9 @@ func parseStructure(state *dub.DubState) *StructDecl {
 }
 
 func parseLiteralDestructure(state *dub.DubState) Destructure {
-	checkpoint := state.Checkpoint()
-	{
-		value := dubx.DecodeRune(state)
-		if state.Flow == 0 {
-			dubx.S(state)
-			return &DestructureRune{Value: value}
-		}
-	}
-	state.Recover(checkpoint)
-	{
-		value := dubx.DecodeString(state)
-		if state.Flow == 0 {
-			dubx.S(state)
-			return &DestructureString{Value: value}
-		}
-	}
-	state.Recover(checkpoint)
-	{
-		value := dubx.DecodeInt(state)
-		if state.Flow == 0 {
-			dubx.S(state)
-			return &DestructureInt{Value: value}
-		}
-	}
-	state.Recover(checkpoint)
-	{
-		value := dubx.DecodeBool(state)
-		if state.Flow == 0 {
-			dubx.S(state)
-			return &DestructureBool{Value: value}
-		}
+	expr := parseLiteral(state)
+	if state.Flow == 0 {
+		return &DestructureValue{Expr: expr}
 	}
 	return nil
 }

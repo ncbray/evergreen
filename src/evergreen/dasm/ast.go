@@ -348,32 +348,11 @@ type DestructureStruct struct {
 func (node *DestructureStruct) isDestructure() {
 }
 
-type DestructureString struct {
-	Value string
+type DestructureValue struct {
+	Expr ASTExpr
 }
 
-func (node *DestructureString) isDestructure() {
-}
-
-type DestructureRune struct {
-	Value rune
-}
-
-func (node *DestructureRune) isDestructure() {
-}
-
-type DestructureInt struct {
-	Value int
-}
-
-func (node *DestructureInt) isDestructure() {
-}
-
-type DestructureBool struct {
-	Value bool
-}
-
-func (node *DestructureBool) isDestructure() {
+func (node *DestructureValue) isDestructure() {
 }
 
 type Test struct {
