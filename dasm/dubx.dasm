@@ -150,6 +150,16 @@ func Rune (RuneTok) {
   return cons RuneTok(Text: text, Value: value);
 }
 
+func DecodeBool (bool) {
+  choose {
+    /[t][r][u][e]/;
+    return true;
+  } or {
+    /[f][a][l][s][e]/;
+    return false;
+  }
+}
+
 func BinaryOperator (string) {
   define op /[+\-*/]|([<>][=]?)|([!=][=])/;
   call S;

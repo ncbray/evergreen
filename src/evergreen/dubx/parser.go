@@ -1469,6 +1469,261 @@ block12:
 block13:
 	return
 }
+func DecodeBool(frame *dub.DubState) (ret0 bool) {
+	var r0 int
+	var r1 rune
+	var r2 rune
+	var r3 bool
+	var r4 rune
+	var r5 rune
+	var r6 bool
+	var r7 rune
+	var r8 rune
+	var r9 bool
+	var r10 rune
+	var r11 rune
+	var r12 bool
+	var r13 bool
+	var r14 rune
+	var r15 rune
+	var r16 bool
+	var r17 rune
+	var r18 rune
+	var r19 bool
+	var r20 rune
+	var r21 rune
+	var r22 bool
+	var r23 rune
+	var r24 rune
+	var r25 bool
+	var r26 rune
+	var r27 rune
+	var r28 bool
+	var r29 bool
+	goto block0
+block0:
+	goto block1
+block1:
+	r0 = frame.Checkpoint()
+	goto block2
+block2:
+	r1 = frame.Read()
+	if frame.Flow == 0 {
+		goto block3
+	} else {
+		goto block24
+	}
+block3:
+	r2 = 't'
+	goto block4
+block4:
+	r3 = r1 == r2
+	goto block5
+block5:
+	if r3 {
+		goto block6
+	} else {
+		goto block23
+	}
+block6:
+	r4 = frame.Read()
+	if frame.Flow == 0 {
+		goto block7
+	} else {
+		goto block24
+	}
+block7:
+	r5 = 'r'
+	goto block8
+block8:
+	r6 = r4 == r5
+	goto block9
+block9:
+	if r6 {
+		goto block10
+	} else {
+		goto block22
+	}
+block10:
+	r7 = frame.Read()
+	if frame.Flow == 0 {
+		goto block11
+	} else {
+		goto block24
+	}
+block11:
+	r8 = 'u'
+	goto block12
+block12:
+	r9 = r7 == r8
+	goto block13
+block13:
+	if r9 {
+		goto block14
+	} else {
+		goto block21
+	}
+block14:
+	r10 = frame.Read()
+	if frame.Flow == 0 {
+		goto block15
+	} else {
+		goto block24
+	}
+block15:
+	r11 = 'e'
+	goto block16
+block16:
+	r12 = r10 == r11
+	goto block17
+block17:
+	if r12 {
+		goto block18
+	} else {
+		goto block20
+	}
+block18:
+	r13 = true
+	goto block19
+block19:
+	ret0 = r13
+	goto block47
+block20:
+	frame.Fail()
+	goto block24
+block21:
+	frame.Fail()
+	goto block24
+block22:
+	frame.Fail()
+	goto block24
+block23:
+	frame.Fail()
+	goto block24
+block24:
+	frame.Recover(r0)
+	goto block25
+block25:
+	r14 = frame.Read()
+	if frame.Flow == 0 {
+		goto block26
+	} else {
+		goto block53
+	}
+block26:
+	r15 = 'f'
+	goto block27
+block27:
+	r16 = r14 == r15
+	goto block28
+block28:
+	if r16 {
+		goto block29
+	} else {
+		goto block52
+	}
+block29:
+	r17 = frame.Read()
+	if frame.Flow == 0 {
+		goto block30
+	} else {
+		goto block53
+	}
+block30:
+	r18 = 'a'
+	goto block31
+block31:
+	r19 = r17 == r18
+	goto block32
+block32:
+	if r19 {
+		goto block33
+	} else {
+		goto block51
+	}
+block33:
+	r20 = frame.Read()
+	if frame.Flow == 0 {
+		goto block34
+	} else {
+		goto block53
+	}
+block34:
+	r21 = 'l'
+	goto block35
+block35:
+	r22 = r20 == r21
+	goto block36
+block36:
+	if r22 {
+		goto block37
+	} else {
+		goto block50
+	}
+block37:
+	r23 = frame.Read()
+	if frame.Flow == 0 {
+		goto block38
+	} else {
+		goto block53
+	}
+block38:
+	r24 = 's'
+	goto block39
+block39:
+	r25 = r23 == r24
+	goto block40
+block40:
+	if r25 {
+		goto block41
+	} else {
+		goto block49
+	}
+block41:
+	r26 = frame.Read()
+	if frame.Flow == 0 {
+		goto block42
+	} else {
+		goto block53
+	}
+block42:
+	r27 = 'e'
+	goto block43
+block43:
+	r28 = r26 == r27
+	goto block44
+block44:
+	if r28 {
+		goto block45
+	} else {
+		goto block48
+	}
+block45:
+	r29 = false
+	goto block46
+block46:
+	ret0 = r29
+	goto block47
+block47:
+	return
+block48:
+	frame.Fail()
+	goto block53
+block49:
+	frame.Fail()
+	goto block53
+block50:
+	frame.Fail()
+	goto block53
+block51:
+	frame.Fail()
+	goto block53
+block52:
+	frame.Fail()
+	goto block53
+block53:
+	return
+}
 func BinaryOperator(frame *dub.DubState) (ret0 string) {
 	var r0 string
 	var r1 int
