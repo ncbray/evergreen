@@ -107,13 +107,13 @@ func checkNE(x ast.Expr, y ast.Expr) ast.Expr {
 	}
 }
 
-func generateDestructure(name string, path string, d dubx.Destructure, general ASTType, gbuilder *GlobalDubBuilder, stmts []ast.Stmt) []ast.Stmt {
+func generateDestructure(name string, path string, d dubx.Destructure, general dubx.ASTType, gbuilder *GlobalDubBuilder, stmts []ast.Stmt) []ast.Stmt {
 	switch d := d.(type) {
 	case *dubx.DestructureStruct:
 		actual_name := name
 
 		t := ResolveType(d.Type)
-		dt, ok := t.(*StructDecl)
+		dt, ok := t.(*dubx.StructDecl)
 		if !ok {
 			panic(t)
 		}
@@ -172,7 +172,7 @@ func generateDestructure(name string, path string, d dubx.Destructure, general A
 			makeLen(id(name)),
 		))
 		t := ResolveType(d.Type)
-		dt, ok := t.(*ListType)
+		dt, ok := t.(*dubx.ListType)
 		if !ok {
 			panic(t)
 		}

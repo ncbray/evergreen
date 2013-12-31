@@ -97,15 +97,12 @@ type RuneMatch struct {
 func (node *RuneMatch) IsASTExpr() {
 }
 
+type ASTDecl interface {
+	IsASTDecl()
+}
 type ASTType interface {
 	IsASTType()
 }
-type Fake struct {
-}
-
-func (node *Fake) IsASTType() {
-}
-
 type ASTTypeRef interface {
 	IsASTTypeRef()
 }
@@ -279,12 +276,68 @@ type BinaryOp struct {
 func (node *BinaryOp) IsASTExpr() {
 }
 
+type BuiltinType struct {
+	Name string
+}
+
+func (node *BuiltinType) IsASTDecl() {
+}
+func (node *BuiltinType) IsASTType() {
+}
+
+type ListType struct {
+	Type ASTType
+}
+
+func (node *ListType) IsASTDecl() {
+}
+func (node *ListType) IsASTType() {
+}
+
+type FieldDecl struct {
+	Name string
+	Type ASTTypeRef
+}
+type StructDecl struct {
+	Name       string
+	Implements ASTTypeRef
+	Fields     []*FieldDecl
+}
+
+func (node *StructDecl) IsASTDecl() {
+}
+func (node *StructDecl) IsASTType() {
+}
+
+type ASTFunc interface {
+	IsASTFunc()
+}
+type LocalInfo struct {
+	Name string
+	T    ASTType
+}
+type FuncDecl struct {
+	Name        string
+	ReturnTypes []ASTTypeRef
+	Block       []ASTExpr
+	Locals      []*LocalInfo
+}
+
+func (node *FuncDecl) IsASTDecl() {
+}
+func (node *FuncDecl) IsASTFunc() {
+}
+
 type Test struct {
 	Rule        string
 	Name        string
 	Type        ASTType
 	Input       string
 	Destructure Destructure
+}
+type File struct {
+	Decls []ASTDecl
+	Tests []*Test
 }
 
 func S(frame *dub.DubState) {

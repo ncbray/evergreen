@@ -236,10 +236,10 @@ test Literal EscapedRune "'\\n'  "
     Value: '\n'
   }
 
-struct ASTType {
+struct ASTDecl {
 }
 
-struct Fake implements ASTType {
+struct ASTType implements ASTDecl {
 }
 
 struct ASTTypeRef {
@@ -963,6 +963,42 @@ test ParseExpr ConstructList "[]Foo{ 1 } "
   }
 
 
+struct BuiltinType implements ASTType {
+  Name string
+}
+
+struct ListType implements ASTType {
+  Type ASTType
+}
+
+struct FieldDecl {
+  Name string
+  Type ASTTypeRef
+}
+
+struct StructDecl implements ASTType {
+  Name string
+  Implements ASTTypeRef
+  Fields []FieldDecl
+}
+
+
+struct ASTFunc implements ASTDecl {
+}
+
+struct LocalInfo {
+  Name string
+  T ASTType
+}
+
+struct FuncDecl implements ASTFunc {
+  Name string
+  ReturnTypes []ASTTypeRef
+  Block []ASTExpr
+  Locals []LocalInfo
+}
+
+
 struct Test {
   Rule string
   Name string
@@ -980,4 +1016,9 @@ func ParseTest (Test) {
   call S;
   d := call ParseDestructure;
   return Test{Rule: rule, Name: name, Input: input, Destructure: d};
+}
+
+struct File {
+  Decls []ASTDecl
+  Tests []Test
 }

@@ -33,7 +33,7 @@ func getKeyword(state *dub.DubState, expected string) {
 	dubx.S(state)
 }
 
-func parseFunction(state *dub.DubState) *FuncDecl {
+func parseFunction(state *dub.DubState) *dubx.FuncDecl {
 	getKeyword(state, "func")
 	if state.Flow != 0 {
 		return nil
@@ -50,10 +50,10 @@ func parseFunction(state *dub.DubState) *FuncDecl {
 	if state.Flow != 0 {
 		return nil
 	}
-	return &FuncDecl{Name: name, ReturnTypes: returnTypes, Block: block}
+	return &dubx.FuncDecl{Name: name, ReturnTypes: returnTypes, Block: block}
 }
 
-func parseImplements(state *dub.DubState) ASTTypeRef {
+func parseImplements(state *dub.DubState) dubx.ASTTypeRef {
 	checkpoint := state.Checkpoint()
 	getKeyword(state, "implements")
 	if state.Flow != 0 {
@@ -63,7 +63,7 @@ func parseImplements(state *dub.DubState) ASTTypeRef {
 	return dubx.ParseTypeRef(state)
 }
 
-func parseStructure(state *dub.DubState) *StructDecl {
+func parseStructure(state *dub.DubState) *dubx.StructDecl {
 	getKeyword(state, "struct")
 	if state.Flow != 0 {
 		return nil
@@ -83,7 +83,7 @@ func parseStructure(state *dub.DubState) *StructDecl {
 		return nil
 	}
 
-	fields := []*FieldDecl{}
+	fields := []*dubx.FieldDecl{}
 	for {
 		checkpoint := state.Checkpoint()
 		name := dubx.Ident(state)
@@ -96,7 +96,7 @@ func parseStructure(state *dub.DubState) *StructDecl {
 			state.Recover(checkpoint)
 			break
 		}
-		fields = append(fields, &FieldDecl{Name: name, Type: t})
+		fields = append(fields, &dubx.FieldDecl{Name: name, Type: t})
 	}
 
 	getPunc(state, "}")
@@ -104,15 +104,15 @@ func parseStructure(state *dub.DubState) *StructDecl {
 		return nil
 	}
 
-	return &StructDecl{
+	return &dubx.StructDecl{
 		Name:       name,
 		Implements: implements,
 		Fields:     fields,
 	}
 }
 
-func parseFile(state *dub.DubState) *File {
-	decls := []ASTDecl{}
+func parseFile(state *dub.DubState) *dubx.File {
+	decls := []dubx.ASTDecl{}
 	tests := []*dubx.Test{}
 	for {
 		checkpoint := state.Checkpoint()
@@ -141,13 +141,13 @@ func parseFile(state *dub.DubState) *File {
 		state.Fail()
 		return nil
 	}
-	return &File{
+	return &dubx.File{
 		Decls: decls,
 		Tests: tests,
 	}
 }
 
-func ResolveType(ref ASTTypeRef) ASTType {
+func ResolveType(ref dubx.ASTTypeRef) dubx.ASTType {
 	switch ref := ref.(type) {
 	case *dubx.TypeRef:
 		return ref.T
@@ -200,7 +200,7 @@ func PrintError(filename string, deepest int, stream []rune, lines []int) {
 	fmt.Println(string(arrow))
 }
 
-func ParseDASM(filename string) *File {
+func ParseDASM(filename string) *dubx.File {
 	data, _ := ioutil.ReadFile(filename)
 	stream := []rune(string(data))
 	state := &dub.DubState{Stream: stream}

@@ -7,28 +7,28 @@ import (
 )
 
 type GlobalDubBuilder struct {
-	Types  map[ASTType]dub.DubType
+	Types  map[dubx.ASTType]dub.DubType
 	String dub.DubType
 	Rune   dub.DubType
 	Int    dub.DubType
 	Bool   dub.DubType
 }
 
-func (builder *GlobalDubBuilder) TranslateType(t ASTType) dub.DubType {
+func (builder *GlobalDubBuilder) TranslateType(t dubx.ASTType) dub.DubType {
 	switch t := t.(type) {
-	case *StructDecl:
+	case *dubx.StructDecl:
 		dt, ok := builder.Types[t]
 		if !ok {
 			panic(t)
 		}
 		return dt
-	case *BuiltinType:
+	case *dubx.BuiltinType:
 		dt, ok := builder.Types[t]
 		if !ok {
 			panic(t)
 		}
 		return dt
-	case *ListType:
+	case *dubx.ListType:
 		parent := builder.TranslateType(t.Type)
 		// TODO memoize
 		return &dub.ListType{Type: parent}
@@ -38,13 +38,13 @@ func (builder *GlobalDubBuilder) TranslateType(t ASTType) dub.DubType {
 }
 
 type DubBuilder struct {
-	decl      *FuncDecl
+	decl      *dubx.FuncDecl
 	registers []dub.RegisterInfo
 	localMap  []dub.DubRegister
 	glbl      *GlobalDubBuilder
 }
 
-func (builder *DubBuilder) CreateRegister(t ASTType) dub.DubRegister {
+func (builder *DubBuilder) CreateRegister(t dubx.ASTType) dub.DubRegister {
 	return builder.CreateLLRegister(builder.glbl.TranslateType(t))
 }
 
@@ -249,7 +249,7 @@ func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 	}
 }
 
-func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub.DubRegister {
+func lowerExpr(expr dubx.ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub.DubRegister {
 	switch expr := expr.(type) {
 	case *dubx.If:
 		// TODO Min
@@ -656,7 +656,7 @@ func lowerBlock(block []dubx.ASTExpr, builder *DubBuilder) *base.Region {
 	return r
 }
 
-func LowerAST(decl *FuncDecl, glbl *GlobalDubBuilder) *dub.LLFunc {
+func LowerAST(decl *dubx.FuncDecl, glbl *GlobalDubBuilder) *dub.LLFunc {
 	builder := &DubBuilder{decl: decl, glbl: glbl}
 
 	f := &dub.LLFunc{Name: decl.Name}
@@ -676,7 +676,7 @@ func LowerAST(decl *FuncDecl, glbl *GlobalDubBuilder) *dub.LLFunc {
 	return f
 }
 
-func LowerStruct(decl *StructDecl, s *dub.LLStruct, gbuilder *GlobalDubBuilder) *dub.LLStruct {
+func LowerStruct(decl *dubx.StructDecl, s *dub.LLStruct, gbuilder *GlobalDubBuilder) *dub.LLStruct {
 	fields := []*dub.LLField{}
 	var implements *dub.LLStruct
 	if decl.Implements != nil {
