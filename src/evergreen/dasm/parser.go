@@ -34,6 +34,10 @@ func getKeyword(state *dub.DubState, expected string) {
 }
 
 func parseFunction(state *dub.DubState) *FuncDecl {
+	getKeyword(state, "func")
+	if state.Flow != 0 {
+		return nil
+	}
 	name := dubx.Ident(state)
 	if state.Flow != 0 {
 		return nil
@@ -60,6 +64,10 @@ func parseImplements(state *dub.DubState) ASTTypeRef {
 }
 
 func parseStructure(state *dub.DubState) *StructDecl {
+	getKeyword(state, "struct")
+	if state.Flow != 0 {
+		return nil
+	}
 	name := dubx.Ident(state)
 	if state.Flow != 0 {
 		return nil
@@ -104,6 +112,10 @@ func parseStructure(state *dub.DubState) *StructDecl {
 }
 
 func parseTest(state *dub.DubState) *Test {
+	getKeyword(state, "test")
+	if state.Flow != 0 {
+		return nil
+	}
 	rule := dubx.Ident(state)
 	if state.Flow != 0 {
 		return nil
@@ -129,41 +141,28 @@ func parseFile(state *dub.DubState) *File {
 	tests := []*Test{}
 	for {
 		checkpoint := state.Checkpoint()
-		text := dubx.Ident(state)
-		if state.Flow != 0 {
-			state.Recover(checkpoint)
-			goto done
+		f := parseFunction(state)
+		if state.Flow == 0 {
+			decls = append(decls, f)
+			continue
 		}
-		switch text {
-		case "func":
-			f := parseFunction(state)
-			if state.Flow != 0 {
-				state.Recover(checkpoint)
-				goto done
-			}
-			decls = append(decls, f)
-		case "struct":
-			f := parseStructure(state)
-			if state.Flow != 0 {
-				state.Recover(checkpoint)
-				goto done
-			}
-			decls = append(decls, f)
-		case "test":
-			t := parseTest(state)
-			if state.Flow != 0 {
-				state.Recover(checkpoint)
-				goto done
-			}
+		state.Recover(checkpoint)
+		s := parseStructure(state)
+		if state.Flow == 0 {
+			decls = append(decls, s)
+			continue
+		}
+		state.Recover(checkpoint)
+		t := parseTest(state)
+		if state.Flow == 0 {
 			tests = append(tests, t)
-		default:
-			panic("foo")
-			state.Recover(checkpoint)
-			goto done
+			continue
 		}
+		state.Recover(checkpoint)
+		break
 	}
-done:
-	if state.Index != len(state.Stream) {
+	// Fail if not all input was consumed.
+	if state.Flow == 0 && state.Index != len(state.Stream) {
 		state.Fail()
 		return nil
 	}
@@ -199,8 +198,13 @@ func PrintError(filename string, deepest int, stream []rune, lines []int) {
 		}
 	}
 	col = deepest - start
+
+	// HACK trim newline
+	for end > start && (end > len(stream) || stream[end-1] == '\n' || stream[end-1] == '\t') {
+		end -= 1
+	}
 	text := string(stream[start:end])
-	fmt.Printf("%s: Unexpected @ %d:%d\n%s", filename, line, col, text)
+	fmt.Printf("%s: Unexpected @ %d:%d\n%s\n", filename, line, col, text)
 	// TODO tabs?
 	arrow := []rune{}
 	for i := 0; i < col; i++ {
