@@ -278,6 +278,15 @@ type BinaryOp struct {
 
 func (node *BinaryOp) IsASTExpr() {
 }
+
+type Test struct {
+	Rule        string
+	Name        string
+	Type        ASTType
+	Input       string
+	Destructure Destructure
+}
+
 func S(frame *dub.DubState) {
 	var r0 int
 	var r1 rune
@@ -7467,5 +7476,211 @@ block34:
 	frame.Fail()
 	goto block35
 block35:
+	return
+}
+func ParseTest(frame *dub.DubState) (ret0 *Test) {
+	var r0 string
+	var r1 string
+	var r2 string
+	var r3 Destructure
+	var r4 rune
+	var r5 rune
+	var r6 bool
+	var r7 rune
+	var r8 rune
+	var r9 bool
+	var r10 rune
+	var r11 rune
+	var r12 bool
+	var r13 rune
+	var r14 rune
+	var r15 bool
+	var r16 string
+	var r17 string
+	var r18 string
+	var r19 Destructure
+	var r20 string
+	var r21 string
+	var r22 string
+	var r23 Destructure
+	var r24 *Test
+	goto block0
+block0:
+	goto block1
+block1:
+	r4 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block2
+	} else {
+		goto block42
+	}
+block2:
+	r5 = 't'
+	goto block3
+block3:
+	r6 = r4 == r5
+	goto block4
+block4:
+	if r6 {
+		goto block5
+	} else {
+		goto block41
+	}
+block5:
+	frame.Consume()
+	goto block6
+block6:
+	r7 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block7
+	} else {
+		goto block42
+	}
+block7:
+	r8 = 'e'
+	goto block8
+block8:
+	r9 = r7 == r8
+	goto block9
+block9:
+	if r9 {
+		goto block10
+	} else {
+		goto block40
+	}
+block10:
+	frame.Consume()
+	goto block11
+block11:
+	r10 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block12
+	} else {
+		goto block42
+	}
+block12:
+	r11 = 's'
+	goto block13
+block13:
+	r12 = r10 == r11
+	goto block14
+block14:
+	if r12 {
+		goto block15
+	} else {
+		goto block39
+	}
+block15:
+	frame.Consume()
+	goto block16
+block16:
+	r13 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block17
+	} else {
+		goto block42
+	}
+block17:
+	r14 = 't'
+	goto block18
+block18:
+	r15 = r13 == r14
+	goto block19
+block19:
+	if r15 {
+		goto block20
+	} else {
+		goto block38
+	}
+block20:
+	frame.Consume()
+	goto block21
+block21:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block22
+	} else {
+		goto block42
+	}
+block22:
+	r16 = Ident(frame)
+	if frame.Flow == 0 {
+		goto block23
+	} else {
+		goto block42
+	}
+block23:
+	r0 = r16
+	goto block24
+block24:
+	r17 = Ident(frame)
+	if frame.Flow == 0 {
+		goto block25
+	} else {
+		goto block42
+	}
+block25:
+	r1 = r17
+	goto block26
+block26:
+	r18 = DecodeString(frame)
+	if frame.Flow == 0 {
+		goto block27
+	} else {
+		goto block42
+	}
+block27:
+	r2 = r18
+	goto block28
+block28:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block29
+	} else {
+		goto block42
+	}
+block29:
+	r19 = ParseDestructure(frame)
+	if frame.Flow == 0 {
+		goto block30
+	} else {
+		goto block42
+	}
+block30:
+	r3 = r19
+	goto block31
+block31:
+	r20 = r0
+	goto block32
+block32:
+	r21 = r1
+	goto block33
+block33:
+	r22 = r2
+	goto block34
+block34:
+	r23 = r3
+	goto block35
+block35:
+	r24 = &Test{Rule: r20, Name: r21, Input: r22, Destructure: r23}
+	goto block36
+block36:
+	ret0 = r24
+	goto block37
+block37:
+	return
+block38:
+	frame.Fail()
+	goto block42
+block39:
+	frame.Fail()
+	goto block42
+block40:
+	frame.Fail()
+	goto block42
+block41:
+	frame.Fail()
+	goto block42
+block42:
 	return
 }

@@ -131,15 +131,7 @@ type ListType struct {
 func (node *ListType) IsASTType() {
 }
 
-type Test struct {
-	Name        string
-	Rule        string
-	Type        ASTType
-	Input       string
-	Destructure dubx.Destructure
-}
-
 type File struct {
 	Decls []Decl
-	Tests []*Test
+	Tests []*dubx.Test
 }

@@ -208,7 +208,7 @@ func generateDestructure(name string, path string, d dubx.Destructure, general A
 	return stmts
 }
 
-func generateGoTest(tst *Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
+func generateGoTest(tst *dubx.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 	stmts := []ast.Stmt{}
 
 	state := "state"
@@ -275,7 +275,7 @@ func generateGoTest(tst *Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 	}
 }
 
-func GenerateTests(module string, tests []*Test, gbuilder *GlobalDubBuilder) string {
+func GenerateTests(module string, tests []*dubx.Test, gbuilder *GlobalDubBuilder) string {
 	decls := []ast.Decl{}
 	decls = append([]ast.Decl{&ast.GenDecl{
 		Tok:    token.IMPORT,

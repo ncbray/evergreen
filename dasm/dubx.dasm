@@ -961,3 +961,23 @@ test ParseExpr ConstructList "[]Foo{ 1 } "
       }
     }
   }
+
+
+struct Test {
+  Rule string
+  Name string
+  Type ASTType
+  Input string
+  Destructure Destructure
+}
+
+func ParseTest (Test) {
+  /"test"/;
+  call S;
+  rule := call Ident;
+  name := call Ident;
+  input := call DecodeString;
+  call S;
+  d := call ParseDestructure;
+  return Test{Rule: rule, Name: name, Input: input, Destructure: d};
+}

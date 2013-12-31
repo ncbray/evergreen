@@ -221,7 +221,7 @@ func semanticDestructurePass(decl *FuncDecl, d dubx.Destructure, scope *semantic
 	}
 }
 
-func semanticTestPass(tst *Test, glbls *ModuleScope) {
+func semanticTestPass(tst *dubx.Test, glbls *ModuleScope) {
 	tst.Type = glbls.ReturnType(tst.Rule)
 	// HACK no real context
 	semanticDestructurePass(nil, tst.Destructure, nil, glbls)

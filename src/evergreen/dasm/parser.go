@@ -111,34 +111,9 @@ func parseStructure(state *dub.DubState) *StructDecl {
 	}
 }
 
-func parseTest(state *dub.DubState) *Test {
-	getKeyword(state, "test")
-	if state.Flow != 0 {
-		return nil
-	}
-	rule := dubx.Ident(state)
-	if state.Flow != 0 {
-		return nil
-	}
-	name := dubx.Ident(state)
-	if state.Flow != 0 {
-		return nil
-	}
-	input := dubx.DecodeString(state)
-	if state.Flow != 0 {
-		return nil
-	}
-	dubx.S(state)
-	destructure := dubx.ParseDestructure(state)
-	if state.Flow != 0 {
-		return nil
-	}
-	return &Test{Name: name, Rule: rule, Input: input, Destructure: destructure}
-}
-
 func parseFile(state *dub.DubState) *File {
 	decls := []Decl{}
-	tests := []*Test{}
+	tests := []*dubx.Test{}
 	for {
 		checkpoint := state.Checkpoint()
 		f := parseFunction(state)
@@ -153,7 +128,7 @@ func parseFile(state *dub.DubState) *File {
 			continue
 		}
 		state.Recover(checkpoint)
-		t := parseTest(state)
+		t := dubx.ParseTest(state)
 		if state.Flow == 0 {
 			tests = append(tests, t)
 			continue
