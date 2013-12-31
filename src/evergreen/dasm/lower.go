@@ -167,6 +167,11 @@ func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 	switch match := match.(type) {
 	case *dubx.RuneMatch:
 		lowerRuneMatch(match, r, builder)
+	case *dubx.StringMatch:
+		// HACK desugar
+		for _, c := range []rune(match.Value) {
+			lowerRuneMatch(&dubx.RuneMatch{Filters: []*dubx.RuneFilter{&dubx.RuneFilter{Min: c, Max: c}}}, r, builder)
+		}
 	case *dubx.MatchSequence:
 		for _, child := range match.Matches {
 			lowerMatch(child, r, builder)

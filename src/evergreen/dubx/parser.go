@@ -19,6 +19,13 @@ type RuneMatch struct {
 func (node *RuneMatch) IsTextMatch() {
 }
 
+type StringMatch struct {
+	Value string
+}
+
+func (node *StringMatch) IsTextMatch() {
+}
+
 type MatchSequence struct {
 	Matches []TextMatch
 }
@@ -3243,77 +3250,78 @@ block39:
 	return
 }
 func Atom(frame *dub.DubState) (ret0 TextMatch) {
-	var r0 TextMatch
-	var r1 int
-	var r2 *RuneMatch
-	var r3 rune
-	var r4 rune
-	var r5 bool
-	var r6 TextMatch
+	var r0 string
+	var r1 TextMatch
+	var r2 int
+	var r3 *RuneMatch
+	var r4 string
+	var r5 string
+	var r6 *StringMatch
 	var r7 rune
 	var r8 rune
 	var r9 bool
 	var r10 TextMatch
+	var r11 rune
+	var r12 rune
+	var r13 bool
+	var r14 TextMatch
 	goto block0
 block0:
 	goto block1
 block1:
-	r1 = frame.Checkpoint()
+	r2 = frame.Checkpoint()
 	goto block2
 block2:
-	r2 = MatchRune(frame)
+	r3 = MatchRune(frame)
 	if frame.Flow == 0 {
 		goto block3
 	} else {
 		goto block4
 	}
 block3:
-	ret0 = r2
-	goto block19
+	ret0 = r3
+	goto block26
 block4:
-	frame.Recover(r1)
+	frame.Recover(r2)
 	goto block5
 block5:
-	r3 = frame.Peek()
+	r4 = DecodeString(frame)
 	if frame.Flow == 0 {
 		goto block6
 	} else {
-		goto block22
+		goto block11
 	}
 block6:
-	r4 = '('
+	r0 = r4
 	goto block7
 block7:
-	r5 = r3 == r4
-	goto block8
-block8:
-	if r5 {
-		goto block9
+	S(frame)
+	if frame.Flow == 0 {
+		goto block8
 	} else {
-		goto block21
+		goto block11
 	}
+block8:
+	r5 = r0
+	goto block9
 block9:
-	frame.Consume()
+	r6 = &StringMatch{Value: r5}
 	goto block10
 block10:
-	r6 = Choice(frame)
-	if frame.Flow == 0 {
-		goto block11
-	} else {
-		goto block22
-	}
+	ret0 = r6
+	goto block26
 block11:
-	r0 = r6
+	frame.Recover(r2)
 	goto block12
 block12:
 	r7 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block13
 	} else {
-		goto block22
+		goto block29
 	}
 block13:
-	r8 = ')'
+	r8 = '('
 	goto block14
 block14:
 	r9 = r7 == r8
@@ -3322,26 +3330,58 @@ block15:
 	if r9 {
 		goto block16
 	} else {
-		goto block20
+		goto block28
 	}
 block16:
 	frame.Consume()
 	goto block17
 block17:
-	r10 = r0
-	goto block18
+	r10 = Choice(frame)
+	if frame.Flow == 0 {
+		goto block18
+	} else {
+		goto block29
+	}
 block18:
-	ret0 = r10
+	r1 = r10
 	goto block19
 block19:
-	return
+	r11 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block20
+	} else {
+		goto block29
+	}
 block20:
-	frame.Fail()
-	goto block22
+	r12 = ')'
+	goto block21
 block21:
-	frame.Fail()
+	r13 = r11 == r12
 	goto block22
 block22:
+	if r13 {
+		goto block23
+	} else {
+		goto block27
+	}
+block23:
+	frame.Consume()
+	goto block24
+block24:
+	r14 = r1
+	goto block25
+block25:
+	ret0 = r14
+	goto block26
+block26:
+	return
+block27:
+	frame.Fail()
+	goto block29
+block28:
+	frame.Fail()
+	goto block29
+block29:
 	return
 }
 func Postfix(frame *dub.DubState) (ret0 TextMatch) {

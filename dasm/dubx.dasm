@@ -11,6 +11,10 @@ struct RuneMatch implements TextMatch {
   Filters []RuneFilter
 }
 
+struct StringMatch implements TextMatch {
+  Value string
+}
+
 struct MatchSequence implements TextMatch {
   Matches []TextMatch
 }
@@ -130,10 +134,10 @@ func DecodeRune (rune) {
 
 func DecodeBool (bool) {
   choose {
-    /[t][r][u][e]/;
+    /"true"/;
     return true;
   } or {
-    /[f][a][l][s][e]/;
+    /"false"/;
     return false;
   }
 }
@@ -401,6 +405,10 @@ func MatchRune (RuneMatch) {
 func Atom (TextMatch) {
   choose {
     return call MatchRune;
+  } or {
+    define value call DecodeString;
+    call S;
+    return cons StringMatch(Value: value)
   } or {
     /[(]/;
     define e call Choice;
