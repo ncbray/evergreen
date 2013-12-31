@@ -160,7 +160,7 @@ func semanticTypePass(node ASTTypeRef, glbls *ModuleScope) ASTType {
 		if !ok {
 			panic(node.Name)
 		}
-		t, ok := d.AsType()
+		t, ok := AsType(d)
 		if !ok {
 			panic(node.Name)
 		}
@@ -228,8 +228,8 @@ func semanticTestPass(tst *dubx.Test, glbls *ModuleScope) {
 }
 
 type ModuleScope struct {
-	Builtin map[string]Decl
-	Module  map[string]Decl
+	Builtin map[string]ASTDecl
+	Module  map[string]ASTDecl
 
 	BinaryOps map[string]*BuiltinType
 
@@ -240,23 +240,68 @@ type ModuleScope struct {
 	Void   *BuiltinType
 }
 
+func AsType(node ASTDecl) (ASTType, bool) {
+	switch node := node.(type) {
+	case *StructDecl:
+		return node, true
+	case *BuiltinType:
+		return node, true
+	default:
+		return nil, false
+	}
+}
+
+func AsFunc(node ASTDecl) (ASTFunc, bool) {
+	switch node := node.(type) {
+	case *FuncDecl:
+		return node, true
+	default:
+		return nil, false
+	}
+}
+
+func FieldType(node *StructDecl, name string) ASTType {
+	for _, decl := range node.Fields {
+		if decl.Name == name {
+			return ResolveType(decl.Type)
+		}
+	}
+	panic(name)
+}
+
+func ReturnType(node ASTFunc) ASTType {
+	switch node := node.(type) {
+	case *FuncDecl:
+		// HACK assume single return value
+		if len(node.ReturnTypes) == 0 {
+			return nil
+		}
+		if len(node.ReturnTypes) != 1 {
+			panic(node.Name)
+		}
+		return ResolveType(node.ReturnTypes[0])
+	default:
+		panic(node)
+	}
+}
+
 func (glbls *ModuleScope) ReturnType(name string) ASTType {
 	// HACK resolve other scopes?
 	decl, ok := glbls.Module[name]
 	if !ok {
 		panic(name)
 	}
-	f, ok := decl.AsFunc()
+	f, ok := AsFunc(decl)
 	if !ok {
 		panic(name)
 	}
-	return f.ReturnType()
+	return ReturnType(f)
 }
 
 func SemanticPass(file *File) *ModuleScope {
 	glbls := &ModuleScope{
-		Builtin:   map[string]Decl{},
-		Module:    map[string]Decl{},
+		Builtin:   map[string]ASTDecl{},
+		Module:    map[string]ASTDecl{},
 		BinaryOps: map[string]*BuiltinType{},
 	}
 	glbls.String = &BuiltinType{"string"}

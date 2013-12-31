@@ -155,7 +155,14 @@ func generateDestructure(name string, path string, d dubx.Destructure, general A
 					attr(id(actual_name), arg.Name),
 				},
 			})
-			childstmts = generateDestructure(child_name, child_path, arg.Destructure, dt.FieldType(arg.Name), gbuilder, childstmts)
+			childstmts = generateDestructure(
+				child_name,
+				child_path,
+				arg.Destructure,
+				FieldType(dt, arg.Name),
+				gbuilder,
+				childstmts,
+			)
 			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
 		}
 	case *dubx.DestructureList:

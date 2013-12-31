@@ -112,7 +112,7 @@ func parseStructure(state *dub.DubState) *StructDecl {
 }
 
 func parseFile(state *dub.DubState) *File {
-	decls := []Decl{}
+	decls := []ASTDecl{}
 	tests := []*dubx.Test{}
 	for {
 		checkpoint := state.Checkpoint()
@@ -144,6 +144,17 @@ func parseFile(state *dub.DubState) *File {
 	return &File{
 		Decls: decls,
 		Tests: tests,
+	}
+}
+
+func ResolveType(ref ASTTypeRef) ASTType {
+	switch ref := ref.(type) {
+	case *dubx.TypeRef:
+		return ref.T
+	case *dubx.ListTypeRef:
+		return ref.T
+	default:
+		panic(ref)
 	}
 }
 
