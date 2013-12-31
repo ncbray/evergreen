@@ -107,9 +107,9 @@ func checkNE(x ast.Expr, y ast.Expr) ast.Expr {
 	}
 }
 
-func generateDestructure(name string, path string, d Destructure, general ASTType, gbuilder *GlobalDubBuilder, stmts []ast.Stmt) []ast.Stmt {
+func generateDestructure(name string, path string, d dubx.Destructure, general ASTType, gbuilder *GlobalDubBuilder, stmts []ast.Stmt) []ast.Stmt {
 	switch d := d.(type) {
-	case *DestructureStruct:
+	case *dubx.DestructureStruct:
 		actual_name := name
 
 		t := ResolveType(d.Type)
@@ -158,7 +158,7 @@ func generateDestructure(name string, path string, d Destructure, general ASTTyp
 			childstmts = generateDestructure(child_name, child_path, arg.Destructure, dt.FieldType(arg.Name), gbuilder, childstmts)
 			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
 		}
-	case *DestructureList:
+	case *dubx.DestructureList:
 		stmts = append(stmts, makeFatalTest(
 			checkNE(makeLen(id(name)), intLiteral(len(d.Args))),
 			fmt.Sprintf("%s: expected length %d but got %%d", path, len(d.Args)),
@@ -188,7 +188,7 @@ func generateDestructure(name string, path string, d Destructure, general ASTTyp
 			childstmts = generateDestructure(child_name, child_path, arg, dt.Type, gbuilder, childstmts)
 			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
 		}
-	case *DestructureValue:
+	case *dubx.DestructureValue:
 		switch expr := d.Expr.(type) {
 		case *dubx.StringLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), id(name)))

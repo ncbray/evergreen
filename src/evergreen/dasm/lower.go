@@ -298,7 +298,10 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 
 		return dub.NoRegister
 	case *Choice:
-		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
+		checkpoint := dub.NoRegister
+		if len(expr.Blocks) > 1 {
+			checkpoint = builder.CreateLLRegister(builder.glbl.Int)
+		}
 		head := dub.CreateBlock([]dub.DubOp{
 			&dub.Checkpoint{Dst: checkpoint},
 		})

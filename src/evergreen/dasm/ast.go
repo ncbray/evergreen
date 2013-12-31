@@ -271,44 +271,12 @@ type ListType struct {
 func (node *ListType) IsASTType() {
 }
 
-type Destructure interface {
-	IsDestructure()
-}
-
-type DestructureList struct {
-	Type *dubx.ListTypeRef
-	Args []Destructure
-}
-
-func (node *DestructureList) IsDestructure() {
-}
-
-type DestructureField struct {
-	Name        string
-	Destructure Destructure
-}
-
-type DestructureStruct struct {
-	Type *dubx.TypeRef
-	Args []*DestructureField
-}
-
-func (node *DestructureStruct) IsDestructure() {
-}
-
-type DestructureValue struct {
-	Expr ASTExpr
-}
-
-func (node *DestructureValue) IsDestructure() {
-}
-
 type Test struct {
 	Name        string
 	Rule        string
 	Type        ASTType
 	Input       string
-	Destructure Destructure
+	Destructure dubx.Destructure
 }
 
 type File struct {

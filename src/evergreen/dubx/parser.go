@@ -103,6 +103,36 @@ type ListTypeRef struct {
 
 func (node *ListTypeRef) IsASTTypeRef() {
 }
+
+type Destructure interface {
+	IsDestructure()
+}
+type DestructureValue struct {
+	Expr ASTExpr
+}
+
+func (node *DestructureValue) IsDestructure() {
+}
+
+type DestructureField struct {
+	Name        string
+	Destructure Destructure
+}
+type DestructureStruct struct {
+	Type *TypeRef
+	Args []*DestructureField
+}
+
+func (node *DestructureStruct) IsDestructure() {
+}
+
+type DestructureList struct {
+	Type *ListTypeRef
+	Args []Destructure
+}
+
+func (node *DestructureList) IsDestructure() {
+}
 func S(frame *dub.DubState) {
 	var r0 int
 	var r1 rune
@@ -2455,6 +2485,365 @@ block6:
 block7:
 	return
 block8:
+	return
+}
+func ParseDestructure(frame *dub.DubState) (ret0 Destructure) {
+	var r0 *TypeRef
+	var r1 []*DestructureField
+	var r2 string
+	var r3 Destructure
+	var r4 *ListTypeRef
+	var r5 []Destructure
+	var r6 int
+	var r7 *TypeRef
+	var r8 rune
+	var r9 rune
+	var r10 bool
+	var r11 []*DestructureField
+	var r12 int
+	var r13 string
+	var r14 rune
+	var r15 rune
+	var r16 bool
+	var r17 Destructure
+	var r18 []*DestructureField
+	var r19 string
+	var r20 Destructure
+	var r21 *DestructureField
+	var r22 []*DestructureField
+	var r23 rune
+	var r24 rune
+	var r25 bool
+	var r26 *TypeRef
+	var r27 []*DestructureField
+	var r28 *DestructureStruct
+	var r29 *ListTypeRef
+	var r30 rune
+	var r31 rune
+	var r32 bool
+	var r33 []Destructure
+	var r34 int
+	var r35 []Destructure
+	var r36 Destructure
+	var r37 []Destructure
+	var r38 rune
+	var r39 rune
+	var r40 bool
+	var r41 *ListTypeRef
+	var r42 []Destructure
+	var r43 *DestructureList
+	var r44 ASTExpr
+	var r45 *DestructureValue
+	goto block0
+block0:
+	goto block1
+block1:
+	r6 = frame.Checkpoint()
+	goto block2
+block2:
+	r7 = ParseStructTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block3
+	} else {
+		goto block43
+	}
+block3:
+	r0 = r7
+	goto block4
+block4:
+	r8 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block5
+	} else {
+		goto block43
+	}
+block5:
+	r9 = '{'
+	goto block6
+block6:
+	r10 = r8 == r9
+	goto block7
+block7:
+	if r10 {
+		goto block8
+	} else {
+		goto block42
+	}
+block8:
+	frame.Consume()
+	goto block9
+block9:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block10
+	} else {
+		goto block43
+	}
+block10:
+	r11 = []*DestructureField{}
+	goto block11
+block11:
+	r1 = r11
+	goto block12
+block12:
+	r12 = frame.Checkpoint()
+	goto block13
+block13:
+	r13 = Ident(frame)
+	if frame.Flow == 0 {
+		goto block14
+	} else {
+		goto block30
+	}
+block14:
+	r2 = r13
+	goto block15
+block15:
+	r14 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block16
+	} else {
+		goto block30
+	}
+block16:
+	r15 = ':'
+	goto block17
+block17:
+	r16 = r14 == r15
+	goto block18
+block18:
+	if r16 {
+		goto block19
+	} else {
+		goto block29
+	}
+block19:
+	frame.Consume()
+	goto block20
+block20:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block21
+	} else {
+		goto block30
+	}
+block21:
+	r17 = ParseDestructure(frame)
+	if frame.Flow == 0 {
+		goto block22
+	} else {
+		goto block30
+	}
+block22:
+	r3 = r17
+	goto block23
+block23:
+	r18 = r1
+	goto block24
+block24:
+	r19 = r2
+	goto block25
+block25:
+	r20 = r3
+	goto block26
+block26:
+	r21 = &DestructureField{Name: r19, Destructure: r20}
+	goto block27
+block27:
+	r22 = append(r18, r21)
+	goto block28
+block28:
+	r1 = r22
+	goto block12
+block29:
+	frame.Fail()
+	goto block30
+block30:
+	frame.Recover(r12)
+	goto block31
+block31:
+	r23 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block32
+	} else {
+		goto block43
+	}
+block32:
+	r24 = '}'
+	goto block33
+block33:
+	r25 = r23 == r24
+	goto block34
+block34:
+	if r25 {
+		goto block35
+	} else {
+		goto block41
+	}
+block35:
+	frame.Consume()
+	goto block36
+block36:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block37
+	} else {
+		goto block43
+	}
+block37:
+	r26 = r0
+	goto block38
+block38:
+	r27 = r1
+	goto block39
+block39:
+	r28 = &DestructureStruct{Type: r26, Args: r27}
+	goto block40
+block40:
+	ret0 = r28
+	goto block76
+block41:
+	frame.Fail()
+	goto block43
+block42:
+	frame.Fail()
+	goto block43
+block43:
+	frame.Recover(r6)
+	goto block44
+block44:
+	r29 = ParseListTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block45
+	} else {
+		goto block72
+	}
+block45:
+	r4 = r29
+	goto block46
+block46:
+	r30 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block47
+	} else {
+		goto block72
+	}
+block47:
+	r31 = '{'
+	goto block48
+block48:
+	r32 = r30 == r31
+	goto block49
+block49:
+	if r32 {
+		goto block50
+	} else {
+		goto block71
+	}
+block50:
+	frame.Consume()
+	goto block51
+block51:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block52
+	} else {
+		goto block72
+	}
+block52:
+	r33 = []Destructure{}
+	goto block53
+block53:
+	r5 = r33
+	goto block54
+block54:
+	r34 = frame.Checkpoint()
+	goto block55
+block55:
+	r35 = r5
+	goto block56
+block56:
+	r36 = ParseDestructure(frame)
+	if frame.Flow == 0 {
+		goto block57
+	} else {
+		goto block59
+	}
+block57:
+	r37 = append(r35, r36)
+	goto block58
+block58:
+	r5 = r37
+	goto block54
+block59:
+	frame.Recover(r34)
+	goto block60
+block60:
+	r38 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block61
+	} else {
+		goto block72
+	}
+block61:
+	r39 = '}'
+	goto block62
+block62:
+	r40 = r38 == r39
+	goto block63
+block63:
+	if r40 {
+		goto block64
+	} else {
+		goto block70
+	}
+block64:
+	frame.Consume()
+	goto block65
+block65:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block66
+	} else {
+		goto block72
+	}
+block66:
+	r41 = r4
+	goto block67
+block67:
+	r42 = r5
+	goto block68
+block68:
+	r43 = &DestructureList{Type: r41, Args: r42}
+	goto block69
+block69:
+	ret0 = r43
+	goto block76
+block70:
+	frame.Fail()
+	goto block72
+block71:
+	frame.Fail()
+	goto block72
+block72:
+	frame.Recover(r6)
+	goto block73
+block73:
+	r44 = Literal(frame)
+	if frame.Flow == 0 {
+		goto block74
+	} else {
+		goto block77
+	}
+block74:
+	r45 = &DestructureValue{Expr: r44}
+	goto block75
+block75:
+	ret0 = r45
+	goto block76
+block76:
+	return
+block77:
 	return
 }
 func ParseRuneFilterRune(frame *dub.DubState) (ret0 rune) {

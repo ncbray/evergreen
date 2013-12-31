@@ -417,97 +417,6 @@ func parseStructure(state *dub.DubState) *StructDecl {
 	}
 }
 
-func parseLiteralDestructure(state *dub.DubState) Destructure {
-	expr := dubx.Literal(state)
-	if state.Flow == 0 {
-		return &DestructureValue{Expr: expr}
-	}
-	return nil
-}
-
-func parseDestructure(state *dub.DubState) Destructure {
-	checkpoint := state.Checkpoint()
-	t := dubx.ParseTypeRef(state)
-	if state.Flow == 0 {
-		getPunc(state, "{")
-	}
-	if state.Flow != 0 {
-		state.Recover(checkpoint)
-		return parseLiteralDestructure(state)
-	}
-	switch t := t.(type) {
-	case *dubx.ListTypeRef:
-		args := []Destructure{}
-		for {
-			checkpoint := state.Checkpoint()
-			arg := parseDestructure(state)
-			if state.Flow != 0 {
-				state.Recover(checkpoint)
-				break
-			}
-			args = append(args, arg)
-
-			/*
-				checkpoint = state.Checkpoint()
-				getPunc(state, ",")
-				if state.Flow != 0 {
-					state.Recover(checkpoint)
-					break
-				}
-			*/
-		}
-		getPunc(state, "}")
-		if state.Flow != 0 {
-			return nil
-		}
-		return &DestructureList{
-			Type: t,
-			Args: args,
-		}
-	case *dubx.TypeRef:
-		args := []*DestructureField{}
-		for {
-			checkpoint := state.Checkpoint()
-			name := dubx.Ident(state)
-			if state.Flow != 0 {
-				state.Recover(checkpoint)
-				break
-			}
-			getPunc(state, ":")
-			if state.Flow != 0 {
-				state.Recover(checkpoint)
-				break
-			}
-
-			arg := parseDestructure(state)
-			if state.Flow != 0 {
-				state.Recover(checkpoint)
-				break
-			}
-			args = append(args, &DestructureField{Name: name, Destructure: arg})
-
-			/*
-				checkpoint = state.Checkpoint()
-				getPunc(state, ",")
-				if state.Flow != 0 {
-					state.Recover(checkpoint)
-					break
-				}
-			*/
-		}
-		getPunc(state, "}")
-		if state.Flow != 0 {
-			return nil
-		}
-		return &DestructureStruct{
-			Type: t,
-			Args: args,
-		}
-	default:
-		panic(t)
-	}
-}
-
 func parseTest(state *dub.DubState) *Test {
 	rule := dubx.Ident(state)
 	if state.Flow != 0 {
@@ -522,7 +431,7 @@ func parseTest(state *dub.DubState) *Test {
 		return nil
 	}
 	dubx.S(state)
-	destructure := parseDestructure(state)
+	destructure := dubx.ParseDestructure(state)
 	if state.Flow != 0 {
 		return nil
 	}

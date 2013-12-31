@@ -201,20 +201,20 @@ func semanticStructPass(decl *StructDecl, glbls *ModuleScope) {
 	}
 }
 
-func semanticDestructurePass(decl *FuncDecl, d Destructure, scope *semanticScope, glbls *ModuleScope) {
+func semanticDestructurePass(decl *FuncDecl, d dubx.Destructure, scope *semanticScope, glbls *ModuleScope) {
 	switch d := d.(type) {
-	case *DestructureStruct:
+	case *dubx.DestructureStruct:
 		semanticTypePass(d.Type, glbls)
 		for _, arg := range d.Args {
 			semanticDestructurePass(decl, arg.Destructure, scope, glbls)
 		}
-	case *DestructureList:
+	case *dubx.DestructureList:
 		semanticTypePass(d.Type, glbls)
 		for _, arg := range d.Args {
 			semanticDestructurePass(decl, arg, scope, glbls)
 		}
 
-	case *DestructureValue:
+	case *dubx.DestructureValue:
 		semanticExprPass(decl, d.Expr, scope, glbls)
 	default:
 		panic(d)

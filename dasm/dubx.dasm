@@ -271,6 +271,94 @@ test ParseTypeRef ListOfList "[][]Foo"
     }
   }
 
+struct Destructure {
+}
+
+struct DestructureValue implements Destructure {
+  Expr ASTExpr
+}
+
+struct DestructureField {
+  Name string
+  Destructure Destructure
+}
+
+struct DestructureStruct implements Destructure {
+  Type TypeRef
+  Args []DestructureField
+}
+
+struct DestructureList implements Destructure {
+  Type ListTypeRef
+  Args []Destructure
+}
+
+func ParseDestructure (Destructure) {
+  choose {
+    define t call ParseStructTypeRef;
+    /[{]/;
+    call S;
+    define fields conl []DestructureField();
+    star {
+      define name call Ident;
+      /[:]/;
+      call S;
+      define d call ParseDestructure;
+      append fields cons DestructureField(Name: name, Destructure: d);
+    }
+    /[}]/;
+    call S;
+    return cons DestructureStruct(Type: t, Args: fields);
+  } or {
+    define t call ParseListTypeRef;
+    /[{]/;
+    call S;
+    define fields conl []Destructure();
+    star {
+      append fields call ParseDestructure;
+    }
+    /[}]/;
+    call S;
+    return cons DestructureList(Type: t, Args: fields);
+  } or {
+    return cons DestructureValue(Expr: call Literal)
+  }
+}
+
+test ParseDestructure Compound "[]Foo { Bar { Baz: 1 Biz : 'x'} } "
+  DestructureList {
+    Type: ListTypeRef {
+      Type: TypeRef {
+        Name: "Foo"
+      }
+    }
+    Args: []Destructure {
+      DestructureStruct {
+        Type: TypeRef {
+          Name: "Bar"
+        }
+        Args: []DestructureField {
+          DestructureField {
+            Name: "Baz"
+            Destructure: DestructureValue {
+              Expr: IntLiteral {
+                Value: 1
+              }
+            }
+          }
+          DestructureField {
+            Name: "Biz"
+            Destructure: DestructureValue {
+              Expr: RuneLiteral {
+                Value: 'x'
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
 func ParseRuneFilterRune (rune) {
   choose {
     return $[^\]\-\\];
