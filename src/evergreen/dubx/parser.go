@@ -11,19 +11,19 @@ type RuneFilter struct {
 	Min rune
 	Max rune
 }
-type RuneMatch struct {
+type RuneRangeMatch struct {
 	Invert  bool
 	Filters []*RuneFilter
 }
 
-func (node *RuneMatch) IsTextMatch() {
+func (node *RuneRangeMatch) IsTextMatch() {
 }
 
-type StringMatch struct {
+type StringLiteralMatch struct {
 	Value string
 }
 
-func (node *StringMatch) IsTextMatch() {
+func (node *StringLiteralMatch) IsTextMatch() {
 }
 
 type MatchSequence struct {
@@ -83,6 +83,20 @@ type BoolLiteral struct {
 func (node *BoolLiteral) IsASTExpr() {
 }
 
+type StringMatch struct {
+	Match TextMatch
+}
+
+func (node *StringMatch) IsASTExpr() {
+}
+
+type RuneMatch struct {
+	Match *RuneRangeMatch
+}
+
+func (node *RuneMatch) IsASTExpr() {
+}
+
 type ASTType interface {
 	IsASTType()
 }
@@ -139,6 +153,20 @@ type DestructureList struct {
 }
 
 func (node *DestructureList) IsDestructure() {
+}
+
+type Call struct {
+	Name string
+	T    ASTType
+}
+
+func (node *Call) IsASTExpr() {
+}
+
+type Fail struct {
+}
+
+func (node *Fail) IsASTExpr() {
 }
 func S(frame *dub.DubState) {
 	var r0 int
@@ -2175,7 +2203,7 @@ block57:
 block58:
 	return
 }
-func StringMatchExpr(frame *dub.DubState) (ret0 TextMatch) {
+func StringMatchExpr(frame *dub.DubState) (ret0 *StringMatch) {
 	var r0 TextMatch
 	var r1 rune
 	var r2 rune
@@ -2185,6 +2213,7 @@ func StringMatchExpr(frame *dub.DubState) (ret0 TextMatch) {
 	var r6 rune
 	var r7 bool
 	var r8 TextMatch
+	var r9 *StringMatch
 	goto block0
 block0:
 	goto block1
@@ -2193,7 +2222,7 @@ block1:
 	if frame.Flow == 0 {
 		goto block2
 	} else {
-		goto block20
+		goto block21
 	}
 block2:
 	r2 = '/'
@@ -2205,7 +2234,7 @@ block4:
 	if r3 {
 		goto block5
 	} else {
-		goto block19
+		goto block20
 	}
 block5:
 	frame.Consume()
@@ -2215,14 +2244,14 @@ block6:
 	if frame.Flow == 0 {
 		goto block7
 	} else {
-		goto block20
+		goto block21
 	}
 block7:
 	r4 = Choice(frame)
 	if frame.Flow == 0 {
 		goto block8
 	} else {
-		goto block20
+		goto block21
 	}
 block8:
 	r0 = r4
@@ -2232,7 +2261,7 @@ block9:
 	if frame.Flow == 0 {
 		goto block10
 	} else {
-		goto block20
+		goto block21
 	}
 block10:
 	r6 = '/'
@@ -2244,7 +2273,7 @@ block12:
 	if r7 {
 		goto block13
 	} else {
-		goto block18
+		goto block19
 	}
 block13:
 	frame.Consume()
@@ -2254,32 +2283,36 @@ block14:
 	if frame.Flow == 0 {
 		goto block15
 	} else {
-		goto block20
+		goto block21
 	}
 block15:
 	r8 = r0
 	goto block16
 block16:
-	ret0 = r8
+	r9 = &StringMatch{Match: r8}
 	goto block17
 block17:
-	return
+	ret0 = r9
+	goto block18
 block18:
-	frame.Fail()
-	goto block20
+	return
 block19:
 	frame.Fail()
-	goto block20
+	goto block21
 block20:
+	frame.Fail()
+	goto block21
+block21:
 	return
 }
 func RuneMatchExpr(frame *dub.DubState) (ret0 *RuneMatch) {
-	var r0 *RuneMatch
+	var r0 *RuneRangeMatch
 	var r1 rune
 	var r2 rune
 	var r3 bool
-	var r4 *RuneMatch
-	var r5 *RuneMatch
+	var r4 *RuneRangeMatch
+	var r5 *RuneRangeMatch
+	var r6 *RuneMatch
 	goto block0
 block0:
 	goto block1
@@ -2288,7 +2321,7 @@ block1:
 	if frame.Flow == 0 {
 		goto block2
 	} else {
-		goto block13
+		goto block14
 	}
 block2:
 	r2 = '$'
@@ -2300,7 +2333,7 @@ block4:
 	if r3 {
 		goto block5
 	} else {
-		goto block12
+		goto block13
 	}
 block5:
 	frame.Consume()
@@ -2310,14 +2343,14 @@ block6:
 	if frame.Flow == 0 {
 		goto block7
 	} else {
-		goto block13
+		goto block14
 	}
 block7:
 	r4 = MatchRune(frame)
 	if frame.Flow == 0 {
 		goto block8
 	} else {
-		goto block13
+		goto block14
 	}
 block8:
 	r0 = r4
@@ -2326,14 +2359,17 @@ block9:
 	r5 = r0
 	goto block10
 block10:
-	ret0 = r5
+	r6 = &RuneMatch{Match: r5}
 	goto block11
 block11:
-	return
+	ret0 = r6
+	goto block12
 block12:
-	frame.Fail()
-	goto block13
+	return
 block13:
+	frame.Fail()
+	goto block14
+block14:
 	return
 }
 func ParseStructTypeRef(frame *dub.DubState) (ret0 *TypeRef) {
@@ -3078,7 +3114,7 @@ block19:
 block20:
 	return
 }
-func MatchRune(frame *dub.DubState) (ret0 *RuneMatch) {
+func MatchRune(frame *dub.DubState) (ret0 *RuneRangeMatch) {
 	var r0 bool
 	var r1 []*RuneFilter
 	var r2 rune
@@ -3100,7 +3136,7 @@ func MatchRune(frame *dub.DubState) (ret0 *RuneMatch) {
 	var r18 bool
 	var r19 bool
 	var r20 []*RuneFilter
-	var r21 *RuneMatch
+	var r21 *RuneRangeMatch
 	goto block0
 block0:
 	goto block1
@@ -3233,7 +3269,7 @@ block33:
 	r20 = r1
 	goto block34
 block34:
-	r21 = &RuneMatch{Invert: r19, Filters: r20}
+	r21 = &RuneRangeMatch{Invert: r19, Filters: r20}
 	goto block35
 block35:
 	ret0 = r21
@@ -3253,10 +3289,10 @@ func Atom(frame *dub.DubState) (ret0 TextMatch) {
 	var r0 string
 	var r1 TextMatch
 	var r2 int
-	var r3 *RuneMatch
+	var r3 *RuneRangeMatch
 	var r4 string
 	var r5 string
-	var r6 *StringMatch
+	var r6 *StringLiteralMatch
 	var r7 rune
 	var r8 rune
 	var r9 bool
@@ -3305,7 +3341,7 @@ block8:
 	r5 = r0
 	goto block9
 block9:
-	r6 = &StringMatch{Value: r5}
+	r6 = &StringLiteralMatch{Value: r5}
 	goto block10
 block10:
 	ret0 = r6
@@ -3857,5 +3893,493 @@ block36:
 block37:
 	return
 block38:
+	return
+}
+func ParseExpr(frame *dub.DubState) (ret0 ASTExpr) {
+	var r0 string
+	var r1 int
+	var r2 ASTExpr
+	var r3 rune
+	var r4 rune
+	var r5 bool
+	var r6 rune
+	var r7 rune
+	var r8 bool
+	var r9 rune
+	var r10 rune
+	var r11 bool
+	var r12 rune
+	var r13 rune
+	var r14 bool
+	var r15 string
+	var r16 string
+	var r17 *Call
+	var r18 rune
+	var r19 rune
+	var r20 bool
+	var r21 rune
+	var r22 rune
+	var r23 bool
+	var r24 rune
+	var r25 rune
+	var r26 bool
+	var r27 rune
+	var r28 rune
+	var r29 bool
+	var r30 *Fail
+	var r31 *StringMatch
+	var r32 *RuneMatch
+	goto block0
+block0:
+	goto block1
+block1:
+	r1 = frame.Checkpoint()
+	goto block2
+block2:
+	r2 = Literal(frame)
+	if frame.Flow == 0 {
+		goto block3
+	} else {
+		goto block4
+	}
+block3:
+	ret0 = r2
+	goto block69
+block4:
+	frame.Recover(r1)
+	goto block5
+block5:
+	r3 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block6
+	} else {
+		goto block35
+	}
+block6:
+	r4 = 'c'
+	goto block7
+block7:
+	r5 = r3 == r4
+	goto block8
+block8:
+	if r5 {
+		goto block9
+	} else {
+		goto block34
+	}
+block9:
+	frame.Consume()
+	goto block10
+block10:
+	r6 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block11
+	} else {
+		goto block35
+	}
+block11:
+	r7 = 'a'
+	goto block12
+block12:
+	r8 = r6 == r7
+	goto block13
+block13:
+	if r8 {
+		goto block14
+	} else {
+		goto block33
+	}
+block14:
+	frame.Consume()
+	goto block15
+block15:
+	r9 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block16
+	} else {
+		goto block35
+	}
+block16:
+	r10 = 'l'
+	goto block17
+block17:
+	r11 = r9 == r10
+	goto block18
+block18:
+	if r11 {
+		goto block19
+	} else {
+		goto block32
+	}
+block19:
+	frame.Consume()
+	goto block20
+block20:
+	r12 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block21
+	} else {
+		goto block35
+	}
+block21:
+	r13 = 'l'
+	goto block22
+block22:
+	r14 = r12 == r13
+	goto block23
+block23:
+	if r14 {
+		goto block24
+	} else {
+		goto block31
+	}
+block24:
+	frame.Consume()
+	goto block25
+block25:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block26
+	} else {
+		goto block35
+	}
+block26:
+	r15 = Ident(frame)
+	if frame.Flow == 0 {
+		goto block27
+	} else {
+		goto block35
+	}
+block27:
+	r0 = r15
+	goto block28
+block28:
+	r16 = r0
+	goto block29
+block29:
+	r17 = &Call{Name: r16}
+	goto block30
+block30:
+	ret0 = r17
+	goto block69
+block31:
+	frame.Fail()
+	goto block35
+block32:
+	frame.Fail()
+	goto block35
+block33:
+	frame.Fail()
+	goto block35
+block34:
+	frame.Fail()
+	goto block35
+block35:
+	frame.Recover(r1)
+	goto block36
+block36:
+	r18 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block37
+	} else {
+		goto block63
+	}
+block37:
+	r19 = 'f'
+	goto block38
+block38:
+	r20 = r18 == r19
+	goto block39
+block39:
+	if r20 {
+		goto block40
+	} else {
+		goto block62
+	}
+block40:
+	frame.Consume()
+	goto block41
+block41:
+	r21 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block42
+	} else {
+		goto block63
+	}
+block42:
+	r22 = 'a'
+	goto block43
+block43:
+	r23 = r21 == r22
+	goto block44
+block44:
+	if r23 {
+		goto block45
+	} else {
+		goto block61
+	}
+block45:
+	frame.Consume()
+	goto block46
+block46:
+	r24 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block47
+	} else {
+		goto block63
+	}
+block47:
+	r25 = 'i'
+	goto block48
+block48:
+	r26 = r24 == r25
+	goto block49
+block49:
+	if r26 {
+		goto block50
+	} else {
+		goto block60
+	}
+block50:
+	frame.Consume()
+	goto block51
+block51:
+	r27 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block52
+	} else {
+		goto block63
+	}
+block52:
+	r28 = 'l'
+	goto block53
+block53:
+	r29 = r27 == r28
+	goto block54
+block54:
+	if r29 {
+		goto block55
+	} else {
+		goto block59
+	}
+block55:
+	frame.Consume()
+	goto block56
+block56:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block57
+	} else {
+		goto block63
+	}
+block57:
+	r30 = &Fail{}
+	goto block58
+block58:
+	ret0 = r30
+	goto block69
+block59:
+	frame.Fail()
+	goto block63
+block60:
+	frame.Fail()
+	goto block63
+block61:
+	frame.Fail()
+	goto block63
+block62:
+	frame.Fail()
+	goto block63
+block63:
+	frame.Recover(r1)
+	goto block64
+block64:
+	r31 = StringMatchExpr(frame)
+	if frame.Flow == 0 {
+		goto block65
+	} else {
+		goto block66
+	}
+block65:
+	ret0 = r31
+	goto block69
+block66:
+	frame.Recover(r1)
+	goto block67
+block67:
+	r32 = RuneMatchExpr(frame)
+	if frame.Flow == 0 {
+		goto block68
+	} else {
+		goto block70
+	}
+block68:
+	ret0 = r32
+	goto block69
+block69:
+	return
+block70:
+	return
+}
+func ParseCodeBlock(frame *dub.DubState) (ret0 []ASTExpr) {
+	var r0 []ASTExpr
+	var r1 rune
+	var r2 rune
+	var r3 bool
+	var r4 []ASTExpr
+	var r5 int
+	var r6 []ASTExpr
+	var r7 ASTExpr
+	var r8 []ASTExpr
+	var r9 int
+	var r10 rune
+	var r11 rune
+	var r12 bool
+	var r13 rune
+	var r14 rune
+	var r15 bool
+	var r16 []ASTExpr
+	goto block0
+block0:
+	goto block1
+block1:
+	r1 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block2
+	} else {
+		goto block35
+	}
+block2:
+	r2 = '{'
+	goto block3
+block3:
+	r3 = r1 == r2
+	goto block4
+block4:
+	if r3 {
+		goto block5
+	} else {
+		goto block34
+	}
+block5:
+	frame.Consume()
+	goto block6
+block6:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block7
+	} else {
+		goto block35
+	}
+block7:
+	r4 = []ASTExpr{}
+	goto block8
+block8:
+	r0 = r4
+	goto block9
+block9:
+	r5 = frame.Checkpoint()
+	goto block10
+block10:
+	r6 = r0
+	goto block11
+block11:
+	r7 = ParseExpr(frame)
+	if frame.Flow == 0 {
+		goto block12
+	} else {
+		goto block23
+	}
+block12:
+	r8 = append(r6, r7)
+	goto block13
+block13:
+	r0 = r8
+	goto block14
+block14:
+	r9 = frame.Checkpoint()
+	goto block15
+block15:
+	r10 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block16
+	} else {
+		goto block22
+	}
+block16:
+	r11 = ';'
+	goto block17
+block17:
+	r12 = r10 == r11
+	goto block18
+block18:
+	if r12 {
+		goto block19
+	} else {
+		goto block21
+	}
+block19:
+	frame.Consume()
+	goto block20
+block20:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block14
+	} else {
+		goto block22
+	}
+block21:
+	frame.Fail()
+	goto block22
+block22:
+	frame.Recover(r9)
+	goto block9
+block23:
+	frame.Recover(r5)
+	goto block24
+block24:
+	r13 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block25
+	} else {
+		goto block35
+	}
+block25:
+	r14 = '}'
+	goto block26
+block26:
+	r15 = r13 == r14
+	goto block27
+block27:
+	if r15 {
+		goto block28
+	} else {
+		goto block33
+	}
+block28:
+	frame.Consume()
+	goto block29
+block29:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block30
+	} else {
+		goto block35
+	}
+block30:
+	r16 = r0
+	goto block31
+block31:
+	ret0 = r16
+	goto block32
+block32:
+	return
+block33:
+	frame.Fail()
+	goto block35
+block34:
+	frame.Fail()
+	goto block35
+block35:
 	return
 }

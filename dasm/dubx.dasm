@@ -6,12 +6,12 @@ struct RuneFilter {
   Max rune
 }
 
-struct RuneMatch implements TextMatch {
+struct RuneRangeMatch implements TextMatch {
   Invert bool
   Filters []RuneFilter
 }
 
-struct StringMatch implements TextMatch {
+struct StringLiteralMatch implements TextMatch {
   Value string
 }
 
@@ -180,20 +180,29 @@ func BinaryOperator (string) {
   return op;
 }
 
-func StringMatchExpr (TextMatch) {
+
+struct StringMatch implements ASTExpr {
+   Match TextMatch
+}
+
+struct RuneMatch implements ASTExpr {
+   Match RuneRangeMatch
+}
+
+func StringMatchExpr (StringMatch) {
   /[/]/;
   call S;
   define e call Choice;
   /[/]/;
   call S;
-  return e;
+  return cons StringMatch(Match: e);
 }
 
 func RuneMatchExpr (RuneMatch) {
   /[$]/;
   call S;
   define e call MatchRune;
-  return e;
+  return cons RuneMatch(Match: e);
 }
 
 
@@ -386,7 +395,7 @@ func ParseRuneFilter (RuneFilter) {
   return cons RuneFilter(Min: min, Max: max);
 }
 
-func MatchRune (RuneMatch) {
+func MatchRune (RuneRangeMatch) {
   /[\[]/;
   define invert false;
   define filters conl []RuneFilter();
@@ -399,7 +408,7 @@ func MatchRune (RuneMatch) {
   }
   /[\]]/;
   call S;
-  return cons RuneMatch(Invert: invert, Filters: filters)
+  return cons RuneRangeMatch(Invert: invert, Filters: filters)
 }
 
 func Atom (TextMatch) {
@@ -408,7 +417,7 @@ func Atom (TextMatch) {
   } or {
     define value call DecodeString;
     call S;
-    return cons StringMatch(Value: value)
+    return cons StringLiteralMatch(Value: value)
   } or {
     /[(]/;
     define e call Choice;
@@ -466,7 +475,7 @@ func Choice (TextMatch) {
 
 
 test Choice One "[pq]"
-  RuneMatch {
+  RuneRangeMatch {
     Invert: false
     Filters: []RuneFilter {
       RuneFilter {
@@ -481,7 +490,7 @@ test Choice One "[pq]"
   }
 
 test Choice Invert "[^.]"
-  RuneMatch {
+  RuneRangeMatch {
     Invert: true
     Filters: []RuneFilter {
       RuneFilter {
@@ -492,7 +501,7 @@ test Choice Invert "[^.]"
   }
 
 test Choice Escape "[\\]\\n]"
-  RuneMatch {
+  RuneRangeMatch {
     Filters: []RuneFilter {
       RuneFilter {
         Min: ']'
@@ -509,7 +518,7 @@ test Choice Escape "[\\]\\n]"
 test Choice Three "[a][b][c]"
   MatchSequence {
     Matches: []TextMatch {
-      RuneMatch {
+      RuneRangeMatch {
         Filters: []RuneFilter {
           RuneFilter {
             Min: 'a'
@@ -517,7 +526,7 @@ test Choice Three "[a][b][c]"
           }
         }
       }
-      RuneMatch {
+      RuneRangeMatch {
         Filters: []RuneFilter {
           RuneFilter {
             Min: 'b'
@@ -525,7 +534,7 @@ test Choice Three "[a][b][c]"
           }
         }
       }
-      RuneMatch {
+      RuneRangeMatch {
         Filters: []RuneFilter {
           RuneFilter {
             Min: 'c'
@@ -538,7 +547,7 @@ test Choice Three "[a][b][c]"
 
 test Choice Repeat "[0-9] + "
   MatchRepeat {
-    Match: RuneMatch {
+    Match: RuneRangeMatch {
       Filters: []RuneFilter {
         RuneFilter {
           Min: '0'
@@ -552,7 +561,7 @@ test Choice Repeat "[0-9] + "
 test Choice Question "[*]?"
   MatchChoice {
     Matches: []TextMatch {
-      RuneMatch {
+      RuneRangeMatch {
         Filters: []RuneFilter {
           RuneFilter {
             Min: '*'
@@ -571,7 +580,7 @@ test Choice Complex "[a]([b]|[c])|[d]"
     Matches: []TextMatch {
       MatchSequence {
         Matches: []TextMatch{
-          RuneMatch {
+          RuneRangeMatch {
             Filters: []RuneFilter {
               RuneFilter {
                 Min: 'a'
@@ -581,7 +590,7 @@ test Choice Complex "[a]([b]|[c])|[d]"
           }
           MatchChoice {
             Matches: []TextMatch {
-              RuneMatch {
+              RuneRangeMatch {
                 Filters: []RuneFilter {
                   RuneFilter {
                     Min: 'b'
@@ -589,7 +598,7 @@ test Choice Complex "[a]([b]|[c])|[d]"
                   }
                 }
               }
-              RuneMatch {
+              RuneRangeMatch {
                 Filters: []RuneFilter {
                   RuneFilter {
                     Min: 'c'
@@ -601,7 +610,7 @@ test Choice Complex "[a]([b]|[c])|[d]"
           }
         }
       }
-      RuneMatch {
+      RuneRangeMatch {
         Filters: []RuneFilter {
           RuneFilter {
             Min: 'd'
@@ -611,3 +620,46 @@ test Choice Complex "[a]([b]|[c])|[d]"
       }
     }
   }
+
+struct Call implements ASTExpr {
+  Name string
+  T ASTType
+}
+
+struct Fail implements ASTExpr {
+}
+
+func ParseExpr (ASTExpr) {
+  choose {
+    return call Literal;
+  } or {
+    /"call"/;
+    call S;
+    define name call Ident;
+    return cons Call(Name: name);
+  } or {
+    /"fail"/;
+    call S;
+    return cons Fail();
+  } or {
+    return call StringMatchExpr;
+  } or {
+    return call RuneMatchExpr;
+  }
+}
+
+func ParseCodeBlock([]ASTExpr) {
+  /[{]/;
+  call S;
+  define exprs conl []ASTExpr();
+  star {
+    append exprs call ParseExpr;
+    star {
+      /[;]/;
+      call S;
+    }
+  }
+  /[}]/;
+  call S;
+  return exprs;
+}

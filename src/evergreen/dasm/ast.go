@@ -75,14 +75,6 @@ type BinaryOp struct {
 func (node *BinaryOp) IsASTExpr() {
 }
 
-type Call struct {
-	Name string
-	T    ASTType
-}
-
-func (node *Call) IsASTExpr() {
-}
-
 type KeyValue struct {
 	Key   string
 	Value ASTExpr
@@ -145,26 +137,6 @@ type Return struct {
 }
 
 func (node *Return) IsASTExpr() {
-}
-
-type Fail struct {
-}
-
-func (node *Fail) IsASTExpr() {
-}
-
-type StringMatch struct {
-	Expr dubx.TextMatch
-}
-
-func (node *StringMatch) IsASTExpr() {
-}
-
-type RuneMatch struct {
-	Expr *dubx.RuneMatch
-}
-
-func (node *RuneMatch) IsASTExpr() {
 }
 
 type LocalInfo struct {

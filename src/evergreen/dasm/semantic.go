@@ -101,9 +101,9 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *Slice:
 		semanticBlockPass(decl, expr.Block, scope, glbls)
 		return glbls.String
-	case *StringMatch:
+	case *dubx.StringMatch:
 		return glbls.String
-	case *RuneMatch:
+	case *dubx.RuneMatch:
 		return glbls.Rune
 	case *dubx.RuneLiteral:
 		return glbls.Rune
@@ -118,9 +118,9 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			semanticExprPass(decl, e, scope, glbls)
 		}
 		return glbls.Void
-	case *Fail:
+	case *dubx.Fail:
 		return glbls.Void
-	case *Call:
+	case *dubx.Call:
 		t := glbls.ReturnType(expr.Name)
 		expr.T = t
 		return t

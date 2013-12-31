@@ -42,7 +42,7 @@ func TestSequence(t *testing.T) {
 	}
 	assertInt(len(s.Matches), 3, t)
 	{
-		m, ok := s.Matches[0].(*dubx.RuneMatch)
+		m, ok := s.Matches[0].(*dubx.RuneRangeMatch)
 		if !ok {
 			t.Errorf("Not RuneMatch: %v", m)
 		}
@@ -52,7 +52,7 @@ func TestSequence(t *testing.T) {
 		assertRune('2', f.Max, t)
 	}
 	{
-		m, ok := s.Matches[1].(*dubx.RuneMatch)
+		m, ok := s.Matches[1].(*dubx.RuneRangeMatch)
 		if !ok {
 			t.Errorf("Not RuneMatch: %v", m)
 		}
@@ -62,7 +62,7 @@ func TestSequence(t *testing.T) {
 		assertRune('3', f.Max, t)
 	}
 	{
-		m, ok := s.Matches[2].(*dubx.RuneMatch)
+		m, ok := s.Matches[2].(*dubx.RuneRangeMatch)
 		if !ok {
 			t.Errorf("Not RuneMatch: %v", m)
 		}

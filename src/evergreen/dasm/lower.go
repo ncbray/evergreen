@@ -89,7 +89,7 @@ func makeRuneSwitch(cond dub.DubRegister, op string, value rune, builder *DubBui
 	return make_value, decide
 }
 
-func lowerRuneMatch(match *dubx.RuneMatch, r *base.Region, builder *DubBuilder) dub.DubRegister {
+func lowerRuneMatch(match *dubx.RuneRangeMatch, r *base.Region, builder *DubBuilder) dub.DubRegister {
 	// Read
 	cond := builder.CreateLLRegister(builder.glbl.Rune)
 	body := dub.CreateBlock([]dub.DubOp{
@@ -165,12 +165,12 @@ func lowerRuneMatch(match *dubx.RuneMatch, r *base.Region, builder *DubBuilder) 
 
 func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 	switch match := match.(type) {
-	case *dubx.RuneMatch:
+	case *dubx.RuneRangeMatch:
 		lowerRuneMatch(match, r, builder)
-	case *dubx.StringMatch:
+	case *dubx.StringLiteralMatch:
 		// HACK desugar
 		for _, c := range []rune(match.Value) {
-			lowerRuneMatch(&dubx.RuneMatch{Filters: []*dubx.RuneFilter{&dubx.RuneFilter{Min: c, Max: c}}}, r, builder)
+			lowerRuneMatch(&dubx.RuneRangeMatch{Filters: []*dubx.RuneFilter{&dubx.RuneFilter{Min: c, Max: c}}}, r, builder)
 		}
 	case *dubx.MatchSequence:
 		for _, child := range match.Matches {
@@ -443,7 +443,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.RETURN))
 		return dub.NoRegister
 
-	case *Fail:
+	case *dubx.Fail:
 		body := dub.CreateBlock([]dub.DubOp{
 			&dub.Fail{},
 		})
@@ -489,7 +489,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *Call:
+	case *dubx.Call:
 		dst := dub.NoRegister
 		if used {
 			dst = builder.CreateRegister(expr.T)
@@ -603,7 +603,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		}
 		return dst
 
-	case *StringMatch:
+	case *dubx.StringMatch:
 		dst := dub.NoRegister
 		start := dub.NoRegister
 
@@ -620,7 +620,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 			}
 		}
 
-		lowerMatch(expr.Expr, r, builder)
+		lowerMatch(expr.Match, r, builder)
 
 		// Create a slice
 		if used {
@@ -634,8 +634,8 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		}
 		return dst
 
-	case *RuneMatch:
-		return lowerRuneMatch(expr.Expr, r, builder)
+	case *dubx.RuneMatch:
+		return lowerRuneMatch(expr.Match, r, builder)
 	default:
 		panic(expr)
 	}

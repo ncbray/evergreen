@@ -132,7 +132,7 @@ func parseTypeList(state *dub.DubState) []ASTTypeRef {
 
 func parseExpr(state *dub.DubState) ASTExpr {
 	checkpoint := state.Checkpoint()
-	e := dubx.Literal(state)
+	e := dubx.ParseExpr(state)
 	if state.Flow == 0 {
 		return e
 	}
@@ -220,13 +220,6 @@ func parseExpr(state *dub.DubState) ASTExpr {
 					return &Assign{Expr: expr, Name: name, Define: false}
 				}
 			}
-		case "fail":
-			return &Fail{}
-		case "call":
-			name := dubx.Ident(state)
-			if state.Flow == 0 {
-				return &Call{Name: name}
-			}
 		case "cons":
 			t := dubx.ParseTypeRef(state)
 			if state.Flow == 0 {
@@ -296,20 +289,6 @@ func parseExpr(state *dub.DubState) ASTExpr {
 					return &BinaryOp{Left: l, Op: op, Right: r}
 				}
 			}
-		}
-	}
-	state.Recover(checkpoint)
-	{
-		e := dubx.StringMatchExpr(state)
-		if state.Flow == 0 {
-			return &StringMatch{Expr: e}
-		}
-	}
-	state.Recover(checkpoint)
-	{
-		e := dubx.RuneMatchExpr(state)
-		if state.Flow == 0 {
-			return &RuneMatch{Expr: e}
 		}
 	}
 	// Fail through
