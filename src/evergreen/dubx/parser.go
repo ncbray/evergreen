@@ -2484,122 +2484,106 @@ block14:
 }
 func ParseStructTypeRef(frame *dub.DubState) (ret0 *TypeRef) {
 	var r0 string
-	var r1 string
-	var r2 string
-	var r3 *TypeRef
+	var r1 *TypeRef
 	goto block0
 block0:
 	goto block1
 block1:
-	r1 = Ident(frame)
+	r0 = Ident(frame)
 	if frame.Flow == 0 {
 		goto block2
 	} else {
-		goto block7
+		goto block5
 	}
 block2:
-	r0 = r1
+	r1 = &TypeRef{Name: r0}
 	goto block3
 block3:
-	r2 = r0
+	ret0 = r1
 	goto block4
 block4:
-	r3 = &TypeRef{Name: r2}
-	goto block5
-block5:
-	ret0 = r3
-	goto block6
-block6:
 	return
-block7:
+block5:
 	return
 }
 func ParseListTypeRef(frame *dub.DubState) (ret0 *ListTypeRef) {
-	var r0 ASTTypeRef
+	var r0 rune
 	var r1 rune
-	var r2 rune
-	var r3 bool
+	var r2 bool
+	var r3 rune
 	var r4 rune
-	var r5 rune
-	var r6 bool
-	var r7 ASTTypeRef
-	var r8 ASTTypeRef
-	var r9 *ListTypeRef
+	var r5 bool
+	var r6 ASTTypeRef
+	var r7 *ListTypeRef
 	goto block0
 block0:
 	goto block1
 block1:
-	r1 = frame.Peek()
+	r0 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block2
 	} else {
-		goto block19
+		goto block17
 	}
 block2:
-	r2 = '['
+	r1 = '['
 	goto block3
 block3:
-	r3 = r1 == r2
+	r2 = r0 == r1
 	goto block4
 block4:
-	if r3 {
+	if r2 {
 		goto block5
 	} else {
-		goto block18
+		goto block16
 	}
 block5:
 	frame.Consume()
 	goto block6
 block6:
-	r4 = frame.Peek()
+	r3 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block7
 	} else {
-		goto block19
+		goto block17
 	}
 block7:
-	r5 = ']'
+	r4 = ']'
 	goto block8
 block8:
-	r6 = r4 == r5
+	r5 = r3 == r4
 	goto block9
 block9:
-	if r6 {
+	if r5 {
 		goto block10
 	} else {
-		goto block17
+		goto block15
 	}
 block10:
 	frame.Consume()
 	goto block11
 block11:
-	r7 = ParseTypeRef(frame)
+	r6 = ParseTypeRef(frame)
 	if frame.Flow == 0 {
 		goto block12
 	} else {
-		goto block19
+		goto block17
 	}
 block12:
-	r0 = r7
+	r7 = &ListTypeRef{Type: r6}
 	goto block13
 block13:
-	r8 = r0
+	ret0 = r7
 	goto block14
 block14:
-	r9 = &ListTypeRef{Type: r8}
-	goto block15
-block15:
-	ret0 = r9
-	goto block16
-block16:
 	return
+block15:
+	frame.Fail()
+	goto block17
+block16:
+	frame.Fail()
+	goto block17
 block17:
-	frame.Fail()
-	goto block19
-block18:
-	frame.Fail()
-	goto block19
-block19:
 	return
 }
 func ParseTypeRef(frame *dub.DubState) (ret0 ASTTypeRef) {
@@ -4007,183 +3991,111 @@ block38:
 }
 func ParseExprList(frame *dub.DubState) (ret0 []ASTExpr) {
 	var r0 []ASTExpr
-	var r1 rune
-	var r2 rune
-	var r3 bool
-	var r4 []ASTExpr
-	var r5 int
-	var r6 []ASTExpr
-	var r7 ASTExpr
-	var r8 []ASTExpr
-	var r9 int
-	var r10 rune
-	var r11 rune
-	var r12 bool
+	var r1 []ASTExpr
+	var r2 int
+	var r3 []ASTExpr
+	var r4 ASTExpr
+	var r5 []ASTExpr
+	var r6 int
+	var r7 rune
+	var r8 rune
+	var r9 bool
+	var r10 []ASTExpr
+	var r11 ASTExpr
+	var r12 []ASTExpr
 	var r13 []ASTExpr
-	var r14 ASTExpr
-	var r15 []ASTExpr
-	var r16 rune
-	var r17 rune
-	var r18 bool
-	var r19 []ASTExpr
 	goto block0
 block0:
 	goto block1
 block1:
-	r1 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block2
-	} else {
-		goto block39
-	}
+	r1 = []ASTExpr{}
+	goto block2
 block2:
-	r2 = '('
+	r0 = r1
 	goto block3
 block3:
-	r3 = r1 == r2
+	r2 = frame.Checkpoint()
 	goto block4
 block4:
-	if r3 {
-		goto block5
-	} else {
-		goto block38
-	}
+	r3 = r0
+	goto block5
 block5:
-	frame.Consume()
-	goto block6
-block6:
-	S(frame)
+	r4 = ParseExpr(frame)
 	if frame.Flow == 0 {
-		goto block7
+		goto block6
 	} else {
-		goto block39
+		goto block21
 	}
+block6:
+	r5 = append(r3, r4)
+	goto block7
 block7:
-	r4 = []ASTExpr{}
+	r0 = r5
 	goto block8
 block8:
-	r0 = r4
+	r6 = frame.Checkpoint()
 	goto block9
 block9:
-	r5 = frame.Checkpoint()
-	goto block10
+	r7 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block10
+	} else {
+		goto block20
+	}
 block10:
-	r6 = r0
+	r8 = ','
 	goto block11
 block11:
-	r7 = ParseExpr(frame)
-	if frame.Flow == 0 {
-		goto block12
-	} else {
-		goto block27
-	}
+	r9 = r7 == r8
+	goto block12
 block12:
-	r8 = append(r6, r7)
-	goto block13
+	if r9 {
+		goto block13
+	} else {
+		goto block19
+	}
 block13:
-	r0 = r8
+	frame.Consume()
 	goto block14
 block14:
-	r9 = frame.Checkpoint()
-	goto block15
-block15:
-	r10 = frame.Peek()
+	S(frame)
 	if frame.Flow == 0 {
-		goto block16
+		goto block15
 	} else {
-		goto block26
+		goto block20
 	}
+block15:
+	r10 = r0
+	goto block16
 block16:
-	r11 = ','
-	goto block17
+	r11 = ParseExpr(frame)
+	if frame.Flow == 0 {
+		goto block17
+	} else {
+		goto block20
+	}
 block17:
-	r12 = r10 == r11
+	r12 = append(r10, r11)
 	goto block18
 block18:
-	if r12 {
-		goto block19
-	} else {
-		goto block25
-	}
+	r0 = r12
+	goto block8
 block19:
-	frame.Consume()
+	frame.Fail()
 	goto block20
 block20:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block21
-	} else {
-		goto block26
-	}
+	frame.Recover(r6)
+	goto block22
 block21:
-	r13 = r0
+	frame.Recover(r2)
 	goto block22
 block22:
-	r14 = ParseExpr(frame)
-	if frame.Flow == 0 {
-		goto block23
-	} else {
-		goto block26
-	}
+	r13 = r0
+	goto block23
 block23:
-	r15 = append(r13, r14)
+	ret0 = r13
 	goto block24
 block24:
-	r0 = r15
-	goto block14
-block25:
-	frame.Fail()
-	goto block26
-block26:
-	frame.Recover(r9)
-	goto block28
-block27:
-	frame.Recover(r5)
-	goto block28
-block28:
-	r16 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block29
-	} else {
-		goto block39
-	}
-block29:
-	r17 = ')'
-	goto block30
-block30:
-	r18 = r16 == r17
-	goto block31
-block31:
-	if r18 {
-		goto block32
-	} else {
-		goto block37
-	}
-block32:
-	frame.Consume()
-	goto block33
-block33:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block34
-	} else {
-		goto block39
-	}
-block34:
-	r19 = r0
-	goto block35
-block35:
-	ret0 = r19
-	goto block36
-block36:
-	return
-block37:
-	frame.Fail()
-	goto block39
-block38:
-	frame.Fail()
-	goto block39
-block39:
 	return
 }
 func ParseNamedExpr(frame *dub.DubState) (ret0 *NamedExpr) {
@@ -4263,183 +4175,111 @@ block15:
 }
 func ParseNamedExprList(frame *dub.DubState) (ret0 []*NamedExpr) {
 	var r0 []*NamedExpr
-	var r1 rune
-	var r2 rune
-	var r3 bool
-	var r4 []*NamedExpr
-	var r5 int
-	var r6 []*NamedExpr
-	var r7 *NamedExpr
-	var r8 []*NamedExpr
-	var r9 int
-	var r10 rune
-	var r11 rune
-	var r12 bool
+	var r1 []*NamedExpr
+	var r2 int
+	var r3 []*NamedExpr
+	var r4 *NamedExpr
+	var r5 []*NamedExpr
+	var r6 int
+	var r7 rune
+	var r8 rune
+	var r9 bool
+	var r10 []*NamedExpr
+	var r11 *NamedExpr
+	var r12 []*NamedExpr
 	var r13 []*NamedExpr
-	var r14 *NamedExpr
-	var r15 []*NamedExpr
-	var r16 rune
-	var r17 rune
-	var r18 bool
-	var r19 []*NamedExpr
 	goto block0
 block0:
 	goto block1
 block1:
-	r1 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block2
-	} else {
-		goto block39
-	}
+	r1 = []*NamedExpr{}
+	goto block2
 block2:
-	r2 = '('
+	r0 = r1
 	goto block3
 block3:
-	r3 = r1 == r2
+	r2 = frame.Checkpoint()
 	goto block4
 block4:
-	if r3 {
-		goto block5
-	} else {
-		goto block38
-	}
+	r3 = r0
+	goto block5
 block5:
-	frame.Consume()
-	goto block6
-block6:
-	S(frame)
+	r4 = ParseNamedExpr(frame)
 	if frame.Flow == 0 {
-		goto block7
+		goto block6
 	} else {
-		goto block39
+		goto block21
 	}
+block6:
+	r5 = append(r3, r4)
+	goto block7
 block7:
-	r4 = []*NamedExpr{}
+	r0 = r5
 	goto block8
 block8:
-	r0 = r4
+	r6 = frame.Checkpoint()
 	goto block9
 block9:
-	r5 = frame.Checkpoint()
-	goto block10
+	r7 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block10
+	} else {
+		goto block20
+	}
 block10:
-	r6 = r0
+	r8 = ','
 	goto block11
 block11:
-	r7 = ParseNamedExpr(frame)
-	if frame.Flow == 0 {
-		goto block12
-	} else {
-		goto block27
-	}
+	r9 = r7 == r8
+	goto block12
 block12:
-	r8 = append(r6, r7)
-	goto block13
+	if r9 {
+		goto block13
+	} else {
+		goto block19
+	}
 block13:
-	r0 = r8
+	frame.Consume()
 	goto block14
 block14:
-	r9 = frame.Checkpoint()
-	goto block15
-block15:
-	r10 = frame.Peek()
+	S(frame)
 	if frame.Flow == 0 {
-		goto block16
+		goto block15
 	} else {
-		goto block26
+		goto block20
 	}
+block15:
+	r10 = r0
+	goto block16
 block16:
-	r11 = ','
-	goto block17
+	r11 = ParseNamedExpr(frame)
+	if frame.Flow == 0 {
+		goto block17
+	} else {
+		goto block20
+	}
 block17:
-	r12 = r10 == r11
+	r12 = append(r10, r11)
 	goto block18
 block18:
-	if r12 {
-		goto block19
-	} else {
-		goto block25
-	}
+	r0 = r12
+	goto block8
 block19:
-	frame.Consume()
+	frame.Fail()
 	goto block20
 block20:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block21
-	} else {
-		goto block26
-	}
+	frame.Recover(r6)
+	goto block22
 block21:
-	r13 = r0
+	frame.Recover(r2)
 	goto block22
 block22:
-	r14 = ParseNamedExpr(frame)
-	if frame.Flow == 0 {
-		goto block23
-	} else {
-		goto block26
-	}
+	r13 = r0
+	goto block23
 block23:
-	r15 = append(r13, r14)
+	ret0 = r13
 	goto block24
 block24:
-	r0 = r15
-	goto block14
-block25:
-	frame.Fail()
-	goto block26
-block26:
-	frame.Recover(r9)
-	goto block28
-block27:
-	frame.Recover(r5)
-	goto block28
-block28:
-	r16 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block29
-	} else {
-		goto block39
-	}
-block29:
-	r17 = ')'
-	goto block30
-block30:
-	r18 = r16 == r17
-	goto block31
-block31:
-	if r18 {
-		goto block32
-	} else {
-		goto block37
-	}
-block32:
-	frame.Consume()
-	goto block33
-block33:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block34
-	} else {
-		goto block39
-	}
-block34:
-	r19 = r0
-	goto block35
-block35:
-	ret0 = r19
-	goto block36
-block36:
-	return
-block37:
-	frame.Fail()
-	goto block39
-block38:
-	frame.Fail()
-	goto block39
-block39:
 	return
 }
 func ParseTypeList(frame *dub.DubState) (ret0 []ASTTypeRef) {
@@ -4634,214 +4474,214 @@ func ParseExpr(frame *dub.DubState) (ret0 ASTExpr) {
 	var r7 string
 	var r8 ASTTypeRef
 	var r9 ASTExpr
-	var r10 *TypeRef
-	var r11 []*NamedExpr
-	var r12 *ListTypeRef
-	var r13 []ASTExpr
-	var r14 string
-	var r15 ASTTypeRef
-	var r16 ASTExpr
-	var r17 string
+	var r10 string
+	var r11 ASTTypeRef
+	var r12 ASTExpr
+	var r13 string
+	var r14 ASTExpr
+	var r15 []ASTExpr
+	var r16 string
+	var r17 ASTExpr
 	var r18 ASTExpr
-	var r19 string
-	var r20 ASTExpr
-	var r21 ASTExpr
-	var r22 string
-	var r23 bool
-	var r24 ASTExpr
-	var r25 int
-	var r26 ASTExpr
-	var r27 int
-	var r28 rune
+	var r19 *TypeRef
+	var r20 []*NamedExpr
+	var r21 *ListTypeRef
+	var r22 []ASTExpr
+	var r23 string
+	var r24 bool
+	var r25 ASTExpr
+	var r26 int
+	var r27 ASTExpr
+	var r28 int
 	var r29 rune
-	var r30 bool
-	var r31 rune
+	var r30 rune
+	var r31 bool
 	var r32 rune
-	var r33 bool
-	var r34 rune
+	var r33 rune
+	var r34 bool
 	var r35 rune
-	var r36 bool
-	var r37 rune
+	var r36 rune
+	var r37 bool
 	var r38 rune
-	var r39 bool
-	var r40 rune
+	var r39 rune
+	var r40 bool
 	var r41 rune
-	var r42 bool
-	var r43 rune
+	var r42 rune
+	var r43 bool
 	var r44 rune
-	var r45 bool
-	var r46 rune
+	var r45 rune
+	var r46 bool
 	var r47 rune
-	var r48 bool
-	var r49 rune
+	var r48 rune
+	var r49 bool
 	var r50 rune
-	var r51 bool
-	var r52 int
-	var r53 []ASTExpr
+	var r51 rune
+	var r52 bool
+	var r53 int
 	var r54 []ASTExpr
-	var r55 int
-	var r56 *Repeat
-	var r57 rune
+	var r55 []ASTExpr
+	var r56 int
+	var r57 *Repeat
 	var r58 rune
-	var r59 bool
-	var r60 rune
+	var r59 rune
+	var r60 bool
 	var r61 rune
-	var r62 bool
-	var r63 rune
+	var r62 rune
+	var r63 bool
 	var r64 rune
-	var r65 bool
-	var r66 rune
+	var r65 rune
+	var r66 bool
 	var r67 rune
-	var r68 bool
-	var r69 rune
+	var r68 rune
+	var r69 bool
 	var r70 rune
-	var r71 bool
-	var r72 rune
+	var r71 rune
+	var r72 bool
 	var r73 rune
-	var r74 bool
-	var r75 []ASTExpr
-	var r76 [][]ASTExpr
-	var r77 int
-	var r78 rune
+	var r74 rune
+	var r75 bool
+	var r76 []ASTExpr
+	var r77 [][]ASTExpr
+	var r78 int
 	var r79 rune
-	var r80 bool
-	var r81 rune
+	var r80 rune
+	var r81 bool
 	var r82 rune
-	var r83 bool
-	var r84 [][]ASTExpr
-	var r85 []ASTExpr
-	var r86 [][]ASTExpr
+	var r83 rune
+	var r84 bool
+	var r85 [][]ASTExpr
+	var r86 []ASTExpr
 	var r87 [][]ASTExpr
-	var r88 *Choice
-	var r89 rune
+	var r88 [][]ASTExpr
+	var r89 *Choice
 	var r90 rune
-	var r91 bool
-	var r92 rune
+	var r91 rune
+	var r92 bool
 	var r93 rune
-	var r94 bool
-	var r95 rune
+	var r94 rune
+	var r95 bool
 	var r96 rune
-	var r97 bool
-	var r98 rune
+	var r97 rune
+	var r98 bool
 	var r99 rune
-	var r100 bool
-	var r101 rune
+	var r100 rune
+	var r101 bool
 	var r102 rune
-	var r103 bool
-	var r104 rune
+	var r103 rune
+	var r104 bool
 	var r105 rune
-	var r106 bool
-	var r107 rune
+	var r106 rune
+	var r107 bool
 	var r108 rune
-	var r109 bool
-	var r110 rune
+	var r109 rune
+	var r110 bool
 	var r111 rune
-	var r112 bool
-	var r113 []ASTExpr
+	var r112 rune
+	var r113 bool
 	var r114 []ASTExpr
-	var r115 *Optional
-	var r116 rune
+	var r115 []ASTExpr
+	var r116 *Optional
 	var r117 rune
-	var r118 bool
-	var r119 rune
+	var r118 rune
+	var r119 bool
 	var r120 rune
-	var r121 bool
-	var r122 rune
+	var r121 rune
+	var r122 bool
 	var r123 rune
-	var r124 bool
-	var r125 rune
+	var r124 rune
+	var r125 bool
 	var r126 rune
-	var r127 bool
-	var r128 rune
+	var r127 rune
+	var r128 bool
 	var r129 rune
-	var r130 bool
-	var r131 []ASTExpr
+	var r130 rune
+	var r131 bool
 	var r132 []ASTExpr
-	var r133 *Slice
-	var r134 rune
+	var r133 []ASTExpr
+	var r134 *Slice
 	var r135 rune
-	var r136 bool
-	var r137 rune
+	var r136 rune
+	var r137 bool
 	var r138 rune
-	var r139 bool
-	var r140 ASTExpr
-	var r141 []ASTExpr
-	var r142 ASTExpr
-	var r143 []ASTExpr
-	var r144 *If
-	var r145 rune
+	var r139 rune
+	var r140 bool
+	var r141 ASTExpr
+	var r142 []ASTExpr
+	var r143 ASTExpr
+	var r144 []ASTExpr
+	var r145 *If
 	var r146 rune
-	var r147 bool
-	var r148 rune
+	var r147 rune
+	var r148 bool
 	var r149 rune
-	var r150 bool
-	var r151 rune
+	var r150 rune
+	var r151 bool
 	var r152 rune
-	var r153 bool
-	var r154 string
-	var r155 ASTTypeRef
-	var r156 int
-	var r157 rune
+	var r153 rune
+	var r154 bool
+	var r155 string
+	var r156 ASTTypeRef
+	var r157 int
 	var r158 rune
-	var r159 bool
-	var r160 ASTExpr
+	var r159 rune
+	var r160 bool
 	var r161 ASTExpr
-	var r162 string
-	var r163 ASTTypeRef
-	var r164 bool
-	var r165 *Assign
-	var r166 rune
+	var r162 ASTExpr
+	var r163 string
+	var r164 ASTTypeRef
+	var r165 bool
+	var r166 *Assign
 	var r167 rune
-	var r168 bool
-	var r169 rune
+	var r168 rune
+	var r169 bool
 	var r170 rune
-	var r171 bool
-	var r172 rune
+	var r171 rune
+	var r172 bool
 	var r173 rune
-	var r174 bool
-	var r175 rune
+	var r174 rune
+	var r175 bool
 	var r176 rune
-	var r177 bool
-	var r178 *TypeRef
-	var r179 []*NamedExpr
-	var r180 *TypeRef
-	var r181 []*NamedExpr
-	var r182 *Construct
+	var r177 rune
+	var r178 bool
+	var r179 string
+	var r180 string
+	var r181 *Call
+	var r182 rune
 	var r183 rune
-	var r184 rune
-	var r185 bool
+	var r184 bool
+	var r185 rune
 	var r186 rune
-	var r187 rune
-	var r188 bool
+	var r187 bool
+	var r188 rune
 	var r189 rune
-	var r190 rune
-	var r191 bool
+	var r190 bool
+	var r191 rune
 	var r192 rune
-	var r193 rune
-	var r194 bool
-	var r195 *ListTypeRef
-	var r196 []ASTExpr
-	var r197 *ListTypeRef
-	var r198 []ASTExpr
-	var r199 *ConstructList
-	var r200 rune
+	var r193 bool
+	var r194 *Fail
+	var r195 rune
+	var r196 rune
+	var r197 bool
+	var r198 rune
+	var r199 rune
+	var r200 bool
 	var r201 rune
-	var r202 bool
-	var r203 rune
+	var r202 rune
+	var r203 bool
 	var r204 rune
-	var r205 bool
-	var r206 rune
+	var r205 rune
+	var r206 bool
 	var r207 rune
-	var r208 bool
-	var r209 rune
+	var r208 rune
+	var r209 bool
 	var r210 rune
-	var r211 bool
-	var r212 string
-	var r213 string
-	var r214 *Call
-	var r215 rune
-	var r216 rune
-	var r217 bool
+	var r211 rune
+	var r212 bool
+	var r213 ASTTypeRef
+	var r214 ASTExpr
+	var r215 ASTTypeRef
+	var r216 ASTExpr
+	var r217 *Coerce
 	var r218 rune
 	var r219 rune
 	var r220 bool
@@ -4851,151 +4691,147 @@ func ParseExpr(frame *dub.DubState) (ret0 ASTExpr) {
 	var r224 rune
 	var r225 rune
 	var r226 bool
-	var r227 *Fail
+	var r227 rune
 	var r228 rune
-	var r229 rune
-	var r230 bool
+	var r229 bool
+	var r230 rune
 	var r231 rune
-	var r232 rune
-	var r233 bool
+	var r232 bool
+	var r233 rune
 	var r234 rune
-	var r235 rune
-	var r236 bool
-	var r237 rune
-	var r238 rune
-	var r239 bool
-	var r240 rune
-	var r241 rune
-	var r242 bool
-	var r243 rune
+	var r235 bool
+	var r236 string
+	var r237 ASTExpr
+	var r238 string
+	var r239 *GetName
+	var r240 ASTExpr
+	var r241 *Append
+	var r242 string
+	var r243 *Assign
 	var r244 rune
-	var r245 bool
-	var r246 ASTTypeRef
-	var r247 ASTExpr
-	var r248 ASTTypeRef
-	var r249 ASTExpr
-	var r250 *Coerce
+	var r245 rune
+	var r246 bool
+	var r247 rune
+	var r248 rune
+	var r249 bool
+	var r250 rune
 	var r251 rune
-	var r252 rune
-	var r253 bool
+	var r252 bool
+	var r253 rune
 	var r254 rune
-	var r255 rune
-	var r256 bool
+	var r255 bool
+	var r256 rune
 	var r257 rune
-	var r258 rune
-	var r259 bool
+	var r258 bool
+	var r259 rune
 	var r260 rune
-	var r261 rune
-	var r262 bool
+	var r261 bool
+	var r262 int
 	var r263 rune
 	var r264 rune
 	var r265 bool
-	var r266 rune
+	var r266 []ASTExpr
 	var r267 rune
-	var r268 bool
-	var r269 string
-	var r270 ASTExpr
-	var r271 string
-	var r272 *GetName
-	var r273 ASTExpr
-	var r274 *Append
-	var r275 string
-	var r276 *Assign
-	var r277 rune
-	var r278 rune
-	var r279 bool
-	var r280 rune
-	var r281 rune
-	var r282 bool
-	var r283 rune
-	var r284 rune
-	var r285 bool
+	var r268 rune
+	var r269 bool
+	var r270 []ASTExpr
+	var r271 *Return
+	var r272 ASTExpr
+	var r273 []ASTExpr
+	var r274 *Return
+	var r275 []ASTExpr
+	var r276 *Return
+	var r277 string
+	var r278 ASTExpr
+	var r279 ASTExpr
+	var r280 ASTExpr
+	var r281 string
+	var r282 ASTExpr
+	var r283 *BinaryOp
+	var r284 *TypeRef
+	var r285 rune
 	var r286 rune
-	var r287 rune
-	var r288 bool
+	var r287 bool
+	var r288 []*NamedExpr
 	var r289 rune
 	var r290 rune
 	var r291 bool
-	var r292 rune
-	var r293 rune
-	var r294 bool
-	var r295 int
-	var r296 []ASTExpr
-	var r297 *Return
-	var r298 ASTExpr
+	var r292 *TypeRef
+	var r293 []*NamedExpr
+	var r294 *Construct
+	var r295 *ListTypeRef
+	var r296 rune
+	var r297 rune
+	var r298 bool
 	var r299 []ASTExpr
-	var r300 *Return
-	var r301 []ASTExpr
-	var r302 *Return
-	var r303 string
-	var r304 ASTExpr
-	var r305 ASTExpr
-	var r306 ASTExpr
-	var r307 string
-	var r308 ASTExpr
-	var r309 *BinaryOp
-	var r310 *StringMatch
-	var r311 *RuneMatch
-	var r312 string
-	var r313 int
-	var r314 int
+	var r300 rune
+	var r301 rune
+	var r302 bool
+	var r303 *ListTypeRef
+	var r304 []ASTExpr
+	var r305 *ConstructList
+	var r306 *StringMatch
+	var r307 *RuneMatch
+	var r308 string
+	var r309 int
+	var r310 int
+	var r311 rune
+	var r312 rune
+	var r313 bool
+	var r314 rune
 	var r315 rune
-	var r316 rune
+	var r316 bool
 	var r317 bool
 	var r318 rune
 	var r319 rune
 	var r320 bool
-	var r321 bool
-	var r322 rune
-	var r323 rune
+	var r321 ASTExpr
+	var r322 ASTExpr
+	var r323 string
 	var r324 bool
-	var r325 ASTExpr
-	var r326 ASTExpr
-	var r327 string
-	var r328 bool
-	var r329 *Assign
-	var r330 string
-	var r331 *GetName
+	var r325 *Assign
+	var r326 string
+	var r327 *GetName
 	goto block0
 block0:
 	goto block1
 block1:
-	r25 = frame.Checkpoint()
+	r26 = frame.Checkpoint()
 	goto block2
 block2:
-	r26 = Literal(frame)
+	r27 = Literal(frame)
 	if frame.Flow == 0 {
 		goto block3
 	} else {
 		goto block4
 	}
 block3:
-	ret0 = r26
-	goto block614
+	ret0 = r27
+	goto block608
 block4:
-	frame.Recover(r25)
+	frame.Recover(r26)
 	goto block5
 block5:
 	r0 = 0
 	goto block6
 block6:
-	r27 = frame.Checkpoint()
+	r28 = frame.Checkpoint()
 	goto block7
 block7:
-	r28 = frame.Peek()
+	r29 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block8
 	} else {
 		goto block31
 	}
 block8:
-	r29 = 's'
+	r30 = 's'
 	goto block9
 block9:
-	r30 = r28 == r29
+	r31 = r29 == r30
 	goto block10
 block10:
-	if r30 {
+	if r31 {
 		goto block11
 	} else {
 		goto block30
@@ -5004,20 +4840,20 @@ block11:
 	frame.Consume()
 	goto block12
 block12:
-	r31 = frame.Peek()
+	r32 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block13
 	} else {
 		goto block31
 	}
 block13:
-	r32 = 't'
+	r33 = 't'
 	goto block14
 block14:
-	r33 = r31 == r32
+	r34 = r32 == r33
 	goto block15
 block15:
-	if r33 {
+	if r34 {
 		goto block16
 	} else {
 		goto block29
@@ -5026,20 +4862,20 @@ block16:
 	frame.Consume()
 	goto block17
 block17:
-	r34 = frame.Peek()
+	r35 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block18
 	} else {
 		goto block31
 	}
 block18:
-	r35 = 'a'
+	r36 = 'a'
 	goto block19
 block19:
-	r36 = r34 == r35
+	r37 = r35 == r36
 	goto block20
 block20:
-	if r36 {
+	if r37 {
 		goto block21
 	} else {
 		goto block28
@@ -5048,20 +4884,20 @@ block21:
 	frame.Consume()
 	goto block22
 block22:
-	r37 = frame.Peek()
+	r38 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block23
 	} else {
 		goto block31
 	}
 block23:
-	r38 = 'r'
+	r39 = 'r'
 	goto block24
 block24:
-	r39 = r37 == r38
+	r40 = r38 == r39
 	goto block25
 block25:
-	if r39 {
+	if r40 {
 		goto block26
 	} else {
 		goto block27
@@ -5082,23 +4918,23 @@ block30:
 	frame.Fail()
 	goto block31
 block31:
-	frame.Recover(r27)
+	frame.Recover(r28)
 	goto block32
 block32:
-	r40 = frame.Peek()
+	r41 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block33
 	} else {
 		goto block65
 	}
 block33:
-	r41 = 'p'
+	r42 = 'p'
 	goto block34
 block34:
-	r42 = r40 == r41
+	r43 = r41 == r42
 	goto block35
 block35:
-	if r42 {
+	if r43 {
 		goto block36
 	} else {
 		goto block64
@@ -5107,20 +4943,20 @@ block36:
 	frame.Consume()
 	goto block37
 block37:
-	r43 = frame.Peek()
+	r44 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block38
 	} else {
 		goto block65
 	}
 block38:
-	r44 = 'l'
+	r45 = 'l'
 	goto block39
 block39:
-	r45 = r43 == r44
+	r46 = r44 == r45
 	goto block40
 block40:
-	if r45 {
+	if r46 {
 		goto block41
 	} else {
 		goto block63
@@ -5129,20 +4965,20 @@ block41:
 	frame.Consume()
 	goto block42
 block42:
-	r46 = frame.Peek()
+	r47 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block43
 	} else {
 		goto block65
 	}
 block43:
-	r47 = 'u'
+	r48 = 'u'
 	goto block44
 block44:
-	r48 = r46 == r47
+	r49 = r47 == r48
 	goto block45
 block45:
-	if r48 {
+	if r49 {
 		goto block46
 	} else {
 		goto block62
@@ -5151,20 +4987,20 @@ block46:
 	frame.Consume()
 	goto block47
 block47:
-	r49 = frame.Peek()
+	r50 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block48
 	} else {
 		goto block65
 	}
 block48:
-	r50 = 's'
+	r51 = 's'
 	goto block49
 block49:
-	r51 = r49 == r50
+	r52 = r50 == r51
 	goto block50
 block50:
-	if r51 {
+	if r52 {
 		goto block51
 	} else {
 		goto block61
@@ -5173,10 +5009,10 @@ block51:
 	frame.Consume()
 	goto block52
 block52:
-	r52 = 1
+	r53 = 1
 	goto block53
 block53:
-	r0 = r52
+	r0 = r53
 	goto block54
 block54:
 	S(frame)
@@ -5186,27 +5022,27 @@ block54:
 		goto block65
 	}
 block55:
-	r53 = ParseCodeBlock(frame)
+	r54 = ParseCodeBlock(frame)
 	if frame.Flow == 0 {
 		goto block56
 	} else {
 		goto block65
 	}
 block56:
-	r1 = r53
+	r1 = r54
 	goto block57
 block57:
-	r54 = r1
+	r55 = r1
 	goto block58
 block58:
-	r55 = r0
+	r56 = r0
 	goto block59
 block59:
-	r56 = &Repeat{Block: r54, Min: r55}
+	r57 = &Repeat{Block: r55, Min: r56}
 	goto block60
 block60:
-	ret0 = r56
-	goto block614
+	ret0 = r57
+	goto block608
 block61:
 	frame.Fail()
 	goto block65
@@ -5220,23 +5056,23 @@ block64:
 	frame.Fail()
 	goto block65
 block65:
-	frame.Recover(r25)
+	frame.Recover(r26)
 	goto block66
 block66:
-	r57 = frame.Peek()
+	r58 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block67
 	} else {
 		goto block128
 	}
 block67:
-	r58 = 'c'
+	r59 = 'c'
 	goto block68
 block68:
-	r59 = r57 == r58
+	r60 = r58 == r59
 	goto block69
 block69:
-	if r59 {
+	if r60 {
 		goto block70
 	} else {
 		goto block127
@@ -5245,20 +5081,20 @@ block70:
 	frame.Consume()
 	goto block71
 block71:
-	r60 = frame.Peek()
+	r61 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block72
 	} else {
 		goto block128
 	}
 block72:
-	r61 = 'h'
+	r62 = 'h'
 	goto block73
 block73:
-	r62 = r60 == r61
+	r63 = r61 == r62
 	goto block74
 block74:
-	if r62 {
+	if r63 {
 		goto block75
 	} else {
 		goto block126
@@ -5267,20 +5103,20 @@ block75:
 	frame.Consume()
 	goto block76
 block76:
-	r63 = frame.Peek()
+	r64 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block77
 	} else {
 		goto block128
 	}
 block77:
-	r64 = 'o'
+	r65 = 'o'
 	goto block78
 block78:
-	r65 = r63 == r64
+	r66 = r64 == r65
 	goto block79
 block79:
-	if r65 {
+	if r66 {
 		goto block80
 	} else {
 		goto block125
@@ -5289,20 +5125,20 @@ block80:
 	frame.Consume()
 	goto block81
 block81:
-	r66 = frame.Peek()
+	r67 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block82
 	} else {
 		goto block128
 	}
 block82:
-	r67 = 'o'
+	r68 = 'o'
 	goto block83
 block83:
-	r68 = r66 == r67
+	r69 = r67 == r68
 	goto block84
 block84:
-	if r68 {
+	if r69 {
 		goto block85
 	} else {
 		goto block124
@@ -5311,20 +5147,20 @@ block85:
 	frame.Consume()
 	goto block86
 block86:
-	r69 = frame.Peek()
+	r70 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block87
 	} else {
 		goto block128
 	}
 block87:
-	r70 = 's'
+	r71 = 's'
 	goto block88
 block88:
-	r71 = r69 == r70
+	r72 = r70 == r71
 	goto block89
 block89:
-	if r71 {
+	if r72 {
 		goto block90
 	} else {
 		goto block123
@@ -5333,20 +5169,20 @@ block90:
 	frame.Consume()
 	goto block91
 block91:
-	r72 = frame.Peek()
+	r73 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block92
 	} else {
 		goto block128
 	}
 block92:
-	r73 = 'e'
+	r74 = 'e'
 	goto block93
 block93:
-	r74 = r72 == r73
+	r75 = r73 == r74
 	goto block94
 block94:
-	if r74 {
+	if r75 {
 		goto block95
 	} else {
 		goto block122
@@ -5362,36 +5198,36 @@ block96:
 		goto block128
 	}
 block97:
-	r75 = ParseCodeBlock(frame)
+	r76 = ParseCodeBlock(frame)
 	if frame.Flow == 0 {
 		goto block98
 	} else {
 		goto block128
 	}
 block98:
-	r76 = [][]ASTExpr{r75}
+	r77 = [][]ASTExpr{r76}
 	goto block99
 block99:
-	r2 = r76
+	r2 = r77
 	goto block100
 block100:
-	r77 = frame.Checkpoint()
+	r78 = frame.Checkpoint()
 	goto block101
 block101:
-	r78 = frame.Peek()
+	r79 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block102
 	} else {
 		goto block118
 	}
 block102:
-	r79 = 'o'
+	r80 = 'o'
 	goto block103
 block103:
-	r80 = r78 == r79
+	r81 = r79 == r80
 	goto block104
 block104:
-	if r80 {
+	if r81 {
 		goto block105
 	} else {
 		goto block117
@@ -5400,20 +5236,20 @@ block105:
 	frame.Consume()
 	goto block106
 block106:
-	r81 = frame.Peek()
+	r82 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block107
 	} else {
 		goto block118
 	}
 block107:
-	r82 = 'r'
+	r83 = 'r'
 	goto block108
 block108:
-	r83 = r81 == r82
+	r84 = r82 == r83
 	goto block109
 block109:
-	if r83 {
+	if r84 {
 		goto block110
 	} else {
 		goto block116
@@ -5429,20 +5265,20 @@ block111:
 		goto block118
 	}
 block112:
-	r84 = r2
+	r85 = r2
 	goto block113
 block113:
-	r85 = ParseCodeBlock(frame)
+	r86 = ParseCodeBlock(frame)
 	if frame.Flow == 0 {
 		goto block114
 	} else {
 		goto block118
 	}
 block114:
-	r86 = append(r84, r85)
+	r87 = append(r85, r86)
 	goto block115
 block115:
-	r2 = r86
+	r2 = r87
 	goto block100
 block116:
 	frame.Fail()
@@ -5451,17 +5287,17 @@ block117:
 	frame.Fail()
 	goto block118
 block118:
-	frame.Recover(r77)
+	frame.Recover(r78)
 	goto block119
 block119:
-	r87 = r2
+	r88 = r2
 	goto block120
 block120:
-	r88 = &Choice{Blocks: r87}
+	r89 = &Choice{Blocks: r88}
 	goto block121
 block121:
-	ret0 = r88
-	goto block614
+	ret0 = r89
+	goto block608
 block122:
 	frame.Fail()
 	goto block128
@@ -5481,23 +5317,23 @@ block127:
 	frame.Fail()
 	goto block128
 block128:
-	frame.Recover(r25)
+	frame.Recover(r26)
 	goto block129
 block129:
-	r89 = frame.Peek()
+	r90 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block130
 	} else {
 		goto block183
 	}
 block130:
-	r90 = 'q'
+	r91 = 'q'
 	goto block131
 block131:
-	r91 = r89 == r90
+	r92 = r90 == r91
 	goto block132
 block132:
-	if r91 {
+	if r92 {
 		goto block133
 	} else {
 		goto block182
@@ -5506,20 +5342,20 @@ block133:
 	frame.Consume()
 	goto block134
 block134:
-	r92 = frame.Peek()
+	r93 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block135
 	} else {
 		goto block183
 	}
 block135:
-	r93 = 'u'
+	r94 = 'u'
 	goto block136
 block136:
-	r94 = r92 == r93
+	r95 = r93 == r94
 	goto block137
 block137:
-	if r94 {
+	if r95 {
 		goto block138
 	} else {
 		goto block181
@@ -5528,20 +5364,20 @@ block138:
 	frame.Consume()
 	goto block139
 block139:
-	r95 = frame.Peek()
+	r96 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block140
 	} else {
 		goto block183
 	}
 block140:
-	r96 = 'e'
+	r97 = 'e'
 	goto block141
 block141:
-	r97 = r95 == r96
+	r98 = r96 == r97
 	goto block142
 block142:
-	if r97 {
+	if r98 {
 		goto block143
 	} else {
 		goto block180
@@ -5550,20 +5386,20 @@ block143:
 	frame.Consume()
 	goto block144
 block144:
-	r98 = frame.Peek()
+	r99 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block145
 	} else {
 		goto block183
 	}
 block145:
-	r99 = 's'
+	r100 = 's'
 	goto block146
 block146:
-	r100 = r98 == r99
+	r101 = r99 == r100
 	goto block147
 block147:
-	if r100 {
+	if r101 {
 		goto block148
 	} else {
 		goto block179
@@ -5572,20 +5408,20 @@ block148:
 	frame.Consume()
 	goto block149
 block149:
-	r101 = frame.Peek()
+	r102 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block150
 	} else {
 		goto block183
 	}
 block150:
-	r102 = 't'
+	r103 = 't'
 	goto block151
 block151:
-	r103 = r101 == r102
+	r104 = r102 == r103
 	goto block152
 block152:
-	if r103 {
+	if r104 {
 		goto block153
 	} else {
 		goto block178
@@ -5594,20 +5430,20 @@ block153:
 	frame.Consume()
 	goto block154
 block154:
-	r104 = frame.Peek()
+	r105 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block155
 	} else {
 		goto block183
 	}
 block155:
-	r105 = 'i'
+	r106 = 'i'
 	goto block156
 block156:
-	r106 = r104 == r105
+	r107 = r105 == r106
 	goto block157
 block157:
-	if r106 {
+	if r107 {
 		goto block158
 	} else {
 		goto block177
@@ -5616,20 +5452,20 @@ block158:
 	frame.Consume()
 	goto block159
 block159:
-	r107 = frame.Peek()
+	r108 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block160
 	} else {
 		goto block183
 	}
 block160:
-	r108 = 'o'
+	r109 = 'o'
 	goto block161
 block161:
-	r109 = r107 == r108
+	r110 = r108 == r109
 	goto block162
 block162:
-	if r109 {
+	if r110 {
 		goto block163
 	} else {
 		goto block176
@@ -5638,20 +5474,20 @@ block163:
 	frame.Consume()
 	goto block164
 block164:
-	r110 = frame.Peek()
+	r111 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block165
 	} else {
 		goto block183
 	}
 block165:
-	r111 = 'n'
+	r112 = 'n'
 	goto block166
 block166:
-	r112 = r110 == r111
+	r113 = r111 == r112
 	goto block167
 block167:
-	if r112 {
+	if r113 {
 		goto block168
 	} else {
 		goto block175
@@ -5667,24 +5503,24 @@ block169:
 		goto block183
 	}
 block170:
-	r113 = ParseCodeBlock(frame)
+	r114 = ParseCodeBlock(frame)
 	if frame.Flow == 0 {
 		goto block171
 	} else {
 		goto block183
 	}
 block171:
-	r3 = r113
+	r3 = r114
 	goto block172
 block172:
-	r114 = r3
+	r115 = r3
 	goto block173
 block173:
-	r115 = &Optional{Block: r114}
+	r116 = &Optional{Block: r115}
 	goto block174
 block174:
-	ret0 = r115
-	goto block614
+	ret0 = r116
+	goto block608
 block175:
 	frame.Fail()
 	goto block183
@@ -5710,23 +5546,23 @@ block182:
 	frame.Fail()
 	goto block183
 block183:
-	frame.Recover(r25)
+	frame.Recover(r26)
 	goto block184
 block184:
-	r116 = frame.Peek()
+	r117 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block185
 	} else {
 		goto block220
 	}
 block185:
-	r117 = 's'
+	r118 = 's'
 	goto block186
 block186:
-	r118 = r116 == r117
+	r119 = r117 == r118
 	goto block187
 block187:
-	if r118 {
+	if r119 {
 		goto block188
 	} else {
 		goto block219
@@ -5735,20 +5571,20 @@ block188:
 	frame.Consume()
 	goto block189
 block189:
-	r119 = frame.Peek()
+	r120 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block190
 	} else {
 		goto block220
 	}
 block190:
-	r120 = 'l'
+	r121 = 'l'
 	goto block191
 block191:
-	r121 = r119 == r120
+	r122 = r120 == r121
 	goto block192
 block192:
-	if r121 {
+	if r122 {
 		goto block193
 	} else {
 		goto block218
@@ -5757,20 +5593,20 @@ block193:
 	frame.Consume()
 	goto block194
 block194:
-	r122 = frame.Peek()
+	r123 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block195
 	} else {
 		goto block220
 	}
 block195:
-	r123 = 'i'
+	r124 = 'i'
 	goto block196
 block196:
-	r124 = r122 == r123
+	r125 = r123 == r124
 	goto block197
 block197:
-	if r124 {
+	if r125 {
 		goto block198
 	} else {
 		goto block217
@@ -5779,20 +5615,20 @@ block198:
 	frame.Consume()
 	goto block199
 block199:
-	r125 = frame.Peek()
+	r126 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block200
 	} else {
 		goto block220
 	}
 block200:
-	r126 = 'c'
+	r127 = 'c'
 	goto block201
 block201:
-	r127 = r125 == r126
+	r128 = r126 == r127
 	goto block202
 block202:
-	if r127 {
+	if r128 {
 		goto block203
 	} else {
 		goto block216
@@ -5801,20 +5637,20 @@ block203:
 	frame.Consume()
 	goto block204
 block204:
-	r128 = frame.Peek()
+	r129 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block205
 	} else {
 		goto block220
 	}
 block205:
-	r129 = 'e'
+	r130 = 'e'
 	goto block206
 block206:
-	r130 = r128 == r129
+	r131 = r129 == r130
 	goto block207
 block207:
-	if r130 {
+	if r131 {
 		goto block208
 	} else {
 		goto block215
@@ -5830,24 +5666,24 @@ block209:
 		goto block220
 	}
 block210:
-	r131 = ParseCodeBlock(frame)
+	r132 = ParseCodeBlock(frame)
 	if frame.Flow == 0 {
 		goto block211
 	} else {
 		goto block220
 	}
 block211:
-	r4 = r131
+	r4 = r132
 	goto block212
 block212:
-	r132 = r4
+	r133 = r4
 	goto block213
 block213:
-	r133 = &Slice{Block: r132}
+	r134 = &Slice{Block: r133}
 	goto block214
 block214:
-	ret0 = r133
-	goto block614
+	ret0 = r134
+	goto block608
 block215:
 	frame.Fail()
 	goto block220
@@ -5864,23 +5700,23 @@ block219:
 	frame.Fail()
 	goto block220
 block220:
-	frame.Recover(r25)
+	frame.Recover(r26)
 	goto block221
 block221:
-	r134 = frame.Peek()
+	r135 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block222
 	} else {
 		goto block242
 	}
 block222:
-	r135 = 'i'
+	r136 = 'i'
 	goto block223
 block223:
-	r136 = r134 == r135
+	r137 = r135 == r136
 	goto block224
 block224:
-	if r136 {
+	if r137 {
 		goto block225
 	} else {
 		goto block241
@@ -5889,20 +5725,20 @@ block225:
 	frame.Consume()
 	goto block226
 block226:
-	r137 = frame.Peek()
+	r138 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block227
 	} else {
 		goto block242
 	}
 block227:
-	r138 = 'f'
+	r139 = 'f'
 	goto block228
 block228:
-	r139 = r137 == r138
+	r140 = r138 == r139
 	goto block229
 block229:
-	if r139 {
+	if r140 {
 		goto block230
 	} else {
 		goto block240
@@ -5918,37 +5754,37 @@ block231:
 		goto block242
 	}
 block232:
-	r140 = ParseExpr(frame)
+	r141 = ParseExpr(frame)
 	if frame.Flow == 0 {
 		goto block233
 	} else {
 		goto block242
 	}
 block233:
-	r5 = r140
+	r5 = r141
 	goto block234
 block234:
-	r141 = ParseCodeBlock(frame)
+	r142 = ParseCodeBlock(frame)
 	if frame.Flow == 0 {
 		goto block235
 	} else {
 		goto block242
 	}
 block235:
-	r6 = r141
+	r6 = r142
 	goto block236
 block236:
-	r142 = r5
+	r143 = r5
 	goto block237
 block237:
-	r143 = r6
+	r144 = r6
 	goto block238
 block238:
-	r144 = &If{Expr: r142, Block: r143}
+	r145 = &If{Expr: r143, Block: r144}
 	goto block239
 block239:
-	ret0 = r144
-	goto block614
+	ret0 = r145
+	goto block608
 block240:
 	frame.Fail()
 	goto block242
@@ -5956,23 +5792,23 @@ block241:
 	frame.Fail()
 	goto block242
 block242:
-	frame.Recover(r25)
+	frame.Recover(r26)
 	goto block243
 block243:
-	r145 = frame.Peek()
+	r146 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block244
 	} else {
 		goto block284
 	}
 block244:
-	r146 = 'v'
+	r147 = 'v'
 	goto block245
 block245:
-	r147 = r145 == r146
+	r148 = r146 == r147
 	goto block246
 block246:
-	if r147 {
+	if r148 {
 		goto block247
 	} else {
 		goto block283
@@ -5981,20 +5817,20 @@ block247:
 	frame.Consume()
 	goto block248
 block248:
-	r148 = frame.Peek()
+	r149 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block249
 	} else {
 		goto block284
 	}
 block249:
-	r149 = 'a'
+	r150 = 'a'
 	goto block250
 block250:
-	r150 = r148 == r149
+	r151 = r149 == r150
 	goto block251
 block251:
-	if r150 {
+	if r151 {
 		goto block252
 	} else {
 		goto block282
@@ -6003,20 +5839,20 @@ block252:
 	frame.Consume()
 	goto block253
 block253:
-	r151 = frame.Peek()
+	r152 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block254
 	} else {
 		goto block284
 	}
 block254:
-	r152 = 'r'
+	r153 = 'r'
 	goto block255
 block255:
-	r153 = r151 == r152
+	r154 = r152 == r153
 	goto block256
 block256:
-	if r153 {
+	if r154 {
 		goto block257
 	} else {
 		goto block281
@@ -6032,46 +5868,46 @@ block258:
 		goto block284
 	}
 block259:
-	r154 = Ident(frame)
+	r155 = Ident(frame)
 	if frame.Flow == 0 {
 		goto block260
 	} else {
 		goto block284
 	}
 block260:
-	r7 = r154
+	r7 = r155
 	goto block261
 block261:
-	r155 = ParseTypeRef(frame)
+	r156 = ParseTypeRef(frame)
 	if frame.Flow == 0 {
 		goto block262
 	} else {
 		goto block284
 	}
 block262:
-	r8 = r155
+	r8 = r156
 	goto block263
 block263:
 	r9 = nil
 	goto block264
 block264:
-	r156 = frame.Checkpoint()
+	r157 = frame.Checkpoint()
 	goto block265
 block265:
-	r157 = frame.Peek()
+	r158 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block266
 	} else {
 		goto block274
 	}
 block266:
-	r158 = '='
+	r159 = '='
 	goto block267
 block267:
-	r159 = r157 == r158
+	r160 = r158 == r159
 	goto block268
 block268:
-	if r159 {
+	if r160 {
 		goto block269
 	} else {
 		goto block273
@@ -6087,39 +5923,39 @@ block270:
 		goto block274
 	}
 block271:
-	r160 = ParseExpr(frame)
+	r161 = ParseExpr(frame)
 	if frame.Flow == 0 {
 		goto block272
 	} else {
 		goto block274
 	}
 block272:
-	r9 = r160
+	r9 = r161
 	goto block275
 block273:
 	frame.Fail()
 	goto block274
 block274:
-	frame.Recover(r156)
+	frame.Recover(r157)
 	goto block275
 block275:
-	r161 = r9
+	r162 = r9
 	goto block276
 block276:
-	r162 = r7
+	r163 = r7
 	goto block277
 block277:
-	r163 = r8
+	r164 = r8
 	goto block278
 block278:
-	r164 = true
+	r165 = true
 	goto block279
 block279:
-	r165 = &Assign{Expr: r161, Name: r162, Type: r163, Define: r164}
+	r166 = &Assign{Expr: r162, Name: r163, Type: r164, Define: r165}
 	goto block280
 block280:
-	ret0 = r165
-	goto block614
+	ret0 = r166
+	goto block608
 block281:
 	frame.Fail()
 	goto block284
@@ -6130,92 +5966,92 @@ block283:
 	frame.Fail()
 	goto block284
 block284:
-	frame.Recover(r25)
+	frame.Recover(r26)
 	goto block285
 block285:
-	r166 = frame.Peek()
+	r167 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block286
 	} else {
-		goto block318
+		goto block315
 	}
 block286:
-	r167 = 'c'
+	r168 = 'c'
 	goto block287
 block287:
-	r168 = r166 == r167
+	r169 = r167 == r168
 	goto block288
 block288:
-	if r168 {
+	if r169 {
 		goto block289
 	} else {
-		goto block317
+		goto block314
 	}
 block289:
 	frame.Consume()
 	goto block290
 block290:
-	r169 = frame.Peek()
+	r170 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block291
 	} else {
-		goto block318
+		goto block315
 	}
 block291:
-	r170 = 'o'
+	r171 = 'a'
 	goto block292
 block292:
-	r171 = r169 == r170
+	r172 = r170 == r171
 	goto block293
 block293:
-	if r171 {
+	if r172 {
 		goto block294
 	} else {
-		goto block316
+		goto block313
 	}
 block294:
 	frame.Consume()
 	goto block295
 block295:
-	r172 = frame.Peek()
+	r173 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block296
 	} else {
-		goto block318
+		goto block315
 	}
 block296:
-	r173 = 'n'
+	r174 = 'l'
 	goto block297
 block297:
-	r174 = r172 == r173
+	r175 = r173 == r174
 	goto block298
 block298:
-	if r174 {
+	if r175 {
 		goto block299
 	} else {
-		goto block315
+		goto block312
 	}
 block299:
 	frame.Consume()
 	goto block300
 block300:
-	r175 = frame.Peek()
+	r176 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block301
 	} else {
-		goto block318
+		goto block315
 	}
 block301:
-	r176 = 's'
+	r177 = 'l'
 	goto block302
 block302:
-	r177 = r175 == r176
+	r178 = r176 == r177
 	goto block303
 block303:
-	if r177 {
+	if r178 {
 		goto block304
 	} else {
-		goto block314
+		goto block311
 	}
 block304:
 	frame.Consume()
@@ -6225,1266 +6061,1250 @@ block305:
 	if frame.Flow == 0 {
 		goto block306
 	} else {
-		goto block318
+		goto block315
 	}
 block306:
-	r178 = ParseStructTypeRef(frame)
+	r179 = Ident(frame)
 	if frame.Flow == 0 {
 		goto block307
 	} else {
-		goto block318
+		goto block315
 	}
 block307:
-	r10 = r178
+	r10 = r179
 	goto block308
 block308:
-	r179 = ParseNamedExprList(frame)
-	if frame.Flow == 0 {
-		goto block309
-	} else {
-		goto block318
-	}
+	r180 = r10
+	goto block309
 block309:
-	r11 = r179
+	r181 = &Call{Name: r180}
 	goto block310
 block310:
-	r180 = r10
-	goto block311
+	ret0 = r181
+	goto block608
 block311:
-	r181 = r11
-	goto block312
+	frame.Fail()
+	goto block315
 block312:
-	r182 = &Construct{Type: r180, Args: r181}
-	goto block313
+	frame.Fail()
+	goto block315
 block313:
-	ret0 = r182
-	goto block614
+	frame.Fail()
+	goto block315
 block314:
 	frame.Fail()
-	goto block318
+	goto block315
 block315:
-	frame.Fail()
-	goto block318
+	frame.Recover(r26)
+	goto block316
 block316:
-	frame.Fail()
-	goto block318
+	r182 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block317
+	} else {
+		goto block343
+	}
 block317:
-	frame.Fail()
+	r183 = 'f'
 	goto block318
 block318:
-	frame.Recover(r25)
+	r184 = r182 == r183
 	goto block319
 block319:
-	r183 = frame.Peek()
-	if frame.Flow == 0 {
+	if r184 {
 		goto block320
 	} else {
-		goto block352
+		goto block342
 	}
 block320:
-	r184 = 'c'
+	frame.Consume()
 	goto block321
 block321:
-	r185 = r183 == r184
-	goto block322
-block322:
-	if r185 {
-		goto block323
+	r185 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block322
 	} else {
-		goto block351
+		goto block343
 	}
+block322:
+	r186 = 'a'
+	goto block323
 block323:
-	frame.Consume()
+	r187 = r185 == r186
 	goto block324
 block324:
-	r186 = frame.Peek()
-	if frame.Flow == 0 {
+	if r187 {
 		goto block325
 	} else {
-		goto block352
+		goto block341
 	}
 block325:
-	r187 = 'o'
+	frame.Consume()
 	goto block326
 block326:
-	r188 = r186 == r187
-	goto block327
-block327:
-	if r188 {
-		goto block328
+	r188 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block327
 	} else {
-		goto block350
+		goto block343
 	}
+block327:
+	r189 = 'i'
+	goto block328
 block328:
-	frame.Consume()
+	r190 = r188 == r189
 	goto block329
 block329:
-	r189 = frame.Peek()
-	if frame.Flow == 0 {
+	if r190 {
 		goto block330
 	} else {
-		goto block352
+		goto block340
 	}
 block330:
-	r190 = 'n'
+	frame.Consume()
 	goto block331
 block331:
-	r191 = r189 == r190
-	goto block332
-block332:
-	if r191 {
-		goto block333
+	r191 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block332
 	} else {
-		goto block349
+		goto block343
 	}
+block332:
+	r192 = 'l'
+	goto block333
 block333:
-	frame.Consume()
+	r193 = r191 == r192
 	goto block334
 block334:
-	r192 = frame.Peek()
-	if frame.Flow == 0 {
+	if r193 {
 		goto block335
 	} else {
-		goto block352
+		goto block339
 	}
 block335:
-	r193 = 'l'
+	frame.Consume()
 	goto block336
 block336:
-	r194 = r192 == r193
-	goto block337
-block337:
-	if r194 {
-		goto block338
-	} else {
-		goto block348
-	}
-block338:
-	frame.Consume()
-	goto block339
-block339:
 	S(frame)
 	if frame.Flow == 0 {
-		goto block340
+		goto block337
 	} else {
-		goto block352
-	}
-block340:
-	r195 = ParseListTypeRef(frame)
-	if frame.Flow == 0 {
-		goto block341
-	} else {
-		goto block352
-	}
-block341:
-	r12 = r195
-	goto block342
-block342:
-	r196 = ParseExprList(frame)
-	if frame.Flow == 0 {
 		goto block343
-	} else {
-		goto block352
 	}
+block337:
+	r194 = &Fail{}
+	goto block338
+block338:
+	ret0 = r194
+	goto block608
+block339:
+	frame.Fail()
+	goto block343
+block340:
+	frame.Fail()
+	goto block343
+block341:
+	frame.Fail()
+	goto block343
+block342:
+	frame.Fail()
+	goto block343
 block343:
-	r13 = r196
+	frame.Recover(r26)
 	goto block344
 block344:
-	r197 = r12
-	goto block345
+	r195 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block345
+	} else {
+		goto block389
+	}
 block345:
-	r198 = r13
+	r196 = 'c'
 	goto block346
 block346:
-	r199 = &ConstructList{Type: r197, Args: r198}
+	r197 = r195 == r196
 	goto block347
 block347:
-	ret0 = r199
-	goto block614
+	if r197 {
+		goto block348
+	} else {
+		goto block388
+	}
 block348:
-	frame.Fail()
-	goto block352
+	frame.Consume()
+	goto block349
 block349:
-	frame.Fail()
-	goto block352
+	r198 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block350
+	} else {
+		goto block389
+	}
 block350:
-	frame.Fail()
-	goto block352
+	r199 = 'o'
+	goto block351
 block351:
-	frame.Fail()
+	r200 = r198 == r199
 	goto block352
 block352:
-	frame.Recover(r25)
-	goto block353
-block353:
-	r200 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block354
+	if r200 {
+		goto block353
 	} else {
-		goto block383
+		goto block387
 	}
+block353:
+	frame.Consume()
+	goto block354
 block354:
-	r201 = 'c'
-	goto block355
+	r201 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block355
+	} else {
+		goto block389
+	}
 block355:
-	r202 = r200 == r201
+	r202 = 'e'
 	goto block356
 block356:
-	if r202 {
-		goto block357
-	} else {
-		goto block382
-	}
+	r203 = r201 == r202
+	goto block357
 block357:
-	frame.Consume()
-	goto block358
-block358:
-	r203 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block359
+	if r203 {
+		goto block358
 	} else {
-		goto block383
+		goto block386
 	}
+block358:
+	frame.Consume()
+	goto block359
 block359:
-	r204 = 'a'
-	goto block360
+	r204 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block360
+	} else {
+		goto block389
+	}
 block360:
-	r205 = r203 == r204
+	r205 = 'r'
 	goto block361
 block361:
-	if r205 {
-		goto block362
-	} else {
-		goto block381
-	}
+	r206 = r204 == r205
+	goto block362
 block362:
-	frame.Consume()
-	goto block363
-block363:
-	r206 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block364
+	if r206 {
+		goto block363
 	} else {
-		goto block383
+		goto block385
 	}
+block363:
+	frame.Consume()
+	goto block364
 block364:
-	r207 = 'l'
-	goto block365
+	r207 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block365
+	} else {
+		goto block389
+	}
 block365:
-	r208 = r206 == r207
+	r208 = 'c'
 	goto block366
 block366:
-	if r208 {
-		goto block367
-	} else {
-		goto block380
-	}
+	r209 = r207 == r208
+	goto block367
 block367:
-	frame.Consume()
-	goto block368
-block368:
-	r209 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block369
+	if r209 {
+		goto block368
 	} else {
-		goto block383
+		goto block384
 	}
+block368:
+	frame.Consume()
+	goto block369
 block369:
-	r210 = 'l'
-	goto block370
+	r210 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block370
+	} else {
+		goto block389
+	}
 block370:
-	r211 = r209 == r210
+	r211 = 'e'
 	goto block371
 block371:
-	if r211 {
-		goto block372
-	} else {
-		goto block379
-	}
+	r212 = r210 == r211
+	goto block372
 block372:
-	frame.Consume()
-	goto block373
-block373:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block374
+	if r212 {
+		goto block373
 	} else {
 		goto block383
 	}
+block373:
+	frame.Consume()
+	goto block374
 block374:
-	r212 = Ident(frame)
+	S(frame)
 	if frame.Flow == 0 {
 		goto block375
 	} else {
-		goto block383
+		goto block389
 	}
 block375:
-	r14 = r212
-	goto block376
+	r213 = ParseTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block376
+	} else {
+		goto block389
+	}
 block376:
-	r213 = r14
+	r11 = r213
 	goto block377
 block377:
-	r214 = &Call{Name: r213}
-	goto block378
-block378:
-	ret0 = r214
-	goto block614
-block379:
-	frame.Fail()
-	goto block383
-block380:
-	frame.Fail()
-	goto block383
-block381:
-	frame.Fail()
-	goto block383
-block382:
-	frame.Fail()
-	goto block383
-block383:
-	frame.Recover(r25)
-	goto block384
-block384:
-	r215 = frame.Peek()
+	r214 = ParseExpr(frame)
 	if frame.Flow == 0 {
-		goto block385
+		goto block378
 	} else {
-		goto block411
+		goto block389
 	}
+block378:
+	r12 = r214
+	goto block379
+block379:
+	r215 = r11
+	goto block380
+block380:
+	r216 = r12
+	goto block381
+block381:
+	r217 = &Coerce{Type: r215, Expr: r216}
+	goto block382
+block382:
+	ret0 = r217
+	goto block608
+block383:
+	frame.Fail()
+	goto block389
+block384:
+	frame.Fail()
+	goto block389
 block385:
-	r216 = 'f'
-	goto block386
+	frame.Fail()
+	goto block389
 block386:
-	r217 = r215 == r216
-	goto block387
+	frame.Fail()
+	goto block389
 block387:
-	if r217 {
-		goto block388
-	} else {
-		goto block410
-	}
+	frame.Fail()
+	goto block389
 block388:
-	frame.Consume()
+	frame.Fail()
 	goto block389
 block389:
+	frame.Recover(r26)
+	goto block390
+block390:
 	r218 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block390
+		goto block391
 	} else {
-		goto block411
+		goto block438
 	}
-block390:
-	r219 = 'a'
-	goto block391
 block391:
-	r220 = r218 == r219
+	r219 = 'a'
 	goto block392
 block392:
-	if r220 {
-		goto block393
-	} else {
-		goto block409
-	}
+	r220 = r218 == r219
+	goto block393
 block393:
-	frame.Consume()
-	goto block394
+	if r220 {
+		goto block394
+	} else {
+		goto block437
+	}
 block394:
+	frame.Consume()
+	goto block395
+block395:
 	r221 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block395
+		goto block396
 	} else {
-		goto block411
+		goto block438
 	}
-block395:
-	r222 = 'i'
-	goto block396
 block396:
-	r223 = r221 == r222
+	r222 = 'p'
 	goto block397
 block397:
-	if r223 {
-		goto block398
-	} else {
-		goto block408
-	}
+	r223 = r221 == r222
+	goto block398
 block398:
-	frame.Consume()
-	goto block399
+	if r223 {
+		goto block399
+	} else {
+		goto block436
+	}
 block399:
+	frame.Consume()
+	goto block400
+block400:
 	r224 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block400
+		goto block401
 	} else {
-		goto block411
+		goto block438
 	}
-block400:
-	r225 = 'l'
-	goto block401
 block401:
-	r226 = r224 == r225
+	r225 = 'p'
 	goto block402
 block402:
-	if r226 {
-		goto block403
-	} else {
-		goto block407
-	}
+	r226 = r224 == r225
+	goto block403
 block403:
-	frame.Consume()
-	goto block404
-block404:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block405
+	if r226 {
+		goto block404
 	} else {
-		goto block411
+		goto block435
 	}
+block404:
+	frame.Consume()
+	goto block405
 block405:
-	r227 = &Fail{}
-	goto block406
+	r227 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block406
+	} else {
+		goto block438
+	}
 block406:
-	ret0 = r227
-	goto block614
+	r228 = 'e'
+	goto block407
 block407:
-	frame.Fail()
-	goto block411
+	r229 = r227 == r228
+	goto block408
 block408:
-	frame.Fail()
-	goto block411
+	if r229 {
+		goto block409
+	} else {
+		goto block434
+	}
 block409:
-	frame.Fail()
-	goto block411
+	frame.Consume()
+	goto block410
 block410:
-	frame.Fail()
-	goto block411
+	r230 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block411
+	} else {
+		goto block438
+	}
 block411:
-	frame.Recover(r25)
+	r231 = 'n'
 	goto block412
 block412:
-	r228 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block413
-	} else {
-		goto block457
-	}
+	r232 = r230 == r231
+	goto block413
 block413:
-	r229 = 'c'
-	goto block414
+	if r232 {
+		goto block414
+	} else {
+		goto block433
+	}
 block414:
-	r230 = r228 == r229
+	frame.Consume()
 	goto block415
 block415:
-	if r230 {
+	r233 = frame.Peek()
+	if frame.Flow == 0 {
 		goto block416
 	} else {
-		goto block456
+		goto block438
 	}
 block416:
-	frame.Consume()
+	r234 = 'd'
 	goto block417
 block417:
-	r231 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block418
-	} else {
-		goto block457
-	}
+	r235 = r233 == r234
+	goto block418
 block418:
-	r232 = 'o'
-	goto block419
+	if r235 {
+		goto block419
+	} else {
+		goto block432
+	}
 block419:
-	r233 = r231 == r232
+	frame.Consume()
 	goto block420
 block420:
-	if r233 {
-		goto block421
-	} else {
-		goto block455
-	}
-block421:
-	frame.Consume()
-	goto block422
-block422:
-	r234 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block423
-	} else {
-		goto block457
-	}
-block423:
-	r235 = 'e'
-	goto block424
-block424:
-	r236 = r234 == r235
-	goto block425
-block425:
-	if r236 {
-		goto block426
-	} else {
-		goto block454
-	}
-block426:
-	frame.Consume()
-	goto block427
-block427:
-	r237 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block428
-	} else {
-		goto block457
-	}
-block428:
-	r238 = 'r'
-	goto block429
-block429:
-	r239 = r237 == r238
-	goto block430
-block430:
-	if r239 {
-		goto block431
-	} else {
-		goto block453
-	}
-block431:
-	frame.Consume()
-	goto block432
-block432:
-	r240 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block433
-	} else {
-		goto block457
-	}
-block433:
-	r241 = 'c'
-	goto block434
-block434:
-	r242 = r240 == r241
-	goto block435
-block435:
-	if r242 {
-		goto block436
-	} else {
-		goto block452
-	}
-block436:
-	frame.Consume()
-	goto block437
-block437:
-	r243 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block438
-	} else {
-		goto block457
-	}
-block438:
-	r244 = 'e'
-	goto block439
-block439:
-	r245 = r243 == r244
-	goto block440
-block440:
-	if r245 {
-		goto block441
-	} else {
-		goto block451
-	}
-block441:
-	frame.Consume()
-	goto block442
-block442:
 	S(frame)
 	if frame.Flow == 0 {
-		goto block443
+		goto block421
 	} else {
-		goto block457
+		goto block438
 	}
-block443:
-	r246 = ParseTypeRef(frame)
+block421:
+	r236 = Ident(frame)
 	if frame.Flow == 0 {
-		goto block444
+		goto block422
 	} else {
-		goto block457
+		goto block438
 	}
-block444:
-	r15 = r246
-	goto block445
-block445:
-	r247 = ParseExpr(frame)
+block422:
+	r13 = r236
+	goto block423
+block423:
+	r237 = ParseExpr(frame)
 	if frame.Flow == 0 {
-		goto block446
+		goto block424
 	} else {
-		goto block457
+		goto block438
 	}
-block446:
-	r16 = r247
-	goto block447
-block447:
-	r248 = r15
-	goto block448
-block448:
-	r249 = r16
-	goto block449
-block449:
-	r250 = &Coerce{Type: r248, Expr: r249}
-	goto block450
-block450:
-	ret0 = r250
-	goto block614
-block451:
+block424:
+	r14 = r237
+	goto block425
+block425:
+	r238 = r13
+	goto block426
+block426:
+	r239 = &GetName{Name: r238}
+	goto block427
+block427:
+	r240 = r14
+	goto block428
+block428:
+	r241 = &Append{List: r239, Expr: r240}
+	goto block429
+block429:
+	r242 = r13
+	goto block430
+block430:
+	r243 = &Assign{Expr: r241, Name: r242}
+	goto block431
+block431:
+	ret0 = r243
+	goto block608
+block432:
 	frame.Fail()
-	goto block457
-block452:
+	goto block438
+block433:
 	frame.Fail()
-	goto block457
-block453:
+	goto block438
+block434:
 	frame.Fail()
-	goto block457
-block454:
+	goto block438
+block435:
 	frame.Fail()
-	goto block457
-block455:
+	goto block438
+block436:
 	frame.Fail()
-	goto block457
-block456:
+	goto block438
+block437:
 	frame.Fail()
-	goto block457
-block457:
-	frame.Recover(r25)
-	goto block458
-block458:
-	r251 = frame.Peek()
+	goto block438
+block438:
+	frame.Recover(r26)
+	goto block439
+block439:
+	r244 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block459
-	} else {
-		goto block506
-	}
-block459:
-	r252 = 'a'
-	goto block460
-block460:
-	r253 = r251 == r252
-	goto block461
-block461:
-	if r253 {
-		goto block462
+		goto block440
 	} else {
 		goto block505
 	}
-block462:
-	frame.Consume()
-	goto block463
-block463:
-	r254 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block464
-	} else {
-		goto block506
-	}
-block464:
-	r255 = 'p'
-	goto block465
-block465:
-	r256 = r254 == r255
-	goto block466
-block466:
-	if r256 {
-		goto block467
+block440:
+	r245 = 'r'
+	goto block441
+block441:
+	r246 = r244 == r245
+	goto block442
+block442:
+	if r246 {
+		goto block443
 	} else {
 		goto block504
 	}
-block467:
+block443:
 	frame.Consume()
-	goto block468
-block468:
-	r257 = frame.Peek()
+	goto block444
+block444:
+	r247 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block469
+		goto block445
 	} else {
-		goto block506
+		goto block505
 	}
-block469:
-	r258 = 'p'
-	goto block470
-block470:
-	r259 = r257 == r258
-	goto block471
-block471:
-	if r259 {
-		goto block472
+block445:
+	r248 = 'e'
+	goto block446
+block446:
+	r249 = r247 == r248
+	goto block447
+block447:
+	if r249 {
+		goto block448
 	} else {
 		goto block503
 	}
-block472:
+block448:
 	frame.Consume()
-	goto block473
-block473:
-	r260 = frame.Peek()
+	goto block449
+block449:
+	r250 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block474
+		goto block450
 	} else {
-		goto block506
+		goto block505
 	}
-block474:
-	r261 = 'e'
-	goto block475
-block475:
-	r262 = r260 == r261
-	goto block476
-block476:
-	if r262 {
-		goto block477
+block450:
+	r251 = 't'
+	goto block451
+block451:
+	r252 = r250 == r251
+	goto block452
+block452:
+	if r252 {
+		goto block453
 	} else {
 		goto block502
 	}
-block477:
+block453:
 	frame.Consume()
-	goto block478
-block478:
-	r263 = frame.Peek()
+	goto block454
+block454:
+	r253 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block479
+		goto block455
 	} else {
-		goto block506
+		goto block505
 	}
-block479:
-	r264 = 'n'
-	goto block480
-block480:
-	r265 = r263 == r264
-	goto block481
-block481:
-	if r265 {
-		goto block482
+block455:
+	r254 = 'u'
+	goto block456
+block456:
+	r255 = r253 == r254
+	goto block457
+block457:
+	if r255 {
+		goto block458
 	} else {
 		goto block501
 	}
-block482:
+block458:
 	frame.Consume()
-	goto block483
-block483:
-	r266 = frame.Peek()
+	goto block459
+block459:
+	r256 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block484
+		goto block460
 	} else {
-		goto block506
+		goto block505
 	}
-block484:
-	r267 = 'd'
-	goto block485
-block485:
-	r268 = r266 == r267
-	goto block486
-block486:
-	if r268 {
-		goto block487
+block460:
+	r257 = 'r'
+	goto block461
+block461:
+	r258 = r256 == r257
+	goto block462
+block462:
+	if r258 {
+		goto block463
 	} else {
 		goto block500
 	}
-block487:
+block463:
 	frame.Consume()
-	goto block488
-block488:
+	goto block464
+block464:
+	r259 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block465
+	} else {
+		goto block505
+	}
+block465:
+	r260 = 'n'
+	goto block466
+block466:
+	r261 = r259 == r260
+	goto block467
+block467:
+	if r261 {
+		goto block468
+	} else {
+		goto block499
+	}
+block468:
+	frame.Consume()
+	goto block469
+block469:
 	S(frame)
 	if frame.Flow == 0 {
-		goto block489
+		goto block470
 	} else {
-		goto block506
+		goto block505
 	}
-block489:
-	r269 = Ident(frame)
+block470:
+	r262 = frame.Checkpoint()
+	goto block471
+block471:
+	r263 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block490
+		goto block472
 	} else {
-		goto block506
+		goto block490
 	}
+block472:
+	r264 = '('
+	goto block473
+block473:
+	r265 = r263 == r264
+	goto block474
+block474:
+	if r265 {
+		goto block475
+	} else {
+		goto block489
+	}
+block475:
+	frame.Consume()
+	goto block476
+block476:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block477
+	} else {
+		goto block490
+	}
+block477:
+	r266 = ParseExprList(frame)
+	if frame.Flow == 0 {
+		goto block478
+	} else {
+		goto block490
+	}
+block478:
+	r15 = r266
+	goto block479
+block479:
+	r267 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block480
+	} else {
+		goto block490
+	}
+block480:
+	r268 = ')'
+	goto block481
+block481:
+	r269 = r267 == r268
+	goto block482
+block482:
+	if r269 {
+		goto block483
+	} else {
+		goto block488
+	}
+block483:
+	frame.Consume()
+	goto block484
+block484:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block485
+	} else {
+		goto block490
+	}
+block485:
+	r270 = r15
+	goto block486
+block486:
+	r271 = &Return{Exprs: r270}
+	goto block487
+block487:
+	ret0 = r271
+	goto block608
+block488:
+	frame.Fail()
+	goto block490
+block489:
+	frame.Fail()
+	goto block490
 block490:
-	r17 = r269
+	frame.Recover(r262)
 	goto block491
 block491:
-	r270 = ParseExpr(frame)
+	r272 = ParseExpr(frame)
 	if frame.Flow == 0 {
 		goto block492
 	} else {
-		goto block506
+		goto block495
 	}
 block492:
-	r18 = r270
+	r273 = []ASTExpr{r272}
 	goto block493
 block493:
-	r271 = r17
+	r274 = &Return{Exprs: r273}
 	goto block494
 block494:
-	r272 = &GetName{Name: r271}
-	goto block495
+	ret0 = r274
+	goto block608
 block495:
-	r273 = r18
+	frame.Recover(r262)
 	goto block496
 block496:
-	r274 = &Append{List: r272, Expr: r273}
+	r275 = []ASTExpr{}
 	goto block497
 block497:
-	r275 = r17
+	r276 = &Return{Exprs: r275}
 	goto block498
 block498:
-	r276 = &Assign{Expr: r274, Name: r275}
-	goto block499
-block499:
 	ret0 = r276
-	goto block614
+	goto block608
+block499:
+	frame.Fail()
+	goto block505
 block500:
 	frame.Fail()
-	goto block506
+	goto block505
 block501:
 	frame.Fail()
-	goto block506
+	goto block505
 block502:
 	frame.Fail()
-	goto block506
+	goto block505
 block503:
 	frame.Fail()
-	goto block506
+	goto block505
 block504:
 	frame.Fail()
-	goto block506
+	goto block505
 block505:
-	frame.Fail()
+	frame.Recover(r26)
 	goto block506
 block506:
-	frame.Recover(r25)
-	goto block507
-block507:
-	r277 = frame.Peek()
+	r277 = BinaryOperator(frame)
 	if frame.Flow == 0 {
-		goto block508
+		goto block507
 	} else {
-		goto block557
+		goto block517
 	}
+block507:
+	r16 = r277
+	goto block508
 block508:
-	r278 = 'r'
-	goto block509
+	r278 = ParseExpr(frame)
+	if frame.Flow == 0 {
+		goto block509
+	} else {
+		goto block517
+	}
 block509:
-	r279 = r277 == r278
+	r17 = r278
 	goto block510
 block510:
-	if r279 {
+	r279 = ParseExpr(frame)
+	if frame.Flow == 0 {
 		goto block511
 	} else {
-		goto block556
+		goto block517
 	}
 block511:
-	frame.Consume()
+	r18 = r279
 	goto block512
 block512:
-	r280 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block513
-	} else {
-		goto block557
-	}
+	r280 = r17
+	goto block513
 block513:
-	r281 = 'e'
+	r281 = r16
 	goto block514
 block514:
-	r282 = r280 == r281
+	r282 = r18
 	goto block515
 block515:
-	if r282 {
-		goto block516
-	} else {
-		goto block555
-	}
+	r283 = &BinaryOp{Left: r280, Op: r281, Right: r282}
+	goto block516
 block516:
-	frame.Consume()
-	goto block517
+	ret0 = r283
+	goto block608
 block517:
-	r283 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block518
-	} else {
-		goto block557
-	}
+	frame.Recover(r26)
+	goto block518
 block518:
-	r284 = 't'
-	goto block519
+	r284 = ParseStructTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block519
+	} else {
+		goto block540
+	}
 block519:
-	r285 = r283 == r284
+	r19 = r284
 	goto block520
 block520:
-	if r285 {
+	r285 = frame.Peek()
+	if frame.Flow == 0 {
 		goto block521
 	} else {
-		goto block554
+		goto block540
 	}
 block521:
-	frame.Consume()
+	r286 = '{'
 	goto block522
 block522:
-	r286 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block523
-	} else {
-		goto block557
-	}
+	r287 = r285 == r286
+	goto block523
 block523:
-	r287 = 'u'
-	goto block524
+	if r287 {
+		goto block524
+	} else {
+		goto block539
+	}
 block524:
-	r288 = r286 == r287
+	frame.Consume()
 	goto block525
 block525:
-	if r288 {
-		goto block526
-	} else {
-		goto block553
-	}
-block526:
-	frame.Consume()
-	goto block527
-block527:
-	r289 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block528
-	} else {
-		goto block557
-	}
-block528:
-	r290 = 'r'
-	goto block529
-block529:
-	r291 = r289 == r290
-	goto block530
-block530:
-	if r291 {
-		goto block531
-	} else {
-		goto block552
-	}
-block531:
-	frame.Consume()
-	goto block532
-block532:
-	r292 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block533
-	} else {
-		goto block557
-	}
-block533:
-	r293 = 'n'
-	goto block534
-block534:
-	r294 = r292 == r293
-	goto block535
-block535:
-	if r294 {
-		goto block536
-	} else {
-		goto block551
-	}
-block536:
-	frame.Consume()
-	goto block537
-block537:
 	S(frame)
 	if frame.Flow == 0 {
-		goto block538
+		goto block526
 	} else {
-		goto block557
-	}
-block538:
-	r295 = frame.Checkpoint()
-	goto block539
-block539:
-	r296 = ParseExprList(frame)
-	if frame.Flow == 0 {
 		goto block540
-	} else {
-		goto block542
 	}
+block526:
+	r288 = ParseNamedExprList(frame)
+	if frame.Flow == 0 {
+		goto block527
+	} else {
+		goto block540
+	}
+block527:
+	r20 = r288
+	goto block528
+block528:
+	r289 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block529
+	} else {
+		goto block540
+	}
+block529:
+	r290 = '}'
+	goto block530
+block530:
+	r291 = r289 == r290
+	goto block531
+block531:
+	if r291 {
+		goto block532
+	} else {
+		goto block538
+	}
+block532:
+	frame.Consume()
+	goto block533
+block533:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block534
+	} else {
+		goto block540
+	}
+block534:
+	r292 = r19
+	goto block535
+block535:
+	r293 = r20
+	goto block536
+block536:
+	r294 = &Construct{Type: r292, Args: r293}
+	goto block537
+block537:
+	ret0 = r294
+	goto block608
+block538:
+	frame.Fail()
+	goto block540
+block539:
+	frame.Fail()
+	goto block540
 block540:
-	r297 = &Return{Exprs: r296}
+	frame.Recover(r26)
 	goto block541
 block541:
-	ret0 = r297
-	goto block614
+	r295 = ParseListTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block542
+	} else {
+		goto block563
+	}
 block542:
-	frame.Recover(r295)
+	r21 = r295
 	goto block543
 block543:
-	r298 = ParseExpr(frame)
+	r296 = frame.Peek()
 	if frame.Flow == 0 {
 		goto block544
 	} else {
-		goto block547
+		goto block563
 	}
 block544:
-	r299 = []ASTExpr{r298}
+	r297 = '{'
 	goto block545
 block545:
-	r300 = &Return{Exprs: r299}
+	r298 = r296 == r297
 	goto block546
 block546:
-	ret0 = r300
-	goto block614
+	if r298 {
+		goto block547
+	} else {
+		goto block562
+	}
 block547:
-	frame.Recover(r295)
+	frame.Consume()
 	goto block548
 block548:
-	r301 = []ASTExpr{}
-	goto block549
+	S(frame)
+	if frame.Flow == 0 {
+		goto block549
+	} else {
+		goto block563
+	}
 block549:
-	r302 = &Return{Exprs: r301}
-	goto block550
+	r299 = ParseExprList(frame)
+	if frame.Flow == 0 {
+		goto block550
+	} else {
+		goto block563
+	}
 block550:
-	ret0 = r302
-	goto block614
+	r22 = r299
+	goto block551
 block551:
-	frame.Fail()
-	goto block557
+	r300 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block552
+	} else {
+		goto block563
+	}
 block552:
-	frame.Fail()
-	goto block557
+	r301 = '}'
+	goto block553
 block553:
-	frame.Fail()
-	goto block557
+	r302 = r300 == r301
+	goto block554
 block554:
-	frame.Fail()
-	goto block557
+	if r302 {
+		goto block555
+	} else {
+		goto block561
+	}
 block555:
-	frame.Fail()
-	goto block557
+	frame.Consume()
+	goto block556
 block556:
-	frame.Fail()
-	goto block557
+	S(frame)
+	if frame.Flow == 0 {
+		goto block557
+	} else {
+		goto block563
+	}
 block557:
-	frame.Recover(r25)
+	r303 = r21
 	goto block558
 block558:
-	r303 = BinaryOperator(frame)
-	if frame.Flow == 0 {
-		goto block559
-	} else {
-		goto block569
-	}
+	r304 = r22
+	goto block559
 block559:
-	r19 = r303
+	r305 = &ConstructList{Type: r303, Args: r304}
 	goto block560
 block560:
-	r304 = ParseExpr(frame)
-	if frame.Flow == 0 {
-		goto block561
-	} else {
-		goto block569
-	}
+	ret0 = r305
+	goto block608
 block561:
-	r20 = r304
-	goto block562
+	frame.Fail()
+	goto block563
 block562:
-	r305 = ParseExpr(frame)
-	if frame.Flow == 0 {
-		goto block563
-	} else {
-		goto block569
-	}
+	frame.Fail()
+	goto block563
 block563:
-	r21 = r305
+	frame.Recover(r26)
 	goto block564
 block564:
-	r306 = r20
-	goto block565
+	r306 = StringMatchExpr(frame)
+	if frame.Flow == 0 {
+		goto block565
+	} else {
+		goto block566
+	}
 block565:
-	r307 = r19
-	goto block566
+	ret0 = r306
+	goto block608
 block566:
-	r308 = r21
+	frame.Recover(r26)
 	goto block567
 block567:
-	r309 = &BinaryOp{Left: r306, Op: r307, Right: r308}
-	goto block568
+	r307 = RuneMatchExpr(frame)
+	if frame.Flow == 0 {
+		goto block568
+	} else {
+		goto block569
+	}
 block568:
-	ret0 = r309
-	goto block614
+	ret0 = r307
+	goto block608
 block569:
-	frame.Recover(r25)
+	frame.Recover(r26)
 	goto block570
 block570:
-	r310 = StringMatchExpr(frame)
+	r308 = Ident(frame)
 	if frame.Flow == 0 {
 		goto block571
 	} else {
-		goto block572
+		goto block609
 	}
 block571:
-	ret0 = r310
-	goto block614
+	r23 = r308
+	goto block572
 block572:
-	frame.Recover(r25)
+	r309 = frame.Checkpoint()
 	goto block573
 block573:
-	r311 = RuneMatchExpr(frame)
-	if frame.Flow == 0 {
-		goto block574
-	} else {
-		goto block575
-	}
+	r24 = false
+	goto block574
 block574:
-	ret0 = r311
-	goto block614
+	r310 = frame.Checkpoint()
+	goto block575
 block575:
-	frame.Recover(r25)
-	goto block576
-block576:
-	r312 = Ident(frame)
+	r311 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block577
+		goto block576
 	} else {
-		goto block615
+		goto block589
 	}
+block576:
+	r312 = ':'
+	goto block577
 block577:
-	r22 = r312
+	r313 = r311 == r312
 	goto block578
 block578:
-	r313 = frame.Checkpoint()
-	goto block579
+	if r313 {
+		goto block579
+	} else {
+		goto block588
+	}
 block579:
-	r23 = false
+	frame.Consume()
 	goto block580
 block580:
-	r314 = frame.Checkpoint()
-	goto block581
-block581:
-	r315 = frame.Peek()
+	r314 = frame.Peek()
 	if frame.Flow == 0 {
-		goto block582
+		goto block581
 	} else {
-		goto block595
+		goto block589
 	}
+block581:
+	r315 = '='
+	goto block582
 block582:
-	r316 = ':'
+	r316 = r314 == r315
 	goto block583
 block583:
-	r317 = r315 == r316
-	goto block584
-block584:
-	if r317 {
-		goto block585
+	if r316 {
+		goto block584
 	} else {
-		goto block594
+		goto block587
 	}
-block585:
+block584:
 	frame.Consume()
+	goto block585
+block585:
+	r317 = true
 	goto block586
 block586:
-	r318 = frame.Peek()
-	if frame.Flow == 0 {
-		goto block587
-	} else {
-		goto block595
-	}
+	r24 = r317
+	goto block595
 block587:
-	r319 = '='
-	goto block588
+	frame.Fail()
+	goto block589
 block588:
-	r320 = r318 == r319
+	frame.Fail()
 	goto block589
 block589:
-	if r320 {
-		goto block590
-	} else {
-		goto block593
-	}
+	frame.Recover(r310)
+	goto block590
 block590:
-	frame.Consume()
-	goto block591
+	r318 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block591
+	} else {
+		goto block604
+	}
 block591:
-	r321 = true
+	r319 = '='
 	goto block592
 block592:
-	r23 = r321
-	goto block601
+	r320 = r318 == r319
+	goto block593
 block593:
-	frame.Fail()
-	goto block595
+	if r320 {
+		goto block594
+	} else {
+		goto block603
+	}
 block594:
-	frame.Fail()
+	frame.Consume()
 	goto block595
 block595:
-	frame.Recover(r314)
-	goto block596
+	S(frame)
+	if frame.Flow == 0 {
+		goto block596
+	} else {
+		goto block604
+	}
 block596:
-	r322 = frame.Peek()
+	r321 = ParseExpr(frame)
 	if frame.Flow == 0 {
 		goto block597
 	} else {
-		goto block610
+		goto block604
 	}
 block597:
-	r323 = '='
+	r25 = r321
 	goto block598
 block598:
-	r324 = r322 == r323
+	r322 = r25
 	goto block599
 block599:
-	if r324 {
-		goto block600
-	} else {
-		goto block609
-	}
+	r323 = r23
+	goto block600
 block600:
-	frame.Consume()
+	r324 = r24
 	goto block601
 block601:
-	S(frame)
-	if frame.Flow == 0 {
-		goto block602
-	} else {
-		goto block610
-	}
+	r325 = &Assign{Expr: r322, Name: r323, Define: r324}
+	goto block602
 block602:
-	r325 = ParseExpr(frame)
-	if frame.Flow == 0 {
-		goto block603
-	} else {
-		goto block610
-	}
+	ret0 = r325
+	goto block608
 block603:
-	r24 = r325
+	frame.Fail()
 	goto block604
 block604:
-	r326 = r24
+	frame.Recover(r309)
 	goto block605
 block605:
-	r327 = r22
+	r326 = r23
 	goto block606
 block606:
-	r328 = r23
+	r327 = &GetName{Name: r326}
 	goto block607
 block607:
-	r329 = &Assign{Expr: r326, Name: r327, Define: r328}
+	ret0 = r327
 	goto block608
 block608:
-	ret0 = r329
-	goto block614
-block609:
-	frame.Fail()
-	goto block610
-block610:
-	frame.Recover(r313)
-	goto block611
-block611:
-	r330 = r22
-	goto block612
-block612:
-	r331 = &GetName{Name: r330}
-	goto block613
-block613:
-	ret0 = r331
-	goto block614
-block614:
 	return
-block615:
+block609:
 	return
 }
 func ParseCodeBlock(frame *dub.DubState) (ret0 []ASTExpr) {

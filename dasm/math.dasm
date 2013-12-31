@@ -22,7 +22,7 @@ func Digits (string) {
 func Integer (IntLiteral) {
   v := call Digits;
   call S;
-  return cons IntLiteral(Text: v);
+  return IntLiteral{Text: v};
 }
 
 test Integer Simple "123"
@@ -37,7 +37,7 @@ func Add (Expr) {
     /[+]/;
     call S;
     r := call Integer;
-    e = cons BinaryOp(Left: e, Op: "+", Right: r);
+    e = BinaryOp{Left: e, Op: "+", Right: r};
   }
   return (e);
 }
