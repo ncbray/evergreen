@@ -983,6 +983,27 @@ struct StructDecl implements ASTType {
 }
 
 
+func ParseStructDecl (StructDecl) {
+  /"struct"/;
+  call S;
+  name := call Ident;
+  var implements ASTTypeRef;
+  question {
+    /"implements"/;
+    call S;
+    implements = call ParseTypeRef;
+  }
+  /[{]/;
+  call S;
+  fields := []FieldDecl{}
+  star {
+    append fields FieldDecl{Name: call Ident, Type: call ParseTypeRef}
+  }
+  /[}]/;
+  call S;
+  return StructDecl{Name: name, Implements: implements, Fields: fields};
+}
+
 struct ASTFunc implements ASTDecl {
 }
 
@@ -998,6 +1019,14 @@ struct FuncDecl implements ASTFunc {
   Locals []LocalInfo
 }
 
+func ParseFuncDecl (FuncDecl) {
+  /"func"/;
+  call S;
+  name := call Ident;
+  retTypes := call ParseTypeList;
+  block := call ParseCodeBlock;
+  return FuncDecl{Name: name, ReturnTypes: retTypes, Block: block}
+}
 
 struct Test {
   Rule string
@@ -1021,4 +1050,19 @@ func ParseTest (Test) {
 struct File {
   Decls []ASTDecl
   Tests []Test
+}
+
+func ParseFile (File) {
+  decls := []ASTDecl{};
+  tests := []Test{};
+  star {
+    choose {
+      append decls call ParseFuncDecl;
+    } or {
+      append decls call ParseStructDecl;
+    } or {
+      append tests call ParseTest;
+    }
+  }
+  return File{Decls: decls, Tests: tests};
 }

@@ -269,6 +269,17 @@ func FieldType(node *dubx.StructDecl, name string) dubx.ASTType {
 	panic(name)
 }
 
+func ResolveType(ref dubx.ASTTypeRef) dubx.ASTType {
+	switch ref := ref.(type) {
+	case *dubx.TypeRef:
+		return ref.T
+	case *dubx.ListTypeRef:
+		return ref.T
+	default:
+		panic(ref)
+	}
+}
+
 func ReturnType(node dubx.ASTFunc) dubx.ASTType {
 	switch node := node.(type) {
 	case *dubx.FuncDecl:
