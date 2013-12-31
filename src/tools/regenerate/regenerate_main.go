@@ -9,9 +9,50 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"sync"
 )
 
-func processDASM(name string) {
+type IOManager struct {
+	limit chan bool
+	group sync.WaitGroup
+}
+
+func (m *IOManager) Create() {
+	m.group.Add(1)
+}
+
+func (m *IOManager) Aquire() {
+	<-m.limit
+}
+
+func (m *IOManager) Release() {
+	m.limit <- true
+	m.group.Done()
+}
+
+func (m *IOManager) Flush() {
+	m.group.Wait()
+}
+
+func (m *IOManager) WriteFile(filename string, data []byte) {
+	m.Create()
+	go func() {
+		m.Aquire()
+		defer m.Release()
+		io.WriteFile(filename, data)
+	}()
+}
+
+func CreateIOManager() *IOManager {
+	limit := 8
+	manager := &IOManager{limit: make(chan bool, limit)}
+	for i := 0; i < limit; i++ {
+		manager.limit <- true
+	}
+	return manager
+}
+
+func processDASM(manager *IOManager, name string) {
 	fmt.Printf("Processing %s...\n", name)
 	file := dasm.ParseDASM(fmt.Sprintf("dasm/%s.dasm", name))
 	glbls := dasm.SemanticPass(file)
@@ -48,10 +89,16 @@ func processDASM(name string) {
 			funcs = append(funcs, f)
 
 			if dump {
-				// Dump flowgraph
 				dot := base.RegionToDot(f.Region)
 				outfile := filepath.Join("output", name, fmt.Sprintf("%s.svg", f.Name))
-				io.WriteDot(dot, outfile)
+				manager.Create()
+				go func(dot string, outfile string) {
+					manager.Aquire()
+					defer manager.Release()
+
+					// Dump flowgraph
+					io.WriteDot(dot, outfile)
+				}(dot, outfile)
 			}
 		case *dubx.StructDecl:
 			t, _ := gbuilder.Types[decl]
@@ -70,21 +117,21 @@ func processDASM(name string) {
 	}
 
 	code := dub.GenerateGo(name, structs, funcs)
-	//mt.Println(code)
-	io.WriteFile(fmt.Sprintf("src/generated/%s/parser.go", name), []byte(code))
+	manager.WriteFile(fmt.Sprintf("src/generated/%s/parser.go", name), []byte(code))
 
 	if len(file.Tests) != 0 {
 		tests := dasm.GenerateTests(name, file.Tests, gbuilder)
-		//fmt.Println(tests)
-		io.WriteFile(fmt.Sprintf("src/generated/%s/parser_test.go", name), []byte(tests))
+		manager.WriteFile(fmt.Sprintf("src/generated/%s/parser_test.go", name), []byte(tests))
 	}
 }
 
 var dump bool
 
 func main() {
-	flag.BoolVar(&dump, "dump", true, "Dump flowgraphs to disk.")
+	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
 	flag.Parse()
-	processDASM("math")
-	processDASM("dubx")
+	manager := CreateIOManager()
+	processDASM(manager, "math")
+	processDASM(manager, "dubx")
+	manager.Flush()
 }
