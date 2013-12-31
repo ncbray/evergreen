@@ -5,11 +5,13 @@ import (
 	"evergreen/dasm"
 	"evergreen/dub"
 	"evergreen/io"
+	"flag"
 	"fmt"
 	"path/filepath"
 )
 
 func processDASM(name string) {
+	fmt.Printf("Processing %s...\n", name)
 	file := dasm.ParseDASM(fmt.Sprintf("dasm/%s.dasm", name))
 	glbls := dasm.SemanticPass(file)
 	gbuilder := &dasm.GlobalDubBuilder{Types: map[dasm.ASTType]dub.DubType{}}
@@ -44,10 +46,12 @@ func processDASM(name string) {
 			f := dasm.LowerAST(decl, gbuilder)
 			funcs = append(funcs, f)
 
-			// Dump flowgraph
-			dot := base.RegionToDot(f.Region)
-			outfile := filepath.Join("output", name, fmt.Sprintf("%s.svg", f.Name))
-			io.WriteDot(dot, outfile)
+			if dump {
+				// Dump flowgraph
+				dot := base.RegionToDot(f.Region)
+				outfile := filepath.Join("output", name, fmt.Sprintf("%s.svg", f.Name))
+				io.WriteDot(dot, outfile)
+			}
 		case *dasm.StructDecl:
 			t, _ := gbuilder.Types[decl]
 			s, _ := t.(*dub.LLStruct)
@@ -75,7 +79,11 @@ func processDASM(name string) {
 	}
 }
 
+var dump bool
+
 func main() {
+	flag.BoolVar(&dump, "dump", true, "Dump flowgraphs to disk.")
+	flag.Parse()
 	processDASM("math")
 	processDASM("dubx")
 }
