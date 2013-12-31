@@ -16,7 +16,13 @@ type GlobalDubBuilder struct {
 
 func (builder *GlobalDubBuilder) TranslateType(t ASTType) dub.DubType {
 	switch t := t.(type) {
-	case *StructDecl, *BuiltinType:
+	case *StructDecl:
+		dt, ok := builder.Types[t]
+		if !ok {
+			panic(t)
+		}
+		return dt
+	case *BuiltinType:
 		dt, ok := builder.Types[t]
 		if !ok {
 			panic(t)
@@ -245,7 +251,7 @@ func lowerMatch(match dubx.TextMatch, r *base.Region, builder *DubBuilder) {
 
 func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub.DubRegister {
 	switch expr := expr.(type) {
-	case *If:
+	case *dubx.If:
 		// TODO Min
 		//l := dub.CreateRegion()
 
@@ -262,7 +268,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 
 		return dub.NoRegister
 
-	case *Repeat:
+	case *dubx.Repeat:
 		// HACK unroll
 		for i := 0; i < expr.Min; i++ {
 			block := lowerBlock(expr.Block, builder)
@@ -302,7 +308,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		r.Splice(dub.NORMAL, block)
 
 		return dub.NoRegister
-	case *Choice:
+	case *dubx.Choice:
 		checkpoint := dub.NoRegister
 		if len(expr.Blocks) > 1 {
 			checkpoint = builder.CreateLLRegister(builder.glbl.Int)
@@ -335,7 +341,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		}
 		return dub.NoRegister
 
-	case *Optional:
+	case *dubx.Optional:
 		// Checkpoint
 		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
 		head := dub.CreateBlock([]dub.DubOp{
@@ -357,7 +363,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 
 		return dub.NoRegister
 
-	case *GetName:
+	case *dubx.GetName:
 		if !used {
 			return dub.NoRegister
 		}
@@ -369,7 +375,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *Assign:
+	case *dubx.Assign:
 		dst := builder.localMap[expr.Info]
 		var op dub.DubOp
 		if expr.Expr != nil {
@@ -431,7 +437,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *Return:
+	case *dubx.Return:
 		exprs := make([]dub.DubRegister, len(expr.Exprs))
 		for i, e := range expr.Exprs {
 			exprs[i] = lowerExpr(e, r, builder, true)
@@ -452,7 +458,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 
 		return dub.NoRegister
 
-	case *BinaryOp:
+	case *dubx.BinaryOp:
 		left := lowerExpr(expr.Left, r, builder, true)
 		right := lowerExpr(expr.Right, r, builder, true)
 		dst := dub.NoRegister
@@ -470,9 +476,9 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		r.Connect(dub.NORMAL, body)
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
-	case *Append:
+	case *dubx.Append:
 		l := lowerExpr(expr.List, r, builder, true)
-		v := lowerExpr(expr.Value, r, builder, true)
+		v := lowerExpr(expr.Expr, r, builder, true)
 		dst := dub.NoRegister
 		if used {
 			dst = builder.CreateRegister(expr.T)
@@ -503,12 +509,12 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		r.Connect(dub.NORMAL, body)
 		r.AttachDefaultExits(body)
 		return dst
-	case *Construct:
+	case *dubx.Construct:
 		args := make([]*dub.KeyValue, len(expr.Args))
 		for i, arg := range expr.Args {
 			args[i] = &dub.KeyValue{
-				Key:   arg.Key,
-				Value: lowerExpr(arg.Value, r, builder, true),
+				Key:   arg.Name,
+				Value: lowerExpr(arg.Expr, r, builder, true),
 			}
 		}
 		t := builder.glbl.TranslateType(ResolveType(expr.Type))
@@ -531,7 +537,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *ConstructList:
+	case *dubx.ConstructList:
 		args := make([]dub.DubRegister, len(expr.Args))
 		for i, arg := range expr.Args {
 			args[i] = lowerExpr(arg, r, builder, true)
@@ -556,7 +562,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *Coerce:
+	case *dubx.Coerce:
 		t := builder.glbl.TranslateType(ResolveType(expr.Type))
 		src := lowerExpr(expr.Expr, r, builder, true)
 		dst := dub.NoRegister
@@ -575,7 +581,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 		body.SetExit(dub.NORMAL, r.GetExit(dub.NORMAL))
 		return dst
 
-	case *Slice:
+	case *dubx.Slice:
 		start := builder.CreateLLRegister(builder.glbl.Int)
 		// HACK assume checkpoint is just the index
 		{
@@ -642,7 +648,7 @@ func lowerExpr(expr ASTExpr, r *base.Region, builder *DubBuilder, used bool) dub
 
 }
 
-func lowerBlock(block []ASTExpr, builder *DubBuilder) *base.Region {
+func lowerBlock(block []dubx.ASTExpr, builder *DubBuilder) *base.Region {
 	r := dub.CreateRegion()
 	for _, expr := range block {
 		lowerExpr(expr, r, builder, false)

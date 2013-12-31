@@ -27,118 +27,6 @@ func ResolveType(ref ASTTypeRef) ASTType {
 	}
 }
 
-type If struct {
-	Expr  ASTExpr
-	Block []ASTExpr
-}
-
-func (node *If) IsASTExpr() {
-}
-
-type Repeat struct {
-	Block []ASTExpr
-	Min   int
-}
-
-func (node *Repeat) IsASTExpr() {
-}
-
-type Choice struct {
-	// TODO wrap blocks
-	Blocks [][]ASTExpr
-}
-
-func (node *Choice) IsASTExpr() {
-}
-
-type Optional struct {
-	Block []ASTExpr
-}
-
-func (node *Optional) IsASTExpr() {
-}
-
-type Slice struct {
-	Block []ASTExpr
-}
-
-func (node *Slice) IsASTExpr() {
-}
-
-type BinaryOp struct {
-	Left  ASTExpr
-	Op    string
-	Right ASTExpr
-	T     ASTType
-}
-
-func (node *BinaryOp) IsASTExpr() {
-}
-
-type KeyValue struct {
-	Key   string
-	Value ASTExpr
-}
-
-type Construct struct {
-	Type ASTTypeRef
-	Args []*KeyValue
-}
-
-func (node *Construct) IsASTExpr() {
-}
-
-type ConstructList struct {
-	Type ASTTypeRef
-	Args []ASTExpr
-}
-
-func (node *ConstructList) IsASTExpr() {
-}
-
-type Coerce struct {
-	Type ASTTypeRef
-	Expr ASTExpr
-}
-
-func (node *Coerce) IsASTExpr() {
-}
-
-type GetName struct {
-	Name string
-	Info int
-}
-
-func (node *GetName) IsASTExpr() {
-}
-
-type Assign struct {
-	Expr   ASTExpr
-	Name   string
-	Info   int
-	Type   ASTTypeRef
-	Define bool
-}
-
-func (node *Assign) IsASTExpr() {
-}
-
-type Append struct {
-	List  ASTExpr
-	Value ASTExpr
-	T     ASTType
-}
-
-func (node *Append) IsASTExpr() {
-}
-
-type Return struct {
-	Exprs []ASTExpr
-}
-
-func (node *Return) IsASTExpr() {
-}
-
 type LocalInfo struct {
 	Name string
 	T    ASTType
@@ -157,7 +45,7 @@ type ASTFunc interface {
 type FuncDecl struct {
 	Name        string
 	ReturnTypes []dubx.ASTTypeRef
-	Block       []ASTExpr
+	Block       []dubx.ASTExpr
 	Locals      []*LocalInfo
 }
 

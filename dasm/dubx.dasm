@@ -192,7 +192,7 @@ struct RuneMatch implements ASTExpr {
 func StringMatchExpr (StringMatch) {
   /[/]/;
   call S;
-  define e call Choice;
+  define e call ParseMatchChoice;
   /[/]/;
   call S;
   return cons StringMatch(Match: e);
@@ -420,7 +420,7 @@ func Atom (TextMatch) {
     return cons StringLiteralMatch(Value: value)
   } or {
     /[(]/;
-    define e call Choice;
+    define e call ParseMatchChoice;
     /[)]/;
     return e;
   }
@@ -458,7 +458,7 @@ func Sequence (TextMatch) {
   }
 }
 
-func Choice (TextMatch) {
+func ParseMatchChoice (TextMatch) {
   define e call Sequence;
   choose {
     define l conl []TextMatch(e);
@@ -474,7 +474,7 @@ func Choice (TextMatch) {
 }
 
 
-test Choice One "[pq]"
+test ParseMatchChoice One "[pq]"
   RuneRangeMatch {
     Invert: false
     Filters: []RuneFilter {
@@ -489,7 +489,7 @@ test Choice One "[pq]"
     }
   }
 
-test Choice Invert "[^.]"
+test ParseMatchChoice Invert "[^.]"
   RuneRangeMatch {
     Invert: true
     Filters: []RuneFilter {
@@ -500,7 +500,7 @@ test Choice Invert "[^.]"
     }
   }
 
-test Choice Escape "[\\]\\n]"
+test ParseMatchChoice Escape "[\\]\\n]"
   RuneRangeMatch {
     Filters: []RuneFilter {
       RuneFilter {
@@ -515,7 +515,7 @@ test Choice Escape "[\\]\\n]"
   }
 
 
-test Choice Three "[a][b][c]"
+test ParseMatchChoice Three "[a][b][c]"
   MatchSequence {
     Matches: []TextMatch {
       RuneRangeMatch {
@@ -545,7 +545,7 @@ test Choice Three "[a][b][c]"
     }
   }
 
-test Choice Repeat "[0-9] + "
+test ParseMatchChoice Repeat "[0-9] + "
   MatchRepeat {
     Match: RuneRangeMatch {
       Filters: []RuneFilter {
@@ -558,7 +558,7 @@ test Choice Repeat "[0-9] + "
     Min: 1
   }
 
-test Choice Question "[*]?"
+test ParseMatchChoice Question "[*]?"
   MatchChoice {
     Matches: []TextMatch {
       RuneRangeMatch {
@@ -575,7 +575,7 @@ test Choice Question "[*]?"
     }
   }
 
-test Choice Complex "[a]([b]|[c])|[d]"
+test ParseMatchChoice Complex "[a]([b]|[c])|[d]"
   MatchChoice {
     Matches: []TextMatch {
       MatchSequence {
@@ -621,6 +621,61 @@ test Choice Complex "[a]([b]|[c])|[d]"
     }
   }
 
+struct If implements ASTExpr {
+  Expr ASTExpr
+  Block []ASTExpr
+}
+
+struct Repeat implements ASTExpr {
+  Block []ASTExpr
+  Min int
+}
+
+struct Choice implements ASTExpr {
+  Blocks [][]ASTExpr
+}
+
+struct Optional implements ASTExpr {
+  Block []ASTExpr
+}
+
+struct Slice implements ASTExpr {
+  Block []ASTExpr
+}
+
+struct Assign implements ASTExpr {
+  Expr ASTExpr
+  Name string
+  Info int
+  Type ASTTypeRef
+  Define bool
+}
+
+struct GetName implements ASTExpr {
+  Name string
+  Info int
+}
+
+struct NamedExpr {
+  Name string
+  Expr ASTExpr
+}
+
+struct Construct implements ASTExpr {
+  Type TypeRef
+  Args []NamedExpr
+}
+
+struct ConstructList implements ASTExpr {
+  Type ListTypeRef
+  Args []ASTExpr
+}
+
+struct Coerce implements ASTExpr {
+  Type ASTTypeRef
+  Expr ASTExpr
+}
+
 struct Call implements ASTExpr {
   Name string
   T ASTType
@@ -628,6 +683,65 @@ struct Call implements ASTExpr {
 
 struct Fail implements ASTExpr {
 }
+
+struct Append implements ASTExpr {
+  List ASTExpr
+  Expr ASTExpr
+  T ASTType
+}
+
+struct Return implements ASTExpr {
+  Exprs []ASTExpr
+}
+
+struct BinaryOp implements ASTExpr {
+  Left ASTExpr
+  Op string
+  Right ASTExpr
+  T ASTType
+}
+
+func ParseExprList ([]ASTExpr) {
+  /[(]/;
+  call S;
+  define exprs conl []ASTExpr()
+  question {
+    append exprs call ParseExpr;
+    star {
+      /[,]/;
+      call S;
+      append exprs call ParseExpr;
+    }
+  }
+  /[)]/;
+  call S;
+  return exprs;
+}
+
+func ParseNamedExpr (NamedExpr) {
+  define name call Ident;
+  /[:]/;
+  call S;
+  return cons NamedExpr(Name: name, Expr: call ParseExpr);
+}
+
+func ParseNamedExprList ([]NamedExpr) {
+  /[(]/;
+  call S;
+  define exprs conl []NamedExpr()
+  question {
+    append exprs call ParseNamedExpr;
+    star {
+      /[,]/;
+      call S;
+      append exprs call ParseNamedExpr;
+    }
+  }
+  /[)]/;
+  call S;
+  return exprs;
+}
+
 
 func ParseTypeList ([]ASTTypeRef) {
   /[(]/;
@@ -650,6 +764,79 @@ func ParseExpr (ASTExpr) {
   choose {
     return call Literal;
   } or {
+    var count int
+    choose {
+      /"star"/;
+    } or {
+      /"plus"/;
+      assign count 1;
+    }
+    call S;
+    define block call ParseCodeBlock;
+    return cons Repeat(Block: block, Min: count);
+  } or {
+    /"choose"/;
+    call S;
+    define blocks conl [][]ASTExpr(call ParseCodeBlock)
+    star {
+      /"or"/;
+      call S;
+      append blocks call ParseCodeBlock;
+    }
+    return cons Choice(Blocks: blocks);
+  } or {
+    /"question"/;
+    call S;
+    define block call ParseCodeBlock;
+    return cons Optional(Block: block);
+  } or {
+    /"slice"/;
+    call S;
+    define block call ParseCodeBlock;
+    return cons Slice(Block: block);
+  } or {
+    /"if"/;
+    call S;
+    define expr call ParseExpr;
+    define block call ParseCodeBlock;
+    return cons If(Expr: expr, Block: block);
+  } or {
+    /"var"/;
+    call S;
+    define name call Ident;
+    define t call ParseTypeRef;
+    var expr ASTExpr;
+    question {
+      /[=]/;
+      call S;
+      assign expr call ParseExpr; 
+    }
+    return cons Assign(Expr: expr, Name: name, Type: t, Define: true);
+  } or {
+    var defined bool;
+    choose {
+      /"assign"/;
+    } or {
+      /"define"/;
+      assign defined true;
+    }
+    call S;
+    define name call Ident;
+    define expr call ParseExpr;
+    return cons Assign(Expr: expr, Name: name, Define: defined);
+  } or {
+    /"cons"/;
+    call S;
+    define t call ParseStructTypeRef;
+    define args call ParseNamedExprList;
+    return cons Construct(Type: t, Args: args)
+  } or {
+    /"conl"/;
+    call S;
+    define t call ParseListTypeRef;
+    define args call ParseExprList;
+    return cons ConstructList(Type: t, Args: args)
+  } or {
     /"call"/;
     call S;
     define name call Ident;
@@ -659,9 +846,44 @@ func ParseExpr (ASTExpr) {
     call S;
     return cons Fail();
   } or {
+    /"coerce"/;
+    call S;
+    define t call ParseTypeRef;
+    define e call ParseExpr;
+    return cons Coerce(Type: t, Expr: e);
+  } or {
+    /"append"/;
+    call S;
+    define name call Ident;
+    define expr call ParseExpr;
+    return cons Assign(
+      Expr: cons Append(
+        List: cons GetName(Name: name),
+        Expr: expr
+      ),
+      Name: name
+    );
+  } or {
+    /"return"/;
+    call S;
+    choose {
+      return cons Return(Exprs: call ParseExprList)
+    } or {
+      return cons Return(Exprs: conl []ASTExpr(call ParseExpr))
+    } or {
+      return cons Return(Exprs: conl []ASTExpr())
+    }
+  } or {
+    define op call BinaryOperator;
+    define l call ParseExpr;
+    define r call ParseExpr;
+    return cons BinaryOp(Left: l, Op: op, Right: r);
+  } or {
     return call StringMatchExpr;
   } or {
     return call RuneMatchExpr;
+  } or {
+    return cons GetName(Name: call Ident);
   }
 }
 
@@ -680,3 +902,14 @@ func ParseCodeBlock([]ASTExpr) {
   call S;
   return exprs;
 }
+
+test ParseExpr BinaryOp "+ 1 2"
+  BinaryOp {
+    Left: IntLiteral {
+      Value: 1
+    }
+    Op: "+"
+    Right: IntLiteral {
+      Value: 2
+    }
+  }
