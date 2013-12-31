@@ -131,7 +131,6 @@ func main() {
 	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
 	flag.Parse()
 	manager := CreateIOManager()
-	processDASM(manager, "math")
 	processDASM(manager, "dubx")
 	manager.Flush()
 }

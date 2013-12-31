@@ -6,6 +6,33 @@ import (
 	"testing"
 )
 
+func assertState(state *dub.DubState, index int, flow int, t *testing.T) {
+	if state.Index != index {
+		t.Errorf("Expected index %d, got %d", index, state.Index)
+	}
+	if state.Flow != flow {
+		t.Errorf("Expected flow %d, got %d", flow, state.Flow)
+	}
+}
+
+func assertString(expected string, actual string, t *testing.T) {
+	if actual != expected {
+		t.Errorf("Expected %#v, got %#v", expected, actual)
+	}
+}
+
+func assertInt(expected int, actual int, t *testing.T) {
+	if actual != expected {
+		t.Errorf("Expected %#v, got %#v", expected, actual)
+	}
+}
+
+func assertRune(expected rune, actual rune, t *testing.T) {
+	if actual != expected {
+		t.Errorf("Expected %#U, got %#U", expected, actual)
+	}
+}
+
 func TestRuneMatchOK(t *testing.T) {
 	state := &dub.DubState{Stream: []rune("[a-z_]")}
 	result := dubx.MatchRune(state)

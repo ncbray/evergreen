@@ -51,34 +51,6 @@ func attr(expr ast.Expr, name string) ast.Expr {
 
 // End AST construction wrappers
 
-func genFunc(decl *FuncDecl) *ast.FuncDecl {
-	return &ast.FuncDecl{
-		Name: id(decl.Name),
-		Type: &ast.FuncType{
-			Params:  &ast.FieldList{},
-			Results: &ast.FieldList{List: []*ast.Field{&ast.Field{Type: ptr(id("bogus_type2"))}}},
-		},
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				&ast.LabeledStmt{Label: id("foo"), Stmt: &ast.AssignStmt{Lhs: []ast.Expr{id("block")}, Tok: token.DEFINE, Rhs: []ast.Expr{intLiteral(0)}}},
-				&ast.SwitchStmt{
-					Tag: id("block"),
-					Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							&ast.CaseClause{
-								List: []ast.Expr{intLiteral(0)},
-								Body: []ast.Stmt{
-									&ast.ReturnStmt{Results: []ast.Expr{}},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 type blockInfo struct {
 	label string
 }
