@@ -3895,6 +3895,187 @@ block37:
 block38:
 	return
 }
+func ParseTypeList(frame *dub.DubState) (ret0 []ASTTypeRef) {
+	var r0 []ASTTypeRef
+	var r1 rune
+	var r2 rune
+	var r3 bool
+	var r4 []ASTTypeRef
+	var r5 int
+	var r6 []ASTTypeRef
+	var r7 ASTTypeRef
+	var r8 []ASTTypeRef
+	var r9 int
+	var r10 rune
+	var r11 rune
+	var r12 bool
+	var r13 []ASTTypeRef
+	var r14 ASTTypeRef
+	var r15 []ASTTypeRef
+	var r16 rune
+	var r17 rune
+	var r18 bool
+	var r19 []ASTTypeRef
+	goto block0
+block0:
+	goto block1
+block1:
+	r1 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block2
+	} else {
+		goto block39
+	}
+block2:
+	r2 = '('
+	goto block3
+block3:
+	r3 = r1 == r2
+	goto block4
+block4:
+	if r3 {
+		goto block5
+	} else {
+		goto block38
+	}
+block5:
+	frame.Consume()
+	goto block6
+block6:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block7
+	} else {
+		goto block39
+	}
+block7:
+	r4 = []ASTTypeRef{}
+	goto block8
+block8:
+	r0 = r4
+	goto block9
+block9:
+	r5 = frame.Checkpoint()
+	goto block10
+block10:
+	r6 = r0
+	goto block11
+block11:
+	r7 = ParseTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block12
+	} else {
+		goto block27
+	}
+block12:
+	r8 = append(r6, r7)
+	goto block13
+block13:
+	r0 = r8
+	goto block14
+block14:
+	r9 = frame.Checkpoint()
+	goto block15
+block15:
+	r10 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block16
+	} else {
+		goto block26
+	}
+block16:
+	r11 = ','
+	goto block17
+block17:
+	r12 = r10 == r11
+	goto block18
+block18:
+	if r12 {
+		goto block19
+	} else {
+		goto block25
+	}
+block19:
+	frame.Consume()
+	goto block20
+block20:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block21
+	} else {
+		goto block26
+	}
+block21:
+	r13 = r0
+	goto block22
+block22:
+	r14 = ParseTypeRef(frame)
+	if frame.Flow == 0 {
+		goto block23
+	} else {
+		goto block26
+	}
+block23:
+	r15 = append(r13, r14)
+	goto block24
+block24:
+	r0 = r15
+	goto block14
+block25:
+	frame.Fail()
+	goto block26
+block26:
+	frame.Recover(r9)
+	goto block28
+block27:
+	frame.Recover(r5)
+	goto block28
+block28:
+	r16 = frame.Peek()
+	if frame.Flow == 0 {
+		goto block29
+	} else {
+		goto block39
+	}
+block29:
+	r17 = ')'
+	goto block30
+block30:
+	r18 = r16 == r17
+	goto block31
+block31:
+	if r18 {
+		goto block32
+	} else {
+		goto block37
+	}
+block32:
+	frame.Consume()
+	goto block33
+block33:
+	S(frame)
+	if frame.Flow == 0 {
+		goto block34
+	} else {
+		goto block39
+	}
+block34:
+	r19 = r0
+	goto block35
+block35:
+	ret0 = r19
+	goto block36
+block36:
+	return
+block37:
+	frame.Fail()
+	goto block39
+block38:
+	frame.Fail()
+	goto block39
+block39:
+	return
+}
 func ParseExpr(frame *dub.DubState) (ret0 ASTExpr) {
 	var r0 string
 	var r1 int

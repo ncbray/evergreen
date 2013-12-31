@@ -629,6 +629,23 @@ struct Call implements ASTExpr {
 struct Fail implements ASTExpr {
 }
 
+func ParseTypeList ([]ASTTypeRef) {
+  /[(]/;
+  call S;
+  define types conl []ASTTypeRef()
+  question {
+    append types call ParseTypeRef;
+    star {
+      /[,]/;
+      call S;
+      append types call ParseTypeRef;
+    }
+  }
+  /[)]/;
+  call S;
+  return types;
+}
+
 func ParseExpr (ASTExpr) {
   choose {
     return call Literal;

@@ -156,7 +156,7 @@ type ASTFunc interface {
 
 type FuncDecl struct {
 	Name        string
-	ReturnTypes []ASTTypeRef
+	ReturnTypes []dubx.ASTTypeRef
 	Block       []ASTExpr
 	Locals      []*LocalInfo
 }

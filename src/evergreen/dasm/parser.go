@@ -101,35 +101,6 @@ func parseKeyValueList(state *dub.DubState) []*KeyValue {
 	return args
 }
 
-func parseTypeList(state *dub.DubState) []ASTTypeRef {
-	getPunc(state, "(")
-	if state.Flow != 0 {
-		return nil
-	}
-	types := []ASTTypeRef{}
-	for {
-		checkpoint := state.Checkpoint()
-		t := dubx.ParseTypeRef(state)
-		if state.Flow != 0 {
-			state.Recover(checkpoint)
-			break
-		}
-		types = append(types, t)
-
-		checkpoint = state.Checkpoint()
-		getPunc(state, ",")
-		if state.Flow != 0 {
-			state.Recover(checkpoint)
-			break
-		}
-	}
-	getPunc(state, ")")
-	if state.Flow != 0 {
-		return nil
-	}
-	return types
-}
-
 func parseExpr(state *dub.DubState) ASTExpr {
 	checkpoint := state.Checkpoint()
 	e := dubx.ParseExpr(state)
@@ -331,7 +302,7 @@ func parseFunction(state *dub.DubState) *FuncDecl {
 	if state.Flow != 0 {
 		return nil
 	}
-	returnTypes := parseTypeList(state)
+	returnTypes := dubx.ParseTypeList(state)
 	if state.Flow != 0 {
 		return nil
 	}
