@@ -1,9 +1,6 @@
 package base
 
 type NodeData interface {
-	NumExits() int
-	DotNodeStyle() string
-	DotEdgeStyle(flow int) string
 }
 
 type EntryList []*Edge
@@ -20,8 +17,7 @@ type Node struct {
 	Data    NodeData
 }
 
-func CreateNode(data NodeData) *Node {
-	numExits := data.NumExits()
+func CreateNode(data NodeData, numExits int) *Node {
 	n := &Node{Data: data, exits: make([]Edge, numExits)}
 	for i := 0; i < numExits; i++ {
 		n.exits[i] = Edge{src: n, index: i}

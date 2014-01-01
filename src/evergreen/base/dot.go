@@ -73,7 +73,12 @@ func NodeID(node *Node) string {
 	return string(fmt.Sprint(reflect.ValueOf(node).Elem().UnsafeAddr()))
 }
 
-func RegionToDot(region *Region) string {
+type DotStyler interface {
+	NodeStyle(data interface{}) string
+	EdgeStyle(data interface{}, flow int) string
+}
+
+func RegionToDot(region *Region, styler DotStyler) string {
 	nodes := ReversePostorder(region)
 
 	var buf bytes.Buffer
@@ -82,7 +87,7 @@ func RegionToDot(region *Region) string {
 		buf.WriteString("  ")
 		buf.WriteString(NodeID(node))
 		buf.WriteString("[")
-		buf.WriteString(node.Data.DotNodeStyle())
+		buf.WriteString(styler.NodeStyle(node.Data))
 		buf.WriteString("];\n")
 
 		for i := 0; i < node.NumExits(); i++ {
@@ -93,7 +98,7 @@ func RegionToDot(region *Region) string {
 				buf.WriteString(" -> ")
 				buf.WriteString(NodeID(dst))
 				buf.WriteString("[")
-				buf.WriteString(node.Data.DotEdgeStyle(i))
+				buf.WriteString(styler.EdgeStyle(node.Data, i))
 				buf.WriteString("];\n")
 			}
 		}

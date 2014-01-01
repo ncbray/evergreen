@@ -1,7 +1,6 @@
 package base
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -42,60 +41,24 @@ func checkTopology(node *Node, entries []*Node, exits []*Node, t *testing.T) {
 type TestEntry struct {
 }
 
-func (n *TestEntry) NumExits() int {
-	return 1
-}
-
-func (n *TestEntry) DotNodeStyle() string {
-	return `label="entry"`
-}
-
-func (n *TestEntry) DotEdgeStyle(flow int) string {
-	return `label="n"`
-}
-
 type TestExit struct {
 	flow int
-}
-
-func (n *TestExit) NumExits() int {
-	return 0
-}
-
-func (n *TestExit) DotNodeStyle() string {
-	return fmt.Sprintf(`label="exit %d"`, n.flow)
-}
-
-func (n *TestExit) DotEdgeStyle(flow int) string {
-	panic("Exit has no edges.")
 }
 
 type TestNode struct {
 	name string
 }
 
-func (n *TestNode) NumExits() int {
-	return 2
-}
-
-func (n *TestNode) DotNodeStyle() string {
-	return fmt.Sprintf("label=%#v", n.name)
-}
-
-func (n *TestNode) DotEdgeStyle(flow int) string {
-	return fmt.Sprintf(`label="%d"`, flow)
-}
-
 func CreateTestEntry() *Node {
-	return CreateNode(&TestEntry{})
+	return CreateNode(&TestEntry{}, 1)
 }
 
 func CreateTestNode(name string, numExits int) *Node {
-	return CreateNode(&TestNode{name: name})
+	return CreateNode(&TestNode{name: name}, numExits)
 }
 
 func CreateTestExit(flow int) *Node {
-	return CreateNode(&TestExit{flow: flow})
+	return CreateNode(&TestExit{flow: flow}, 0)
 }
 
 func CreateTestRegion() *Region {
