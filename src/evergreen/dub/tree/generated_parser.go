@@ -5,7 +5,7 @@ import (
 )
 
 type TextMatch interface {
-	IsTextMatch()
+	isTextMatch()
 }
 type RuneFilter struct {
 	Min rune
@@ -16,28 +16,28 @@ type RuneRangeMatch struct {
 	Filters []*RuneFilter
 }
 
-func (node *RuneRangeMatch) IsTextMatch() {
+func (node *RuneRangeMatch) isTextMatch() {
 }
 
 type StringLiteralMatch struct {
 	Value string
 }
 
-func (node *StringLiteralMatch) IsTextMatch() {
+func (node *StringLiteralMatch) isTextMatch() {
 }
 
 type MatchSequence struct {
 	Matches []TextMatch
 }
 
-func (node *MatchSequence) IsTextMatch() {
+func (node *MatchSequence) isTextMatch() {
 }
 
 type MatchChoice struct {
 	Matches []TextMatch
 }
 
-func (node *MatchChoice) IsTextMatch() {
+func (node *MatchChoice) isTextMatch() {
 }
 
 type MatchRepeat struct {
@@ -45,18 +45,18 @@ type MatchRepeat struct {
 	Min   int
 }
 
-func (node *MatchRepeat) IsTextMatch() {
+func (node *MatchRepeat) isTextMatch() {
 }
 
 type ASTExpr interface {
-	IsASTExpr()
+	isASTExpr()
 }
 type RuneLiteral struct {
 	Text  string
 	Value rune
 }
 
-func (node *RuneLiteral) IsASTExpr() {
+func (node *RuneLiteral) isASTExpr() {
 }
 
 type StringLiteral struct {
@@ -64,7 +64,7 @@ type StringLiteral struct {
 	Value string
 }
 
-func (node *StringLiteral) IsASTExpr() {
+func (node *StringLiteral) isASTExpr() {
 }
 
 type IntLiteral struct {
@@ -72,7 +72,7 @@ type IntLiteral struct {
 	Value int
 }
 
-func (node *IntLiteral) IsASTExpr() {
+func (node *IntLiteral) isASTExpr() {
 }
 
 type BoolLiteral struct {
@@ -80,38 +80,38 @@ type BoolLiteral struct {
 	Value bool
 }
 
-func (node *BoolLiteral) IsASTExpr() {
+func (node *BoolLiteral) isASTExpr() {
 }
 
 type StringMatch struct {
 	Match TextMatch
 }
 
-func (node *StringMatch) IsASTExpr() {
+func (node *StringMatch) isASTExpr() {
 }
 
 type RuneMatch struct {
 	Match *RuneRangeMatch
 }
 
-func (node *RuneMatch) IsASTExpr() {
+func (node *RuneMatch) isASTExpr() {
 }
 
 type ASTDecl interface {
-	IsASTDecl()
+	isASTDecl()
 }
 type ASTType interface {
-	IsASTType()
+	isASTType()
 }
 type ASTTypeRef interface {
-	IsASTTypeRef()
+	isASTTypeRef()
 }
 type TypeRef struct {
 	Name string
 	T    ASTType
 }
 
-func (node *TypeRef) IsASTTypeRef() {
+func (node *TypeRef) isASTTypeRef() {
 }
 
 type ListTypeRef struct {
@@ -119,17 +119,17 @@ type ListTypeRef struct {
 	T    ASTType
 }
 
-func (node *ListTypeRef) IsASTTypeRef() {
+func (node *ListTypeRef) isASTTypeRef() {
 }
 
 type Destructure interface {
-	IsDestructure()
+	isDestructure()
 }
 type DestructureValue struct {
 	Expr ASTExpr
 }
 
-func (node *DestructureValue) IsDestructure() {
+func (node *DestructureValue) isDestructure() {
 }
 
 type DestructureField struct {
@@ -141,7 +141,7 @@ type DestructureStruct struct {
 	Args []*DestructureField
 }
 
-func (node *DestructureStruct) IsDestructure() {
+func (node *DestructureStruct) isDestructure() {
 }
 
 type DestructureList struct {
@@ -149,7 +149,7 @@ type DestructureList struct {
 	Args []Destructure
 }
 
-func (node *DestructureList) IsDestructure() {
+func (node *DestructureList) isDestructure() {
 }
 
 type If struct {
@@ -157,7 +157,7 @@ type If struct {
 	Block []ASTExpr
 }
 
-func (node *If) IsASTExpr() {
+func (node *If) isASTExpr() {
 }
 
 type Repeat struct {
@@ -165,28 +165,28 @@ type Repeat struct {
 	Min   int
 }
 
-func (node *Repeat) IsASTExpr() {
+func (node *Repeat) isASTExpr() {
 }
 
 type Choice struct {
 	Blocks [][]ASTExpr
 }
 
-func (node *Choice) IsASTExpr() {
+func (node *Choice) isASTExpr() {
 }
 
 type Optional struct {
 	Block []ASTExpr
 }
 
-func (node *Optional) IsASTExpr() {
+func (node *Optional) isASTExpr() {
 }
 
 type Slice struct {
 	Block []ASTExpr
 }
 
-func (node *Slice) IsASTExpr() {
+func (node *Slice) isASTExpr() {
 }
 
 type Assign struct {
@@ -197,7 +197,7 @@ type Assign struct {
 	Define bool
 }
 
-func (node *Assign) IsASTExpr() {
+func (node *Assign) isASTExpr() {
 }
 
 type GetName struct {
@@ -205,7 +205,7 @@ type GetName struct {
 	Info int
 }
 
-func (node *GetName) IsASTExpr() {
+func (node *GetName) isASTExpr() {
 }
 
 type NamedExpr struct {
@@ -217,7 +217,7 @@ type Construct struct {
 	Args []*NamedExpr
 }
 
-func (node *Construct) IsASTExpr() {
+func (node *Construct) isASTExpr() {
 }
 
 type ConstructList struct {
@@ -225,7 +225,7 @@ type ConstructList struct {
 	Args []ASTExpr
 }
 
-func (node *ConstructList) IsASTExpr() {
+func (node *ConstructList) isASTExpr() {
 }
 
 type Coerce struct {
@@ -233,7 +233,7 @@ type Coerce struct {
 	Expr ASTExpr
 }
 
-func (node *Coerce) IsASTExpr() {
+func (node *Coerce) isASTExpr() {
 }
 
 type Call struct {
@@ -241,13 +241,13 @@ type Call struct {
 	T    ASTType
 }
 
-func (node *Call) IsASTExpr() {
+func (node *Call) isASTExpr() {
 }
 
 type Fail struct {
 }
 
-func (node *Fail) IsASTExpr() {
+func (node *Fail) isASTExpr() {
 }
 
 type Append struct {
@@ -256,14 +256,14 @@ type Append struct {
 	T    ASTType
 }
 
-func (node *Append) IsASTExpr() {
+func (node *Append) isASTExpr() {
 }
 
 type Return struct {
 	Exprs []ASTExpr
 }
 
-func (node *Return) IsASTExpr() {
+func (node *Return) isASTExpr() {
 }
 
 type BinaryOp struct {
@@ -273,25 +273,25 @@ type BinaryOp struct {
 	T     ASTType
 }
 
-func (node *BinaryOp) IsASTExpr() {
+func (node *BinaryOp) isASTExpr() {
 }
 
 type BuiltinType struct {
 	Name string
 }
 
-func (node *BuiltinType) IsASTDecl() {
+func (node *BuiltinType) isASTDecl() {
 }
-func (node *BuiltinType) IsASTType() {
+func (node *BuiltinType) isASTType() {
 }
 
 type ListType struct {
 	Type ASTType
 }
 
-func (node *ListType) IsASTDecl() {
+func (node *ListType) isASTDecl() {
 }
-func (node *ListType) IsASTType() {
+func (node *ListType) isASTType() {
 }
 
 type FieldDecl struct {
@@ -304,13 +304,13 @@ type StructDecl struct {
 	Fields     []*FieldDecl
 }
 
-func (node *StructDecl) IsASTDecl() {
+func (node *StructDecl) isASTDecl() {
 }
-func (node *StructDecl) IsASTType() {
+func (node *StructDecl) isASTType() {
 }
 
 type ASTFunc interface {
-	IsASTFunc()
+	isASTFunc()
 }
 type LocalInfo struct {
 	Name string
@@ -323,9 +323,9 @@ type FuncDecl struct {
 	Locals      []*LocalInfo
 }
 
-func (node *FuncDecl) IsASTDecl() {
+func (node *FuncDecl) isASTDecl() {
 }
-func (node *FuncDecl) IsASTFunc() {
+func (node *FuncDecl) isASTFunc() {
 }
 
 type Test struct {
