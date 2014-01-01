@@ -3,7 +3,6 @@ package base
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 )
 
 type activeNode struct {
@@ -65,12 +64,14 @@ func ReversePostorder(r *Region) []*Node {
 	for i := 0; i < n/2; i++ {
 		visitor.nodes[i], visitor.nodes[n-1-i] = visitor.nodes[n-1-i], visitor.nodes[i]
 	}
+	for i := 0; i < n; i++ {
+		visitor.nodes[i].Name = i
+	}
 	return visitor.nodes
 }
 
 func NodeID(node *Node) string {
-	// TODO make deterministic
-	return string(fmt.Sprint(reflect.ValueOf(node).Elem().UnsafeAddr()))
+	return fmt.Sprintf("n%d", node.Name)
 }
 
 type DotStyler interface {

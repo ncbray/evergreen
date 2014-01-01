@@ -14,6 +14,7 @@ type Edge struct {
 type Node struct {
 	entries EntryList
 	exits   []Edge
+	Name    int
 	Data    NodeData
 }
 
