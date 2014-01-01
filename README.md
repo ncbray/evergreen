@@ -19,6 +19,6 @@ Sanity check the generated parser:
 Copy the generated parser into place:
 
   go fmt ./...
-  cp src/generated/dubx/parser.go src/evergreen/dubx/
+  cp src/generated/dub/tree/generated_parser.go src/evergreen/dub/tree
 
 Re-run the regenerate and testing steps.

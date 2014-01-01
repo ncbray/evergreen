@@ -1,12 +1,12 @@
 package gentests
 
 import (
-	"evergreen/dub"
-	"generated/dubx"
+	"evergreen/dub/runtime"
+	"generated/dub/tree"
 	"testing"
 )
 
-func assertState(state *dub.DubState, index int, flow int, t *testing.T) {
+func assertState(state *runtime.State, index int, flow int, t *testing.T) {
 	if state.Index != index {
 		t.Errorf("Expected index %d, got %d", index, state.Index)
 	}
@@ -34,8 +34,8 @@ func assertRune(expected rune, actual rune, t *testing.T) {
 }
 
 func TestRuneMatchOK(t *testing.T) {
-	state := &dub.DubState{Stream: []rune("[a-z_]")}
-	result := dubx.MatchRune(state)
+	state := &runtime.State{Stream: []rune("[a-z_]")}
+	result := tree.MatchRune(state)
 	assertState(state, 6, 0, t)
 	assertInt(len(result.Filters), 2, t)
 	{
@@ -51,8 +51,8 @@ func TestRuneMatchOK(t *testing.T) {
 }
 
 func TestRuneMatchBad(t *testing.T) {
-	state := &dub.DubState{Stream: []rune("[")}
-	result := dubx.MatchRune(state)
+	state := &runtime.State{Stream: []rune("[")}
+	result := tree.MatchRune(state)
 	assertState(state, 1, 1, t)
 	if result != nil {
 		t.Errorf("Expected nil, got %v", result)
@@ -60,16 +60,16 @@ func TestRuneMatchBad(t *testing.T) {
 }
 
 func TestSequence(t *testing.T) {
-	state := &dub.DubState{Stream: []rune("[1-2] [3][4-5]")}
-	result := dubx.Sequence(state)
+	state := &runtime.State{Stream: []rune("[1-2] [3][4-5]")}
+	result := tree.Sequence(state)
 	assertState(state, 14, 0, t)
-	s, ok := result.(*dubx.MatchSequence)
+	s, ok := result.(*tree.MatchSequence)
 	if !ok {
 		t.Errorf("Not MatchSequence: %v", result)
 	}
 	assertInt(len(s.Matches), 3, t)
 	{
-		m, ok := s.Matches[0].(*dubx.RuneRangeMatch)
+		m, ok := s.Matches[0].(*tree.RuneRangeMatch)
 		if !ok {
 			t.Errorf("Not RuneMatch: %v", m)
 		}
@@ -79,7 +79,7 @@ func TestSequence(t *testing.T) {
 		assertRune('2', f.Max, t)
 	}
 	{
-		m, ok := s.Matches[1].(*dubx.RuneRangeMatch)
+		m, ok := s.Matches[1].(*tree.RuneRangeMatch)
 		if !ok {
 			t.Errorf("Not RuneMatch: %v", m)
 		}
@@ -89,7 +89,7 @@ func TestSequence(t *testing.T) {
 		assertRune('3', f.Max, t)
 	}
 	{
-		m, ok := s.Matches[2].(*dubx.RuneRangeMatch)
+		m, ok := s.Matches[2].(*tree.RuneRangeMatch)
 		if !ok {
 			t.Errorf("Not RuneMatch: %v", m)
 		}

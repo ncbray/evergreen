@@ -2,9 +2,9 @@ package main
 
 import (
 	"evergreen/base"
-	"evergreen/dasm"
 	"evergreen/dub"
-	"evergreen/dubx"
+	"evergreen/dub/flow"
+	"evergreen/dub/tree"
 	"evergreen/io"
 	"flag"
 	"fmt"
@@ -52,40 +52,40 @@ func CreateIOManager() *IOManager {
 	return manager
 }
 
-func processDASM(manager *IOManager, name string) {
+func processDub(manager *IOManager, name string) {
 	fmt.Printf("Processing %s...\n", name)
-	file := dasm.ParseDASM(fmt.Sprintf("dasm/%s.dasm", name))
-	glbls := dasm.SemanticPass(file)
-	gbuilder := &dasm.GlobalDubBuilder{Types: map[dubx.ASTType]dub.DubType{}}
+	file := tree.ParseDub(fmt.Sprintf("dub/%s.dub", name))
+	glbls := tree.SemanticPass(file)
+	gbuilder := &dub.GlobalDubBuilder{Types: map[tree.ASTType]flow.DubType{}}
 
-	gbuilder.String = &dub.StringType{}
+	gbuilder.String = &flow.StringType{}
 	gbuilder.Types[glbls.String] = gbuilder.String
 
-	gbuilder.Rune = &dub.RuneType{}
+	gbuilder.Rune = &flow.RuneType{}
 	gbuilder.Types[glbls.Rune] = gbuilder.Rune
 
-	gbuilder.Int = &dub.IntType{}
+	gbuilder.Int = &flow.IntType{}
 	gbuilder.Types[glbls.Int] = gbuilder.Int
 
-	gbuilder.Bool = &dub.BoolType{}
+	gbuilder.Bool = &flow.BoolType{}
 	gbuilder.Types[glbls.Bool] = gbuilder.Bool
 
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
-		case *dubx.FuncDecl:
-		case *dubx.StructDecl:
-			gbuilder.Types[decl] = &dub.LLStruct{}
+		case *tree.FuncDecl:
+		case *tree.StructDecl:
+			gbuilder.Types[decl] = &flow.LLStruct{}
 		default:
 			panic(decl)
 		}
 	}
 
-	structs := []*dub.LLStruct{}
-	funcs := []*dub.LLFunc{}
+	structs := []*flow.LLStruct{}
+	funcs := []*flow.LLFunc{}
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
-		case *dubx.FuncDecl:
-			f := dasm.LowerAST(decl, gbuilder)
+		case *tree.FuncDecl:
+			f := dub.LowerAST(decl, gbuilder)
 			funcs = append(funcs, f)
 
 			if dump {
@@ -100,10 +100,10 @@ func processDASM(manager *IOManager, name string) {
 					io.WriteDot(dot, outfile)
 				}(dot, outfile)
 			}
-		case *dubx.StructDecl:
+		case *tree.StructDecl:
 			t, _ := gbuilder.Types[decl]
-			s, _ := t.(*dub.LLStruct)
-			structs = append(structs, dasm.LowerStruct(decl, s, gbuilder))
+			s, _ := t.(*flow.LLStruct)
+			structs = append(structs, dub.LowerStruct(decl, s, gbuilder))
 		default:
 			panic(decl)
 		}
@@ -116,12 +116,12 @@ func processDASM(manager *IOManager, name string) {
 		}
 	}
 
-	code := dub.GenerateGo(name, structs, funcs)
-	manager.WriteFile(fmt.Sprintf("src/generated/%s/parser.go", name), []byte(code))
+	code := flow.GenerateGo(name, structs, funcs)
+	manager.WriteFile(fmt.Sprintf("src/generated/%s/tree/generated_parser.go", name), []byte(code))
 
 	if len(file.Tests) != 0 {
-		tests := dasm.GenerateTests(name, file.Tests, gbuilder)
-		manager.WriteFile(fmt.Sprintf("src/generated/%s/parser_test.go", name), []byte(tests))
+		tests := dub.GenerateTests(name, file.Tests, gbuilder)
+		manager.WriteFile(fmt.Sprintf("src/generated/%s/tree/generated_parser_test.go", name), []byte(tests))
 	}
 }
 
@@ -131,6 +131,6 @@ func main() {
 	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
 	flag.Parse()
 	manager := CreateIOManager()
-	processDASM(manager, "dubx")
+	processDub(manager, "dub")
 	manager.Flush()
 }

@@ -1,9 +1,18 @@
-package dub
+package flow
 
 import (
 	"evergreen/base"
 	"fmt"
 	"strings"
+)
+
+const (
+	// Real flows, used at runtime
+	NORMAL = iota
+	FAIL
+	EXCEPTION
+	// Virtual flows, only for graph construction
+	RETURN
 )
 
 type DubType interface {

@@ -1,33 +1,30 @@
-package dub
+package runtime
 
 // TODO flow type?
 
 const (
-	// Real flows, used at runtime
 	NORMAL = iota
 	FAIL
 	EXCEPTION
-	// Virtual flows, only for graph construction
-	RETURN
 )
 
-type DubState struct {
+type State struct {
 	Stream  []rune
 	Index   int
 	Deepest int
 	Flow    int
 }
 
-func (state *DubState) Checkpoint() int {
+func (state *State) Checkpoint() int {
 	return state.Index
 }
 
-func (state *DubState) Recover(index int) {
+func (state *State) Recover(index int) {
 	state.Index = index
 	state.Flow = NORMAL
 }
 
-func (state *DubState) Read() (r rune) {
+func (state *State) Read() (r rune) {
 	if state.Index < len(state.Stream) {
 		r = state.Stream[state.Index]
 		state.Index += 1
@@ -37,7 +34,7 @@ func (state *DubState) Read() (r rune) {
 	return
 }
 
-func (state *DubState) Peek() (r rune) {
+func (state *State) Peek() (r rune) {
 	if state.Index < len(state.Stream) {
 		return state.Stream[state.Index]
 	} else {
@@ -46,17 +43,22 @@ func (state *DubState) Peek() (r rune) {
 	}
 }
 
-func (state *DubState) Consume() {
+func (state *State) Consume() {
 	state.Index += 1
 }
 
-func (state *DubState) Slice(start int) string {
+func (state *State) Slice(start int) string {
 	return string(state.Stream[start:state.Index])
 }
 
-func (state *DubState) Fail() {
+func (state *State) Fail() {
 	if state.Index > state.Deepest {
 		state.Deepest = state.Index
 	}
 	state.Flow = FAIL
+}
+
+// Utility function for generated tests
+func MakeState(input string) *State {
+	return &State{Stream: []rune(input)}
 }

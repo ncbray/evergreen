@@ -1,20 +1,14 @@
-package dasm
+package dub
 
 import (
 	"bytes"
-	"evergreen/dub"
-	"evergreen/dubx"
+	"evergreen/dub/tree"
 	"fmt"
 	"go/ast"
 	"go/printer"
 	"go/token"
 	"strconv"
 )
-
-// Utility functions for generated tests
-func MakeState(input string) *dub.DubState {
-	return &dub.DubState{Stream: []rune(input)}
-}
 
 func id(name string) *ast.Ident {
 	return &ast.Ident{Name: name}
@@ -107,13 +101,13 @@ func checkNE(x ast.Expr, y ast.Expr) ast.Expr {
 	}
 }
 
-func generateDestructure(name string, path string, d dubx.Destructure, general dubx.ASTType, gbuilder *GlobalDubBuilder, stmts []ast.Stmt) []ast.Stmt {
+func generateDestructure(name string, path string, d tree.Destructure, general tree.ASTType, gbuilder *GlobalDubBuilder, stmts []ast.Stmt) []ast.Stmt {
 	switch d := d.(type) {
-	case *dubx.DestructureStruct:
+	case *tree.DestructureStruct:
 		actual_name := name
 
-		t := ResolveType(d.Type)
-		dt, ok := t.(*dubx.StructDecl)
+		t := tree.ResolveType(d.Type)
+		dt, ok := t.(*tree.StructDecl)
 		if !ok {
 			panic(t)
 		}
@@ -159,20 +153,20 @@ func generateDestructure(name string, path string, d dubx.Destructure, general d
 				child_name,
 				child_path,
 				arg.Destructure,
-				FieldType(dt, arg.Name),
+				tree.FieldType(dt, arg.Name),
 				gbuilder,
 				childstmts,
 			)
 			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
 		}
-	case *dubx.DestructureList:
+	case *tree.DestructureList:
 		stmts = append(stmts, makeFatalTest(
 			checkNE(makeLen(id(name)), intLiteral(len(d.Args))),
 			fmt.Sprintf("%s: expected length %d but got %%d", path, len(d.Args)),
 			makeLen(id(name)),
 		))
-		t := ResolveType(d.Type)
-		dt, ok := t.(*dubx.ListType)
+		t := tree.ResolveType(d.Type)
+		dt, ok := t.(*tree.ListType)
 		if !ok {
 			panic(t)
 		}
@@ -195,15 +189,15 @@ func generateDestructure(name string, path string, d dubx.Destructure, general d
 			childstmts = generateDestructure(child_name, child_path, arg, dt.Type, gbuilder, childstmts)
 			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
 		}
-	case *dubx.DestructureValue:
+	case *tree.DestructureValue:
 		switch expr := d.Expr.(type) {
-		case *dubx.StringLiteral:
+		case *tree.StringLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), id(name)))
-		case *dubx.RuneLiteral:
+		case *tree.RuneLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), runeLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(expr.Value), id(name)))
-		case *dubx.IntLiteral:
+		case *tree.IntLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), id(name)))
-		case *dubx.BoolLiteral:
+		case *tree.BoolLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), id(name)))
 		default:
 			panic(expr)
@@ -215,7 +209,7 @@ func generateDestructure(name string, path string, d dubx.Destructure, general d
 	return stmts
 }
 
-func generateGoTest(tst *dubx.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
+func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 	stmts := []ast.Stmt{}
 
 	state := "state"
@@ -226,7 +220,7 @@ func generateGoTest(tst *dubx.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 		Tok: token.DEFINE,
 		Rhs: []ast.Expr{
 			&ast.CallExpr{
-				Fun: attr(id("dasm"), "MakeState"),
+				Fun: attr(id("runtime"), "MakeState"),
 				Args: []ast.Expr{
 					strLiteral(tst.Input),
 				},
@@ -282,13 +276,13 @@ func generateGoTest(tst *dubx.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 	}
 }
 
-func GenerateTests(module string, tests []*dubx.Test, gbuilder *GlobalDubBuilder) string {
+func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder) string {
 	decls := []ast.Decl{}
 	decls = append([]ast.Decl{&ast.GenDecl{
 		Tok:    token.IMPORT,
 		Lparen: 1,
 		Specs: []ast.Spec{
-			&ast.ImportSpec{Path: strLiteral("evergreen/dasm")},
+			&ast.ImportSpec{Path: strLiteral("evergreen/dub/runtime")},
 			&ast.ImportSpec{Path: strLiteral("testing")},
 		},
 	}}, decls...)
@@ -299,7 +293,7 @@ func GenerateTests(module string, tests []*dubx.Test, gbuilder *GlobalDubBuilder
 	}
 
 	file := &ast.File{
-		Name:  id(module),
+		Name:  id("tree"),
 		Decls: decls,
 	}
 

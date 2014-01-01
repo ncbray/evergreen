@@ -1,8 +1,7 @@
-package dasm
+package tree
 
 import (
-	"evergreen/dub"
-	"evergreen/dubx"
+	"evergreen/dub/runtime"
 	"fmt"
 	"io/ioutil"
 )
@@ -49,11 +48,11 @@ func PrintError(filename string, deepest int, stream []rune, lines []int) {
 	fmt.Println(string(arrow))
 }
 
-func ParseDASM(filename string) *dubx.File {
+func ParseDub(filename string) *File {
 	data, _ := ioutil.ReadFile(filename)
 	stream := []rune(string(data))
-	state := &dub.DubState{Stream: stream}
-	f := dubx.ParseFile(state)
+	state := &runtime.State{Stream: stream}
+	f := ParseFile(state)
 	// Fail if not all input was consumed.
 	if state.Flow == 0 && state.Index != len(state.Stream) {
 		state.Fail()

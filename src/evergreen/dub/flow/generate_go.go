@@ -1,4 +1,4 @@
-package dub
+package flow
 
 import (
 	"bytes"
@@ -367,7 +367,7 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 				List: []*ast.Field{
 					&ast.Field{
 						Names: singleName("frame"),
-						Type:  ptr(attr(id("dub"), "DubState")),
+						Type:  ptr(attr(id("runtime"), "State")),
 					},
 				},
 			},
@@ -474,7 +474,7 @@ func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
 		Tok:    token.IMPORT,
 		Lparen: 1,
 		Specs: []ast.Spec{
-			&ast.ImportSpec{Path: strLiteral("evergreen/dub")},
+			&ast.ImportSpec{Path: strLiteral("evergreen/dub/runtime")},
 		},
 	}}, decls...)
 
@@ -487,7 +487,7 @@ func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
 	}
 
 	file := &ast.File{
-		Name:  id(module),
+		Name:  id("tree"),
 		Decls: decls,
 	}
 

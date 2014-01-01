@@ -1,7 +1,7 @@
-package dubx
+package tree
 
 import (
-	"evergreen/dub"
+	"evergreen/dub/runtime"
 )
 
 type TextMatch interface {
@@ -340,7 +340,7 @@ type File struct {
 	Tests []*Test
 }
 
-func S(frame *dub.DubState) {
+func S(frame *runtime.State) {
 	var r0 int
 	var r1 rune
 	var r2 rune
@@ -424,7 +424,7 @@ block17:
 block18:
 	return
 }
-func Ident(frame *dub.DubState) (ret0 string) {
+func Ident(frame *runtime.State) (ret0 string) {
 	var r0 string
 	var r1 int
 	var r2 rune
@@ -662,7 +662,7 @@ block51:
 block52:
 	return
 }
-func DecodeInt(frame *dub.DubState) (ret0 int) {
+func DecodeInt(frame *runtime.State) (ret0 int) {
 	var r0 int
 	var r1 int
 	var r2 rune
@@ -858,7 +858,7 @@ block46:
 block47:
 	return
 }
-func EscapedChar(frame *dub.DubState) (ret0 rune) {
+func EscapedChar(frame *runtime.State) (ret0 rune) {
 	var r0 int
 	var r1 rune
 	var r2 rune
@@ -1248,7 +1248,7 @@ block91:
 block92:
 	return
 }
-func DecodeString(frame *dub.DubState) (ret0 string) {
+func DecodeString(frame *runtime.State) (ret0 string) {
 	var r0 []rune
 	var r1 rune
 	var r2 rune
@@ -1446,7 +1446,7 @@ block44:
 block45:
 	return
 }
-func DecodeRune(frame *dub.DubState) (ret0 rune) {
+func DecodeRune(frame *runtime.State) (ret0 rune) {
 	var r0 rune
 	var r1 rune
 	var r2 rune
@@ -1613,7 +1613,7 @@ block36:
 block37:
 	return
 }
-func DecodeBool(frame *dub.DubState) (ret0 bool) {
+func DecodeBool(frame *runtime.State) (ret0 bool) {
 	var r0 int
 	var r1 rune
 	var r2 rune
@@ -1895,7 +1895,7 @@ block61:
 block62:
 	return
 }
-func Literal(frame *dub.DubState) (ret0 ASTExpr) {
+func Literal(frame *runtime.State) (ret0 ASTExpr) {
 	var r0 rune
 	var r1 string
 	var r2 string
@@ -2113,7 +2113,7 @@ block49:
 block50:
 	return
 }
-func BinaryOperator(frame *dub.DubState) (ret0 string) {
+func BinaryOperator(frame *runtime.State) (ret0 string) {
 	var r0 string
 	var r1 int
 	var r2 int
@@ -2375,7 +2375,7 @@ block57:
 block58:
 	return
 }
-func StringMatchExpr(frame *dub.DubState) (ret0 *StringMatch) {
+func StringMatchExpr(frame *runtime.State) (ret0 *StringMatch) {
 	var r0 TextMatch
 	var r1 rune
 	var r2 rune
@@ -2477,7 +2477,7 @@ block20:
 block21:
 	return
 }
-func RuneMatchExpr(frame *dub.DubState) (ret0 *RuneMatch) {
+func RuneMatchExpr(frame *runtime.State) (ret0 *RuneMatch) {
 	var r0 *RuneRangeMatch
 	var r1 rune
 	var r2 rune
@@ -2544,7 +2544,7 @@ block13:
 block14:
 	return
 }
-func ParseStructTypeRef(frame *dub.DubState) (ret0 *TypeRef) {
+func ParseStructTypeRef(frame *runtime.State) (ret0 *TypeRef) {
 	var r0 string
 	var r1 *TypeRef
 	goto block0
@@ -2568,7 +2568,7 @@ block4:
 block5:
 	return
 }
-func ParseListTypeRef(frame *dub.DubState) (ret0 *ListTypeRef) {
+func ParseListTypeRef(frame *runtime.State) (ret0 *ListTypeRef) {
 	var r0 rune
 	var r1 rune
 	var r2 bool
@@ -2648,7 +2648,7 @@ block16:
 block17:
 	return
 }
-func ParseTypeRef(frame *dub.DubState) (ret0 ASTTypeRef) {
+func ParseTypeRef(frame *runtime.State) (ret0 ASTTypeRef) {
 	var r0 int
 	var r1 *TypeRef
 	var r2 *ListTypeRef
@@ -2686,7 +2686,7 @@ block7:
 block8:
 	return
 }
-func ParseDestructure(frame *dub.DubState) (ret0 Destructure) {
+func ParseDestructure(frame *runtime.State) (ret0 Destructure) {
 	var r0 *TypeRef
 	var r1 []*DestructureField
 	var r2 string
@@ -3045,7 +3045,7 @@ block76:
 block77:
 	return
 }
-func ParseRuneFilterRune(frame *dub.DubState) (ret0 rune) {
+func ParseRuneFilterRune(frame *runtime.State) (ret0 rune) {
 	var r0 int
 	var r1 rune
 	var r2 rune
@@ -3180,7 +3180,7 @@ block29:
 block30:
 	return
 }
-func ParseRuneFilter(frame *dub.DubState) (ret0 *RuneFilter) {
+func ParseRuneFilter(frame *runtime.State) (ret0 *RuneFilter) {
 	var r0 rune
 	var r1 rune
 	var r2 rune
@@ -3270,7 +3270,7 @@ block19:
 block20:
 	return
 }
-func MatchRune(frame *dub.DubState) (ret0 *RuneRangeMatch) {
+func MatchRune(frame *runtime.State) (ret0 *RuneRangeMatch) {
 	var r0 bool
 	var r1 []*RuneFilter
 	var r2 rune
@@ -3441,7 +3441,7 @@ block38:
 block39:
 	return
 }
-func Atom(frame *dub.DubState) (ret0 TextMatch) {
+func Atom(frame *runtime.State) (ret0 TextMatch) {
 	var r0 string
 	var r1 TextMatch
 	var r2 int
@@ -3576,7 +3576,7 @@ block28:
 block29:
 	return
 }
-func Postfix(frame *dub.DubState) (ret0 TextMatch) {
+func Postfix(frame *runtime.State) (ret0 TextMatch) {
 	var r0 TextMatch
 	var r1 TextMatch
 	var r2 int
@@ -3775,7 +3775,7 @@ block44:
 block45:
 	return
 }
-func Sequence(frame *dub.DubState) (ret0 TextMatch) {
+func Sequence(frame *runtime.State) (ret0 TextMatch) {
 	var r0 TextMatch
 	var r1 []TextMatch
 	var r2 TextMatch
@@ -3878,7 +3878,7 @@ block23:
 block24:
 	return
 }
-func ParseMatchChoice(frame *dub.DubState) (ret0 TextMatch) {
+func ParseMatchChoice(frame *runtime.State) (ret0 TextMatch) {
 	var r0 TextMatch
 	var r1 []TextMatch
 	var r2 TextMatch
@@ -4051,7 +4051,7 @@ block37:
 block38:
 	return
 }
-func ParseExprList(frame *dub.DubState) (ret0 []ASTExpr) {
+func ParseExprList(frame *runtime.State) (ret0 []ASTExpr) {
 	var r0 []ASTExpr
 	var r1 []ASTExpr
 	var r2 int
@@ -4160,7 +4160,7 @@ block23:
 block24:
 	return
 }
-func ParseNamedExpr(frame *dub.DubState) (ret0 *NamedExpr) {
+func ParseNamedExpr(frame *runtime.State) (ret0 *NamedExpr) {
 	var r0 string
 	var r1 string
 	var r2 rune
@@ -4235,7 +4235,7 @@ block14:
 block15:
 	return
 }
-func ParseNamedExprList(frame *dub.DubState) (ret0 []*NamedExpr) {
+func ParseNamedExprList(frame *runtime.State) (ret0 []*NamedExpr) {
 	var r0 []*NamedExpr
 	var r1 []*NamedExpr
 	var r2 int
@@ -4344,7 +4344,7 @@ block23:
 block24:
 	return
 }
-func ParseTypeList(frame *dub.DubState) (ret0 []ASTTypeRef) {
+func ParseTypeList(frame *runtime.State) (ret0 []ASTTypeRef) {
 	var r0 []ASTTypeRef
 	var r1 rune
 	var r2 rune
@@ -4525,7 +4525,7 @@ block38:
 block39:
 	return
 }
-func ParseExpr(frame *dub.DubState) (ret0 ASTExpr) {
+func ParseExpr(frame *runtime.State) (ret0 ASTExpr) {
 	var r0 int
 	var r1 []ASTExpr
 	var r2 [][]ASTExpr
@@ -7369,7 +7369,7 @@ block608:
 block609:
 	return
 }
-func ParseCodeBlock(frame *dub.DubState) (ret0 []ASTExpr) {
+func ParseCodeBlock(frame *runtime.State) (ret0 []ASTExpr) {
 	var r0 []ASTExpr
 	var r1 rune
 	var r2 rune
@@ -7531,7 +7531,7 @@ block34:
 block35:
 	return
 }
-func ParseStructDecl(frame *dub.DubState) (ret0 *StructDecl) {
+func ParseStructDecl(frame *runtime.State) (ret0 *StructDecl) {
 	var r0 string
 	var r1 ASTTypeRef
 	var r2 []*FieldDecl
@@ -8171,7 +8171,7 @@ block135:
 block136:
 	return
 }
-func ParseFuncDecl(frame *dub.DubState) (ret0 *FuncDecl) {
+func ParseFuncDecl(frame *runtime.State) (ret0 *FuncDecl) {
 	var r0 string
 	var r1 []ASTTypeRef
 	var r2 []ASTExpr
@@ -8354,7 +8354,7 @@ block37:
 block38:
 	return
 }
-func ParseTest(frame *dub.DubState) (ret0 *Test) {
+func ParseTest(frame *runtime.State) (ret0 *Test) {
 	var r0 string
 	var r1 string
 	var r2 string
@@ -8560,7 +8560,7 @@ block41:
 block42:
 	return
 }
-func ParseFile(frame *dub.DubState) (ret0 *File) {
+func ParseFile(frame *runtime.State) (ret0 *File) {
 	var r0 []ASTDecl
 	var r1 []*Test
 	var r2 []ASTDecl

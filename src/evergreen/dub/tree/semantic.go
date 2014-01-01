@@ -1,7 +1,6 @@
-package dasm
+package tree
 
 import (
-	"evergreen/dubx"
 	"fmt"
 )
 
@@ -25,32 +24,32 @@ func childScope(scope *semanticScope) *semanticScope {
 	return &semanticScope{parent: scope, locals: map[string]int{}}
 }
 
-func semanticExprPass(decl *dubx.FuncDecl, expr dubx.ASTExpr, scope *semanticScope, glbls *ModuleScope) dubx.ASTType {
+func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls *ModuleScope) ASTType {
 	switch expr := expr.(type) {
-	case *dubx.Repeat:
+	case *Repeat:
 		semanticBlockPass(decl, expr.Block, scope, glbls)
 		return glbls.Void
-	case *dubx.Choice:
+	case *Choice:
 		for _, block := range expr.Blocks {
 			semanticBlockPass(decl, block, childScope(scope), glbls)
 		}
 		return glbls.Void
-	case *dubx.Optional:
+	case *Optional:
 		semanticBlockPass(decl, expr.Block, scope, glbls)
 		return glbls.Void
-	case *dubx.If:
+	case *If:
 		semanticExprPass(decl, expr.Expr, scope, glbls)
 		// TODO check condition type
 		semanticBlockPass(decl, expr.Block, childScope(scope), glbls)
 		return glbls.Void
-	case *dubx.BinaryOp:
+	case *BinaryOp:
 		l := semanticExprPass(decl, expr.Left, scope, glbls)
 		r := semanticExprPass(decl, expr.Right, scope, glbls)
-		lt, ok := l.(*dubx.BuiltinType)
+		lt, ok := l.(*BuiltinType)
 		if !ok {
 			panic(l)
 		}
-		rt, ok := r.(*dubx.BuiltinType)
+		rt, ok := r.(*BuiltinType)
 		if !ok {
 			panic(r)
 		}
@@ -61,15 +60,15 @@ func semanticExprPass(decl *dubx.FuncDecl, expr dubx.ASTExpr, scope *semanticSco
 		}
 		expr.T = t
 		return t
-	case *dubx.GetName:
+	case *GetName:
 		info, found := scope.localInfo(expr.Name)
 		if !found {
 			panic(fmt.Sprintf("Could not resolve name %#v", expr.Name))
 		}
 		expr.Info = info
 		return decl.Locals[info].T
-	case *dubx.Assign:
-		var t dubx.ASTType
+	case *Assign:
+		var t ASTType
 		if expr.Expr != nil {
 			t = semanticExprPass(decl, expr.Expr, scope, glbls)
 		}
@@ -88,7 +87,7 @@ func semanticExprPass(decl *dubx.FuncDecl, expr dubx.ASTExpr, scope *semanticSco
 			}
 
 			info = len(decl.Locals)
-			decl.Locals = append(decl.Locals, &dubx.LocalInfo{Name: expr.Name, T: t})
+			decl.Locals = append(decl.Locals, &LocalInfo{Name: expr.Name, T: t})
 			scope.locals[expr.Name] = info
 		} else {
 			info, exists = scope.localInfo(expr.Name)
@@ -98,50 +97,50 @@ func semanticExprPass(decl *dubx.FuncDecl, expr dubx.ASTExpr, scope *semanticSco
 		}
 		expr.Info = info
 		return t
-	case *dubx.Slice:
+	case *Slice:
 		semanticBlockPass(decl, expr.Block, scope, glbls)
 		return glbls.String
-	case *dubx.StringMatch:
+	case *StringMatch:
 		return glbls.String
-	case *dubx.RuneMatch:
+	case *RuneMatch:
 		return glbls.Rune
-	case *dubx.RuneLiteral:
+	case *RuneLiteral:
 		return glbls.Rune
-	case *dubx.StringLiteral:
+	case *StringLiteral:
 		return glbls.String
-	case *dubx.IntLiteral:
+	case *IntLiteral:
 		return glbls.Int
-	case *dubx.BoolLiteral:
+	case *BoolLiteral:
 		return glbls.Bool
-	case *dubx.Return:
+	case *Return:
 		for _, e := range expr.Exprs {
 			semanticExprPass(decl, e, scope, glbls)
 		}
 		return glbls.Void
-	case *dubx.Fail:
+	case *Fail:
 		return glbls.Void
-	case *dubx.Call:
+	case *Call:
 		t := glbls.ReturnType(expr.Name)
 		expr.T = t
 		return t
-	case *dubx.Append:
+	case *Append:
 		t := semanticExprPass(decl, expr.List, scope, glbls)
 		semanticExprPass(decl, expr.Expr, scope, glbls)
 		expr.T = t
 		return t
-	case *dubx.Construct:
+	case *Construct:
 		t := semanticTypePass(expr.Type, glbls)
 		for _, arg := range expr.Args {
 			semanticExprPass(decl, arg.Expr, scope, glbls)
 		}
 		return t
-	case *dubx.ConstructList:
+	case *ConstructList:
 		t := semanticTypePass(expr.Type, glbls)
 		for _, arg := range expr.Args {
 			semanticExprPass(decl, arg, scope, glbls)
 		}
 		return t
-	case *dubx.Coerce:
+	case *Coerce:
 		t := semanticTypePass(expr.Type, glbls)
 		semanticExprPass(decl, expr.Expr, scope, glbls)
 		return t
@@ -150,9 +149,9 @@ func semanticExprPass(decl *dubx.FuncDecl, expr dubx.ASTExpr, scope *semanticSco
 	}
 }
 
-func semanticTypePass(node dubx.ASTTypeRef, glbls *ModuleScope) dubx.ASTType {
+func semanticTypePass(node ASTTypeRef, glbls *ModuleScope) ASTType {
 	switch node := node.(type) {
-	case *dubx.TypeRef:
+	case *TypeRef:
 		d, ok := glbls.Module[node.Name]
 		if !ok {
 			d, ok = glbls.Builtin[node.Name]
@@ -166,33 +165,33 @@ func semanticTypePass(node dubx.ASTTypeRef, glbls *ModuleScope) dubx.ASTType {
 		}
 		node.T = t
 		return t
-	case *dubx.ListTypeRef:
+	case *ListTypeRef:
 		t := semanticTypePass(node.Type, glbls)
 		// TODO memoize list types
-		node.T = &dubx.ListType{Type: t}
+		node.T = &ListType{Type: t}
 		return node.T
 	default:
 		panic(node)
 	}
 }
 
-func semanticBlockPass(decl *dubx.FuncDecl, block []dubx.ASTExpr, scope *semanticScope, glbls *ModuleScope) {
+func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope, glbls *ModuleScope) {
 	for _, expr := range block {
 		semanticExprPass(decl, expr, scope, glbls)
 	}
 }
 
-func semanticFuncSignaturePass(decl *dubx.FuncDecl, glbls *ModuleScope) {
+func semanticFuncSignaturePass(decl *FuncDecl, glbls *ModuleScope) {
 	for _, t := range decl.ReturnTypes {
 		semanticTypePass(t, glbls)
 	}
 }
 
-func semanticFuncBodyPass(decl *dubx.FuncDecl, glbls *ModuleScope) {
+func semanticFuncBodyPass(decl *FuncDecl, glbls *ModuleScope) {
 	semanticBlockPass(decl, decl.Block, childScope(nil), glbls)
 }
 
-func semanticStructPass(decl *dubx.StructDecl, glbls *ModuleScope) {
+func semanticStructPass(decl *StructDecl, glbls *ModuleScope) {
 	if decl.Implements != nil {
 		semanticTypePass(decl.Implements, glbls)
 	}
@@ -201,66 +200,66 @@ func semanticStructPass(decl *dubx.StructDecl, glbls *ModuleScope) {
 	}
 }
 
-func semanticDestructurePass(decl *dubx.FuncDecl, d dubx.Destructure, scope *semanticScope, glbls *ModuleScope) {
+func semanticDestructurePass(decl *FuncDecl, d Destructure, scope *semanticScope, glbls *ModuleScope) {
 	switch d := d.(type) {
-	case *dubx.DestructureStruct:
+	case *DestructureStruct:
 		semanticTypePass(d.Type, glbls)
 		for _, arg := range d.Args {
 			semanticDestructurePass(decl, arg.Destructure, scope, glbls)
 		}
-	case *dubx.DestructureList:
+	case *DestructureList:
 		semanticTypePass(d.Type, glbls)
 		for _, arg := range d.Args {
 			semanticDestructurePass(decl, arg, scope, glbls)
 		}
 
-	case *dubx.DestructureValue:
+	case *DestructureValue:
 		semanticExprPass(decl, d.Expr, scope, glbls)
 	default:
 		panic(d)
 	}
 }
 
-func semanticTestPass(tst *dubx.Test, glbls *ModuleScope) {
+func semanticTestPass(tst *Test, glbls *ModuleScope) {
 	tst.Type = glbls.ReturnType(tst.Rule)
 	// HACK no real context
 	semanticDestructurePass(nil, tst.Destructure, nil, glbls)
 }
 
 type ModuleScope struct {
-	Builtin map[string]dubx.ASTDecl
-	Module  map[string]dubx.ASTDecl
+	Builtin map[string]ASTDecl
+	Module  map[string]ASTDecl
 
-	BinaryOps map[string]*dubx.BuiltinType
+	BinaryOps map[string]*BuiltinType
 
-	String *dubx.BuiltinType
-	Rune   *dubx.BuiltinType
-	Int    *dubx.BuiltinType
-	Bool   *dubx.BuiltinType
-	Void   *dubx.BuiltinType
+	String *BuiltinType
+	Rune   *BuiltinType
+	Int    *BuiltinType
+	Bool   *BuiltinType
+	Void   *BuiltinType
 }
 
-func AsType(node dubx.ASTDecl) (dubx.ASTType, bool) {
+func AsType(node ASTDecl) (ASTType, bool) {
 	switch node := node.(type) {
-	case *dubx.StructDecl:
+	case *StructDecl:
 		return node, true
-	case *dubx.BuiltinType:
+	case *BuiltinType:
 		return node, true
 	default:
 		return nil, false
 	}
 }
 
-func AsFunc(node dubx.ASTDecl) (dubx.ASTFunc, bool) {
+func AsFunc(node ASTDecl) (ASTFunc, bool) {
 	switch node := node.(type) {
-	case *dubx.FuncDecl:
+	case *FuncDecl:
 		return node, true
 	default:
 		return nil, false
 	}
 }
 
-func FieldType(node *dubx.StructDecl, name string) dubx.ASTType {
+func FieldType(node *StructDecl, name string) ASTType {
 	for _, decl := range node.Fields {
 		if decl.Name == name {
 			return ResolveType(decl.Type)
@@ -269,20 +268,20 @@ func FieldType(node *dubx.StructDecl, name string) dubx.ASTType {
 	panic(name)
 }
 
-func ResolveType(ref dubx.ASTTypeRef) dubx.ASTType {
+func ResolveType(ref ASTTypeRef) ASTType {
 	switch ref := ref.(type) {
-	case *dubx.TypeRef:
+	case *TypeRef:
 		return ref.T
-	case *dubx.ListTypeRef:
+	case *ListTypeRef:
 		return ref.T
 	default:
 		panic(ref)
 	}
 }
 
-func ReturnType(node dubx.ASTFunc) dubx.ASTType {
+func ReturnType(node ASTFunc) ASTType {
 	switch node := node.(type) {
-	case *dubx.FuncDecl:
+	case *FuncDecl:
 		// HACK assume single return value
 		if len(node.ReturnTypes) == 0 {
 			return nil
@@ -296,7 +295,7 @@ func ReturnType(node dubx.ASTFunc) dubx.ASTType {
 	}
 }
 
-func (glbls *ModuleScope) ReturnType(name string) dubx.ASTType {
+func (glbls *ModuleScope) ReturnType(name string) ASTType {
 	// HACK resolve other scopes?
 	decl, ok := glbls.Module[name]
 	if !ok {
@@ -309,25 +308,25 @@ func (glbls *ModuleScope) ReturnType(name string) dubx.ASTType {
 	return ReturnType(f)
 }
 
-func SemanticPass(file *dubx.File) *ModuleScope {
+func SemanticPass(file *File) *ModuleScope {
 	glbls := &ModuleScope{
-		Builtin:   map[string]dubx.ASTDecl{},
-		Module:    map[string]dubx.ASTDecl{},
-		BinaryOps: map[string]*dubx.BuiltinType{},
+		Builtin:   map[string]ASTDecl{},
+		Module:    map[string]ASTDecl{},
+		BinaryOps: map[string]*BuiltinType{},
 	}
-	glbls.String = &dubx.BuiltinType{"string"}
+	glbls.String = &BuiltinType{"string"}
 	glbls.Builtin["string"] = glbls.String
 
-	glbls.Rune = &dubx.BuiltinType{"rune"}
+	glbls.Rune = &BuiltinType{"rune"}
 	glbls.Builtin["rune"] = glbls.Rune
 
-	glbls.Int = &dubx.BuiltinType{"int"}
+	glbls.Int = &BuiltinType{"int"}
 	glbls.Builtin["int"] = glbls.Int
 
-	glbls.Bool = &dubx.BuiltinType{"bool"}
+	glbls.Bool = &BuiltinType{"bool"}
 	glbls.Builtin["bool"] = glbls.Bool
 
-	glbls.Void = &dubx.BuiltinType{"void"}
+	glbls.Void = &BuiltinType{"void"}
 	glbls.Builtin["void"] = glbls.Void
 
 	glbls.BinaryOps["int+int"] = glbls.Int
@@ -338,9 +337,9 @@ func SemanticPass(file *dubx.File) *ModuleScope {
 	// Index the module namespace.
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
-		case *dubx.FuncDecl:
+		case *FuncDecl:
 			glbls.Module[decl.Name] = decl
-		case *dubx.StructDecl:
+		case *StructDecl:
 			glbls.Module[decl.Name] = decl
 		default:
 			panic(decl)
@@ -350,9 +349,9 @@ func SemanticPass(file *dubx.File) *ModuleScope {
 	// Needed for resolving calls in the next step.
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
-		case *dubx.FuncDecl:
+		case *FuncDecl:
 			semanticFuncSignaturePass(decl, glbls)
-		case *dubx.StructDecl:
+		case *StructDecl:
 		default:
 			panic(decl)
 		}
@@ -361,9 +360,9 @@ func SemanticPass(file *dubx.File) *ModuleScope {
 	// Resolve the declaration contents.
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
-		case *dubx.FuncDecl:
+		case *FuncDecl:
 			semanticFuncBodyPass(decl, glbls)
-		case *dubx.StructDecl:
+		case *StructDecl:
 			semanticStructPass(decl, glbls)
 		default:
 			panic(decl)
