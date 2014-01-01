@@ -28,6 +28,11 @@ struct MatchRepeat implements TextMatch {
   Min int
 }
 
+struct MatchLookahead implements TextMatch {
+  Invert bool
+  Match TextMatch
+}
+
 struct ASTExpr {
 }
 
@@ -53,6 +58,11 @@ struct BoolLiteral implements ASTExpr {
 
 func S () {
   /[ \t\r\n]*/;
+}
+
+func EndKeyword () {
+  /![a-zA-Z_0-9]/;
+  call S;
 }
 
 func Ident (string) {
@@ -169,13 +179,13 @@ func Literal (ASTExpr) {
     text := slice {
       value = call DecodeBool;
     }
-    call S;
+    call EndKeyword;
     return BoolLiteral{Text: text, Value: value};
   }
 }
 
 func BinaryOperator (string) {
-  op := /[+\-*/]|([<>][=]?)|([!=][=])/;
+  op := /[+\-*/]|([<>][=]?)|([!=][=]) ![+\-*/<>!=]/;
   call S;
   return op;
 }
@@ -418,13 +428,15 @@ func Atom (TextMatch) {
     return StringLiteralMatch{Value: value};
   } or {
     /[(]/;
+    call S;
     e := call ParseMatchChoice;
     /[)]/;
+    call S;
     return e;
   }
 }
 
-func Postfix (TextMatch) {
+func MatchPostfix (TextMatch) {
   e := call Atom;
   choose {
     /[*]/;
@@ -443,12 +455,28 @@ func Postfix (TextMatch) {
   }
 }
 
+func MatchPrefix (TextMatch) {
+  choose {
+    var invert bool;
+    choose {
+      /[!]/;
+      invert = true;
+    } or {
+      /[&]/;
+    }
+    call S;
+    return MatchLookahead{Invert: invert, Match: call MatchPostfix};
+  } or {
+    return call MatchPostfix;
+  }
+}
+
 func Sequence (TextMatch) {
-  e := call Postfix;
+  e := call MatchPrefix;
   choose {
     l := []TextMatch{e}
     plus {
-      append l call Postfix;
+      append l call MatchPrefix;
     }
     return MatchSequence{Matches: l};
   } or {
@@ -619,6 +647,35 @@ test ParseMatchChoice Complex "[a]([b]|[c])|[d]"
     }
   }
 
+test ParseMatchChoice PositiveLookahead "&[.]"
+  MatchLookahead {
+    Invert: false
+    Match: RuneRangeMatch {
+      Invert: false
+      Filters: []RuneFilter {
+        RuneFilter {
+          Min: '.'
+          Max: '.'
+        }
+      }
+    }
+  }
+
+test ParseMatchChoice NegativeLookahead "![.]"
+  MatchLookahead {
+    Invert: true
+    Match: RuneRangeMatch {
+      Invert: false
+      Filters: []RuneFilter {
+        RuneFilter {
+          Min: '.'
+          Max: '.'
+        }
+      }
+    }
+  }
+
+
 struct If implements ASTExpr {
   Expr ASTExpr
   Block []ASTExpr
@@ -761,38 +818,38 @@ func ParseExpr (ASTExpr) {
       /"plus"/;
       count = 1;
     }
-    call S;
+    call EndKeyword;
     block := call ParseCodeBlock;
     return Repeat{Block: block, Min: count};
   } or {
     /"choose"/;
-    call S;
+    call EndKeyword;
     blocks := [][]ASTExpr{call ParseCodeBlock}
     star {
       /"or"/;
-      call S;
+      call EndKeyword;
       append blocks call ParseCodeBlock;
     }
     return Choice{Blocks: blocks};
   } or {
     /"question"/;
-    call S;
+    call EndKeyword;
     block := call ParseCodeBlock;
     return Optional{Block: block};
   } or {
     /"slice"/;
-    call S;
+    call EndKeyword;
     block := call ParseCodeBlock;
     return Slice{Block: block};
   } or {
     /"if"/;
-    call S;
+    call EndKeyword;
     expr := call ParseExpr;
     block := call ParseCodeBlock;
     return If{Expr: expr, Block: block};
   } or {
     /"var"/;
-    call S;
+    call EndKeyword;
     name := call Ident;
     t := call ParseTypeRef;
     var expr ASTExpr;
@@ -804,12 +861,12 @@ func ParseExpr (ASTExpr) {
     return Assign{Expr: expr, Name: name, Type: t, Define: true};
   } or {
     /"call"/;
-    call S;
+    call EndKeyword;
     name := call Ident;
     return Call{Name: name};
   } or {
     /"fail"/;
-    call S;
+    call EndKeyword;
     return Fail{};
   } or {
     /"coerce"/;
@@ -819,7 +876,7 @@ func ParseExpr (ASTExpr) {
     return Coerce{Type: t, Expr: e};
   } or {
     /"append"/;
-    call S;
+    call EndKeyword;
     name := call Ident;
     expr := call ParseExpr;
     return Assign{
@@ -831,7 +888,7 @@ func ParseExpr (ASTExpr) {
     };
   } or {
     /"return"/;
-    call S;
+    call EndKeyword;
     choose {
       /[(]/;
       call S;
@@ -924,6 +981,15 @@ test ParseExpr Assign "foo = 1"
     Define: false
   }
 
+test ParseExpr Lookahead "returnType = 1"
+  Assign {
+    Name: "returnType"
+    Expr: IntLiteral {
+      Value: 1
+    }
+    Define: false
+  }
+
 test ParseExpr Define "foo := 1"
   Assign {
     Name: "foo"
@@ -985,12 +1051,12 @@ struct StructDecl implements ASTType {
 
 func ParseStructDecl (StructDecl) {
   /"struct"/;
-  call S;
+  call EndKeyword;
   name := call Ident;
   var implements ASTTypeRef;
   question {
     /"implements"/;
-    call S;
+    call EndKeyword;
     implements = call ParseTypeRef;
   }
   /[{]/;
@@ -1021,7 +1087,7 @@ struct FuncDecl implements ASTFunc {
 
 func ParseFuncDecl (FuncDecl) {
   /"func"/;
-  call S;
+  call EndKeyword;
   name := call Ident;
   retTypes := call ParseTypeList;
   block := call ParseCodeBlock;
@@ -1038,7 +1104,7 @@ struct Test {
 
 func ParseTest (Test) {
   /"test"/;
-  call S;
+  call EndKeyword;
   rule := call Ident;
   name := call Ident;
   input := call DecodeString;
@@ -1064,5 +1130,6 @@ func ParseFile (File) {
       append tests call ParseTest;
     }
   }
+  /![^]/;
   return File{Decls: decls, Tests: tests};
 }

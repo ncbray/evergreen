@@ -53,11 +53,6 @@ func ParseDub(filename string) *File {
 	stream := []rune(string(data))
 	state := &runtime.State{Stream: stream}
 	f := ParseFile(state)
-	// Fail if not all input was consumed.
-	if state.Flow == 0 && state.Index != len(state.Stream) {
-		state.Fail()
-		return nil
-	}
 	if state.Flow != 0 {
 		lines := FindLines(stream)
 		PrintError(filename, state.Deepest, stream, lines)

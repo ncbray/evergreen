@@ -95,9 +95,12 @@ func makeRuneSwitch(cond flow.DubRegister, op string, value rune, builder *DubBu
 	return make_value, decide
 }
 
-func lowerRuneMatch(match *tree.RuneRangeMatch, r *base.Region, builder *DubBuilder) flow.DubRegister {
+func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, r *base.Region, builder *DubBuilder) flow.DubRegister {
 	// Read
-	cond := builder.CreateLLRegister(builder.glbl.Rune)
+	cond := flow.NoRegister
+	if len(match.Filters) > 0 || used {
+		cond = builder.CreateLLRegister(builder.glbl.Rune)
+	}
 	body := flow.CreateBlock([]flow.DubOp{
 		&flow.Peek{Dst: cond},
 	})
@@ -172,11 +175,11 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, r *base.Region, builder *DubBuil
 func lowerMatch(match tree.TextMatch, r *base.Region, builder *DubBuilder) {
 	switch match := match.(type) {
 	case *tree.RuneRangeMatch:
-		lowerRuneMatch(match, r, builder)
+		lowerRuneMatch(match, false, r, builder)
 	case *tree.StringLiteralMatch:
 		// HACK desugar
 		for _, c := range []rune(match.Value) {
-			lowerRuneMatch(&tree.RuneRangeMatch{Filters: []*tree.RuneFilter{&tree.RuneFilter{Min: c, Max: c}}}, r, builder)
+			lowerRuneMatch(&tree.RuneRangeMatch{Filters: []*tree.RuneFilter{&tree.RuneFilter{Min: c, Max: c}}}, false, r, builder)
 		}
 	case *tree.MatchSequence:
 		for _, child := range match.Matches {
@@ -242,6 +245,38 @@ func lowerMatch(match tree.TextMatch, r *base.Region, builder *DubBuilder) {
 			child.Connect(flow.FAIL, body)
 			body.SetExit(flow.NORMAL, child.GetExit(flow.NORMAL))
 		}
+
+		r.Splice(flow.NORMAL, child)
+	case *tree.MatchLookahead:
+		child := flow.CreateRegion()
+
+		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
+		head := flow.CreateBlock([]flow.DubOp{
+			&flow.LookaheadBegin{Dst: checkpoint},
+		})
+		child.Connect(flow.NORMAL, head)
+		head.SetExit(flow.NORMAL, child.GetExit(flow.NORMAL))
+
+		lowerMatch(match.Match, child, builder)
+
+		normal := flow.CreateBlock([]flow.DubOp{
+			&flow.LookaheadEnd{Failed: false, Src: checkpoint},
+		})
+
+		fail := flow.CreateBlock([]flow.DubOp{
+			&flow.LookaheadEnd{Failed: true, Src: checkpoint},
+		})
+
+		if match.Invert {
+			child.Connect(flow.NORMAL, fail)
+			child.Connect(flow.FAIL, normal)
+		} else {
+			child.Connect(flow.NORMAL, normal)
+			child.Connect(flow.FAIL, fail)
+		}
+
+		normal.SetExit(flow.NORMAL, child.GetExit(flow.NORMAL))
+		fail.SetExit(flow.FAIL, child.GetExit(flow.FAIL))
 
 		r.Splice(flow.NORMAL, child)
 	default:
@@ -641,7 +676,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		return dst
 
 	case *tree.RuneMatch:
-		return lowerRuneMatch(expr.Match, r, builder)
+		return lowerRuneMatch(expr.Match, used, r, builder)
 	default:
 		panic(expr)
 	}

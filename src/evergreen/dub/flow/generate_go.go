@@ -318,6 +318,17 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 					))
 				case *Recover:
 					block = append(block, emitOp("Recover", reg(op.Src)))
+				case *LookaheadBegin:
+					block = append(block, opAssign(
+						emitOp("LookaheadBegin").X,
+						op.Dst,
+					))
+				case *LookaheadEnd:
+					if op.Failed {
+						block = append(block, emitOp("LookaheadFail", reg(op.Src)))
+					} else {
+						block = append(block, emitOp("LookaheadNormal", reg(op.Src)))
+					}
 				case *Slice:
 					block = append(block, opAssign(
 						emitOp("Slice", reg(op.Src)).X,

@@ -9,10 +9,11 @@ const (
 )
 
 type State struct {
-	Stream  []rune
-	Index   int
-	Deepest int
-	Flow    int
+	Stream         []rune
+	Index          int
+	Flow           int
+	LookaheadLevel int
+	Deepest        int
 }
 
 func (state *State) Checkpoint() int {
@@ -52,10 +53,27 @@ func (state *State) Slice(start int) string {
 }
 
 func (state *State) Fail() {
-	if state.Index > state.Deepest {
+	if state.Index > state.Deepest && state.LookaheadLevel == 0 {
 		state.Deepest = state.Index
 	}
 	state.Flow = FAIL
+}
+
+func (state *State) LookaheadBegin() int {
+	state.LookaheadLevel += 1
+	return state.Index
+}
+
+func (state *State) LookaheadNormal(index int) {
+	state.LookaheadLevel -= 1
+	state.Index = index
+	state.Flow = NORMAL
+}
+
+func (state *State) LookaheadFail(index int) {
+	state.LookaheadLevel -= 1
+	state.Index = index
+	state.Fail()
 }
 
 // Utility function for generated tests

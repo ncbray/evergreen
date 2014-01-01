@@ -254,6 +254,23 @@ func (n *Recover) OpToString() string {
 	return fmt.Sprintf("<recover> %s", RegisterName(n.Src))
 }
 
+type LookaheadBegin struct {
+	Dst DubRegister
+}
+
+func (n *LookaheadBegin) OpToString() string {
+	return formatAssignment("<lookahead begin>", n.Dst)
+}
+
+type LookaheadEnd struct {
+	Failed bool
+	Src    DubRegister
+}
+
+func (n *LookaheadEnd) OpToString() string {
+	return fmt.Sprintf("<lookahead end> %v %s", n.Failed, RegisterName(n.Src))
+}
+
 type Slice struct {
 	Src DubRegister
 	Dst DubRegister
