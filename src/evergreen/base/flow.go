@@ -11,6 +11,8 @@ type Edge struct {
 	index int
 }
 
+const NoNode = ^int(0)
+
 type Node struct {
 	entries EntryList
 	exits   []Edge

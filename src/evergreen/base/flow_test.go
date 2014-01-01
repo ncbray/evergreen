@@ -1,6 +1,7 @@
 package base
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -140,4 +141,125 @@ func TestWhileFlow(t *testing.T) {
 	checkTopology(body, []*Node{decide}, []*Node{cond, r.GetExit(1)}, t)
 	checkTopology(r.GetExit(0), []*Node{decide}, []*Node{}, t)
 	checkTopology(r.GetExit(1), []*Node{cond, body}, []*Node{}, t)
+}
+
+func checkInt(name string, actual int, expected int, t *testing.T) {
+	if actual != expected {
+		t.Fatalf("%s: %d != %d", name, actual, expected)
+	}
+}
+
+func checkOrder(actualOrder []*Node, expectedOrder []*Node, t *testing.T) {
+	checkInt("len", len(actualOrder), len(expectedOrder), t)
+	for i, expected := range expectedOrder {
+		if actualOrder[i] != expected {
+			t.Fatalf("%#v != %#v", actualOrder[i], expected)
+		}
+		checkInt(fmt.Sprint(i), actualOrder[i].Name, i, t)
+	}
+}
+
+func checkIdoms(actualIdoms []int, expectedIdoms []int, t *testing.T) {
+	checkInt("len", len(actualIdoms), len(expectedIdoms), t)
+	for i, expected := range expectedIdoms {
+		checkInt(fmt.Sprint(i), actualIdoms[i], expected, t)
+	}
+}
+
+func TestSanity(t *testing.T) {
+	r := CreateTestRegion()
+	n1 := CreateTestNode("1", 1)
+	n2 := CreateTestNode("2", 1)
+	n3 := CreateTestNode("3", 1)
+
+	r.Connect(0, n1)
+	r.AttachDefaultExits(n1)
+
+	r.Connect(0, n2)
+	r.AttachDefaultExits(n2)
+
+	r.Connect(0, n3)
+	r.AttachDefaultExits(n3)
+
+	ordered := ReversePostorder(r)
+	checkOrder(ordered, []*Node{r.Entry, n1, n2, n3, r.Exits[0]}, t)
+
+	idoms := FindIdoms(ordered)
+	checkIdoms(idoms, []int{0, 0, 1, 2, 3}, t)
+}
+
+func TestLoop(t *testing.T) {
+	r := CreateTestRegion()
+	n1 := CreateTestNode("1", 1)
+	n2 := CreateTestNode("2", 1)
+	n3 := CreateTestNode("3", 1)
+
+	r.Connect(0, n1)
+	n1.SetExit(0, n2)
+	n2.SetExit(0, n3)
+	n3.SetExit(0, n1)
+
+	ordered := ReversePostorder(r)
+	checkOrder(ordered, []*Node{r.Entry, n1, n2, n3}, t)
+
+	idoms := FindIdoms(ordered)
+	checkIdoms(idoms, []int{0, 0, 1, 2}, t)
+}
+
+func TestIrreducible(t *testing.T) {
+	r := CreateTestRegion()
+	n1 := CreateTestNode("1", 1)
+	n2 := CreateTestNode("2", 2)
+	n3 := CreateTestNode("3", 1)
+	n4 := CreateTestNode("4", 2)
+	n5 := CreateTestNode("5", 1)
+	n6 := CreateTestNode("6", 2)
+
+	r.Connect(0, n6)
+
+	n6.SetExit(0, n5)
+	n6.SetExit(1, n4)
+
+	n5.SetExit(0, n1)
+
+	n4.SetExit(0, n2)
+	n4.SetExit(1, n3)
+
+	n3.SetExit(0, n2)
+
+	n2.SetExit(0, n1)
+	n2.SetExit(1, n3)
+
+	n1.SetExit(0, n2)
+
+	ordered := ReversePostorder(r)
+	checkOrder(ordered, []*Node{r.Entry, n6, n5, n4, n3, n2, n1}, t)
+
+	idoms := FindIdoms(ordered)
+	checkIdoms(idoms, []int{0, 0, 1, 1, 1, 1, 1}, t)
+}
+
+func TestDiamond(t *testing.T) {
+	r := CreateTestRegion()
+	n1 := CreateTestNode("1", 2)
+	n2 := CreateTestNode("2", 1)
+	n3 := CreateTestNode("3", 1)
+	n4 := CreateTestNode("4", 1)
+
+	r.Connect(0, n1)
+
+	n1.SetExit(0, n2)
+	n1.SetExit(1, n3)
+
+	n2.SetExit(0, n4)
+
+	n3.SetExit(0, n4)
+
+	r.AttachDefaultExits(n4)
+
+	ordered := ReversePostorder(r)
+	checkOrder(ordered, []*Node{r.Entry, n1, n2, n3, n4, r.GetExit(0)}, t)
+
+	idoms := FindIdoms(ordered)
+	checkIdoms(idoms, []int{0, 0, 1, 1, 1, 4}, t)
 }

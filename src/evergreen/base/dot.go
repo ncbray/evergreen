@@ -70,6 +70,73 @@ func ReversePostorder(r *Region) []*Node {
 	return visitor.nodes
 }
 
+func intersect(idoms []int, finger1 int, finger2 int) int {
+	for finger1 != finger2 {
+		for finger1 > finger2 {
+			finger1 = idoms[finger1]
+		}
+		for finger1 < finger2 {
+			finger2 = idoms[finger2]
+		}
+	}
+	return finger1
+}
+
+// Assumes reverse postorder.
+func FindIdoms(ordered []*Node) []int {
+	idoms := make([]int, len(ordered))
+	earliest := make([]int, len(ordered))
+
+	idoms[0] = 0
+
+	n := len(ordered)
+
+	for i := 1; i < n; i++ {
+		idoms[i] = NoNode
+
+		// Find the earliest use of this node.
+		e := n
+		node := ordered[i]
+		for j := 0; j < node.NumExits(); j++ {
+			next := node.GetNext(j)
+			if next != nil && next.Name < e {
+				e = next.Name
+			}
+		}
+		earliest[i] = e
+	}
+	start := 1
+	for start < n {
+		i := start
+		start = len(ordered)
+		for ; i < n; i++ {
+			// Note: assumes there are no dead entries.
+			entries := ordered[i].peekEntries()
+			new_idom := NoNode
+			for j := 0; j < len(entries); j++ {
+				other := entries[j].src.Name
+				// Is it available, yet?
+				if idoms[other] == NoNode {
+					continue
+				}
+				// Is it the first we've found?
+				if new_idom == NoNode {
+					new_idom = other
+				} else {
+					new_idom = intersect(idoms, other, new_idom)
+				}
+			}
+			if idoms[i] != new_idom {
+				idoms[i] = new_idom
+				if earliest[i] < start && earliest[i] < i {
+					start = earliest[i]
+				}
+			}
+		}
+	}
+	return idoms
+}
+
 func NodeID(node *Node) string {
 	return fmt.Sprintf("n%d", node.Name)
 }
@@ -81,6 +148,12 @@ type DotStyler interface {
 
 func RegionToDot(region *Region, styler DotStyler) string {
 	nodes := ReversePostorder(region)
+
+	var idoms []int
+	visualize_idoms := false
+	if visualize_idoms {
+		idoms = FindIdoms(nodes)
+	}
 
 	var buf bytes.Buffer
 	buf.WriteString("digraph G {\n")
@@ -100,6 +173,19 @@ func RegionToDot(region *Region, styler DotStyler) string {
 				buf.WriteString(NodeID(dst))
 				buf.WriteString("[")
 				buf.WriteString(styler.EdgeStyle(node.Data, i))
+				buf.WriteString("];\n")
+			}
+		}
+	}
+	if visualize_idoms {
+		for i, idom := range idoms {
+			if i != idom {
+				buf.WriteString("  ")
+				buf.WriteString(NodeID(nodes[i]))
+				buf.WriteString(" -> ")
+				buf.WriteString(NodeID(nodes[idom]))
+				buf.WriteString("[")
+				buf.WriteString("style=dotted")
 				buf.WriteString("];\n")
 			}
 		}
