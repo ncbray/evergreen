@@ -73,19 +73,17 @@ func (builder *DubBuilder) ZeroRegister(dst flow.DubRegister) flow.DubOp {
 
 func makeRuneSwitch(cond flow.DubRegister, op string, value rune, builder *DubBuilder) (*base.Node, *base.Node) {
 	vreg := builder.CreateLLRegister(builder.glbl.Rune)
-	make_value := flow.CreateBlock([]flow.DubOp{
-		&flow.ConstantRuneOp{Value: value, Dst: vreg},
-	})
+	make_value := flow.CreateNode(&flow.ConstantRuneOp{Value: value, Dst: vreg})
 
 	breg := builder.CreateLLRegister(builder.glbl.Bool)
-	compare := flow.CreateBlock([]flow.DubOp{
+	compare := flow.CreateNode(
 		&flow.BinaryOp{
 			Left:  cond,
 			Op:    op,
 			Right: vreg,
 			Dst:   breg,
 		},
-	})
+	)
 
 	decide := flow.CreateSwitch(breg)
 
@@ -101,9 +99,7 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, r *base.Region, build
 	if len(match.Filters) > 0 || used {
 		cond = builder.CreateLLRegister(builder.glbl.Rune)
 	}
-	body := flow.CreateBlock([]flow.DubOp{
-		&flow.Peek{Dst: cond},
-	})
+	body := flow.CreateNode(&flow.Peek{Dst: cond})
 	r.Connect(flow.NORMAL, body)
 	r.AttachDefaultExits(body)
 
@@ -153,17 +149,13 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, r *base.Region, build
 
 	{
 		// The rune matched, consume it.
-		body = flow.CreateBlock([]flow.DubOp{
-			&flow.Consume{},
-		})
+		body = flow.CreateNode(&flow.Consume{})
 		filters.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, filters.GetExit(flow.NORMAL))
 	}
 	{
 		// Make the fail official.
-		body = flow.CreateBlock([]flow.DubOp{
-			&flow.Fail{},
-		})
+		body = flow.CreateNode(&flow.Fail{})
 		filters.Connect(flow.FAIL, body)
 		body.SetExit(flow.FAIL, filters.GetExit(flow.FAIL))
 	}
@@ -187,9 +179,7 @@ func lowerMatch(match tree.TextMatch, r *base.Region, builder *DubBuilder) {
 		}
 	case *tree.MatchChoice:
 		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
-		head := flow.CreateBlock([]flow.DubOp{
-			&flow.Checkpoint{Dst: checkpoint},
-		})
+		head := flow.CreateNode(&flow.Checkpoint{Dst: checkpoint})
 		r.Connect(flow.NORMAL, head)
 
 		for i, child := range match.Matches {
@@ -203,9 +193,7 @@ func lowerMatch(match tree.TextMatch, r *base.Region, builder *DubBuilder) {
 
 			// Recover if not the last block.
 			if i < len(match.Matches)-1 {
-				head = flow.CreateBlock([]flow.DubOp{
-					&flow.Recover{Src: checkpoint},
-				})
+				head = flow.CreateNode(&flow.Recover{Src: checkpoint})
 				block.Connect(flow.FAIL, head)
 			} else {
 				head = nil
@@ -224,9 +212,7 @@ func lowerMatch(match tree.TextMatch, r *base.Region, builder *DubBuilder) {
 
 		// Checkpoint
 		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
-		head := flow.CreateBlock([]flow.DubOp{
-			&flow.Checkpoint{Dst: checkpoint},
-		})
+		head := flow.CreateNode(&flow.Checkpoint{Dst: checkpoint})
 		child.Connect(flow.NORMAL, head)
 		head.SetExit(flow.NORMAL, child.GetExit(flow.NORMAL))
 
@@ -238,10 +224,7 @@ func lowerMatch(match tree.TextMatch, r *base.Region, builder *DubBuilder) {
 
 		// Stop iterating on failure and recover
 		{
-			body := flow.CreateBlock([]flow.DubOp{
-				&flow.Recover{Src: checkpoint},
-			})
-
+			body := flow.CreateNode(&flow.Recover{Src: checkpoint})
 			child.Connect(flow.FAIL, body)
 			body.SetExit(flow.NORMAL, child.GetExit(flow.NORMAL))
 		}
@@ -251,21 +234,15 @@ func lowerMatch(match tree.TextMatch, r *base.Region, builder *DubBuilder) {
 		child := flow.CreateRegion()
 
 		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
-		head := flow.CreateBlock([]flow.DubOp{
-			&flow.LookaheadBegin{Dst: checkpoint},
-		})
+		head := flow.CreateNode(&flow.LookaheadBegin{Dst: checkpoint})
 		child.Connect(flow.NORMAL, head)
 		head.SetExit(flow.NORMAL, child.GetExit(flow.NORMAL))
 
 		lowerMatch(match.Match, child, builder)
 
-		normal := flow.CreateBlock([]flow.DubOp{
-			&flow.LookaheadEnd{Failed: false, Src: checkpoint},
-		})
+		normal := flow.CreateNode(&flow.LookaheadEnd{Failed: false, Src: checkpoint})
 
-		fail := flow.CreateBlock([]flow.DubOp{
-			&flow.LookaheadEnd{Failed: true, Src: checkpoint},
-		})
+		fail := flow.CreateNode(&flow.LookaheadEnd{Failed: true, Src: checkpoint})
 
 		if match.Invert {
 			child.Connect(flow.NORMAL, fail)
@@ -312,9 +289,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 
 		// Checkpoint
 		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
-		head := flow.CreateBlock([]flow.DubOp{
-			&flow.Checkpoint{Dst: checkpoint},
-		})
+		head := flow.CreateNode(&flow.Checkpoint{Dst: checkpoint})
 
 		// Handle the body
 		block := lowerBlock(expr.Block, builder)
@@ -332,10 +307,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		// Stop iterating on failure and recover
 		block.GetExit(flow.FAIL).TransferEntries(block.GetExit(flow.NORMAL))
 		{
-			body := flow.CreateBlock([]flow.DubOp{
-				&flow.Recover{Src: checkpoint},
-			})
-
+			body := flow.CreateNode(&flow.Recover{Src: checkpoint})
 			block.Connect(flow.NORMAL, body)
 			body.SetExit(flow.NORMAL, block.GetExit(flow.NORMAL))
 		}
@@ -348,9 +320,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		if len(expr.Blocks) > 1 {
 			checkpoint = builder.CreateLLRegister(builder.glbl.Int)
 		}
-		head := flow.CreateBlock([]flow.DubOp{
-			&flow.Checkpoint{Dst: checkpoint},
-		})
+		head := flow.CreateNode(&flow.Checkpoint{Dst: checkpoint})
 		r.Connect(flow.NORMAL, head)
 
 		for i, block := range expr.Blocks {
@@ -363,9 +333,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 
 			// Recover if not the last block.
 			if i < len(expr.Blocks)-1 {
-				head = flow.CreateBlock([]flow.DubOp{
-					&flow.Recover{Src: checkpoint},
-				})
+				head = flow.CreateNode(&flow.Recover{Src: checkpoint})
 				block.Connect(flow.FAIL, head)
 			} else {
 				head = nil
@@ -379,18 +347,13 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 	case *tree.Optional:
 		// Checkpoint
 		checkpoint := builder.CreateLLRegister(builder.glbl.Int)
-		head := flow.CreateBlock([]flow.DubOp{
-			&flow.Checkpoint{Dst: checkpoint},
-		})
+		head := flow.CreateNode(&flow.Checkpoint{Dst: checkpoint})
 		r.Connect(flow.NORMAL, head)
 		head.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 
 		block := lowerBlock(expr.Block, builder)
 
-		restore := flow.CreateBlock([]flow.DubOp{
-			&flow.Recover{Src: checkpoint},
-		})
-
+		restore := flow.CreateNode(&flow.Recover{Src: checkpoint})
 		block.Connect(flow.FAIL, restore)
 		restore.SetExit(flow.NORMAL, block.GetExit(flow.NORMAL))
 
@@ -403,9 +366,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 			return flow.NoRegister
 		}
 		dst := builder.CreateRegister(builder.decl.Locals[expr.Info].T)
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.CopyOp{Src: builder.localMap[expr.Info], Dst: dst},
-		})
+		body := flow.CreateNode(&flow.CopyOp{Src: builder.localMap[expr.Info], Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -419,7 +380,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		} else {
 			op = builder.ZeroRegister(dst)
 		}
-		body := flow.CreateBlock([]flow.DubOp{op})
+		body := flow.CreateNode(op)
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -429,9 +390,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 			return flow.NoRegister
 		}
 		dst := builder.CreateLLRegister(builder.glbl.Rune)
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.ConstantRuneOp{Value: expr.Value, Dst: dst},
-		})
+		body := flow.CreateNode(&flow.ConstantRuneOp{Value: expr.Value, Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -441,9 +400,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 			return flow.NoRegister
 		}
 		dst := builder.CreateLLRegister(builder.glbl.String)
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.ConstantStringOp{Value: expr.Value, Dst: dst},
-		})
+		body := flow.CreateNode(&flow.ConstantStringOp{Value: expr.Value, Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -453,9 +410,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 			return flow.NoRegister
 		}
 		dst := builder.CreateLLRegister(builder.glbl.Int)
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.ConstantIntOp{Value: int64(expr.Value), Dst: dst},
-		})
+		body := flow.CreateNode(&flow.ConstantIntOp{Value: int64(expr.Value), Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -465,9 +420,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 			return flow.NoRegister
 		}
 		dst := builder.CreateLLRegister(builder.glbl.Bool)
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.ConstantBoolOp{Value: expr.Value, Dst: dst},
-		})
+		body := flow.CreateNode(&flow.ConstantBoolOp{Value: expr.Value, Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -477,17 +430,13 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		for i, e := range expr.Exprs {
 			exprs[i] = lowerExpr(e, r, builder, true)
 		}
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.ReturnOp{Exprs: exprs},
-		})
+		body := flow.CreateNode(&flow.ReturnOp{Exprs: exprs})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.RETURN))
 		return flow.NoRegister
 
 	case *tree.Fail:
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.Fail{},
-		})
+		body := flow.CreateNode(&flow.Fail{})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.FAIL, r.GetExit(flow.FAIL))
 
@@ -500,14 +449,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		if used {
 			dst = builder.CreateRegister(expr.T)
 		}
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.BinaryOp{
-				Left:  left,
-				Op:    expr.Op,
-				Right: right,
-				Dst:   dst,
-			},
-		})
+		body := flow.CreateNode(&flow.BinaryOp{Left: left, Op: expr.Op, Right: right, Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -519,13 +461,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 			dst = builder.CreateRegister(expr.T)
 		}
 
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.AppendOp{
-				List:  l,
-				Value: v,
-				Dst:   dst,
-			},
-		})
+		body := flow.CreateNode(&flow.AppendOp{List: l, Value: v, Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -535,12 +471,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		if used {
 			dst = builder.CreateRegister(expr.T)
 		}
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.CallOp{
-				Name: expr.Name,
-				Dst:  dst,
-			},
-		})
+		body := flow.CreateNode(&flow.CallOp{Name: expr.Name, Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		r.AttachDefaultExits(body)
 		return dst
@@ -561,13 +492,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		if used {
 			dst = builder.CreateLLRegister(t)
 		}
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.ConstructOp{
-				Type: s,
-				Args: args,
-				Dst:  dst,
-			},
-		})
+		body := flow.CreateNode(&flow.ConstructOp{Type: s, Args: args, Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -586,13 +511,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		if used {
 			dst = builder.CreateLLRegister(t)
 		}
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.ConstructListOp{
-				Type: l,
-				Args: args,
-				Dst:  dst,
-			},
-		})
+		body := flow.CreateNode(&flow.ConstructListOp{Type: l, Args: args, Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		return dst
@@ -604,13 +523,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		if used {
 			dst = builder.CreateLLRegister(t)
 		}
-		body := flow.CreateBlock([]flow.DubOp{
-			&flow.CoerceOp{
-				Src: src,
-				T:   t,
-				Dst: dst,
-			},
-		})
+		body := flow.CreateNode(&flow.CoerceOp{Src: src, T: t, Dst: dst})
 		r.Connect(flow.NORMAL, body)
 		// TODO can coersion fail?
 		body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
@@ -620,9 +533,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		start := builder.CreateLLRegister(builder.glbl.Int)
 		// HACK assume checkpoint is just the index
 		{
-			head := flow.CreateBlock([]flow.DubOp{
-				&flow.Checkpoint{Dst: start},
-			})
+			head := flow.CreateNode(&flow.Checkpoint{Dst: start})
 			r.Connect(flow.NORMAL, head)
 			head.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		}
@@ -635,10 +546,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 			dst = builder.CreateLLRegister(builder.glbl.String)
 		}
 		{
-			body := flow.CreateBlock([]flow.DubOp{
-				&flow.Slice{Src: start, Dst: dst},
-			})
-
+			body := flow.CreateNode(&flow.Slice{Src: start, Dst: dst})
 			r.Connect(flow.NORMAL, body)
 			body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		}
@@ -653,9 +561,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 			start = builder.CreateLLRegister(builder.glbl.Int)
 			// HACK assume checkpoint is just the index
 			{
-				head := flow.CreateBlock([]flow.DubOp{
-					&flow.Checkpoint{Dst: start},
-				})
+				head := flow.CreateNode(&flow.Checkpoint{Dst: start})
 				r.Connect(flow.NORMAL, head)
 				head.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 			}
@@ -666,10 +572,7 @@ func lowerExpr(expr tree.ASTExpr, r *base.Region, builder *DubBuilder, used bool
 		// Create a slice
 		if used {
 			dst = builder.CreateLLRegister(builder.glbl.String)
-			body := flow.CreateBlock([]flow.DubOp{
-				&flow.Slice{Src: start, Dst: dst},
-			})
-
+			body := flow.CreateNode(&flow.Slice{Src: start, Dst: dst})
 			r.Connect(flow.NORMAL, body)
 			body.SetExit(flow.NORMAL, r.GetExit(flow.NORMAL))
 		}

@@ -124,6 +124,163 @@ func goTypeName(t DubType) ast.Expr {
 	}
 }
 
+func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
+	switch op := op.(type) {
+	case *BinaryOp:
+		tok, ok := opToTok[op.Op]
+		if !ok {
+			panic(op.Op)
+		}
+		block = append(block, opAssign(
+			&ast.BinaryExpr{
+				X:  reg(op.Left),
+				Op: tok,
+				Y:  reg(op.Right),
+			},
+			op.Dst,
+		))
+	case *CallOp:
+		block = append(block, opAssign(
+			&ast.CallExpr{
+				Fun: id(op.Name),
+				Args: []ast.Expr{
+					id("frame"),
+				},
+			},
+			op.Dst,
+		))
+	case *ConstructOp:
+		elts := make([]ast.Expr, len(op.Args))
+		for i, arg := range op.Args {
+			elts[i] = &ast.KeyValueExpr{Key: id(arg.Key), Value: reg(arg.Value)}
+		}
+		block = append(block, opAssign(
+			addr(&ast.CompositeLit{
+				Type: id(op.Type.Name),
+				Elts: elts,
+			}),
+			op.Dst,
+		))
+	case *ConstructListOp:
+		elts := make([]ast.Expr, len(op.Args))
+		for i, arg := range op.Args {
+			elts[i] = reg(arg)
+		}
+		block = append(block, opAssign(
+			&ast.CompositeLit{
+				Type: goTypeName(op.Type),
+				Elts: elts,
+			},
+			op.Dst,
+		))
+	case *CoerceOp:
+		block = append(block, opAssign(
+			&ast.CallExpr{
+				Fun: goTypeName(op.T),
+				Args: []ast.Expr{
+					reg(op.Src),
+				},
+			},
+			op.Dst,
+		))
+	case *ConstantNilOp:
+		block = append(block, opAssign(
+			id("nil"),
+			op.Dst,
+		))
+	case *ConstantBoolOp:
+		block = append(block, opAssign(
+			id(fmt.Sprintf("%v", op.Value)),
+			op.Dst,
+		))
+	case *ConstantIntOp:
+		block = append(block, opAssign(
+			constInt(op.Value),
+			op.Dst,
+		))
+	case *ConstantRuneOp:
+		block = append(block, opAssign(
+			&ast.BasicLit{
+				Kind:  token.CHAR,
+				Value: strconv.QuoteRune(op.Value),
+			},
+			op.Dst,
+		))
+	case *ConstantStringOp:
+		block = append(block, opAssign(
+			&ast.BasicLit{
+				Kind:  token.STRING,
+				Value: strconv.Quote(op.Value),
+			},
+			op.Dst,
+		))
+	case *Peek:
+		block = append(block, opAssign(
+			emitOp("Peek").X,
+			op.Dst,
+		))
+	case *Consume:
+		block = append(block,
+			emitOp("Consume"),
+		)
+	case *AppendOp:
+		block = append(block, opAssign(
+			&ast.CallExpr{
+				Fun: id("append"),
+				Args: []ast.Expr{
+					reg(op.List),
+					reg(op.Value),
+				},
+			},
+			op.Dst,
+		))
+	case *ReturnOp:
+		if len(op.Exprs) != len(f.ReturnTypes) {
+			panic(fmt.Sprintf("Wrong number of return values.  Expected %d, got %d.", len(f.ReturnTypes), len(op.Exprs)))
+		}
+		for i, e := range op.Exprs {
+			block = append(block, &ast.AssignStmt{
+				Lhs: []ast.Expr{id(returnVarName(i))},
+				Tok: token.ASSIGN,
+				Rhs: []ast.Expr{reg(e)},
+			})
+		}
+	case *Fail:
+		block = append(block, emitOp("Fail"))
+	case *Checkpoint:
+		block = append(block, opAssign(
+			emitOp("Checkpoint").X,
+			op.Dst,
+		))
+	case *Recover:
+		block = append(block, emitOp("Recover", reg(op.Src)))
+	case *LookaheadBegin:
+		block = append(block, opAssign(
+			emitOp("LookaheadBegin").X,
+			op.Dst,
+		))
+	case *LookaheadEnd:
+		if op.Failed {
+			block = append(block, emitOp("LookaheadFail", reg(op.Src)))
+		} else {
+			block = append(block, emitOp("LookaheadNormal", reg(op.Src)))
+		}
+	case *Slice:
+		block = append(block, opAssign(
+			emitOp("Slice", reg(op.Src)).X,
+			op.Dst,
+		))
+	case *CopyOp:
+		block = append(block, opAssign(
+			reg(op.Src),
+			op.Dst,
+		))
+	default:
+		panic(op)
+	}
+	return block
+}
+
 func GenerateGoFunc(f *LLFunc) ast.Decl {
 	nodes := base.ReversePostorder(f.Region)
 	//info := make([]blockInfo, len(nodes))
@@ -159,6 +316,16 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 		}
 	}
 
+	GenerateFlowSwitch := func(node *base.Node, block []ast.Stmt) []ast.Stmt {
+		cond := &ast.BinaryExpr{
+			X:  attr(id("frame"), "Flow"),
+			Op: token.EQL,
+			Y:  constInt(0),
+		}
+		next := emitSwitch(cond, node.GetNext(0), node.GetNext(1))
+		return append(block, next)
+	}
+
 	// Declare the variables.
 	// It is easier to do this up front than calculate where they need to be defined.
 	for i, info := range f.Registers {
@@ -186,174 +353,12 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 			block = append(block, gotoNode(node.GetNext(0)))
 		case *DubExit:
 			block = append(block, &ast.ReturnStmt{})
-		case *DubBlock:
-			// Generate statements.
-			for _, op := range data.Ops {
-				switch op := op.(type) {
-				case *BinaryOp:
-					tok, ok := opToTok[op.Op]
-					if !ok {
-						panic(op.Op)
-					}
-					block = append(block, opAssign(
-						&ast.BinaryExpr{
-							X:  reg(op.Left),
-							Op: tok,
-							Y:  reg(op.Right),
-						},
-						op.Dst,
-					))
-				case *CallOp:
-					block = append(block, opAssign(
-						&ast.CallExpr{
-							Fun: id(op.Name),
-							Args: []ast.Expr{
-								id("frame"),
-							},
-						},
-						op.Dst,
-					))
-				case *ConstructOp:
-					elts := make([]ast.Expr, len(op.Args))
-					for i, arg := range op.Args {
-						elts[i] = &ast.KeyValueExpr{Key: id(arg.Key), Value: reg(arg.Value)}
-					}
-					block = append(block, opAssign(
-						addr(&ast.CompositeLit{
-							Type: id(op.Type.Name),
-							Elts: elts,
-						}),
-						op.Dst,
-					))
-				case *ConstructListOp:
-					elts := make([]ast.Expr, len(op.Args))
-					for i, arg := range op.Args {
-						elts[i] = reg(arg)
-					}
-					block = append(block, opAssign(
-						&ast.CompositeLit{
-							Type: goTypeName(op.Type),
-							Elts: elts,
-						},
-						op.Dst,
-					))
-				case *CoerceOp:
-					block = append(block, opAssign(
-						&ast.CallExpr{
-							Fun: goTypeName(op.T),
-							Args: []ast.Expr{
-								reg(op.Src),
-							},
-						},
-						op.Dst,
-					))
-				case *ConstantNilOp:
-					block = append(block, opAssign(
-						id("nil"),
-						op.Dst,
-					))
-				case *ConstantBoolOp:
-					block = append(block, opAssign(
-						id(fmt.Sprintf("%v", op.Value)),
-						op.Dst,
-					))
-				case *ConstantIntOp:
-					block = append(block, opAssign(
-						constInt(op.Value),
-						op.Dst,
-					))
-				case *ConstantRuneOp:
-					block = append(block, opAssign(
-						&ast.BasicLit{
-							Kind:  token.CHAR,
-							Value: strconv.QuoteRune(op.Value),
-						},
-						op.Dst,
-					))
-				case *ConstantStringOp:
-					block = append(block, opAssign(
-						&ast.BasicLit{
-							Kind:  token.STRING,
-							Value: strconv.Quote(op.Value),
-						},
-						op.Dst,
-					))
-				case *Peek:
-					block = append(block, opAssign(
-						emitOp("Peek").X,
-						op.Dst,
-					))
-				case *Consume:
-					block = append(block,
-						emitOp("Consume"),
-					)
-				case *AppendOp:
-					block = append(block, opAssign(
-						&ast.CallExpr{
-							Fun: id("append"),
-							Args: []ast.Expr{
-								reg(op.List),
-								reg(op.Value),
-							},
-						},
-						op.Dst,
-					))
-				case *ReturnOp:
-					if len(op.Exprs) != len(f.ReturnTypes) {
-						panic(fmt.Sprintf("Wrong number of return values.  Expected %d, got %d.", len(f.ReturnTypes), len(op.Exprs)))
-					}
-					for i, e := range op.Exprs {
-						block = append(block, &ast.AssignStmt{
-							Lhs: []ast.Expr{id(returnVarName(i))},
-							Tok: token.ASSIGN,
-							Rhs: []ast.Expr{reg(e)},
-						})
-					}
-				case *Fail:
-					block = append(block, emitOp("Fail"))
-				case *Checkpoint:
-					block = append(block, opAssign(
-						emitOp("Checkpoint").X,
-						op.Dst,
-					))
-				case *Recover:
-					block = append(block, emitOp("Recover", reg(op.Src)))
-				case *LookaheadBegin:
-					block = append(block, opAssign(
-						emitOp("LookaheadBegin").X,
-						op.Dst,
-					))
-				case *LookaheadEnd:
-					if op.Failed {
-						block = append(block, emitOp("LookaheadFail", reg(op.Src)))
-					} else {
-						block = append(block, emitOp("LookaheadNormal", reg(op.Src)))
-					}
-				case *Slice:
-					block = append(block, opAssign(
-						emitOp("Slice", reg(op.Src)).X,
-						op.Dst,
-					))
-				case *CopyOp:
-					block = append(block, opAssign(
-						reg(op.Src),
-						op.Dst,
-					))
-				default:
-					panic(op)
-				}
-			}
-			cond := &ast.BinaryExpr{
-				X:  attr(id("frame"), "Flow"),
-				Op: token.EQL,
-				Y:  constInt(0),
-			}
-
-			next := emitSwitch(cond, node.GetNext(0), node.GetNext(1))
-			block = append(block, next)
 		case *DubSwitch:
 			next := emitSwitch(reg(data.Cond), node.GetNext(0), node.GetNext(1))
 			block = append(block, next)
+		case DubOp:
+			block = GenerateOp(f, data, block)
+			block = GenerateFlowSwitch(node, block)
 		default:
 			panic(data)
 		}

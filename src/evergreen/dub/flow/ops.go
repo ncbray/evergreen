@@ -329,10 +329,6 @@ type DubExit struct {
 	Flow int
 }
 
-type DubBlock struct {
-	Ops []DubOp
-}
-
 type DubSwitch struct {
 	Cond DubRegister
 }
@@ -341,8 +337,8 @@ func CreateEntry() *base.Node {
 	return base.CreateNode(&DubEntry{}, 1)
 }
 
-func CreateBlock(ops []DubOp) *base.Node {
-	return base.CreateNode(&DubBlock{Ops: ops}, 2)
+func CreateNode(op DubOp) *base.Node {
+	return base.CreateNode(op, 2)
 }
 
 func CreateSwitch(cond DubRegister) *base.Node {
@@ -389,12 +385,8 @@ func (styler *DotStyler) NodeStyle(data interface{}) string {
 		}
 	case *DubSwitch:
 		return fmt.Sprintf("shape=diamond,label=%#v", RegisterName(data.Cond))
-	case *DubBlock:
-		s := ""
-		for _, op := range data.Ops {
-			s += op.OpToString() + "\n"
-		}
-		return fmt.Sprintf("shape=box,label=%#v", s)
+	case DubOp:
+		return fmt.Sprintf("shape=box,label=%#v", data.OpToString())
 	default:
 		panic(data)
 	}
