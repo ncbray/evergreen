@@ -153,16 +153,23 @@ func checkOrder(actualOrder []*Node, expectedOrder []*Node, t *testing.T) {
 	checkInt("len", len(actualOrder), len(expectedOrder), t)
 	for i, expected := range expectedOrder {
 		if actualOrder[i] != expected {
-			t.Fatalf("%#v != %#v", actualOrder[i], expected)
+			t.Fatalf("%d: %#v != %#v", i, actualOrder[i], expected)
 		}
 		checkInt(fmt.Sprint(i), actualOrder[i].Name, i, t)
 	}
 }
 
-func checkIdoms(actualIdoms []int, expectedIdoms []int, t *testing.T) {
-	checkInt("len", len(actualIdoms), len(expectedIdoms), t)
-	for i, expected := range expectedIdoms {
-		checkInt(fmt.Sprint(i), actualIdoms[i], expected, t)
+func checkIntList(actualList []int, expectedList []int, t *testing.T) {
+	checkInt("len", len(actualList), len(expectedList), t)
+	for i, expected := range expectedList {
+		checkInt(fmt.Sprint(i), actualList[i], expected, t)
+	}
+}
+
+func checkIntListList(actualList [][]int, expectedList [][]int, t *testing.T) {
+	checkInt("len", len(actualList), len(expectedList), t)
+	for i, expected := range expectedList {
+		checkIntList(actualList[i], expected, t)
 	}
 }
 
@@ -185,7 +192,7 @@ func TestSanity(t *testing.T) {
 	checkOrder(ordered, []*Node{r.Entry, n1, n2, n3, r.Exits[0]}, t)
 
 	idoms := FindIdoms(ordered)
-	checkIdoms(idoms, []int{0, 0, 1, 2, 3}, t)
+	checkIntList(idoms, []int{0, 0, 1, 2, 3}, t)
 }
 
 func TestLoop(t *testing.T) {
@@ -203,7 +210,7 @@ func TestLoop(t *testing.T) {
 	checkOrder(ordered, []*Node{r.Entry, n1, n2, n3}, t)
 
 	idoms := FindIdoms(ordered)
-	checkIdoms(idoms, []int{0, 0, 1, 2}, t)
+	checkIntList(idoms, []int{0, 0, 1, 2}, t)
 }
 
 func TestIrreducible(t *testing.T) {
@@ -236,9 +243,18 @@ func TestIrreducible(t *testing.T) {
 	checkOrder(ordered, []*Node{r.Entry, n6, n5, n4, n3, n2, n1}, t)
 
 	idoms := FindIdoms(ordered)
-	checkIdoms(idoms, []int{0, 0, 1, 1, 1, 1, 1}, t)
+	checkIntList(idoms, []int{0, 0, 1, 1, 1, 1, 1}, t)
 }
 
+//   0
+//   |
+//   1
+//  / \
+// 2   3
+//  \ /
+//   4
+//   |
+//   5
 func TestDiamond(t *testing.T) {
 	r := CreateTestRegion()
 	n1 := CreateTestNode("1", 2)
@@ -261,5 +277,90 @@ func TestDiamond(t *testing.T) {
 	checkOrder(ordered, []*Node{r.Entry, n1, n2, n3, n4, r.GetExit(0)}, t)
 
 	idoms := FindIdoms(ordered)
-	checkIdoms(idoms, []int{0, 0, 1, 1, 1, 4}, t)
+	checkIntList(idoms, []int{0, 0, 1, 1, 1, 4}, t)
+
+	df := FindFrontiers(ordered, idoms)
+	checkIntListList(df, [][]int{[]int{}, []int{}, []int{4}, []int{4}, []int{}, []int{}}, t)
+}
+
+//   0
+//   |
+//   1
+//   |\
+//   2 \
+//  / \ \
+// 3   4 6
+//  \ / /
+//   5 /
+//   |/
+//   7
+//   |
+//   8
+func TestDoubleDiamond(t *testing.T) {
+	r := CreateTestRegion()
+	n1 := CreateTestNode("1", 2)
+	n2 := CreateTestNode("2", 2)
+	n3 := CreateTestNode("3", 1)
+	n4 := CreateTestNode("4", 1)
+	n5 := CreateTestNode("5", 1)
+	n6 := CreateTestNode("6", 1)
+	n7 := CreateTestNode("7", 1)
+
+	r.Connect(0, n1)
+
+	n1.SetExit(0, n2)
+	n1.SetExit(1, n6)
+
+	n2.SetExit(0, n3)
+	n2.SetExit(1, n4)
+
+	n3.SetExit(0, n5)
+	n4.SetExit(0, n5)
+	n5.SetExit(0, n7)
+	n6.SetExit(0, n7)
+	r.AttachDefaultExits(n7)
+
+	builder := CreateSSIBuilder(r, ReversePostorder(r))
+
+	checkOrder(builder.nodes, []*Node{r.Entry, n1, n2, n3, n4, n5, n6, n7, r.GetExit(0)}, t)
+
+	checkIntList(builder.idoms, []int{0, 0, 1, 2, 2, 2, 1, 1, 7}, t)
+
+	checkIntListList(builder.df, [][]int{
+		[]int{},
+		[]int{},
+		[]int{7},
+		[]int{5},
+		[]int{5},
+		[]int{7},
+		[]int{7},
+		[]int{},
+		[]int{},
+	}, t)
+
+	numVars := 3
+	defuse := MakeDefUse(numVars)
+	// Var 0
+	defuse.AddDef(0, 1)
+	// Var 1
+	defuse.AddDef(1, 0)
+	defuse.AddDef(1, 3)
+	// Var 2
+	defuse.AddDef(2, 6)
+
+	for i := 0; i < numVars; i++ {
+		SSI(builder, i, defuse.Defs[i])
+	}
+
+	checkIntListList(builder.phiFuncs, [][]int{
+		[]int{},
+		[]int{},
+		[]int{},
+		[]int{},
+		[]int{},
+		[]int{1},
+		[]int{},
+		[]int{1, 2},
+		[]int{},
+	}, t)
 }

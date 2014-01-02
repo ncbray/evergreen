@@ -70,6 +70,23 @@ func ReversePostorder(r *Region) []*Node {
 	return visitor.nodes
 }
 
+type DefUseCollector struct {
+	Uses [][]int
+	Defs [][]int
+}
+
+func MakeDefUse(numVars int) *DefUseCollector {
+	return &DefUseCollector{Uses: make([][]int, numVars), Defs: make([][]int, numVars)}
+}
+
+func (c *DefUseCollector) AddUse(v int, n int) {
+	c.Uses[v] = append(c.Uses[v], n)
+}
+
+func (c *DefUseCollector) AddDef(v int, n int) {
+	c.Defs[v] = append(c.Defs[v], n)
+}
+
 func intersect(idoms []int, finger1 int, finger2 int) int {
 	for finger1 != finger2 {
 		for finger1 > finger2 {
@@ -135,6 +152,118 @@ func FindIdoms(ordered []*Node) []int {
 		}
 	}
 	return idoms
+}
+
+func FindFrontiers(ordered []*Node, idoms []int) [][]int {
+	n := len(ordered)
+	frontiers := make([][]int, n)
+	for i := 0; i < n; i++ {
+		// Assumes no dead entries.
+		entries := ordered[i].peekEntries()
+		if len(entries) >= 2 {
+			target := idoms[i]
+			for _, edge := range entries {
+				runner := edge.src.Name
+				for runner != target {
+					frontiers[runner] = append(frontiers[runner], i)
+					runner = idoms[runner]
+				}
+			}
+		}
+	}
+	return frontiers
+}
+
+type SSIBuilder struct {
+	nodes    []*Node
+	idoms    []int
+	df       [][]int
+	phiFuncs [][]int
+}
+
+func CreateSSIBuilder(r *Region, nodes []*Node) *SSIBuilder {
+	idoms := FindIdoms(nodes)
+	df := FindFrontiers(nodes, idoms)
+	phiFuncs := make([][]int, len(nodes))
+	return &SSIBuilder{
+		nodes:    nodes,
+		idoms:    idoms,
+		df:       df,
+		phiFuncs: phiFuncs,
+	}
+}
+
+type SSIState struct {
+	builder *SSIBuilder
+	uid     int
+
+	phiPlaced   map[int]bool
+	defEnqueued map[int]bool
+	defQueue    []int
+
+	sigmaPlaced map[int]bool
+	useEnqueued map[int]bool
+	useQueue    []int
+}
+
+func CreateSSIState(builder *SSIBuilder, uid int) *SSIState {
+	return &SSIState{
+		builder:     builder,
+		uid:         uid,
+		defEnqueued: map[int]bool{},
+		phiPlaced:   map[int]bool{},
+		useEnqueued: map[int]bool{},
+		sigmaPlaced: map[int]bool{},
+	}
+}
+
+func (state *SSIState) DiscoveredDef(node int) {
+	enqueued, _ := state.defEnqueued[node]
+	if !enqueued {
+		state.defEnqueued[node] = true
+		state.defQueue = append(state.defQueue, node)
+	}
+}
+
+func (state *SSIState) GetNextDef() int {
+	current := state.defQueue[len(state.defQueue)-1]
+	state.defQueue = state.defQueue[:len(state.defQueue)-1]
+	return current
+}
+
+func (state *SSIState) PlacePhi(node int) {
+	placed, _ := state.phiPlaced[node]
+	if !placed {
+		state.builder.phiFuncs[node] = append(state.builder.phiFuncs[node], state.uid)
+		state.phiPlaced[node] = true
+		state.DiscoveredDef(node)
+		for _, e := range state.builder.nodes[node].peekEntries() {
+			state.DiscoveredUse(e.src.Name)
+		}
+	}
+
+}
+
+func (state *SSIState) DiscoveredUse(node int) {
+	enqueued, _ := state.useEnqueued[node]
+	if !enqueued {
+		state.useEnqueued[node] = true
+		state.useQueue = append(state.useQueue, node)
+	}
+}
+
+func SSI(builder *SSIBuilder, uid int, defs []int) {
+	state := CreateSSIState(builder, uid)
+	for _, def := range defs {
+		state.DiscoveredDef(def)
+	}
+	// TODO pump use queue, place sigmas.
+	for len(state.defQueue) > 0 {
+		current := state.GetNextDef()
+		for _, f := range builder.df[current] {
+			state.PlacePhi(f)
+		}
+	}
 }
 
 func NodeID(node *Node) string {
