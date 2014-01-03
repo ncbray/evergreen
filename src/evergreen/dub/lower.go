@@ -151,13 +151,17 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, r *base.Region, build
 		// The rune matched, consume it.
 		body = flow.CreateNode(&flow.Consume{})
 		filters.Connect(flow.NORMAL, body)
-		body.SetExit(flow.NORMAL, filters.GetExit(flow.NORMAL))
+		if body.HasEntries() {
+			body.SetExit(flow.NORMAL, filters.GetExit(flow.NORMAL))
+		}
 	}
 	{
 		// Make the fail official.
 		body = flow.CreateNode(&flow.Fail{})
 		filters.Connect(flow.FAIL, body)
-		body.SetExit(flow.FAIL, filters.GetExit(flow.FAIL))
+		if body.HasEntries() {
+			body.SetExit(flow.FAIL, filters.GetExit(flow.FAIL))
+		}
 	}
 	r.Splice(0, filters)
 

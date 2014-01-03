@@ -78,6 +78,14 @@ func (n *Node) peekEntries() EntryList {
 	return n.entries
 }
 
+func (n *Node) NumEntries() int {
+	return len(n.entries)
+}
+
+func (n *Node) HasEntries() bool {
+	return len(n.entries) > 0
+}
+
 func (n *Node) TransferEntries(other *Node) {
 	entries := n.popEntries()
 	for _, e := range entries {

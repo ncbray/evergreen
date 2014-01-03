@@ -86,6 +86,7 @@ func processDub(manager *IOManager, name string) {
 		switch decl := decl.(type) {
 		case *tree.FuncDecl:
 			f := dub.LowerAST(decl, gbuilder)
+			//flow.SSI(f)
 			funcs = append(funcs, f)
 
 			if dump {

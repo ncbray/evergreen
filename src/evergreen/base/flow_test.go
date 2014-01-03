@@ -320,7 +320,7 @@ func TestDoubleDiamond(t *testing.T) {
 	n6.SetExit(0, n7)
 	r.AttachDefaultExits(n7)
 
-	builder := CreateSSIBuilder(r, ReversePostorder(r))
+	builder := CreateSSIBuilder(r, ReversePostorder(r), &SimpleLivenessOracle{})
 
 	checkOrder(builder.nodes, []*Node{r.Entry, n1, n2, n3, n4, n5, n6, n7, r.GetExit(0)}, t)
 
@@ -339,20 +339,20 @@ func TestDoubleDiamond(t *testing.T) {
 	}, t)
 
 	numVars := 3
-	defuse := MakeDefUse(numVars)
+	defuse := CreateDefUse(len(builder.nodes), numVars)
 	// Var 0
-	defuse.AddDef(0, 1)
-	// Var 1
 	defuse.AddDef(1, 0)
-	defuse.AddDef(1, 3)
+	// Var 1
+	defuse.AddDef(0, 1)
+	defuse.AddDef(3, 1)
 	// Var 2
-	defuse.AddDef(2, 6)
+	defuse.AddDef(6, 2)
 
 	for i := 0; i < numVars; i++ {
-		SSI(builder, i, defuse.Defs[i])
+		SSI(builder, i, defuse.VarDefAt[i])
 	}
 
-	checkIntListList(builder.phiFuncs, [][]int{
+	checkIntListList(builder.PhiFuncs, [][]int{
 		[]int{},
 		[]int{},
 		[]int{},

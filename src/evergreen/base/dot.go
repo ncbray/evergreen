@@ -3,6 +3,7 @@ package base
 import (
 	"bytes"
 	"fmt"
+	"sort"
 )
 
 type activeNode struct {
@@ -71,20 +72,46 @@ func ReversePostorder(r *Region) []*Node {
 }
 
 type DefUseCollector struct {
-	Uses [][]int
-	Defs [][]int
+	VarUseAt [][]int
+	VarDefAt [][]int
+	NodeUses [][]int
+	NodeDefs [][]int
 }
 
-func MakeDefUse(numVars int) *DefUseCollector {
-	return &DefUseCollector{Uses: make([][]int, numVars), Defs: make([][]int, numVars)}
+func (c *DefUseCollector) AddUse(n int, v int) {
+	c.VarUseAt[v] = append(c.VarUseAt[v], n)
+	c.NodeUses[n] = append(c.NodeUses[n], v)
 }
 
-func (c *DefUseCollector) AddUse(v int, n int) {
-	c.Uses[v] = append(c.Uses[v], n)
+func (c *DefUseCollector) AddDef(n int, v int) {
+	c.VarDefAt[v] = append(c.VarDefAt[v], n)
+	c.NodeDefs[n] = append(c.NodeDefs[n], v)
 }
 
-func (c *DefUseCollector) AddDef(v int, n int) {
-	c.Defs[v] = append(c.Defs[v], n)
+func (c *DefUseCollector) IsDefined(n int, v int) bool {
+	for _, d := range c.NodeDefs[n] {
+		if d == v {
+			return true
+		}
+	}
+	return false
+}
+
+func CreateDefUse(numNodes int, numVars int) *DefUseCollector {
+	return &DefUseCollector{
+		VarUseAt: make([][]int, numVars),
+		VarDefAt: make([][]int, numVars),
+		NodeUses: make([][]int, numNodes),
+		NodeDefs: make([][]int, numNodes),
+	}
+}
+
+func FindDefUse(nodes []*Node, numVars int, visit func(*Node, *DefUseCollector)) *DefUseCollector {
+	defuse := CreateDefUse(len(nodes), numVars)
+	for _, node := range nodes {
+		visit(node, defuse)
+	}
+	return defuse
 }
 
 func intersect(idoms []int, finger1 int, finger2 int) int {
@@ -174,14 +201,103 @@ func FindFrontiers(ordered []*Node, idoms []int) [][]int {
 	return frontiers
 }
 
+type LivenessOracle interface {
+	LiveAtEntry(n int, v int) bool
+	LiveAtExit(n int, v int) bool
+}
+
+type SimpleLivenessOracle struct {
+}
+
+func (l *SimpleLivenessOracle) LiveAtEntry(n int, v int) bool {
+	return true
+}
+
+func (l *SimpleLivenessOracle) LiveAtExit(n int, v int) bool {
+	return true
+}
+
+type LiveVars struct {
+	liveIn  []map[int]bool
+	liveOut []map[int]bool
+}
+
+func canonicalSet(set map[int]bool) []int {
+	out := make([]int, len(set))
+	i := 0
+	for k, _ := range set {
+		out[i] = k
+		i++
+	}
+	sort.Ints(out)
+	return out
+}
+
+func (l *LiveVars) LiveSet(n int) []int {
+	return canonicalSet(l.liveIn[n])
+}
+
+func (l *LiveVars) LiveAtEntry(n int, v int) bool {
+	live, _ := l.liveIn[n][v]
+	return live
+}
+
+func (l *LiveVars) LiveAtExit(n int, v int) bool {
+	live, _ := l.liveOut[n][v]
+	return live
+}
+
+func FindLiveVars(order []*Node, defuse *DefUseCollector) *LiveVars {
+	n := len(order)
+	liveIn := make([]map[int]bool, n)
+	liveOut := make([]map[int]bool, n)
+	// Initialize with the uses for each node.
+	for i := 0; i < n; i++ {
+		liveIn[i] = map[int]bool{}
+		liveOut[i] = map[int]bool{}
+		for _, v := range defuse.NodeUses[i] {
+			liveIn[i][v] = true
+		}
+	}
+	// Iterate until a stable state is reached.
+	changed := true
+	for changed {
+		changed = false
+		// Propagate the uses backwards.
+		for i := n - 1; i >= 0; i-- {
+			for s := 0; s < order[i].NumExits(); s++ {
+				next := order[i].GetNext(s)
+				// Not all exits are connected.
+				if next == nil {
+					continue
+				}
+				// Merge sets from predecessors.
+				for v, _ := range liveIn[next.Name] {
+					_, exists := liveOut[i][v]
+					if !exists {
+						liveOut[i][v] = true
+						changed = true
+						// Filter out local defines
+						if !defuse.IsDefined(i, v) {
+							liveIn[i][v] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	return &LiveVars{liveIn: liveIn, liveOut: liveOut}
+}
+
 type SSIBuilder struct {
 	nodes    []*Node
 	idoms    []int
 	df       [][]int
-	phiFuncs [][]int
+	PhiFuncs [][]int
+	live     LivenessOracle
 }
 
-func CreateSSIBuilder(r *Region, nodes []*Node) *SSIBuilder {
+func CreateSSIBuilder(r *Region, nodes []*Node, live LivenessOracle) *SSIBuilder {
 	idoms := FindIdoms(nodes)
 	df := FindFrontiers(nodes, idoms)
 	phiFuncs := make([][]int, len(nodes))
@@ -189,7 +305,8 @@ func CreateSSIBuilder(r *Region, nodes []*Node) *SSIBuilder {
 		nodes:    nodes,
 		idoms:    idoms,
 		df:       df,
-		phiFuncs: phiFuncs,
+		PhiFuncs: phiFuncs,
+		live:     live,
 	}
 }
 
@@ -232,9 +349,12 @@ func (state *SSIState) GetNextDef() int {
 }
 
 func (state *SSIState) PlacePhi(node int) {
+	if !state.builder.live.LiveAtEntry(node, state.uid) {
+		return
+	}
 	placed, _ := state.phiPlaced[node]
 	if !placed {
-		state.builder.phiFuncs[node] = append(state.builder.phiFuncs[node], state.uid)
+		state.builder.PhiFuncs[node] = append(state.builder.PhiFuncs[node], state.uid)
 		state.phiPlaced[node] = true
 		state.DiscoveredDef(node)
 		for _, e := range state.builder.nodes[node].peekEntries() {
@@ -312,7 +432,6 @@ func RegionToDot(region *Region, styler DotStyler) string {
 				buf.WriteString("  ")
 				buf.WriteString(NodeID(nodes[i]))
 				buf.WriteString(" -> ")
-				buf.WriteString(NodeID(nodes[idom]))
 				buf.WriteString("[")
 				buf.WriteString("style=dotted")
 				buf.WriteString("];\n")
