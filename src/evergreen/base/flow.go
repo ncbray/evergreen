@@ -9,7 +9,6 @@ type Edge struct {
 	src   *Node
 	dst   *Node
 	index int
-	Data  interface{}
 }
 
 const NoNode = ^int(0)
@@ -97,6 +96,32 @@ func (n *Node) TransferEntries(other *Node) {
 		e.dst = other
 	}
 	other.addEntries(entries)
+}
+
+func (n *Node) InsertAt(flow int, target *Edge) {
+	if target.dst != nil {
+		target.dst.ReplaceEntry(target, []*Edge{n.GetExit(flow)})
+	}
+	target.dst = n
+	n.addEntry(target)
+}
+
+func (n *Node) Remove() {
+	for i := 0; i < len(n.exits); i++ {
+		e := n.GetExit(i)
+		// Find the active exit.
+		if e.dst == nil {
+			continue
+		}
+		// Make sure there are no other active exits.
+		for j := i + 1; j < len(n.exits); j++ {
+			if n.exits[j].dst != nil {
+				panic(n.Data)
+			}
+		}
+		e.dst.ReplaceEntry(e, n.popEntries())
+		break
+	}
 }
 
 func (n *Node) ReplaceEntry(target *Edge, replacements EntryList) {

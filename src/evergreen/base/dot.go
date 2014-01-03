@@ -392,7 +392,7 @@ func NodeID(node *Node) string {
 
 type DotStyler interface {
 	NodeStyle(node interface{}) string
-	EdgeStyle(node interface{}, edge interface{}, flow int) string
+	EdgeStyle(node interface{}, flow int) string
 }
 
 func RegionToDot(region *Region, styler DotStyler) string {
@@ -421,7 +421,7 @@ func RegionToDot(region *Region, styler DotStyler) string {
 				buf.WriteString(" -> ")
 				buf.WriteString(NodeID(dst))
 				buf.WriteString("[")
-				buf.WriteString(styler.EdgeStyle(node.Data, node.GetExit(i).Data, i))
+				buf.WriteString(styler.EdgeStyle(node.Data, i))
 				buf.WriteString("];\n")
 			}
 		}

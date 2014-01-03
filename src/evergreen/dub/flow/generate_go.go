@@ -279,6 +279,21 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 			reg(op.Src),
 			op.Dst,
 		))
+
+	case *TransferOp:
+		lhs := make([]ast.Expr, len(op.Dsts))
+		for i, dst := range op.Dsts {
+			lhs[i] = reg(dst)
+		}
+		rhs := make([]ast.Expr, len(op.Srcs))
+		for i, src := range op.Srcs {
+			rhs[i] = reg(src)
+		}
+		block = append(block, &ast.AssignStmt{
+			Lhs: lhs,
+			Tok: token.ASSIGN,
+			Rhs: rhs,
+		})
 	default:
 		panic(op)
 	}
@@ -297,26 +312,6 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 	}
 
 	gotoNode := func(e *base.Edge, n *base.Node, block []ast.Stmt) []ast.Stmt {
-		if e != nil {
-			transfers, ok := e.Data.([]Transfer)
-			if ok {
-				clobbered := map[DubRegister]bool{}
-				for _, t := range transfers {
-					_, is_clobbered := clobbered[t.Src]
-					if is_clobbered {
-						// TODO handle conflicitng transfers.
-						panic(t.Src)
-					}
-					if t.Src != t.Dst {
-						block = append(block, opAssign(
-							reg(t.Src),
-							t.Dst,
-						))
-					}
-					clobbered[t.Dst] = true
-				}
-			}
-		}
 		return append(block, &ast.BranchStmt{Tok: token.GOTO, Label: id(blockName(m[n]))})
 	}
 

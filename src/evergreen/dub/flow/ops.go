@@ -320,6 +320,15 @@ func (n *Consume) OpToString() string {
 	return "<consume>"
 }
 
+type TransferOp struct {
+	Srcs []DubRegister
+	Dsts []DubRegister
+}
+
+func (n *TransferOp) OpToString() string {
+	return fmt.Sprintf("%s << %s", RegisterList(n.Dsts), RegisterList(n.Srcs))
+}
+
 // Flow blocks
 
 type DubEntry struct {
@@ -392,16 +401,7 @@ func (styler *DotStyler) NodeStyle(data interface{}) string {
 	}
 }
 
-func (styler *DotStyler) EdgeStyle(data interface{}, edge interface{}, flow int) string {
-	label := ""
-	switch edge := edge.(type) {
-	case []Transfer:
-		transfers := make([]string, len(edge))
-		for i, t := range edge {
-			transfers[i] = formatAssignment(RegisterName(t.Src), t.Dst)
-		}
-		label = strings.Join(transfers, "\n")
-	}
+func (styler *DotStyler) EdgeStyle(data interface{}, flow int) string {
 	color := "red"
 	switch data.(type) {
 	case *DubSwitch:
@@ -419,7 +419,7 @@ func (styler *DotStyler) EdgeStyle(data interface{}, edge interface{}, flow int)
 			color = "goldenrod"
 		}
 	}
-	return fmt.Sprintf("color=%s,label=%#v", color, label)
+	return fmt.Sprintf("color=%s", color)
 }
 
 func IsNop(op DubOp) bool {
@@ -466,6 +466,8 @@ func IsNop(op DubOp) bool {
 		return op.Dst == NoRegister
 	case *ConstructListOp:
 		return op.Dst == NoRegister
+	case *TransferOp:
+		return len(op.Dsts) == 0
 	default:
 		panic(op)
 	}

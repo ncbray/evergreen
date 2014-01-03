@@ -78,14 +78,10 @@ func collectDefUse(node *base.Node, defuse *base.DefUseCollector) {
 	}
 }
 
-type Transfer struct {
-	Src DubRegister
-	Dst DubRegister
-}
-
 type NameMap struct {
-	names []map[int]int
-	idoms []int
+	names     []map[int]int
+	transfers []map[int]int
+	idoms     []int
 }
 
 func (nm *NameMap) GetName(n int, v int) int {
@@ -106,11 +102,13 @@ func (nm *NameMap) SetName(n int, v int, name int) {
 
 func CreateNameMap(numNodes int, idoms []int) *NameMap {
 	nm := &NameMap{
-		names: make([]map[int]int, numNodes),
-		idoms: idoms,
+		names:     make([]map[int]int, numNodes),
+		transfers: make([]map[int]int, numNodes),
+		idoms:     idoms,
 	}
 	for i := 0; i < numNodes; i++ {
 		nm.names[i] = map[int]int{}
+		nm.transfers[i] = map[int]int{}
 	}
 	return nm
 }
@@ -119,32 +117,33 @@ type RegisterReallocator struct {
 	decl *LLFunc
 	info []RegisterInfo
 	nm   *NameMap
-	live base.LivenessOracle
 }
 
-func (r *RegisterReallocator) Allocate(n int, reg DubRegister) DubRegister {
-	v := int(reg)
+func (r *RegisterReallocator) Allocate(v int) int {
 	name := len(r.info)
 	r.info = append(r.info, r.decl.Registers[v])
-	r.nm.SetName(n, v, name)
-	return DubRegister(name)
+	return name
 }
 
 func (r *RegisterReallocator) MakeOutput(n int, reg DubRegister) DubRegister {
-	if reg != NoRegister && r.live.LiveAtExit(n, int(reg)) {
-		return r.Allocate(n, reg)
+	if reg != NoRegister {
+		v := int(reg)
+		name := r.Allocate(v)
+		r.nm.SetName(n, v, name)
+		return DubRegister(name)
 	}
 	return NoRegister
 }
 
-func (r *RegisterReallocator) Transfer(n int, reg DubRegister) DubRegister {
+func (r *RegisterReallocator) Transfer(dst int, reg DubRegister) DubRegister {
 	v := int(reg)
-	name, ok := r.nm.names[n][v]
-	if ok {
-		return DubRegister(name)
-	} else {
-		return r.Allocate(n, reg)
+	name, ok := r.nm.transfers[dst][v]
+	if !ok {
+		name = r.Allocate(v)
+		r.nm.transfers[dst][v] = name
+		r.nm.SetName(dst, v, name)
 	}
+	return DubRegister(name)
 }
 
 func (r *RegisterReallocator) Get(n int, reg DubRegister) DubRegister {
@@ -155,7 +154,8 @@ func (r *RegisterReallocator) Set(n int, reg DubRegister, name DubRegister) {
 	r.nm.SetName(n, int(reg), int(name))
 }
 
-func renameOp(n int, data interface{}, ra *RegisterReallocator) {
+func renameOp(node *base.Node, data interface{}, ra *RegisterReallocator) {
+	n := node.Name
 	switch op := data.(type) {
 	case *DubEntry, *DubExit:
 	case *Consume, *Fail:
@@ -216,52 +216,112 @@ func renameOp(n int, data interface{}, ra *RegisterReallocator) {
 			op.Args[i] = ra.Get(n, arg)
 		}
 		op.Dst = ra.MakeOutput(n, op.Dst)
+	case *TransferOp:
+		for i, src := range op.Srcs {
+			op.Srcs[i] = ra.Get(n, src)
+		}
+		// The destinations need to be consistent based on the target
+		tgt := node.GetNext(0).Name
+		for i, dst := range op.Dsts {
+			op.Dsts[i] = ra.Transfer(tgt, dst)
+		}
 	default:
 		panic(data)
 	}
 }
 
-func rename(decl *LLFunc, order []*base.Node, builder *base.SSIBuilder) {
-	nm := CreateNameMap(len(order), builder.Idoms)
-	ra := &RegisterReallocator{decl: decl, nm: nm, live: builder.Live}
+func rename(decl *LLFunc) {
+	order := base.ReversePostorder(decl.Region)
+	idoms := base.FindIdoms(order)
+
+	nm := CreateNameMap(len(order), idoms)
+	ra := &RegisterReallocator{decl: decl, nm: nm}
 	for _, node := range order {
-		n := node.Name
-		// Rename destinations of incoming transfers.
-		if len(nm.names[n]) != 0 {
-			panic(nm.names[n])
+		renameOp(node, node.Data, ra)
+		_, is_copy := node.Data.(*CopyOp)
+		if is_copy {
+			node.Remove()
 		}
-		for i := 0; i < node.NumEntries(); i++ {
-			e := node.GetEntry(i)
-			data := e.Data
-			transfers, ok := data.([]Transfer)
-			if !ok {
-				continue
-			}
-			for t := 0; t < len(transfers); t++ {
-				transfers[t].Dst = ra.Transfer(n, transfers[t].Dst)
-			}
-		}
-
-		// Rename op
-		// NOTE: may overwrite incoming transfers.
-		renameOp(n, node.Data, ra)
-
-		// Rename outgoing transfers.
-		for i := 0; i < node.NumExits(); i++ {
-			e := node.GetExit(i)
-			data := e.Data
-			transfers, ok := data.([]Transfer)
-			if !ok {
-				continue
-			}
-			for t := 0; t < len(transfers); t++ {
-				transfers[t].Src = ra.Get(n, transfers[t].Src)
-			}
-		}
-
 	}
 	//fmt.Println(decl.Name, len(decl.Registers), len(ra.info))
 	decl.Registers = ra.info
+}
+
+func killUnusedOutputs(n int, data interface{}, live base.LivenessOracle) {
+	switch op := data.(type) {
+	case *DubEntry, *DubExit:
+	case *Consume, *Fail:
+	case *Checkpoint:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *Peek:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *LookaheadBegin:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *ConstantRuneOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *ConstantStringOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *ConstantIntOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *ConstantBoolOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *ConstantNilOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *CallOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *Slice:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *BinaryOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *AppendOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *CopyOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *CoerceOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *Recover:
+	case *LookaheadEnd:
+	case *DubSwitch:
+	case *ReturnOp:
+	case *ConstructOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	case *ConstructListOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegister
+		}
+	default:
+		panic(data)
+	}
 }
 
 func SSI(decl *LLFunc) {
@@ -291,13 +351,26 @@ func SSI(decl *LLFunc) {
 			if len(phiFuncs) == 0 {
 				continue
 			}
-			transfers := []Transfer{}
-			for _, v := range phiFuncs {
-				transfers = append(transfers, Transfer{Src: DubRegister(v), Dst: DubRegister(v)})
+			op := &TransferOp{
+				Srcs: make([]DubRegister, len(phiFuncs)),
+				Dsts: make([]DubRegister, len(phiFuncs)),
 			}
-			node.GetExit(i).Data = transfers
+			for j, v := range phiFuncs {
+				op.Srcs[j] = DubRegister(v)
+				op.Dsts[j] = DubRegister(v)
+			}
+			n := CreateNode(op)
+			n.InsertAt(0, node.GetExit(i))
+		}
+		// Do this while the order and liveness info are still good.
+		op, ok := node.Data.(DubOp)
+		if ok {
+			killUnusedOutputs(node.Name, op, live)
+			if IsNop(op) {
+				node.Remove()
+			}
 		}
 	}
 
-	rename(decl, order, builder)
+	rename(decl)
 }
