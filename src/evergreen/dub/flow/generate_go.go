@@ -300,50 +300,84 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 	return block
 }
 
+func generateNode(info *regionInfo, node *base.Node, block []ast.Stmt) []ast.Stmt {
+	switch data := node.Data.(type) {
+	case *DubEntry:
+		block = gotoNode(info, node.GetNext(0), block)
+	case *DubExit:
+		block = append(block, &ast.ReturnStmt{})
+	case *DubSwitch:
+		block = emitSwitch(info, reg(data.Cond), node.GetNext(0), node.GetNext(1), block)
+	case DubOp:
+		block = GenerateOp(info.decl, data, block)
+		block = generateFlowSwitch(info, node, block)
+	default:
+		panic(data)
+	}
+	return block
+}
+
+type regionInfo struct {
+	decl   *LLFunc
+	nodes  []*base.Node
+	labels map[*base.Node]int
+}
+
+func gotoNode(info *regionInfo, n *base.Node, block []ast.Stmt) []ast.Stmt {
+	label, ok := info.labels[n]
+	if ok {
+		return append(block, &ast.BranchStmt{Tok: token.GOTO, Label: id(blockName(label))})
+	} else {
+		return generateNode(info, n, block)
+	}
+}
+
+func emitSwitch(info *regionInfo, cond ast.Expr, t *base.Node, f *base.Node, block []ast.Stmt) []ast.Stmt {
+	if t != nil {
+		if f != nil {
+			block = append(block, &ast.IfStmt{
+				Cond: cond,
+				Body: &ast.BlockStmt{
+					List: gotoNode(info, t, nil),
+				},
+				Else: &ast.BlockStmt{
+					List: gotoNode(info, f, nil),
+				},
+			})
+			return block
+		} else {
+			return gotoNode(info, t, block)
+		}
+	} else {
+		return gotoNode(info, f, block)
+	}
+}
+
+func generateFlowSwitch(info *regionInfo, node *base.Node, block []ast.Stmt) []ast.Stmt {
+	cond := &ast.BinaryExpr{
+		X:  attr(id("frame"), "Flow"),
+		Op: token.EQL,
+		Y:  constInt(0),
+	}
+	return emitSwitch(info, cond, node.GetNext(0), node.GetNext(1), block)
+}
+
 func GenerateGoFunc(f *LLFunc) ast.Decl {
 	nodes := base.ReversePostorder(f.Region)
-	//info := make([]blockInfo, len(nodes))
-	m := map[*base.Node]int{}
-	stmts := []ast.Stmt{}
 
-	// Map node -> ID.
+	heads := []*base.Node{}
+	labels := map[*base.Node]int{}
+	uid := 0
 	for i, node := range nodes {
-		m[node] = i
-	}
-
-	gotoNode := func(e *base.Edge, n *base.Node, block []ast.Stmt) []ast.Stmt {
-		return append(block, &ast.BranchStmt{Tok: token.GOTO, Label: id(blockName(m[n]))})
-	}
-
-	emitSwitch := func(cond ast.Expr, te *base.Edge, t *base.Node, fe *base.Edge, f *base.Node, block []ast.Stmt) []ast.Stmt {
-		if t != nil {
-			if f != nil {
-				block = append(block, &ast.IfStmt{
-					Cond: cond,
-					Body: &ast.BlockStmt{
-						List: gotoNode(te, t, nil),
-					},
-					Else: &ast.BlockStmt{
-						List: gotoNode(fe, f, nil),
-					},
-				})
-				return block
-			} else {
-				return gotoNode(te, t, block)
-			}
-		} else {
-			return gotoNode(fe, f, block)
+		if i == 0 || node.NumEntries() >= 2 {
+			heads = append(heads, node)
+			labels[node] = uid
+			uid = uid + 1
 		}
 	}
+	info := &regionInfo{decl: f, nodes: nodes, labels: labels}
 
-	GenerateFlowSwitch := func(node *base.Node, block []ast.Stmt) []ast.Stmt {
-		cond := &ast.BinaryExpr{
-			X:  attr(id("frame"), "Flow"),
-			Op: token.EQL,
-			Y:  constInt(0),
-		}
-		return emitSwitch(cond, node.GetExit(0), node.GetNext(0), node.GetExit(1), node.GetNext(1), block)
-	}
+	stmts := []ast.Stmt{}
 
 	// Declare the variables.
 	// It is easier to do this up front than calculate where they need to be defined.
@@ -361,27 +395,16 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 		})
 	}
 
-	// HACK otherwise first label is unused.
-	stmts = gotoNode(nil, nodes[0], stmts)
-
 	// Generate Go code from flow blocks
-	for i, node := range nodes {
+	for _, node := range heads {
 		block := []ast.Stmt{}
-		switch data := node.Data.(type) {
-		case *DubEntry:
-			block = gotoNode(node.GetExit(0), node.GetNext(0), block)
-		case *DubExit:
-			block = append(block, &ast.ReturnStmt{})
-		case *DubSwitch:
-			block = emitSwitch(reg(data.Cond), node.GetExit(0), node.GetNext(0), node.GetExit(1), node.GetNext(1), block)
-		case DubOp:
-			block = GenerateOp(f, data, block)
-			block = GenerateFlowSwitch(node, block)
-		default:
-			panic(data)
-		}
+		block = generateNode(info, node, block)
 		// Label the first statement
-		block[0] = &ast.LabeledStmt{Label: id(blockName(i)), Stmt: block[0]}
+		label, _ := info.labels[node]
+		// HACK assume label 0 is always the entry node.
+		if label != 0 {
+			block[0] = &ast.LabeledStmt{Label: id(blockName(label)), Stmt: block[0]}
+		}
 		// Extend the statement list
 		stmts = append(stmts, block...)
 	}
