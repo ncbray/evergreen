@@ -125,6 +125,10 @@ func goTypeName(t DubType) ast.Expr {
 }
 
 func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
+	if IsNop(op) {
+		return block
+	}
+
 	switch op := op.(type) {
 	case *BinaryOp:
 		tok, ok := opToTok[op.Op]
@@ -292,27 +296,48 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 		m[node] = i
 	}
 
-	gotoNode := func(next *base.Node) ast.Stmt {
-		return &ast.BranchStmt{Tok: token.GOTO, Label: id(blockName(m[next]))}
+	gotoNode := func(e *base.Edge, n *base.Node, block []ast.Stmt) []ast.Stmt {
+		if e != nil {
+			transfers, ok := e.Data.([]Transfer)
+			if ok {
+				clobbered := map[DubRegister]bool{}
+				for _, t := range transfers {
+					_, is_clobbered := clobbered[t.Src]
+					if is_clobbered {
+						// TODO handle conflicitng transfers.
+						panic(t.Src)
+					}
+					if t.Src != t.Dst {
+						block = append(block, opAssign(
+							reg(t.Src),
+							t.Dst,
+						))
+					}
+					clobbered[t.Dst] = true
+				}
+			}
+		}
+		return append(block, &ast.BranchStmt{Tok: token.GOTO, Label: id(blockName(m[n]))})
 	}
 
-	emitSwitch := func(cond ast.Expr, t *base.Node, f *base.Node) ast.Stmt {
+	emitSwitch := func(cond ast.Expr, te *base.Edge, t *base.Node, fe *base.Edge, f *base.Node, block []ast.Stmt) []ast.Stmt {
 		if t != nil {
 			if f != nil {
-				return &ast.IfStmt{
+				block = append(block, &ast.IfStmt{
 					Cond: cond,
 					Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							gotoNode(t),
-						},
+						List: gotoNode(te, t, nil),
 					},
-					Else: gotoNode(f),
-				}
+					Else: &ast.BlockStmt{
+						List: gotoNode(fe, f, nil),
+					},
+				})
+				return block
 			} else {
-				return gotoNode(t)
+				return gotoNode(te, t, block)
 			}
 		} else {
-			return gotoNode(f)
+			return gotoNode(fe, f, block)
 		}
 	}
 
@@ -322,8 +347,7 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 			Op: token.EQL,
 			Y:  constInt(0),
 		}
-		next := emitSwitch(cond, node.GetNext(0), node.GetNext(1))
-		return append(block, next)
+		return emitSwitch(cond, node.GetExit(0), node.GetNext(0), node.GetExit(1), node.GetNext(1), block)
 	}
 
 	// Declare the variables.
@@ -343,19 +367,18 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 	}
 
 	// HACK otherwise first label is unused.
-	stmts = append(stmts, gotoNode(nodes[0]))
+	stmts = gotoNode(nil, nodes[0], stmts)
 
 	// Generate Go code from flow blocks
 	for i, node := range nodes {
 		block := []ast.Stmt{}
 		switch data := node.Data.(type) {
 		case *DubEntry:
-			block = append(block, gotoNode(node.GetNext(0)))
+			block = gotoNode(node.GetExit(0), node.GetNext(0), block)
 		case *DubExit:
 			block = append(block, &ast.ReturnStmt{})
 		case *DubSwitch:
-			next := emitSwitch(reg(data.Cond), node.GetNext(0), node.GetNext(1))
-			block = append(block, next)
+			block = emitSwitch(reg(data.Cond), node.GetExit(0), node.GetNext(0), node.GetExit(1), node.GetNext(1), block)
 		case DubOp:
 			block = GenerateOp(f, data, block)
 			block = GenerateFlowSwitch(node, block)

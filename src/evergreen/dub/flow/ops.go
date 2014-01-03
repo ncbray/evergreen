@@ -392,25 +392,81 @@ func (styler *DotStyler) NodeStyle(data interface{}) string {
 	}
 }
 
-func (styler *DotStyler) EdgeStyle(data interface{}, flow int) string {
+func (styler *DotStyler) EdgeStyle(data interface{}, edge interface{}, flow int) string {
+	label := ""
+	switch edge := edge.(type) {
+	case []Transfer:
+		transfers := make([]string, len(edge))
+		for i, t := range edge {
+			transfers[i] = formatAssignment(RegisterName(t.Src), t.Dst)
+		}
+		label = strings.Join(transfers, "\n")
+	}
+	color := "red"
 	switch data.(type) {
 	case *DubSwitch:
 		switch flow {
 		case 0:
-			return `color="limegreen"`
+			color = "limegreen"
 		case 1:
-			return `color="yellow"`
-		default:
-			return `label="?"`
+			color = "yellow"
 		}
 	default:
 		switch flow {
 		case 0:
-			return `color="green"`
+			color = "green"
 		case 1:
-			return `color="goldenrod"`
-		default:
-			return `label="?"`
+			color = "goldenrod"
 		}
+	}
+	return fmt.Sprintf("color=%s,label=%#v", color, label)
+}
+
+func IsNop(op DubOp) bool {
+	switch op := op.(type) {
+	case *Consume:
+		return false
+	case *Fail:
+		return false
+	case *Checkpoint:
+		return op.Dst == NoRegister
+	case *Peek:
+		return false
+	case *LookaheadBegin:
+		return false
+	case *ConstantRuneOp:
+		return op.Dst == NoRegister
+	case *ConstantStringOp:
+		return op.Dst == NoRegister
+	case *ConstantIntOp:
+		return op.Dst == NoRegister
+	case *ConstantBoolOp:
+		return op.Dst == NoRegister
+	case *ConstantNilOp:
+		return op.Dst == NoRegister
+	case *CallOp:
+		return false
+	case *Slice:
+		return op.Dst == NoRegister
+	case *BinaryOp:
+		return op.Dst == NoRegister
+	case *AppendOp:
+		return op.Dst == NoRegister
+	case *CopyOp:
+		return op.Dst == NoRegister || op.Dst == op.Src
+	case *CoerceOp:
+		return op.Dst == NoRegister
+	case *Recover:
+		return false
+	case *LookaheadEnd:
+		return false
+	case *ReturnOp:
+		return false
+	case *ConstructOp:
+		return op.Dst == NoRegister
+	case *ConstructListOp:
+		return op.Dst == NoRegister
+	default:
+		panic(op)
 	}
 }

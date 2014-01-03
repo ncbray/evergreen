@@ -9,6 +9,7 @@ type Edge struct {
 	src   *Node
 	dst   *Node
 	index int
+	Data  interface{}
 }
 
 const NoNode = ^int(0)
@@ -86,6 +87,10 @@ func (n *Node) HasEntries() bool {
 	return len(n.entries) > 0
 }
 
+func (n *Node) GetEntry(i int) *Edge {
+	return n.entries[i]
+}
+
 func (n *Node) TransferEntries(other *Node) {
 	entries := n.popEntries()
 	for _, e := range entries {
@@ -98,7 +103,13 @@ func (n *Node) ReplaceEntry(target *Edge, replacements EntryList) {
 	old := n.popEntries()
 	for i, e := range old {
 		if e == target {
-			n.entries = append(append(old[:i], replacements...), old[i+1:]...)
+			// Caution: splicing arrays is tricky because "append" may mutate the first argument.
+			// Avoid appending.
+			entries := make([]*Edge, len(old)+len(replacements)-1)
+			copy(entries[:i], old[:i])
+			copy(entries[i:i+len(replacements)], replacements)
+			copy(entries[i+len(replacements):], old[i+1:])
+			n.entries = entries
 			dst := target.dst
 			target.dst = nil
 			for _, r := range replacements {

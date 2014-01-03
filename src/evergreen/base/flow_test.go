@@ -324,7 +324,7 @@ func TestDoubleDiamond(t *testing.T) {
 
 	checkOrder(builder.nodes, []*Node{r.Entry, n1, n2, n3, n4, n5, n6, n7, r.GetExit(0)}, t)
 
-	checkIntList(builder.idoms, []int{0, 0, 1, 2, 2, 2, 1, 1, 7}, t)
+	checkIntList(builder.Idoms, []int{0, 0, 1, 2, 2, 2, 1, 1, 7}, t)
 
 	checkIntListList(builder.df, [][]int{
 		[]int{},

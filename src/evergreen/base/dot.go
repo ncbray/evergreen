@@ -222,7 +222,7 @@ type LiveVars struct {
 	liveOut []map[int]bool
 }
 
-func canonicalSet(set map[int]bool) []int {
+func CanonicalSet(set map[int]bool) []int {
 	out := make([]int, len(set))
 	i := 0
 	for k, _ := range set {
@@ -234,7 +234,7 @@ func canonicalSet(set map[int]bool) []int {
 }
 
 func (l *LiveVars) LiveSet(n int) []int {
-	return canonicalSet(l.liveIn[n])
+	return CanonicalSet(l.liveIn[n])
 }
 
 func (l *LiveVars) LiveAtEntry(n int, v int) bool {
@@ -291,10 +291,10 @@ func FindLiveVars(order []*Node, defuse *DefUseCollector) *LiveVars {
 
 type SSIBuilder struct {
 	nodes    []*Node
-	idoms    []int
+	Idoms    []int
 	df       [][]int
 	PhiFuncs [][]int
-	live     LivenessOracle
+	Live     LivenessOracle
 }
 
 func CreateSSIBuilder(r *Region, nodes []*Node, live LivenessOracle) *SSIBuilder {
@@ -303,10 +303,10 @@ func CreateSSIBuilder(r *Region, nodes []*Node, live LivenessOracle) *SSIBuilder
 	phiFuncs := make([][]int, len(nodes))
 	return &SSIBuilder{
 		nodes:    nodes,
-		idoms:    idoms,
+		Idoms:    idoms,
 		df:       df,
 		PhiFuncs: phiFuncs,
-		live:     live,
+		Live:     live,
 	}
 }
 
@@ -349,7 +349,7 @@ func (state *SSIState) GetNextDef() int {
 }
 
 func (state *SSIState) PlacePhi(node int) {
-	if !state.builder.live.LiveAtEntry(node, state.uid) {
+	if !state.builder.Live.LiveAtEntry(node, state.uid) {
 		return
 	}
 	placed, _ := state.phiPlaced[node]
@@ -391,8 +391,8 @@ func NodeID(node *Node) string {
 }
 
 type DotStyler interface {
-	NodeStyle(data interface{}) string
-	EdgeStyle(data interface{}, flow int) string
+	NodeStyle(node interface{}) string
+	EdgeStyle(node interface{}, edge interface{}, flow int) string
 }
 
 func RegionToDot(region *Region, styler DotStyler) string {
@@ -421,7 +421,7 @@ func RegionToDot(region *Region, styler DotStyler) string {
 				buf.WriteString(" -> ")
 				buf.WriteString(NodeID(dst))
 				buf.WriteString("[")
-				buf.WriteString(styler.EdgeStyle(node.Data, i))
+				buf.WriteString(styler.EdgeStyle(node.Data, node.GetExit(i).Data, i))
 				buf.WriteString("];\n")
 			}
 		}
