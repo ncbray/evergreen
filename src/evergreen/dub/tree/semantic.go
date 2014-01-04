@@ -25,27 +25,81 @@ func childScope(scope *semanticScope) *semanticScope {
 	return &semanticScope{parent: scope, locals: map[string]int{}}
 }
 
-func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls *ModuleScope) ASTType {
+func TypeMatches(actual ASTType, expected ASTType, exact bool) bool {
+	switch actual := actual.(type) {
+	case *StructDecl:
+		other, ok := expected.(*StructDecl)
+		if !ok {
+			return false
+		}
+		if exact {
+			return actual == other
+		} else {
+			current := actual
+			for current != nil {
+				if current == other {
+					return true
+				}
+				t := ResolveType(current.Implements)
+				var ok bool
+				current, ok = t.(*StructDecl)
+				if !ok {
+					panic(t)
+				}
+			}
+			return false
+		}
+	case *BuiltinType:
+		other, ok := expected.(*BuiltinType)
+		if !ok {
+			return false
+		}
+		return actual.Name == other.Name
+	case *ListType:
+		other, ok := expected.(*ListType)
+		if !ok {
+			return false
+		}
+		return TypeMatches(actual.Type, other.Type, true)
+	default:
+		panic(actual)
+	}
+}
+
+func TypeName(t ASTType) string {
+	switch t := t.(type) {
+	case *StructDecl:
+		return t.Name.Text
+	case *BuiltinType:
+		return t.Name
+	case *ListType:
+		return fmt.Sprintf("[]%s", TypeName(t.Type))
+	default:
+		panic(t)
+	}
+}
+
+func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls *ModuleScope, status framework.Status) ASTType {
 	switch expr := expr.(type) {
 	case *Repeat:
-		semanticBlockPass(decl, expr.Block, scope, glbls)
+		semanticBlockPass(decl, expr.Block, scope, glbls, status)
 		return glbls.Void
 	case *Choice:
 		for _, block := range expr.Blocks {
-			semanticBlockPass(decl, block, childScope(scope), glbls)
+			semanticBlockPass(decl, block, childScope(scope), glbls, status)
 		}
 		return glbls.Void
 	case *Optional:
-		semanticBlockPass(decl, expr.Block, scope, glbls)
+		semanticBlockPass(decl, expr.Block, scope, glbls, status)
 		return glbls.Void
 	case *If:
-		semanticExprPass(decl, expr.Expr, scope, glbls)
+		semanticExprPass(decl, expr.Expr, scope, glbls, status)
 		// TODO check condition type
-		semanticBlockPass(decl, expr.Block, childScope(scope), glbls)
+		semanticBlockPass(decl, expr.Block, childScope(scope), glbls, status)
 		return glbls.Void
 	case *BinaryOp:
-		l := semanticExprPass(decl, expr.Left, scope, glbls)
-		r := semanticExprPass(decl, expr.Right, scope, glbls)
+		l := semanticExprPass(decl, expr.Left, scope, glbls, status)
+		r := semanticExprPass(decl, expr.Right, scope, glbls, status)
 		lt, ok := l.(*BuiltinType)
 		if !ok {
 			panic(l)
@@ -62,44 +116,46 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		expr.T = t
 		return t
 	case *GetName:
-		info, found := scope.localInfo(expr.Name)
+		name := expr.Name.Text
+		info, found := scope.localInfo(name)
 		if !found {
-			panic(fmt.Sprintf("Could not resolve name %#v", expr.Name))
+			panic(fmt.Sprintf("Could not resolve name %#v", name))
 		}
 		expr.Info = info
 		return decl.Locals[info].T
 	case *Assign:
 		var t ASTType
 		if expr.Expr != nil {
-			t = semanticExprPass(decl, expr.Expr, scope, glbls)
+			t = semanticExprPass(decl, expr.Expr, scope, glbls, status)
 		}
 		if expr.Type != nil {
-			t = semanticTypePass(expr.Type, glbls)
+			t = semanticTypePass(expr.Type, glbls, status)
 		}
+		name := expr.Name.Text
 		if t == nil {
-			panic(fmt.Sprintf("%s: Cannot infer the type of %#v", decl.Name, expr.Name))
+			panic(fmt.Sprintf("%s: Cannot infer the type of %#v", decl.Name.Text, name))
 		}
 		var info int
 		var exists bool
 		if expr.Define {
-			_, exists = scope.localInfo(expr.Name)
+			_, exists = scope.localInfo(expr.Name.Text)
 			if exists {
-				panic(fmt.Sprintf("Tried to redefine %#v", expr.Name))
+				panic(fmt.Sprintf("Tried to redefine %#v", name))
 			}
 
 			info = len(decl.Locals)
-			decl.Locals = append(decl.Locals, &LocalInfo{Name: expr.Name, T: t})
-			scope.locals[expr.Name] = info
+			decl.Locals = append(decl.Locals, &LocalInfo{Name: name, T: t})
+			scope.locals[expr.Name.Text] = info
 		} else {
-			info, exists = scope.localInfo(expr.Name)
+			info, exists = scope.localInfo(name)
 			if !exists {
-				panic(fmt.Sprintf("%s: Tried to assign to unknown variable %#v", decl.Name, expr.Name))
+				panic(fmt.Sprintf("%s: Tried to assign to unknown variable %#v", decl.Name.Text, name))
 			}
 		}
 		expr.Info = info
 		return t
 	case *Slice:
-		semanticBlockPass(decl, expr.Block, scope, glbls)
+		semanticBlockPass(decl, expr.Block, scope, glbls, status)
 		return glbls.String
 	case *StringMatch:
 		return glbls.String
@@ -114,60 +170,93 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *BoolLiteral:
 		return glbls.Bool
 	case *Return:
-		for _, e := range expr.Exprs {
-			semanticExprPass(decl, e, scope, glbls)
+		if len(decl.ReturnTypes) != len(expr.Exprs) {
+			status.Error("wrong number of return types: %d vs. %d", len(expr.Exprs), len(decl.ReturnTypes))
+		}
+		for i, e := range expr.Exprs {
+			at := semanticExprPass(decl, e, scope, glbls, status)
+			if i < len(decl.ReturnTypes) {
+				et := ResolveType(decl.ReturnTypes[i])
+				if !TypeMatches(at, et, false) {
+					status.Error("return: %s vs. %s", TypeName(at), TypeName(et))
+				}
+
+			}
 		}
 		return glbls.Void
 	case *Fail:
 		return glbls.Void
 	case *Call:
-		t := glbls.ReturnType(expr.Name)
+		t := glbls.ReturnType(expr.Name.Text)
 		expr.T = t
 		return t
 	case *Append:
-		t := semanticExprPass(decl, expr.List, scope, glbls)
-		semanticExprPass(decl, expr.Expr, scope, glbls)
+		t := semanticExprPass(decl, expr.List, scope, glbls, status)
+		semanticExprPass(decl, expr.Expr, scope, glbls, status)
 		expr.T = t
 		return t
 	case *Construct:
-		t := semanticTypePass(expr.Type, glbls)
+		t := semanticTypePass(expr.Type, glbls, status)
+		st, ok := t.(*StructDecl)
+		if t != nil && !ok {
+			panic(t)
+		}
 		for _, arg := range expr.Args {
-			semanticExprPass(decl, arg.Expr, scope, glbls)
+			aft := semanticExprPass(decl, arg.Expr, scope, glbls, status)
+			if st != nil {
+				fn := arg.Name.Text
+				eft := FieldType(st, fn)
+				if !TypeMatches(aft, eft, false) {
+					status.Error("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft))
+				}
+			}
 		}
 		return t
 	case *ConstructList:
-		t := semanticTypePass(expr.Type, glbls)
+		t := semanticTypePass(expr.Type, glbls, status)
+		lt, ok := t.(*ListType)
+		if t != nil && !ok {
+			panic(t)
+		}
 		for _, arg := range expr.Args {
-			semanticExprPass(decl, arg, scope, glbls)
+			at := semanticExprPass(decl, arg, scope, glbls, status)
+			if lt != nil {
+				if !TypeMatches(at, lt.Type, false) {
+					status.Error("%s vs. %s", TypeName(at), TypeName(lt.Type))
+				}
+			}
 		}
 		return t
 	case *Coerce:
-		t := semanticTypePass(expr.Type, glbls)
-		semanticExprPass(decl, expr.Expr, scope, glbls)
+		t := semanticTypePass(expr.Type, glbls, status)
+		semanticExprPass(decl, expr.Expr, scope, glbls, status)
 		return t
 	default:
 		panic(expr)
 	}
 }
 
-func semanticTypePass(node ASTTypeRef, glbls *ModuleScope) ASTType {
+func semanticTypePass(node ASTTypeRef, glbls *ModuleScope, status framework.Status) ASTType {
 	switch node := node.(type) {
 	case *TypeRef:
-		d, ok := glbls.Module[node.Name]
+		name := node.Name.Text
+		d, ok := glbls.Module[name]
 		if !ok {
-			d, ok = glbls.Builtin[node.Name]
+			d, ok = glbls.Builtin[name]
 		}
 		if !ok {
-			panic(node.Name)
+			status.Error("Unknown name %#v", name)
+			panic(name)
 		}
 		t, ok := AsType(d)
 		if !ok {
-			panic(node.Name)
+			status.Error("%#v is not a type", name)
+			panic(name)
 		}
 		node.T = t
 		return t
 	case *ListTypeRef:
-		t := semanticTypePass(node.Type, glbls)
+		t := semanticTypePass(node.Type, glbls, status)
 		// TODO memoize list types
 		node.T = &ListType{Type: t}
 		return node.T
@@ -176,55 +265,79 @@ func semanticTypePass(node ASTTypeRef, glbls *ModuleScope) ASTType {
 	}
 }
 
-func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope, glbls *ModuleScope) {
+func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope, glbls *ModuleScope, status framework.Status) {
 	for _, expr := range block {
-		semanticExprPass(decl, expr, scope, glbls)
+		semanticExprPass(decl, expr, scope, glbls, status)
 	}
 }
 
-func semanticFuncSignaturePass(decl *FuncDecl, glbls *ModuleScope) {
+func semanticFuncSignaturePass(decl *FuncDecl, glbls *ModuleScope, status framework.Status) {
 	for _, t := range decl.ReturnTypes {
-		semanticTypePass(t, glbls)
+		semanticTypePass(t, glbls, status)
 	}
 }
 
-func semanticFuncBodyPass(decl *FuncDecl, glbls *ModuleScope) {
-	semanticBlockPass(decl, decl.Block, childScope(nil), glbls)
+func semanticFuncBodyPass(decl *FuncDecl, glbls *ModuleScope, status framework.Status) {
+	semanticBlockPass(decl, decl.Block, childScope(nil), glbls, status)
 }
 
-func semanticStructPass(decl *StructDecl, glbls *ModuleScope) {
+func semanticStructPass(decl *StructDecl, glbls *ModuleScope, status framework.Status) {
 	if decl.Implements != nil {
-		semanticTypePass(decl.Implements, glbls)
+		semanticTypePass(decl.Implements, glbls, status)
 	}
 	for _, f := range decl.Fields {
-		semanticTypePass(f.Type, glbls)
+		semanticTypePass(f.Type, glbls, status)
 	}
 }
 
-func semanticDestructurePass(decl *FuncDecl, d Destructure, scope *semanticScope, glbls *ModuleScope) {
+func semanticDestructurePass(decl *FuncDecl, d Destructure, scope *semanticScope, glbls *ModuleScope, status framework.Status) ASTType {
 	switch d := d.(type) {
 	case *DestructureStruct:
-		semanticTypePass(d.Type, glbls)
-		for _, arg := range d.Args {
-			semanticDestructurePass(decl, arg.Destructure, scope, glbls)
+		t := semanticTypePass(d.Type, glbls, status)
+		st, ok := t.(*StructDecl)
+		if t != nil && !ok {
+			panic(t)
 		}
+		for _, arg := range d.Args {
+			aft := semanticDestructurePass(decl, arg.Destructure, scope, glbls, status)
+			if st != nil {
+				fn := arg.Name.Text
+				eft := FieldType(st, fn)
+				if !TypeMatches(aft, eft, false) {
+					status.Error("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft))
+				}
+			}
+		}
+		return t
 	case *DestructureList:
-		semanticTypePass(d.Type, glbls)
-		for _, arg := range d.Args {
-			semanticDestructurePass(decl, arg, scope, glbls)
+		t := semanticTypePass(d.Type, glbls, status)
+		lt, ok := t.(*ListType)
+		if t != nil && !ok {
+			panic(t)
 		}
-
+		for _, arg := range d.Args {
+			at := semanticDestructurePass(decl, arg, scope, glbls, status)
+			if lt != nil {
+				if !TypeMatches(at, lt.Type, false) {
+					status.Error("%s vs. %s", TypeName(at), TypeName(lt.Type))
+				}
+			}
+		}
+		return t
 	case *DestructureValue:
-		semanticExprPass(decl, d.Expr, scope, glbls)
+		return semanticExprPass(decl, d.Expr, scope, glbls, status)
 	default:
 		panic(d)
 	}
 }
 
-func semanticTestPass(tst *Test, glbls *ModuleScope) {
-	tst.Type = glbls.ReturnType(tst.Rule)
+func semanticTestPass(tst *Test, glbls *ModuleScope, status framework.Status) {
+	tst.Type = glbls.ReturnType(tst.Rule.Text)
 	// HACK no real context
-	semanticDestructurePass(nil, tst.Destructure, nil, glbls)
+	at := semanticDestructurePass(nil, tst.Destructure, nil, glbls, status)
+	if !TypeMatches(at, tst.Type, false) {
+		status.Error("%s vs. %s", TypeName(at), TypeName(tst.Type))
+	}
 }
 
 type ModuleScope struct {
@@ -262,7 +375,7 @@ func AsFunc(node ASTDecl) (ASTFunc, bool) {
 
 func FieldType(node *StructDecl, name string) ASTType {
 	for _, decl := range node.Fields {
-		if decl.Name == name {
+		if decl.Name.Text == name {
 			return ResolveType(decl.Type)
 		}
 	}
@@ -288,7 +401,7 @@ func ReturnType(node ASTFunc) ASTType {
 			return nil
 		}
 		if len(node.ReturnTypes) != 1 {
-			panic(node.Name)
+			panic(node.Name.Text)
 		}
 		return ResolveType(node.ReturnTypes[0])
 	default:
@@ -339,20 +452,21 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
-			glbls.Module[decl.Name] = decl
+			glbls.Module[decl.Name.Text] = decl
 		case *StructDecl:
-			glbls.Module[decl.Name] = decl
+			glbls.Module[decl.Name.Text] = decl
 		default:
 			panic(decl)
 		}
 	}
-	// Resolve function signatures.
-	// Needed for resolving calls in the next step.
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
-			semanticFuncSignaturePass(decl, glbls)
+			// Needed for resolving calls in the next step.
+			semanticFuncSignaturePass(decl, glbls, status)
 		case *StructDecl:
+			// Needed for resolving field types.
+			semanticStructPass(decl, glbls, status)
 		default:
 			panic(decl)
 		}
@@ -362,15 +476,14 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
-			semanticFuncBodyPass(decl, glbls)
+			semanticFuncBodyPass(decl, glbls, status)
 		case *StructDecl:
-			semanticStructPass(decl, glbls)
 		default:
 			panic(decl)
 		}
 	}
 	for _, tst := range file.Tests {
-		semanticTestPass(tst, glbls)
+		semanticTestPass(tst, glbls, status)
 	}
 	return glbls
 }

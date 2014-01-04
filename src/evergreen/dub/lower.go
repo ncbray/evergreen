@@ -463,7 +463,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		if used {
 			dst = builder.CreateRegister(expr.T)
 		}
-		body := builder.EmitOp(&flow.CallOp{Name: expr.Name, Dst: dst})
+		body := builder.EmitOp(&flow.CallOp{Name: expr.Name.Text, Dst: dst})
 		gr.AttachFlow(flow.NORMAL, body)
 		gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
 		gr.RegisterExit(body, flow.FAIL, flow.FAIL)
@@ -472,7 +472,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		args := make([]*flow.KeyValue, len(expr.Args))
 		for i, arg := range expr.Args {
 			args[i] = &flow.KeyValue{
-				Key:   arg.Name,
+				Key:   arg.Name.Text,
 				Value: lowerExpr(arg.Expr, builder, true, gr),
 			}
 		}
@@ -588,7 +588,7 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 	g := base.CreateGraph()
 	builder := &DubBuilder{decl: decl, glbl: glbl, graph: g}
 
-	f := &flow.LLFunc{Name: decl.Name}
+	f := &flow.LLFunc{Name: decl.Name.Text}
 	types := make([]flow.DubType, len(decl.ReturnTypes))
 	for i, node := range decl.ReturnTypes {
 		types[i] = builder.glbl.TranslateType(tree.ResolveType(node))
@@ -628,12 +628,12 @@ func LowerStruct(decl *tree.StructDecl, s *flow.LLStruct, gbuilder *GlobalDubBui
 	}
 	for _, field := range decl.Fields {
 		fields = append(fields, &flow.LLField{
-			Name: field.Name,
+			Name: field.Name.Text,
 			T:    gbuilder.TranslateType(tree.ResolveType(field.Type)),
 		})
 	}
 	*s = flow.LLStruct{
-		Name:       decl.Name,
+		Name:       decl.Name.Text,
 		Implements: implements,
 		Fields:     fields,
 	}

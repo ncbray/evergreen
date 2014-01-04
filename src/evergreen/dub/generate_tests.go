@@ -124,7 +124,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 				},
 				Tok: token.DEFINE,
 				Rhs: []ast.Expr{
-					attr(id(name), fmt.Sprintf("(*%s)", d.Type.Name)),
+					attr(id(name), fmt.Sprintf("(*%s)", d.Type.Name.Text)),
 				},
 			})
 			stmts = append(stmts, makeFatalTest(
@@ -137,23 +137,24 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 		stmts = append(stmts, makeFatalTest(cond, fmt.Sprintf("%s: nil", path)))
 
 		for _, arg := range d.Args {
+			fn := arg.Name.Text
 			childstmts := []ast.Stmt{}
-			child_name := fmt.Sprintf("%s_%s", name, arg.Name)
-			child_path := fmt.Sprintf("%s.%s", path, arg.Name)
+			child_name := fmt.Sprintf("%s_%s", name, fn)
+			child_path := fmt.Sprintf("%s.%s", path, fn)
 			childstmts = append(childstmts, &ast.AssignStmt{
 				Lhs: []ast.Expr{
 					id(child_name),
 				},
 				Tok: token.DEFINE,
 				Rhs: []ast.Expr{
-					attr(id(actual_name), arg.Name),
+					attr(id(actual_name), fn),
 				},
 			})
 			childstmts = generateDestructure(
 				child_name,
 				child_path,
 				arg.Destructure,
-				tree.FieldType(dt, arg.Name),
+				tree.FieldType(dt, fn),
 				gbuilder,
 				childstmts,
 			)
@@ -237,7 +238,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 		Tok: token.DEFINE,
 		Rhs: []ast.Expr{
 			&ast.CallExpr{
-				Fun: id(tst.Rule),
+				Fun: id(tst.Rule.Text),
 				Args: []ast.Expr{
 					id(state),
 				},
@@ -260,7 +261,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, gbuilder, stmts)
 
 	return &ast.FuncDecl{
-		Name: id(fmt.Sprintf("Test_%s_%s", tst.Rule, tst.Name)),
+		Name: id(fmt.Sprintf("Test_%s_%s", tst.Rule.Text, tst.Name.Text)),
 		Type: &ast.FuncType{
 			Params: &ast.FieldList{
 				List: []*ast.Field{

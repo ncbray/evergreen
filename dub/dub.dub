@@ -33,6 +33,10 @@ struct MatchLookahead implements TextMatch {
   Match TextMatch
 }
 
+struct Id {
+       Text string
+}
+
 struct ASTExpr {
 }
 
@@ -65,10 +69,10 @@ func EndKeyword () {
   S();
 }
 
-func Ident (string) {
+func Ident (Id) {
   text := /[a-zA-Z_][a-zA-Z_0-9]*/;
   S();
-  return text;
+  return Id{Text: text};
 }
 
 func DecodeInt (int) {
@@ -217,10 +221,10 @@ func RuneMatchExpr (RuneMatch) {
 
 
 test Ident Alpha "a_B_c "
-  "a_B_c"
+  Id{Text: "a_B_c"}
 
 test Ident AlphaNum "a_1_7  "
-  "a_1_7"
+  Id{Text: "a_1_7"}
 
 test Literal Num "1234567890  "
   IntLiteral{
@@ -256,7 +260,7 @@ struct ASTTypeRef {
 }
 
 struct TypeRef implements ASTTypeRef {
-  Name string
+  Name Id
   T ASTType
 }
 
@@ -287,7 +291,7 @@ test ParseTypeRef ListOfList "[][]Foo"
   ListTypeRef{
     Type: ListTypeRef{
       Type: TypeRef{
-        Name: "Foo"
+        Name: Id{Text: "Foo"}
       }
     }
   }
@@ -300,7 +304,7 @@ struct DestructureValue implements Destructure {
 }
 
 struct DestructureField {
-  Name string
+  Name Id
   Destructure Destructure
 }
 
@@ -350,17 +354,17 @@ test ParseDestructure Compound "[]Foo { Bar { Baz: 1 Biz : 'x'} } "
   DestructureList {
     Type: ListTypeRef {
       Type: TypeRef {
-        Name: "Foo"
+        Name: Id{Text: "Foo"}
       }
     }
     Args: []Destructure {
       DestructureStruct {
         Type: TypeRef {
-          Name: "Bar"
+          Name: Id{Text: "Bar"}
         }
         Args: []DestructureField {
           DestructureField {
-            Name: "Baz"
+            Name: Id{Text: "Baz"}
             Destructure: DestructureValue {
               Expr: IntLiteral {
                 Value: 1
@@ -368,7 +372,7 @@ test ParseDestructure Compound "[]Foo { Bar { Baz: 1 Biz : 'x'} } "
             }
           }
           DestructureField {
-            Name: "Biz"
+            Name: Id{Text: "Biz"}
             Destructure: DestructureValue {
               Expr: RuneLiteral {
                 Value: 'x'
@@ -700,19 +704,19 @@ struct Slice implements ASTExpr {
 
 struct Assign implements ASTExpr {
   Expr ASTExpr
-  Name string
+  Name Id
   Info int
   Type ASTTypeRef
   Define bool
 }
 
 struct GetName implements ASTExpr {
-  Name string
+  Name Id
   Info int
 }
 
 struct NamedExpr {
-  Name string
+  Name Id
   Expr ASTExpr
 }
 
@@ -732,7 +736,7 @@ struct Coerce implements ASTExpr {
 }
 
 struct Call implements ASTExpr {
-  Name string
+  Name Id
   T ASTType
 }
 
@@ -976,7 +980,7 @@ test ParseExpr BinaryOp "+ 1 2"
 
 test ParseExpr Assign "foo = 1"
   Assign {
-    Name: "foo"
+    Name: Id{Text: "foo"}
     Expr: IntLiteral {
       Value: 1
     }
@@ -985,7 +989,7 @@ test ParseExpr Assign "foo = 1"
 
 test ParseExpr Lookahead "returnType = 1"
   Assign {
-    Name: "returnType"
+    Name: Id{Text: "returnType"}
     Expr: IntLiteral {
       Value: 1
     }
@@ -994,7 +998,7 @@ test ParseExpr Lookahead "returnType = 1"
 
 test ParseExpr Define "foo := 1"
   Assign {
-    Name: "foo"
+    Name: Id{Text: "foo"}
     Expr: IntLiteral {
       Value: 1
     }
@@ -1004,11 +1008,11 @@ test ParseExpr Define "foo := 1"
 test ParseExpr Construct "Foo{ Bar: 1} "
   Construct {
     Type: TypeRef {
-      Name: "Foo"
+      Name: Id{Text: "Foo"}
     }
     Args: []NamedExpr {
       NamedExpr{
-        Name: "Bar"
+        Name: Id{Text: "Bar"}
         Expr: IntLiteral {
           Value: 1
         }
@@ -1020,7 +1024,7 @@ test ParseExpr ConstructList "[]Foo{ 1 } "
   ConstructList {
     Type: ListTypeRef{
       Type: TypeRef {
-        Name: "Foo"
+        Name: Id{Text: "Foo"}
       }
     }
     Args: []ASTExpr {
@@ -1040,12 +1044,12 @@ struct ListType implements ASTType {
 }
 
 struct FieldDecl {
-  Name string
+  Name Id
   Type ASTTypeRef
 }
 
 struct StructDecl implements ASTType {
-  Name string
+  Name Id
   Implements ASTTypeRef
   Fields []FieldDecl
 }
@@ -1081,7 +1085,7 @@ struct LocalInfo {
 }
 
 struct FuncDecl implements ASTFunc {
-  Name string
+  Name Id
   ReturnTypes []ASTTypeRef
   Block []ASTExpr
   Locals []LocalInfo
@@ -1097,8 +1101,8 @@ func ParseFuncDecl (FuncDecl) {
 }
 
 struct Test {
-  Rule string
-  Name string
+  Rule Id
+  Name Id
   Type ASTType
   Input string
   Destructure Destructure

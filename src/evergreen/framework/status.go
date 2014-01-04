@@ -13,7 +13,7 @@ type Location struct {
 
 type Status interface {
 	CreateChild() Status
-	Error(message string)
+	Error(format string, a ...interface{})
 	LocationError(loc Location, message string)
 	ShouldHalt() bool
 	ErrorCount() int
@@ -35,8 +35,8 @@ func (status *simpleStatus) incErrorCount() {
 	}
 }
 
-func (status *simpleStatus) Error(message string) {
-	fmt.Printf("ERROR %s\n", message)
+func (status *simpleStatus) Error(format string, a ...interface{}) {
+	fmt.Printf("ERROR %s\n", fmt.Sprintf(format, a...))
 	status.incErrorCount()
 }
 func (status *simpleStatus) LocationError(loc Location, message string) {

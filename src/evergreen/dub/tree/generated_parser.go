@@ -56,6 +56,9 @@ type MatchLookahead struct {
 func (node *MatchLookahead) isTextMatch() {
 }
 
+type Id struct {
+	Text string
+}
 type ASTExpr interface {
 	isASTExpr()
 }
@@ -115,7 +118,7 @@ type ASTTypeRef interface {
 	isASTTypeRef()
 }
 type TypeRef struct {
-	Name string
+	Name *Id
 	T    ASTType
 }
 
@@ -141,7 +144,7 @@ func (node *DestructureValue) isDestructure() {
 }
 
 type DestructureField struct {
-	Name        string
+	Name        *Id
 	Destructure Destructure
 }
 type DestructureStruct struct {
@@ -199,7 +202,7 @@ func (node *Slice) isASTExpr() {
 
 type Assign struct {
 	Expr   ASTExpr
-	Name   string
+	Name   *Id
 	Info   int
 	Type   ASTTypeRef
 	Define bool
@@ -209,7 +212,7 @@ func (node *Assign) isASTExpr() {
 }
 
 type GetName struct {
-	Name string
+	Name *Id
 	Info int
 }
 
@@ -217,7 +220,7 @@ func (node *GetName) isASTExpr() {
 }
 
 type NamedExpr struct {
-	Name string
+	Name *Id
 	Expr ASTExpr
 }
 type Construct struct {
@@ -245,7 +248,7 @@ func (node *Coerce) isASTExpr() {
 }
 
 type Call struct {
-	Name string
+	Name *Id
 	T    ASTType
 }
 
@@ -303,11 +306,11 @@ func (node *ListType) isASTType() {
 }
 
 type FieldDecl struct {
-	Name string
+	Name *Id
 	Type ASTTypeRef
 }
 type StructDecl struct {
-	Name       string
+	Name       *Id
 	Implements ASTTypeRef
 	Fields     []*FieldDecl
 }
@@ -325,7 +328,7 @@ type LocalInfo struct {
 	T    ASTType
 }
 type FuncDecl struct {
-	Name        string
+	Name        *Id
 	ReturnTypes []ASTTypeRef
 	Block       []ASTExpr
 	Locals      []*LocalInfo
@@ -337,8 +340,8 @@ func (node *FuncDecl) isASTFunc() {
 }
 
 type Test struct {
-	Rule        string
-	Name        string
+	Rule        *Id
+	Name        *Id
 	Type        ASTType
 	Input       string
 	Destructure Destructure
@@ -488,7 +491,7 @@ block5:
 block6:
 	return
 }
-func Ident(frame *runtime.State) (ret0 string) {
+func Ident(frame *runtime.State) (ret0 *Id) {
 	var r0 int
 	var r1 rune
 	var r2 rune
@@ -518,6 +521,7 @@ func Ident(frame *runtime.State) (ret0 string) {
 	var r26 rune
 	var r27 bool
 	var r28 string
+	var r29 *Id
 	r0 = frame.Checkpoint()
 	r1 = frame.Peek()
 	if frame.Flow == 0 {
@@ -628,7 +632,8 @@ block9:
 	r28 = frame.Slice(r0)
 	S(frame)
 	if frame.Flow == 0 {
-		ret0 = r28
+		r29 = &Id{Text: r28}
+		ret0 = r29
 		return
 	} else {
 		goto block10
@@ -1746,7 +1751,7 @@ block1:
 	return
 }
 func ParseStructTypeRef(frame *runtime.State) (ret0 *TypeRef) {
-	var r0 string
+	var r0 *Id
 	var r1 *TypeRef
 	r0 = Ident(frame)
 	if frame.Flow == 0 {
@@ -1834,7 +1839,7 @@ func ParseDestructure(frame *runtime.State) (ret0 Destructure) {
 	var r5 []*DestructureField
 	var r6 []*DestructureField
 	var r7 int
-	var r8 string
+	var r8 *Id
 	var r9 rune
 	var r10 rune
 	var r11 bool
@@ -2692,7 +2697,7 @@ block3:
 	return
 }
 func ParseNamedExpr(frame *runtime.State) (ret0 *NamedExpr) {
-	var r0 string
+	var r0 *Id
 	var r1 rune
 	var r2 rune
 	var r3 bool
@@ -3023,7 +3028,7 @@ func ParseExpr(frame *runtime.State) (ret0 ASTExpr) {
 	var r121 rune
 	var r122 rune
 	var r123 bool
-	var r124 string
+	var r124 *Id
 	var r125 ASTTypeRef
 	var r126 ASTExpr
 	var r127 int
@@ -3086,7 +3091,7 @@ func ParseExpr(frame *runtime.State) (ret0 ASTExpr) {
 	var r184 rune
 	var r185 rune
 	var r186 bool
-	var r187 string
+	var r187 *Id
 	var r188 ASTExpr
 	var r189 *GetName
 	var r190 *Append
@@ -3123,7 +3128,7 @@ func ParseExpr(frame *runtime.State) (ret0 ASTExpr) {
 	var r221 *Return
 	var r222 []ASTExpr
 	var r223 *Return
-	var r224 string
+	var r224 *Id
 	var r225 rune
 	var r226 rune
 	var r227 bool
@@ -3155,7 +3160,7 @@ func ParseExpr(frame *runtime.State) (ret0 ASTExpr) {
 	var r253 *ConstructList
 	var r254 *StringMatch
 	var r255 *RuneMatch
-	var r256 string
+	var r256 *Id
 	var r257 int
 	var r258 bool
 	var r259 int
@@ -4562,7 +4567,7 @@ func ParseStructDecl(frame *runtime.State) (ret0 *StructDecl) {
 	var r15 rune
 	var r16 rune
 	var r17 bool
-	var r18 string
+	var r18 *Id
 	var r19 ASTTypeRef
 	var r20 int
 	var r21 rune
@@ -4603,7 +4608,7 @@ func ParseStructDecl(frame *runtime.State) (ret0 *StructDecl) {
 	var r56 []*FieldDecl
 	var r57 []*FieldDecl
 	var r58 int
-	var r59 string
+	var r59 *Id
 	var r60 ASTTypeRef
 	var r61 *FieldDecl
 	var r62 []*FieldDecl
@@ -4924,7 +4929,7 @@ func ParseFuncDecl(frame *runtime.State) (ret0 *FuncDecl) {
 	var r9 rune
 	var r10 rune
 	var r11 bool
-	var r12 string
+	var r12 *Id
 	var r13 []ASTTypeRef
 	var r14 []ASTExpr
 	var r15 *FuncDecl
@@ -5019,8 +5024,8 @@ func ParseTest(frame *runtime.State) (ret0 *Test) {
 	var r9 rune
 	var r10 rune
 	var r11 bool
-	var r12 string
-	var r13 string
+	var r12 *Id
+	var r13 *Id
 	var r14 string
 	var r15 Destructure
 	var r16 *Test
