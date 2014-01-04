@@ -5,10 +5,12 @@ import (
 	"evergreen/dub"
 	"evergreen/dub/flow"
 	"evergreen/dub/tree"
+	"evergreen/framework"
 	"evergreen/io"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 )
@@ -53,12 +55,19 @@ func CreateIOManager() *IOManager {
 	return manager
 }
 
-func processDub(manager *IOManager, name string) {
+func processDub(status framework.Status, manager *IOManager, name string) {
 	fmt.Printf("Processing %s...\n", name)
 	filename := fmt.Sprintf("dub/%s.dub", name)
 	data, _ := ioutil.ReadFile(filename)
-	file := tree.ParseDub(filename, data)
-	glbls := tree.SemanticPass(file)
+	file := tree.ParseDub(filename, data, status)
+	if status.ShouldHalt() {
+		return
+	}
+	glbls := tree.SemanticPass(file, status)
+	if status.ShouldHalt() {
+		return
+	}
+
 	gbuilder := &dub.GlobalDubBuilder{Types: map[tree.ASTType]flow.DubType{}}
 
 	gbuilder.String = &flow.StringType{}
@@ -135,7 +144,11 @@ var dump bool
 func main() {
 	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
 	flag.Parse()
+	status := framework.MakeStatus()
 	manager := CreateIOManager()
-	processDub(manager, "dub")
+	processDub(status.CreateChild(), manager, "dub")
 	manager.Flush()
+	if status.ShouldHalt() {
+		os.Exit(1)
+	}
 }

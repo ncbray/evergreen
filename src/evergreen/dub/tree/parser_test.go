@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"evergreen/framework"
 	"fmt"
 	"io/ioutil"
 	"testing"
@@ -66,7 +67,8 @@ func BenchmarkParser(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ParseDub(filename, data)
+		status := framework.MakeStatus()
+		ParseDub(filename, data, status)
 	}
 }
 
@@ -75,9 +77,10 @@ func BenchmarkSemantic(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	file := ParseDub(filename, data)
+	status := framework.MakeStatus()
+	file := ParseDub(filename, data, status)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		SemanticPass(file)
+		SemanticPass(file, status.CreateChild())
 	}
 }

@@ -2,6 +2,7 @@ package tree
 
 import (
 	"evergreen/dub/runtime"
+	"evergreen/framework"
 	"fmt"
 	"strconv"
 )
@@ -50,26 +51,18 @@ func GetRuneName(stream []rune, pos int) string {
 	}
 }
 
-func PrintError(filename string, deepest int, stream []rune, lines []int) {
-	line, col, text := GetLocation(stream, lines, deepest)
-	fmt.Printf("%s: Unexpected %s @ %d:%d\n%s\n", filename, GetRuneName(stream, deepest), line+1, col, text)
-	// TODO tabs?
-	arrow := []rune{}
-	for i := 0; i < col; i++ {
-		arrow = append(arrow, ' ')
-	}
-	arrow = append(arrow, '^')
-	fmt.Println(string(arrow))
-}
-
-func ParseDub(filename string, data []byte) *File {
+func ParseDub(filename string, data []byte, status framework.Status) *File {
 	stream := []rune(string(data))
 	state := &runtime.State{Stream: stream}
 	f := ParseFile(state)
-	if state.Flow != 0 {
+	if state.Flow == 0 {
+		return f
+	} else {
+		pos := state.Deepest
 		lines := FindLines(stream)
-		PrintError(filename, state.Deepest, stream, lines)
-		panic(state.Deepest)
+		line, col, text := GetLocation(stream, lines, pos)
+		loc := framework.Location{Filename: filename, Line: line, Col: col, Text: text}
+		status.LocationError(loc, fmt.Sprintf("Unexpected %s", GetRuneName(stream, pos)))
+		return nil
 	}
-	return f
 }

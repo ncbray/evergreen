@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"evergreen/framework"
 	"fmt"
 )
 
@@ -308,7 +309,7 @@ func (glbls *ModuleScope) ReturnType(name string) ASTType {
 	return ReturnType(f)
 }
 
-func SemanticPass(file *File) *ModuleScope {
+func SemanticPass(file *File, status framework.Status) *ModuleScope {
 	glbls := &ModuleScope{
 		Builtin:   map[string]ASTDecl{},
 		Module:    map[string]ASTDecl{},
