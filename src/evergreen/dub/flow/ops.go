@@ -342,6 +342,10 @@ type DubSwitch struct {
 	Cond DubRegister
 }
 
+func (n *DubSwitch) OpToString() string {
+	return fmt.Sprintf("?%s", RegisterName(n.Cond))
+}
+
 func CreateEntry() *base.Node {
 	return base.CreateNode(&DubEntry{}, 1)
 }
@@ -468,6 +472,8 @@ func IsNop(op DubOp) bool {
 		return op.Dst == NoRegister
 	case *TransferOp:
 		return len(op.Dsts) == 0
+	case *DubSwitch:
+		return false
 	default:
 		panic(op)
 	}

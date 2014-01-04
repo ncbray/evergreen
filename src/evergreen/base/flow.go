@@ -11,11 +11,20 @@ type Edge struct {
 	index int
 }
 
+func (e *Edge) attach(other *Node) {
+	if e.dst != nil {
+		panic(e)
+	}
+	e.dst = other
+	other.addEntry(e)
+}
+
 const NoNode = ^int(0)
 
 type Node struct {
 	entries EntryList
 	exits   []Edge
+	Id      NodeID
 	Name    int
 	Data    NodeData
 }
@@ -41,11 +50,7 @@ func (n *Node) SetExit(flow int, other *Node) {
 		panic(flow)
 	}
 	e := n.GetExit(flow)
-	if e.dst != nil {
-		panic(e)
-	}
-	e.dst = other
-	other.addEntry(e)
+	e.attach(other)
 }
 
 func (n *Node) NumExits() int {
@@ -182,4 +187,133 @@ func (r *Region) GetEntry() *Node {
 
 func (r *Region) GetExit(flow int) *Node {
 	return r.Exits[flow]
+}
+
+type NodeID int
+
+type Graph struct {
+	nodes []*Node
+}
+
+func (g *Graph) CreateNode(data interface{}, exits int) NodeID {
+	id := NodeID(len(g.nodes))
+	n := &Node{
+		Id:    id,
+		Data:  data,
+		exits: make([]Edge, exits),
+	}
+	for i := 0; i < exits; i++ {
+		n.exits[i] = Edge{src: n, index: i}
+	}
+	g.nodes = append(g.nodes, n)
+	return id
+}
+
+func (g *Graph) Connect(src NodeID, edge int, dst NodeID) {
+	g.nodes[src].SetExit(edge, g.nodes[dst])
+}
+
+func (g *Graph) CreateRegion(exits int) *GraphRegion {
+	gr := &GraphRegion{
+		implicitExit: 0,
+		graph:        g,
+		exits:        make([][]*Edge, exits),
+	}
+	return gr
+}
+
+func CreateGraph() *Graph {
+	return &Graph{}
+}
+
+type GraphRegion struct {
+	graph        *Graph
+	entry        *Node
+	exits        [][]*Edge
+	implicitExit int
+}
+
+func (gr *GraphRegion) HasFlow(flow int) bool {
+	if gr.entry == nil {
+		return flow == gr.implicitExit
+	} else {
+		return len(gr.exits[flow]) > 0
+	}
+}
+
+func (gr *GraphRegion) AttachFlow(flow int, dst NodeID) {
+	dstNode := gr.graph.nodes[dst]
+	gr.AttachFlowHACK(flow, dstNode)
+}
+
+func (gr *GraphRegion) AttachFlowHACK(flow int, dstNode *Node) {
+	if gr.entry == nil {
+		if gr.implicitExit == flow {
+			gr.entry = dstNode
+		} else {
+			panic("bad first node?")
+		}
+	} else {
+		// TODO extend entries directly.
+		for _, e := range gr.exits[flow] {
+			e.attach(dstNode)
+		}
+		gr.exits[flow] = nil
+	}
+}
+
+func (gr *GraphRegion) RegisterExit(src NodeID, edge int, flow int) {
+	srcNode := gr.graph.nodes[src]
+	e := srcNode.GetExit(edge)
+	if e.dst != nil {
+		panic(e)
+	}
+	gr.exits[flow] = append(gr.exits[flow], e)
+}
+
+func (gr *GraphRegion) Swap(flow0 int, flow1 int) {
+	gr.exits[flow0], gr.exits[flow1] = gr.exits[flow1], gr.exits[flow0]
+	if gr.implicitExit == flow0 {
+		gr.implicitExit = flow1
+	} else if gr.implicitExit == flow1 {
+		gr.implicitExit = flow0
+	}
+}
+
+func (gr *GraphRegion) MergeFlowInto(srcFlow int, dstFlow int) {
+	gr.exits[dstFlow] = append(gr.exits[dstFlow], gr.exits[srcFlow]...)
+	gr.exits[srcFlow] = nil
+}
+
+func (gr *GraphRegion) Splice(flow int, other *GraphRegion) {
+	if !gr.HasFlow(flow) {
+		panic("Sloppy: tried to splice to nothing.")
+	}
+	if other.entry == nil {
+		panic("TODO: empty splice")
+	} else {
+		gr.AttachFlowHACK(flow, other.entry)
+		gr.absorbExits(other)
+	}
+}
+
+func (gr *GraphRegion) SpliceToEdge(src NodeID, flow int, other *GraphRegion) {
+	if other.entry != nil {
+		gr.graph.Connect(src, flow, other.entry.Id)
+		gr.absorbExits(other)
+	} else {
+		gr.RegisterExit(src, flow, other.implicitExit)
+	}
+}
+
+func (gr *GraphRegion) absorbExits(other *GraphRegion) {
+	for i := 0; i < len(gr.exits); i++ {
+		otherExits := other.exits[i]
+		other.exits[i] = nil
+		gr.exits[i] = append(gr.exits[i], otherExits...)
+	}
+}
+
+func (gr *GraphRegion) HeadHACK() *Node {
+	return gr.entry
 }

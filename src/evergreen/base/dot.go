@@ -386,7 +386,7 @@ func SSI(builder *SSIBuilder, uid int, defs []int) {
 	}
 }
 
-func NodeID(node *Node) string {
+func NodeDotID(node *Node) string {
 	return fmt.Sprintf("n%d", node.Name)
 }
 
@@ -408,7 +408,7 @@ func RegionToDot(region *Region, styler DotStyler) string {
 	buf.WriteString("digraph G {\n")
 	for _, node := range nodes {
 		buf.WriteString("  ")
-		buf.WriteString(NodeID(node))
+		buf.WriteString(NodeDotID(node))
 		buf.WriteString("[")
 		buf.WriteString(styler.NodeStyle(node.Data))
 		buf.WriteString("];\n")
@@ -417,9 +417,9 @@ func RegionToDot(region *Region, styler DotStyler) string {
 			dst := node.GetNext(i)
 			if dst != nil {
 				buf.WriteString("  ")
-				buf.WriteString(NodeID(node))
+				buf.WriteString(NodeDotID(node))
 				buf.WriteString(" -> ")
-				buf.WriteString(NodeID(dst))
+				buf.WriteString(NodeDotID(dst))
 				buf.WriteString("[")
 				buf.WriteString(styler.EdgeStyle(node.Data, i))
 				buf.WriteString("];\n")
@@ -430,7 +430,7 @@ func RegionToDot(region *Region, styler DotStyler) string {
 		for i, idom := range idoms {
 			if i != idom {
 				buf.WriteString("  ")
-				buf.WriteString(NodeID(nodes[i]))
+				buf.WriteString(NodeDotID(nodes[i]))
 				buf.WriteString(" -> ")
 				buf.WriteString("[")
 				buf.WriteString("style=dotted")
