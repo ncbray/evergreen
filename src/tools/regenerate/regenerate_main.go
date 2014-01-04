@@ -8,6 +8,7 @@ import (
 	"evergreen/io"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"sync"
 )
@@ -54,7 +55,9 @@ func CreateIOManager() *IOManager {
 
 func processDub(manager *IOManager, name string) {
 	fmt.Printf("Processing %s...\n", name)
-	file := tree.ParseDub(fmt.Sprintf("dub/%s.dub", name))
+	filename := fmt.Sprintf("dub/%s.dub", name)
+	data, _ := ioutil.ReadFile(filename)
+	file := tree.ParseDub(filename, data)
 	glbls := tree.SemanticPass(file)
 	gbuilder := &dub.GlobalDubBuilder{Types: map[tree.ASTType]flow.DubType{}}
 

@@ -3,42 +3,56 @@ package tree
 import (
 	"evergreen/dub/runtime"
 	"fmt"
-	"io/ioutil"
+	"strconv"
 )
 
 func FindLines(stream []rune) []int {
-	lines := []int{}
+	lines := []int{0}
 	for i, r := range stream {
 		if r == '\n' {
 			lines = append(lines, i+1)
 		}
 	}
-	lines = append(lines, len(stream))
 	return lines
 }
 
-func PrintError(filename string, deepest int, stream []rune, lines []int) {
+func GetLine(stream []rune, lines []int, line int) string {
+	start := lines[line]
+	end := len(stream)
+	if line+1 < len(lines) {
+		end = lines[line+1]
+	}
+	// HACK trim newline
+	for end > start && (stream[end-1] == '\n' || stream[end-1] == '\r') {
+		end -= 1
+	}
+	return string(stream[start:end])
+}
+
+func GetLocation(stream []rune, lines []int, pos int) (int, int, string) {
 	// Stupid linear search
 	var line int
-	var col int
-	var start int
-	var end int
-	for i, s := range lines {
-		start = end
-		end = s
-		line = i + 1
-		if deepest < end {
+	// If we don't find it, it must be on the last line.
+	for line = 0; line < len(lines)-1; line++ {
+		if pos >= lines[line] && pos < lines[line+1] {
 			break
 		}
 	}
-	col = deepest - start
+	col := pos - lines[line]
+	return line, col, GetLine(stream, lines, line)
+}
 
-	// HACK trim newline
-	for end > start && (end > len(stream) || stream[end-1] == '\n' || stream[end-1] == '\t') {
-		end -= 1
+func GetRuneName(stream []rune, pos int) string {
+	if pos < len(stream) {
+		return strconv.QuoteRune(stream[pos])
+	} else {
+		return "EOF"
 	}
-	text := string(stream[start:end])
-	fmt.Printf("%s: Unexpected @ %d:%d\n%s\n", filename, line, col, text)
+}
+
+func PrintError(filename string, deepest int, stream []rune, lines []int) {
+	line, col, text := GetLocation(stream, lines, deepest)
+	fmt.Printf("%s: Unexpected %s @ %d:%d\n%s\n", filename, GetRuneName(stream, deepest), line+1, col, text)
 	// TODO tabs?
 	arrow := []rune{}
 	for i := 0; i < col; i++ {
@@ -48,8 +62,7 @@ func PrintError(filename string, deepest int, stream []rune, lines []int) {
 	fmt.Println(string(arrow))
 }
 
-func ParseDub(filename string) *File {
-	data, _ := ioutil.ReadFile(filename)
+func ParseDub(filename string, data []byte) *File {
 	stream := []rune(string(data))
 	state := &runtime.State{Stream: stream}
 	f := ParseFile(state)
