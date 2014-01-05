@@ -148,6 +148,15 @@ func checkOrder(actualOrder []*Node, expectedOrder []NodeID, t *testing.T) {
 	}
 }
 
+func checkNodeList(actualList []NodeID, expectedList []NodeID, t *testing.T) {
+	checkInt("len", len(actualList), len(expectedList), t)
+	for i, expected := range expectedList {
+		if actualList[i] != expected {
+			t.Fatalf("%d: %#v != %#v", i, actualList[i], expected)
+		}
+	}
+}
+
 func checkIntList(actualList []int, expectedList []int, t *testing.T) {
 	checkInt("len", len(actualList), len(expectedList), t)
 	for i, expected := range expectedList {
@@ -174,46 +183,52 @@ func CreateTestRegion(g *Graph) *Region {
 func TestSanity(t *testing.T) {
 	g := CreateGraph(nil, nil)
 
+	e := g.Entry()
+	x := g.Exit()
 	n1 := g.CreateNode("1", 1)
 	n2 := g.CreateNode("2", 1)
 	n3 := g.CreateNode("3", 1)
 
-	g.Connect(g.Entry(), 0, n1)
+	g.Connect(e, 0, n1)
 	g.Connect(n1, 0, n2)
 	g.Connect(n2, 0, n3)
-	g.Connect(n3, 0, g.Exit())
+	g.Connect(n3, 0, x)
 
-	r := CreateTestRegion(g)
+	order, index := ReversePostorderX(g)
+	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
+	checkIntList(index, []int{0, 4, 1, 2, 3}, t)
 
-	ordered := ReversePostorder(r)
-	checkOrder(ordered, []NodeID{g.Entry(), n1, n2, n3, g.Exit()}, t)
-
-	idoms := FindIdoms(ordered)
-	checkIntList(idoms, []int{0, 0, 1, 2, 3}, t)
+	idoms := FindDominators(g, order, index)
+	checkNodeList(idoms, []NodeID{e, n3, e, n1, n2}, t)
 }
 
 func TestLoop(t *testing.T) {
 	g := CreateGraph(nil, nil)
+
+	e := g.Entry()
+	x := g.Exit()
 	n1 := g.CreateNode("1", 1)
 	n2 := g.CreateNode("2", 1)
 	n3 := g.CreateNode("3", 1)
 
-	g.Connect(g.Entry(), 0, n1)
+	g.Connect(e, 0, n1)
 	g.Connect(n1, 0, n2)
 	g.Connect(n2, 0, n3)
 	g.Connect(n3, 0, n1)
 
-	r := CreateTestRegion(g)
+	order, index := ReversePostorderX(g)
+	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
+	checkIntList(index, []int{0, 4, 1, 2, 3}, t)
 
-	ordered := ReversePostorder(r)
-	checkOrder(ordered, []NodeID{g.Entry(), n1, n2, n3}, t)
-
-	idoms := FindIdoms(ordered)
-	checkIntList(idoms, []int{0, 0, 1, 2}, t)
+	idoms := FindDominators(g, order, index)
+	checkNodeList(idoms, []NodeID{e, e, e, n1, n2}, t)
 }
 
 func TestIrreducible(t *testing.T) {
 	g := CreateGraph(nil, nil)
+
+	e := g.Entry()
+	x := g.Exit()
 	n1 := g.CreateNode("1", 1)
 	n2 := g.CreateNode("2", 2)
 	n3 := g.CreateNode("3", 1)
@@ -221,7 +236,7 @@ func TestIrreducible(t *testing.T) {
 	n5 := g.CreateNode("5", 1)
 	n6 := g.CreateNode("6", 2)
 
-	g.Connect(g.Entry(), 0, n6)
+	g.Connect(e, 0, n6)
 
 	g.Connect(n6, 0, n5)
 	g.Connect(n6, 1, n4)
@@ -238,13 +253,12 @@ func TestIrreducible(t *testing.T) {
 
 	g.Connect(n1, 0, n2)
 
-	r := CreateTestRegion(g)
+	order, index := ReversePostorderX(g)
+	checkNodeList(order, []NodeID{e, n6, n5, n4, n3, n2, n1, x}, t)
+	checkIntList(index, []int{0, 7, 6, 5, 4, 3, 2, 1}, t)
 
-	ordered := ReversePostorder(r)
-	checkOrder(ordered, []NodeID{g.Entry(), n6, n5, n4, n3, n2, n1}, t)
-
-	idoms := FindIdoms(ordered)
-	checkIntList(idoms, []int{0, 0, 1, 1, 1, 1, 1}, t)
+	idoms := FindDominators(g, order, index)
+	checkNodeList(idoms, []NodeID{e, e, n6, n6, n6, n6, n6, e}, t)
 }
 
 //   0
@@ -258,12 +272,14 @@ func TestIrreducible(t *testing.T) {
 //   5
 func TestDiamond(t *testing.T) {
 	g := CreateGraph(nil, nil)
+	e := g.Entry()
+	x := g.Exit()
 	n1 := g.CreateNode("1", 2)
 	n2 := g.CreateNode("2", 1)
 	n3 := g.CreateNode("3", 1)
 	n4 := g.CreateNode("4", 1)
 
-	g.Connect(g.Entry(), 0, n1)
+	g.Connect(e, 0, n1)
 
 	g.Connect(n1, 0, n2)
 	g.Connect(n1, 1, n3)
@@ -272,17 +288,19 @@ func TestDiamond(t *testing.T) {
 
 	g.Connect(n3, 0, n4)
 
-	g.Connect(n4, 0, g.Exit())
+	g.Connect(n4, 0, x)
 
-	r := CreateTestRegion(g)
+	order, index := ReversePostorderX(g)
+	checkNodeList(order, []NodeID{e, n1, n2, n3, n4, x}, t)
+	checkIntList(index, []int{0, 5, 1, 2, 3, 4}, t)
 
-	ordered := ReversePostorder(r)
-	checkOrder(ordered, []NodeID{g.Entry(), n1, n2, n3, n4, g.Exit()}, t)
+	idoms := FindDominators(g, order, index)
+	checkNodeList(idoms, []NodeID{e, n4, e, n1, n1, n1}, t)
 
-	idoms := FindIdoms(ordered)
-	checkIntList(idoms, []int{0, 0, 1, 1, 1, 4}, t)
-
-	df := FindFrontiers(ordered, idoms)
+	// Legacy
+	ordered := ToNodeListHACK(g, order)
+	old := FindIdoms(ordered)
+	df := FindFrontiers(ordered, old)
 	checkIntListList(df, [][]int{[]int{}, []int{}, []int{4}, []int{4}, []int{}, []int{}}, t)
 }
 

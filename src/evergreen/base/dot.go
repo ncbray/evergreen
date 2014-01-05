@@ -71,6 +71,65 @@ func ReversePostorder(r *Region) []*Node {
 	return visitor.nodes
 }
 
+type rpoSearch struct {
+	graph *Graph
+	order []NodeID
+	index []int
+}
+
+func (s *rpoSearch) search(n NodeID) {
+	if s.index[n] != 0 {
+		return
+	}
+	// Prevent processing it again, the correct index will be computed later.
+	s.index[n] = 1
+	numExits := s.graph.NumExits(n)
+	for i := numExits - 1; i >= 0; i-- {
+		dst := s.graph.GetExit(n, i)
+		if dst != NoNode {
+			s.search(dst)
+		}
+	}
+	s.order = append(s.order, n)
+	// Zero is reserved, so use the actual index + 1.
+	s.index[n] = len(s.order)
+}
+
+func ReversePostorderX(g *Graph) ([]NodeID, []int) {
+	numNodes := len(g.nodes)
+	s := &rpoSearch{
+		graph: g,
+		order: make([]NodeID, 1, numNodes),
+		index: make([]int, numNodes),
+	}
+	// Implicit edge from entry to exit ensures exit will always be the last node.
+	s.order[0] = g.Exit()
+	s.index[g.Exit()] = 1
+	s.search(g.Entry())
+
+	o := len(s.order)
+	for i := 0; i < o/2; i++ {
+		s.order[i], s.order[o-1-i] = s.order[o-1-i], s.order[i]
+	}
+	for i := 0; i < numNodes; i++ {
+		if s.index[i] != 0 {
+			s.index[i] = o - s.index[i]
+		} else {
+			s.index[i] = -1
+		}
+	}
+	return s.order, s.index
+}
+
+func ToNodeListHACK(g *Graph, order []NodeID) []*Node {
+	nodes := make([]*Node, len(order))
+	for i, n := range order {
+		nodes[i] = g.ResolveNodeHACK(n)
+		nodes[i].Name = i
+	}
+	return nodes
+}
+
 type DefUseCollector struct {
 	VarUseAt [][]int
 	VarDefAt [][]int
@@ -114,6 +173,70 @@ func FindDefUse(nodes []*Node, numVars int, visit func(*Node, *DefUseCollector))
 	return defuse
 }
 
+func intersectDom(idoms []NodeID, index []int, n0 NodeID, n1 NodeID) NodeID {
+	i0 := index[n0]
+	i1 := index[n1]
+	for i0 != i1 {
+		for i0 > i1 {
+			n0 = idoms[n0]
+			i0 = index[n0]
+		}
+		for i0 < i1 {
+			n1 = idoms[n1]
+			i1 = index[n1]
+		}
+	}
+	return n0
+}
+
+func isBackedge(index []int, src NodeID, dst NodeID) bool {
+	return index[src] > index[dst]
+}
+
+func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
+	numNodes := len(g.nodes)
+	idoms := make([]NodeID, numNodes)
+	changed := false
+	for _, n := range order {
+		// If there are no forward entries into the node, assume an impossible edge.
+		new_idom := g.Entry()
+		first := true
+		numEntries := g.NumEntries(n)
+		for i := 0; i < numEntries; i++ {
+			e := g.GetEntry(n, i)
+			if !isBackedge(index, e, n) {
+				if first {
+					new_idom = e
+					first = false
+				} else {
+					new_idom = intersectDom(idoms, index, new_idom, e)
+				}
+			} else {
+				changed = true
+			}
+		}
+		idoms[n] = new_idom
+	}
+	for changed {
+		changed = false
+		for _, n := range order {
+			numEntries := g.NumEntries(n)
+			// 0 and 1 entry nodes should be stable after the first pass.
+			if numEntries >= 2 {
+				newIdom := idoms[n]
+				for i := 0; i < numEntries; i++ {
+					newIdom = intersectDom(idoms, index, newIdom, g.GetEntry(n, i))
+				}
+				if idoms[n] != newIdom {
+					idoms[n] = newIdom
+					changed = true
+				}
+			}
+		}
+	}
+	return idoms
+}
+
 func intersect(idoms []int, finger1 int, finger2 int) int {
 	for finger1 != finger2 {
 		for finger1 > finger2 {
@@ -131,16 +254,18 @@ func FindIdoms(ordered []*Node) []int {
 	idoms := make([]int, len(ordered))
 	earliest := make([]int, len(ordered))
 
-	idoms[0] = 0
-
 	n := len(ordered)
 
-	for i := 1; i < n; i++ {
-		idoms[i] = NoNode
+	for i := 0; i < n; i++ {
+		node := ordered[i]
+		if node.NumEntries() == 0 {
+			idoms[i] = 0
+		} else {
+			idoms[i] = NoNodeIndex
+		}
 
 		// Find the earliest use of this node.
 		e := n
-		node := ordered[i]
 		for j := 0; j < node.NumExits(); j++ {
 			next := node.GetNext(j)
 			if next != nil && next.Name < e {
@@ -156,15 +281,15 @@ func FindIdoms(ordered []*Node) []int {
 		for ; i < n; i++ {
 			// Note: assumes there are no dead entries.
 			entries := ordered[i].peekEntries()
-			new_idom := NoNode
+			new_idom := idoms[i]
 			for j := 0; j < len(entries); j++ {
 				other := entries[j].src.Name
 				// Is it available, yet?
-				if idoms[other] == NoNode {
+				if idoms[other] == NoNodeIndex {
 					continue
 				}
 				// Is it the first we've found?
-				if new_idom == NoNode {
+				if new_idom == NoNodeIndex {
 					new_idom = other
 				} else {
 					new_idom = intersect(idoms, other, new_idom)

@@ -19,7 +19,7 @@ func (e *Edge) attach(other *Node) {
 	other.addEntry(e)
 }
 
-const NoNode = ^int(0)
+const NoNodeIndex = ^int(0)
 
 type Node struct {
 	entries EntryList
@@ -162,6 +162,8 @@ type Region struct {
 
 type NodeID int
 
+const NoNode NodeID = ^NodeID(0)
+
 type Graph struct {
 	nodes []*Node
 }
@@ -194,6 +196,27 @@ func (g *Graph) ResolveNodeHACK(node NodeID) *Node {
 
 func (g *Graph) Connect(src NodeID, edge int, dst NodeID) {
 	g.nodes[src].SetExit(edge, g.nodes[dst])
+}
+
+func (g *Graph) NumEntries(dst NodeID) int {
+	return len(g.nodes[dst].entries)
+}
+
+func (g *Graph) GetEntry(dst NodeID, edge int) NodeID {
+	return g.nodes[dst].entries[edge].src.Id
+}
+
+func (g *Graph) NumExits(src NodeID) int {
+	return len(g.nodes[src].exits)
+}
+
+func (g *Graph) GetExit(src NodeID, edge int) NodeID {
+	next := g.nodes[src].exits[edge].dst
+	if next != nil {
+		return next.Id
+	} else {
+		return NoNode
+	}
 }
 
 func (g *Graph) CreateRegion(exits int) *GraphRegion {
