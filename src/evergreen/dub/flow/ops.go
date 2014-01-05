@@ -331,23 +331,38 @@ func (n *TransferOp) OpToString() string {
 
 // Flow blocks
 
-type DubEntry struct {
+type EntryOp struct {
 }
 
-type DubExit struct {
-	Flow int
+func (n *EntryOp) OpToString() string {
+	return "<entry>"
 }
 
-type DubSwitch struct {
+type SwitchOp struct {
 	Cond DubRegister
 }
 
-func (n *DubSwitch) OpToString() string {
+func (n *SwitchOp) OpToString() string {
 	return fmt.Sprintf("?%s", RegisterName(n.Cond))
 }
 
+type FlowExitOp struct {
+	Flow int
+}
+
+func (n *FlowExitOp) OpToString() string {
+	return fmt.Sprintf("<flow %d>", n.Flow)
+}
+
+type ExitOp struct {
+}
+
+func (n *ExitOp) OpToString() string {
+	return "<exit>"
+}
+
 func CreateEntry() *base.Node {
-	return base.CreateNode(&DubEntry{}, 1)
+	return base.CreateNode(&EntryOp{}, 1)
 }
 
 func CreateNode(op DubOp) *base.Node {
@@ -355,11 +370,11 @@ func CreateNode(op DubOp) *base.Node {
 }
 
 func CreateSwitch(cond DubRegister) *base.Node {
-	return base.CreateNode(&DubSwitch{Cond: cond}, 2)
+	return base.CreateNode(&SwitchOp{Cond: cond}, 2)
 }
 
 func CreateExit(flow int) *base.Node {
-	return base.CreateNode(&DubExit{Flow: flow}, 0)
+	return base.CreateNode(&FlowExitOp{Flow: flow}, 0)
 }
 
 func CreateRegion() *base.Region {
@@ -381,9 +396,11 @@ type DotStyler struct {
 
 func (styler *DotStyler) NodeStyle(data interface{}) string {
 	switch data := data.(type) {
-	case *DubEntry:
+	case *EntryOp:
 		return `shape=point,label="entry"`
-	case *DubExit:
+	case *ExitOp:
+		return `shape=point,label="exit"`
+	case *FlowExitOp:
 		switch data.Flow {
 		case 0:
 			return `shape=invtriangle,label="n"`
@@ -396,7 +413,7 @@ func (styler *DotStyler) NodeStyle(data interface{}) string {
 		default:
 			return `shape=invtriangle,label="?"`
 		}
-	case *DubSwitch:
+	case *SwitchOp:
 		return fmt.Sprintf("shape=diamond,label=%#v", RegisterName(data.Cond))
 	case DubOp:
 		return fmt.Sprintf("shape=box,label=%#v", data.OpToString())
@@ -408,13 +425,15 @@ func (styler *DotStyler) NodeStyle(data interface{}) string {
 func (styler *DotStyler) EdgeStyle(data interface{}, flow int) string {
 	color := "red"
 	switch data.(type) {
-	case *DubSwitch:
+	case *SwitchOp:
 		switch flow {
 		case 0:
 			color = "limegreen"
 		case 1:
 			color = "yellow"
 		}
+	case *FlowExitOp:
+		color = "gray"
 	default:
 		switch flow {
 		case 0:
@@ -472,7 +491,13 @@ func IsNop(op DubOp) bool {
 		return op.Dst == NoRegister
 	case *TransferOp:
 		return len(op.Dsts) == 0
-	case *DubSwitch:
+	case *EntryOp:
+		return false
+	case *SwitchOp:
+		return false
+	case *FlowExitOp:
+		return false
+	case *ExitOp:
 		return false
 	default:
 		panic(op)

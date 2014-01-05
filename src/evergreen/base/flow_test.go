@@ -12,12 +12,13 @@ func checkEdge(e *Edge, src *Node, dst *Node, t *testing.T) {
 	if e.dst != dst {
 		t.Errorf("Got dst of %v, expected %v", e.dst, dst)
 	}
-	if src.GetExit(e.index) != e {
+	if e.src.GetExit(e.index) != e {
 		t.Errorf("Inconsistent indexing for %v, found %v", e, src.GetExit(e.index))
 	}
 }
 
-func checkTopology(node *Node, entries []*Node, exits []*Node, t *testing.T) {
+func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *testing.T) {
+	node := g.nodes[id]
 	if node == nil {
 		t.Error("Node should not be nil")
 		return
@@ -27,120 +28,108 @@ func checkTopology(node *Node, entries []*Node, exits []*Node, t *testing.T) {
 		t.Errorf("Expected %d entries, got %d", len(entries), len(oentries))
 	} else {
 		for i, entry := range entries {
-			checkEdge(oentries[i], entry, node, t)
+			checkEdge(oentries[i], g.nodes[entry], node, t)
 		}
 	}
 	if len(exits) != node.NumExits() {
 		t.Errorf("Expected %d exits, got %d", len(entries), node.NumExits())
 	} else {
 		for i, exit := range exits {
-			checkEdge(node.GetExit(i), node, exit, t)
+			checkEdge(node.GetExit(i), node, g.nodes[exit], t)
 		}
 	}
 }
 
-type TestEntry struct {
-}
-
-type TestExit struct {
-	flow int
-}
-
-type TestNode struct {
-	name string
-}
-
-func CreateTestEntry() *Node {
-	return CreateNode(&TestEntry{}, 1)
-}
-
-func CreateTestNode(name string, numExits int) *Node {
-	return CreateNode(&TestNode{name: name}, numExits)
-}
-
-func CreateTestExit(flow int) *Node {
-	return CreateNode(&TestExit{flow: flow}, 0)
-}
-
-func CreateTestRegion() *Region {
-	r := &Region{
-		Entry: CreateTestEntry(),
-		Exits: []*Node{
-			CreateTestExit(0),
-			CreateTestExit(1),
-		},
-	}
-	r.Entry.SetExit(0, r.Exits[0])
-	return r
-}
-
 func TestSimpleFlow(t *testing.T) {
-	r := CreateTestRegion()
-	n := CreateTestNode("n", 2)
-	r.Connect(0, n)
-	r.AttachDefaultExits(n)
+	g := CreateGraph(nil, nil)
+	n := g.CreateNode(nil, 1)
+	g.Connect(g.Entry(), 0, n)
+	g.Connect(n, 0, g.Exit())
 
-	checkTopology(r.GetEntry(), []*Node{}, []*Node{n}, t)
-	checkTopology(n, []*Node{r.GetEntry()}, []*Node{r.GetExit(0), r.GetExit(1)}, t)
-	checkTopology(r.GetExit(0), []*Node{n}, []*Node{}, t)
-	checkTopology(r.GetExit(1), []*Node{n}, []*Node{}, t)
+	checkTopology(g, g.Entry(), []NodeID{}, []NodeID{n}, t)
+	checkTopology(g, n, []NodeID{g.Entry()}, []NodeID{g.Exit()}, t)
+	checkTopology(g, g.Exit(), []NodeID{n}, []NodeID{}, t)
+}
+
+func TestSliceEmptySplice(t *testing.T) {
+	g := CreateGraph(nil, nil)
+	gr0 := g.CreateRegion(2)
+	gr1 := g.CreateRegion(2)
+	checkInt("sanity", len(gr0.exits[0]), 1, t)
+	gr1.Swap(0, 1)
+	gr0.Splice(0, gr1)
+	checkInt("swaped", len(gr0.exits[1]), 1, t)
+}
+
+func TestSliceEdgeEmptySplice(t *testing.T) {
+	g := CreateGraph(nil, nil)
+	gr0 := g.CreateRegion(2)
+	gr1 := g.CreateRegion(2)
+	n := g.CreateNode(nil, 1)
+	gr0.AttachFlow(0, n)
+
+	checkInt("sanity", len(gr0.exits[0]), 0, t)
+	gr1.Swap(0, 1)
+	gr0.SpliceToEdge(n, 0, gr1)
+	checkInt("swaped", len(gr0.exits[1]), 1, t)
 }
 
 func TestRepeatFlow(t *testing.T) {
-	l := CreateTestRegion()
-	n := CreateTestNode("n", 2)
-	l.Connect(0, n)
-	l.AttachDefaultExits(n)
-	head := l.Head()
+	g := CreateGraph(nil, nil)
+	gr := g.CreateRegion(2)
+
+	n := g.CreateNode("n", 2)
+	gr.AttachFlow(0, n)
+	gr.RegisterExit(n, 0, 0)
+	gr.RegisterExit(n, 1, 1)
+
 	// Normal flow iterates
-	l.GetExit(0).TransferEntries(head)
+	gr.AttachFlow(0, n)
+
 	// Stop iterating on failure
-	l.GetExit(1).TransferEntries(l.GetExit(0))
+	gr.Swap(0, 1)
 
-	checkTopology(l.GetEntry(), []*Node{}, []*Node{n}, t)
-	checkTopology(n, []*Node{l.GetEntry(), n}, []*Node{n, l.GetExit(0)}, t)
-	checkTopology(l.GetExit(0), []*Node{n}, []*Node{}, t)
-	checkTopology(l.GetExit(1), []*Node{}, []*Node{}, t)
+	g.ConnectRegion(gr)
 
-	r := CreateTestRegion()
+	e := g.Entry()
+	x := g.Exit()
 
-	r.Splice(0, l)
-
-	checkTopology(l.GetEntry(), []*Node{}, []*Node{nil}, t)
-	checkTopology(l.GetExit(0), []*Node{}, []*Node{}, t)
-	checkTopology(l.GetExit(1), []*Node{}, []*Node{}, t)
-
-	checkTopology(r.GetEntry(), []*Node{}, []*Node{n}, t)
-	checkTopology(n, []*Node{r.GetEntry(), n}, []*Node{n, r.GetExit(0)}, t)
-	checkTopology(r.GetExit(0), []*Node{n}, []*Node{}, t)
-	checkTopology(r.GetExit(1), []*Node{}, []*Node{}, t)
+	checkTopology(g, e, []NodeID{}, []NodeID{n}, t)
+	checkTopology(g, n, []NodeID{e, n}, []NodeID{n, x}, t)
+	checkTopology(g, x, []NodeID{n}, []NodeID{}, t)
 }
 
 func TestWhileFlow(t *testing.T) {
-	l := CreateTestRegion()
-	cond := CreateTestNode("cond", 2)
-	decide := CreateTestNode("decide", 2)
-	body := CreateTestNode("body", 2)
+	g := CreateGraph(nil, nil)
+	gr := g.CreateRegion(2)
+	c := g.CreateNode("c", 1)
+	d := g.CreateNode("d", 2)
+	b := g.CreateNode("b", 1)
 
-	l.Connect(0, cond)
-	l.AttachDefaultExits(cond)
+	gr.AttachFlow(0, c)
+	gr.RegisterExit(c, 0, 0)
 
-	l.Connect(0, decide)
-	decide.SetExit(0, body)
+	gr.AttachFlow(0, d)
+	gr.RegisterExit(d, 0, 0)
+	gr.RegisterExit(d, 1, 1)
 
-	l.AttachDefaultExits(body)
-	l.Connect(0, cond)
-	decide.SetExit(1, l.GetExit(0))
+	gr.AttachFlow(0, b)
+	gr.RegisterExit(b, 0, 0)
 
-	r := CreateTestRegion()
-	r.Splice(0, l)
+	gr.AttachFlow(0, c)
 
-	checkTopology(r.GetEntry(), []*Node{}, []*Node{cond}, t)
-	checkTopology(cond, []*Node{r.GetEntry(), body}, []*Node{decide, r.GetExit(1)}, t)
-	checkTopology(decide, []*Node{cond}, []*Node{body, r.GetExit(0)}, t)
-	checkTopology(body, []*Node{decide}, []*Node{cond, r.GetExit(1)}, t)
-	checkTopology(r.GetExit(0), []*Node{decide}, []*Node{}, t)
-	checkTopology(r.GetExit(1), []*Node{cond, body}, []*Node{}, t)
+	gr.Swap(0, 1)
+
+	g.ConnectRegion(gr)
+
+	e := g.Entry()
+	x := g.Exit()
+
+	checkTopology(g, e, []NodeID{}, []NodeID{c}, t)
+	checkTopology(g, c, []NodeID{e, b}, []NodeID{d}, t)
+	checkTopology(g, d, []NodeID{c}, []NodeID{b, x}, t)
+	checkTopology(g, b, []NodeID{d}, []NodeID{c}, t)
+	checkTopology(g, x, []NodeID{d}, []NodeID{}, t)
 }
 
 func checkInt(name string, actual int, expected int, t *testing.T) {
@@ -149,11 +138,11 @@ func checkInt(name string, actual int, expected int, t *testing.T) {
 	}
 }
 
-func checkOrder(actualOrder []*Node, expectedOrder []*Node, t *testing.T) {
+func checkOrder(actualOrder []*Node, expectedOrder []NodeID, t *testing.T) {
 	checkInt("len", len(actualOrder), len(expectedOrder), t)
 	for i, expected := range expectedOrder {
-		if actualOrder[i] != expected {
-			t.Fatalf("%d: %#v != %#v", i, actualOrder[i], expected)
+		if actualOrder[i].Id != expected {
+			t.Fatalf("%d: %#v != %#v", i, actualOrder[i].Id, expected)
 		}
 		checkInt(fmt.Sprint(i), actualOrder[i].Name, i, t)
 	}
@@ -173,74 +162,86 @@ func checkIntListList(actualList [][]int, expectedList [][]int, t *testing.T) {
 	}
 }
 
+func CreateTestRegion(g *Graph) *Region {
+	return &Region{
+		Entry: g.ResolveNodeHACK(g.Entry()),
+		Exits: []*Node{
+			g.ResolveNodeHACK(g.Exit()),
+		},
+	}
+}
+
 func TestSanity(t *testing.T) {
-	r := CreateTestRegion()
-	n1 := CreateTestNode("1", 1)
-	n2 := CreateTestNode("2", 1)
-	n3 := CreateTestNode("3", 1)
+	g := CreateGraph(nil, nil)
 
-	r.Connect(0, n1)
-	r.AttachDefaultExits(n1)
+	n1 := g.CreateNode("1", 1)
+	n2 := g.CreateNode("2", 1)
+	n3 := g.CreateNode("3", 1)
 
-	r.Connect(0, n2)
-	r.AttachDefaultExits(n2)
+	g.Connect(g.Entry(), 0, n1)
+	g.Connect(n1, 0, n2)
+	g.Connect(n2, 0, n3)
+	g.Connect(n3, 0, g.Exit())
 
-	r.Connect(0, n3)
-	r.AttachDefaultExits(n3)
+	r := CreateTestRegion(g)
 
 	ordered := ReversePostorder(r)
-	checkOrder(ordered, []*Node{r.Entry, n1, n2, n3, r.Exits[0]}, t)
+	checkOrder(ordered, []NodeID{g.Entry(), n1, n2, n3, g.Exit()}, t)
 
 	idoms := FindIdoms(ordered)
 	checkIntList(idoms, []int{0, 0, 1, 2, 3}, t)
 }
 
 func TestLoop(t *testing.T) {
-	r := CreateTestRegion()
-	n1 := CreateTestNode("1", 1)
-	n2 := CreateTestNode("2", 1)
-	n3 := CreateTestNode("3", 1)
+	g := CreateGraph(nil, nil)
+	n1 := g.CreateNode("1", 1)
+	n2 := g.CreateNode("2", 1)
+	n3 := g.CreateNode("3", 1)
 
-	r.Connect(0, n1)
-	n1.SetExit(0, n2)
-	n2.SetExit(0, n3)
-	n3.SetExit(0, n1)
+	g.Connect(g.Entry(), 0, n1)
+	g.Connect(n1, 0, n2)
+	g.Connect(n2, 0, n3)
+	g.Connect(n3, 0, n1)
+
+	r := CreateTestRegion(g)
 
 	ordered := ReversePostorder(r)
-	checkOrder(ordered, []*Node{r.Entry, n1, n2, n3}, t)
+	checkOrder(ordered, []NodeID{g.Entry(), n1, n2, n3}, t)
 
 	idoms := FindIdoms(ordered)
 	checkIntList(idoms, []int{0, 0, 1, 2}, t)
 }
 
 func TestIrreducible(t *testing.T) {
-	r := CreateTestRegion()
-	n1 := CreateTestNode("1", 1)
-	n2 := CreateTestNode("2", 2)
-	n3 := CreateTestNode("3", 1)
-	n4 := CreateTestNode("4", 2)
-	n5 := CreateTestNode("5", 1)
-	n6 := CreateTestNode("6", 2)
+	g := CreateGraph(nil, nil)
+	n1 := g.CreateNode("1", 1)
+	n2 := g.CreateNode("2", 2)
+	n3 := g.CreateNode("3", 1)
+	n4 := g.CreateNode("4", 2)
+	n5 := g.CreateNode("5", 1)
+	n6 := g.CreateNode("6", 2)
 
-	r.Connect(0, n6)
+	g.Connect(g.Entry(), 0, n6)
 
-	n6.SetExit(0, n5)
-	n6.SetExit(1, n4)
+	g.Connect(n6, 0, n5)
+	g.Connect(n6, 1, n4)
 
-	n5.SetExit(0, n1)
+	g.Connect(n5, 0, n1)
 
-	n4.SetExit(0, n2)
-	n4.SetExit(1, n3)
+	g.Connect(n4, 0, n2)
+	g.Connect(n4, 1, n3)
 
-	n3.SetExit(0, n2)
+	g.Connect(n3, 0, n2)
 
-	n2.SetExit(0, n1)
-	n2.SetExit(1, n3)
+	g.Connect(n2, 0, n1)
+	g.Connect(n2, 1, n3)
 
-	n1.SetExit(0, n2)
+	g.Connect(n1, 0, n2)
+
+	r := CreateTestRegion(g)
 
 	ordered := ReversePostorder(r)
-	checkOrder(ordered, []*Node{r.Entry, n6, n5, n4, n3, n2, n1}, t)
+	checkOrder(ordered, []NodeID{g.Entry(), n6, n5, n4, n3, n2, n1}, t)
 
 	idoms := FindIdoms(ordered)
 	checkIntList(idoms, []int{0, 0, 1, 1, 1, 1, 1}, t)
@@ -256,25 +257,27 @@ func TestIrreducible(t *testing.T) {
 //   |
 //   5
 func TestDiamond(t *testing.T) {
-	r := CreateTestRegion()
-	n1 := CreateTestNode("1", 2)
-	n2 := CreateTestNode("2", 1)
-	n3 := CreateTestNode("3", 1)
-	n4 := CreateTestNode("4", 1)
+	g := CreateGraph(nil, nil)
+	n1 := g.CreateNode("1", 2)
+	n2 := g.CreateNode("2", 1)
+	n3 := g.CreateNode("3", 1)
+	n4 := g.CreateNode("4", 1)
 
-	r.Connect(0, n1)
+	g.Connect(g.Entry(), 0, n1)
 
-	n1.SetExit(0, n2)
-	n1.SetExit(1, n3)
+	g.Connect(n1, 0, n2)
+	g.Connect(n1, 1, n3)
 
-	n2.SetExit(0, n4)
+	g.Connect(n2, 0, n4)
 
-	n3.SetExit(0, n4)
+	g.Connect(n3, 0, n4)
 
-	r.AttachDefaultExits(n4)
+	g.Connect(n4, 0, g.Exit())
+
+	r := CreateTestRegion(g)
 
 	ordered := ReversePostorder(r)
-	checkOrder(ordered, []*Node{r.Entry, n1, n2, n3, n4, r.GetExit(0)}, t)
+	checkOrder(ordered, []NodeID{g.Entry(), n1, n2, n3, n4, g.Exit()}, t)
 
 	idoms := FindIdoms(ordered)
 	checkIntList(idoms, []int{0, 0, 1, 1, 1, 4}, t)
@@ -297,32 +300,35 @@ func TestDiamond(t *testing.T) {
 //   |
 //   8
 func TestDoubleDiamond(t *testing.T) {
-	r := CreateTestRegion()
-	n1 := CreateTestNode("1", 2)
-	n2 := CreateTestNode("2", 2)
-	n3 := CreateTestNode("3", 1)
-	n4 := CreateTestNode("4", 1)
-	n5 := CreateTestNode("5", 1)
-	n6 := CreateTestNode("6", 1)
-	n7 := CreateTestNode("7", 1)
+	g := CreateGraph(nil, nil)
+	n1 := g.CreateNode("1", 2)
+	n2 := g.CreateNode("2", 2)
+	n3 := g.CreateNode("3", 1)
+	n4 := g.CreateNode("4", 1)
+	n5 := g.CreateNode("5", 1)
+	n6 := g.CreateNode("6", 1)
+	n7 := g.CreateNode("7", 1)
 
-	r.Connect(0, n1)
+	g.Connect(g.Entry(), 0, n1)
 
-	n1.SetExit(0, n2)
-	n1.SetExit(1, n6)
+	g.Connect(n1, 0, n2)
+	g.Connect(n1, 1, n6)
 
-	n2.SetExit(0, n3)
-	n2.SetExit(1, n4)
+	g.Connect(n2, 0, n3)
+	g.Connect(n2, 1, n4)
 
-	n3.SetExit(0, n5)
-	n4.SetExit(0, n5)
-	n5.SetExit(0, n7)
-	n6.SetExit(0, n7)
-	r.AttachDefaultExits(n7)
+	g.Connect(n3, 0, n5)
+	g.Connect(n4, 0, n5)
+	g.Connect(n5, 0, n7)
+	g.Connect(n6, 0, n7)
+
+	g.Connect(n7, 0, g.Exit())
+
+	r := CreateTestRegion(g)
 
 	builder := CreateSSIBuilder(r, ReversePostorder(r), &SimpleLivenessOracle{})
 
-	checkOrder(builder.nodes, []*Node{r.Entry, n1, n2, n3, n4, n5, n6, n7, r.GetExit(0)}, t)
+	checkOrder(builder.nodes, []NodeID{g.Entry(), n1, n2, n3, n4, n5, n6, n7, g.Exit()}, t)
 
 	checkIntList(builder.Idoms, []int{0, 0, 1, 2, 2, 2, 1, 1, 7}, t)
 

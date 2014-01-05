@@ -302,11 +302,12 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 
 func generateNode(info *regionInfo, node *base.Node, block []ast.Stmt) []ast.Stmt {
 	switch data := node.Data.(type) {
-	case *DubEntry:
+	case *EntryOp:
 		block = gotoNode(info, node.GetNext(0), block)
-	case *DubExit:
+	case *FlowExitOp:
 		block = append(block, &ast.ReturnStmt{})
-	case *DubSwitch:
+	case *ExitOp:
+	case *SwitchOp:
 		block = emitSwitch(info, reg(data.Cond), node.GetNext(0), node.GetNext(1), block)
 	case DubOp:
 		block = GenerateOp(info.decl, data, block)
@@ -369,7 +370,8 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 	labels := map[*base.Node]int{}
 	uid := 0
 	for i, node := range nodes {
-		if i == 0 || node.NumEntries() >= 2 {
+		_, isExit := node.Data.(*ExitOp)
+		if (i == 0 || node.NumEntries() >= 2) && !isExit {
 			heads = append(heads, node)
 			labels[node] = uid
 			uid = uid + 1

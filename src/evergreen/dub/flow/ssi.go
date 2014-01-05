@@ -16,7 +16,7 @@ func AddUse(reg DubRegister, node int, defuse *base.DefUseCollector) {
 
 func collectDefUse(node *base.Node, defuse *base.DefUseCollector) {
 	switch op := node.Data.(type) {
-	case *DubEntry, *DubExit:
+	case *EntryOp, *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
 		AddDef(op.Dst, node.Name, defuse)
@@ -57,7 +57,7 @@ func collectDefUse(node *base.Node, defuse *base.DefUseCollector) {
 		AddUse(op.Src, node.Name, defuse)
 	case *LookaheadEnd:
 		AddUse(op.Src, node.Name, defuse)
-	case *DubSwitch:
+	case *SwitchOp:
 		AddUse(op.Cond, node.Name, defuse)
 	case *ReturnOp:
 		for _, arg := range op.Exprs {
@@ -157,7 +157,7 @@ func (r *RegisterReallocator) Set(n int, reg DubRegister, name DubRegister) {
 func renameOp(node *base.Node, data interface{}, ra *RegisterReallocator) {
 	n := node.Name
 	switch op := data.(type) {
-	case *DubEntry, *DubExit:
+	case *EntryOp, *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
 		op.Dst = ra.MakeOutput(n, op.Dst)
@@ -200,7 +200,7 @@ func renameOp(node *base.Node, data interface{}, ra *RegisterReallocator) {
 		op.Src = ra.Get(n, op.Src)
 	case *LookaheadEnd:
 		op.Src = ra.Get(n, op.Src)
-	case *DubSwitch:
+	case *SwitchOp:
 		op.Cond = ra.Get(n, op.Cond)
 	case *ReturnOp:
 		for i, arg := range op.Exprs {
@@ -249,7 +249,7 @@ func rename(decl *LLFunc) {
 
 func killUnusedOutputs(n int, data interface{}, live base.LivenessOracle) {
 	switch op := data.(type) {
-	case *DubEntry, *DubExit:
+	case *EntryOp, *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
 		if !live.LiveAtExit(n, int(op.Dst)) {
@@ -309,7 +309,7 @@ func killUnusedOutputs(n int, data interface{}, live base.LivenessOracle) {
 		}
 	case *Recover:
 	case *LookaheadEnd:
-	case *DubSwitch:
+	case *SwitchOp:
 	case *ReturnOp:
 	case *ConstructOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {

@@ -98,7 +98,7 @@ func makeRuneSwitch(cond flow.DubRegister, op string, value rune, builder *DubBu
 		},
 	)
 
-	decide := builder.EmitOp(&flow.DubSwitch{Cond: breg})
+	decide := builder.EmitOp(&flow.SwitchOp{Cond: breg})
 
 	builder.graph.Connect(make_value, flow.NORMAL, compare)
 	builder.graph.Connect(compare, flow.NORMAL, decide)
@@ -271,7 +271,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 	switch expr := expr.(type) {
 	case *tree.If:
 		cond := lowerExpr(expr.Expr, builder, true, gr)
-		decide := builder.EmitOp(&flow.DubSwitch{Cond: cond})
+		decide := builder.EmitOp(&flow.SwitchOp{Cond: cond})
 		gr.AttachFlow(flow.NORMAL, decide)
 
 		block := builder.graph.CreateRegion(REGION_EXITS)
@@ -595,8 +595,10 @@ func lowerBlock(block []tree.ASTExpr, builder *DubBuilder, gr *base.GraphRegion)
 }
 
 func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
-	g := base.CreateGraph()
-	builder := &DubBuilder{decl: decl, glbl: glbl, graph: g}
+	entry := &flow.EntryOp{}
+	exit := &flow.ExitOp{}
+	g := base.CreateGraph(entry, exit)
+	builder := &DubBuilder{decl: decl, glbl: glbl, graph: g, ops: []flow.DubOp{entry, exit}}
 
 	f := &flow.LLFunc{Name: decl.Name.Text}
 	types := make([]flow.DubType, len(decl.ReturnTypes))
@@ -615,10 +617,20 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 
 	// Attach to the traditional entry and exit nodes.
 	r := flow.CreateRegion()
-	r.Connect(flow.NORMAL, gr.HeadHACK())
-	for i := 0; i < 4; i++ {
-		gr.AttachFlowHACK(i, r.GetExit(i))
+	r.Entry = g.ResolveNodeHACK(g.Entry())
+
+	// TODO only connect the real exits, assert no virtual exits.
+	for i := 0; i < REGION_EXITS; i++ {
+		if gr.HasFlow(i) {
+			fe := builder.EmitOp(&flow.FlowExitOp{Flow: i})
+			gr.AttachFlow(i, fe)
+			gr.RegisterExit(fe, 0, 0)
+
+			r.Exits[i] = g.ResolveNodeHACK(fe)
+		}
 	}
+
+	g.ConnectRegion(gr)
 
 	f.Region = r
 	f.Registers = builder.registers

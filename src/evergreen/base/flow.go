@@ -105,7 +105,7 @@ func (n *Node) TransferEntries(other *Node) {
 
 func (n *Node) InsertAt(flow int, target *Edge) {
 	if target.dst != nil {
-		target.dst.ReplaceEntry(target, []*Edge{n.GetExit(flow)})
+		target.dst.replaceSingleEntry(target, n.GetExit(flow))
 	}
 	target.dst = n
 	n.addEntry(target)
@@ -124,12 +124,16 @@ func (n *Node) Remove() {
 				panic(n.Data)
 			}
 		}
-		e.dst.ReplaceEntry(e, n.popEntries())
+		e.dst.replaceEntry(e, n.popEntries())
 		break
 	}
 }
 
-func (n *Node) ReplaceEntry(target *Edge, replacements EntryList) {
+func (n *Node) replaceSingleEntry(target *Edge, replacement *Edge) {
+	n.replaceEntry(target, []*Edge{replacement})
+}
+
+func (n *Node) replaceEntry(target *Edge, replacements EntryList) {
 	old := n.popEntries()
 	for i, e := range old {
 		if e == target {
@@ -156,43 +160,18 @@ type Region struct {
 	Exits []*Node
 }
 
-func (r *Region) Head() *Node {
-	return r.Entry.GetExit(0).dst
-}
-
-func (r *Region) Connect(flow int, n *Node) {
-	r.Exits[flow].TransferEntries(n)
-}
-
-func (r *Region) AttachDefaultExits(n *Node) {
-	n.SetDefaultExits(r.Exits)
-}
-
-func (r *Region) Splice(flow int, other *Region) {
-	otherEntry := other.Entry.GetExit(0)
-	otherHead := otherEntry.dst
-	otherHead.ReplaceEntry(otherEntry, r.Exits[flow].popEntries())
-	r.AbsorbExits(other)
-}
-
-func (r *Region) AbsorbExits(other *Region) {
-	for i, exit := range r.Exits {
-		other.Exits[i].TransferEntries(exit)
-	}
-}
-
-func (r *Region) GetEntry() *Node {
-	return r.Entry
-}
-
-func (r *Region) GetExit(flow int) *Node {
-	return r.Exits[flow]
-}
-
 type NodeID int
 
 type Graph struct {
 	nodes []*Node
+}
+
+func (g *Graph) Entry() NodeID {
+	return 0
+}
+
+func (g *Graph) Exit() NodeID {
+	return 1
 }
 
 func (g *Graph) CreateNode(data interface{}, exits int) NodeID {
@@ -209,57 +188,65 @@ func (g *Graph) CreateNode(data interface{}, exits int) NodeID {
 	return id
 }
 
+func (g *Graph) ResolveNodeHACK(node NodeID) *Node {
+	return g.nodes[node]
+}
+
 func (g *Graph) Connect(src NodeID, edge int, dst NodeID) {
 	g.nodes[src].SetExit(edge, g.nodes[dst])
 }
 
 func (g *Graph) CreateRegion(exits int) *GraphRegion {
 	gr := &GraphRegion{
-		implicitExit: 0,
-		graph:        g,
-		exits:        make([][]*Edge, exits),
+		graph: g,
+		exits: make([][]*Edge, exits),
 	}
+	gr.exits[0] = []*Edge{&gr.entryEdge}
 	return gr
 }
 
-func CreateGraph() *Graph {
-	return &Graph{}
+func (g *Graph) ConnectRegion(gr *GraphRegion) {
+	regionHead := gr.entryEdge.dst
+	if regionHead == nil {
+		g.Connect(g.Entry(), 0, g.Exit())
+	} else {
+		entry := g.nodes[g.Entry()]
+		regionHead.replaceSingleEntry(&gr.entryEdge, entry.GetExit(0))
+		for i := 0; i < len(gr.exits); i++ {
+			if len(gr.exits[i]) > 0 {
+				gr.AttachFlow(i, g.Exit())
+			}
+		}
+	}
+}
+
+func CreateGraph(entry interface{}, exit interface{}) *Graph {
+	g := &Graph{}
+	g.CreateNode(entry, 1)
+	g.CreateNode(exit, 0)
+	return g
 }
 
 type GraphRegion struct {
-	graph        *Graph
-	entry        *Node
-	exits        [][]*Edge
-	implicitExit int
+	graph     *Graph
+	exits     [][]*Edge
+	entryEdge Edge
 }
 
 func (gr *GraphRegion) HasFlow(flow int) bool {
-	if gr.entry == nil {
-		return flow == gr.implicitExit
-	} else {
-		return len(gr.exits[flow]) > 0
-	}
+	return len(gr.exits[flow]) > 0
 }
 
 func (gr *GraphRegion) AttachFlow(flow int, dst NodeID) {
 	dstNode := gr.graph.nodes[dst]
-	gr.AttachFlowHACK(flow, dstNode)
-}
-
-func (gr *GraphRegion) AttachFlowHACK(flow int, dstNode *Node) {
-	if gr.entry == nil {
-		if gr.implicitExit == flow {
-			gr.entry = dstNode
-		} else {
-			panic("bad first node?")
-		}
-	} else {
-		// TODO extend entries directly.
-		for _, e := range gr.exits[flow] {
-			e.attach(dstNode)
-		}
-		gr.exits[flow] = nil
+	if !gr.HasFlow(flow) {
+		panic("Tried to attach non-existant flow")
 	}
+	// TODO extend entries directly.
+	for _, e := range gr.exits[flow] {
+		e.attach(dstNode)
+	}
+	gr.exits[flow] = nil
 }
 
 func (gr *GraphRegion) RegisterExit(src NodeID, edge int, flow int) {
@@ -273,36 +260,54 @@ func (gr *GraphRegion) RegisterExit(src NodeID, edge int, flow int) {
 
 func (gr *GraphRegion) Swap(flow0 int, flow1 int) {
 	gr.exits[flow0], gr.exits[flow1] = gr.exits[flow1], gr.exits[flow0]
-	if gr.implicitExit == flow0 {
-		gr.implicitExit = flow1
-	} else if gr.implicitExit == flow1 {
-		gr.implicitExit = flow0
-	}
+}
+
+func (gr *GraphRegion) popExits(flow int) []*Edge {
+	exits := gr.exits[flow]
+	gr.exits[flow] = nil
+	return exits
 }
 
 func (gr *GraphRegion) MergeFlowInto(srcFlow int, dstFlow int) {
-	gr.exits[dstFlow] = append(gr.exits[dstFlow], gr.exits[srcFlow]...)
-	gr.exits[srcFlow] = nil
+	if srcFlow != dstFlow {
+		gr.exits[dstFlow] = append(gr.exits[dstFlow], gr.popExits(srcFlow)...)
+	}
+}
+
+func (gr *GraphRegion) findEntryEdge() int {
+	if gr.entryEdge.dst != nil {
+		panic(gr.entryEdge.dst)
+	}
+	for i, exits := range gr.exits {
+		if len(exits) == 1 {
+			return i
+		}
+	}
+	panic(gr.exits)
 }
 
 func (gr *GraphRegion) Splice(flow int, other *GraphRegion) {
 	if !gr.HasFlow(flow) {
 		panic("Sloppy: tried to splice to nothing.")
 	}
-	if other.entry == nil {
-		panic("TODO: empty splice")
-	} else {
-		gr.AttachFlowHACK(flow, other.entry)
+	otherHead := other.entryEdge.dst
+	if otherHead != nil {
+		edges := gr.popExits(flow)
+		otherHead.replaceEntry(&other.entryEdge, edges)
 		gr.absorbExits(other)
+	} else {
+		gr.MergeFlowInto(flow, other.findEntryEdge())
 	}
 }
 
 func (gr *GraphRegion) SpliceToEdge(src NodeID, flow int, other *GraphRegion) {
-	if other.entry != nil {
-		gr.graph.Connect(src, flow, other.entry.Id)
+	srcNode := gr.graph.nodes[src]
+	otherHead := other.entryEdge.dst
+	if otherHead != nil {
+		otherHead.replaceSingleEntry(&other.entryEdge, srcNode.GetExit(flow))
 		gr.absorbExits(other)
 	} else {
-		gr.RegisterExit(src, flow, other.implicitExit)
+		gr.RegisterExit(src, flow, other.findEntryEdge())
 	}
 }
 
@@ -312,8 +317,4 @@ func (gr *GraphRegion) absorbExits(other *GraphRegion) {
 		other.exits[i] = nil
 		gr.exits[i] = append(gr.exits[i], otherExits...)
 	}
-}
-
-func (gr *GraphRegion) HeadHACK() *Node {
-	return gr.entry
 }
