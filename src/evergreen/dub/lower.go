@@ -434,6 +434,16 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 		return flow.NoRegister
 
+	case *tree.Position:
+		if !used {
+			return flow.NoRegister
+		}
+		pos := builder.CreateLLRegister(builder.glbl.Int)
+		// HACK assume checkpoint is just the index
+		head := builder.EmitOp(&flow.Checkpoint{Dst: pos})
+		gr.AttachFlow(flow.NORMAL, head)
+		gr.RegisterExit(head, flow.NORMAL, flow.NORMAL)
+		return pos
 	case *tree.BinaryOp:
 		left := lowerExpr(expr.Left, builder, true, gr)
 		right := lowerExpr(expr.Right, builder, true, gr)

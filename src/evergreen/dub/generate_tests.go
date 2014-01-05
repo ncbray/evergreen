@@ -150,11 +150,12 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 					attr(id(actual_name), fn),
 				},
 			})
+			f := tree.GetField(dt, fn)
 			childstmts = generateDestructure(
 				child_name,
 				child_path,
 				arg.Destructure,
-				tree.FieldType(dt, fn),
+				tree.ResolveType(f.Type),
 				gbuilder,
 				childstmts,
 			)

@@ -25,7 +25,13 @@ func childScope(scope *semanticScope) *semanticScope {
 	return &semanticScope{parent: scope, locals: map[string]int{}}
 }
 
+var unresolvedType ASTType = nil
+
 func TypeMatches(actual ASTType, expected ASTType, exact bool) bool {
+	if actual == unresolvedType || expected == unresolvedType {
+		return true
+	}
+
 	switch actual := actual.(type) {
 	case *StructDecl:
 		other, ok := expected.(*StructDecl)
@@ -119,7 +125,8 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		name := expr.Name.Text
 		info, found := scope.localInfo(name)
 		if !found {
-			panic(fmt.Sprintf("Could not resolve name %#v", name))
+			status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
+			return unresolvedType
 		}
 		expr.Info = info
 		return decl.Locals[info].T
@@ -140,7 +147,8 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		if expr.Define {
 			_, exists = scope.localInfo(expr.Name.Text)
 			if exists {
-				panic(fmt.Sprintf("Tried to redefine %#v", name))
+				status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
+				return unresolvedType
 			}
 
 			info = len(decl.Locals)
@@ -149,7 +157,8 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		} else {
 			info, exists = scope.localInfo(name)
 			if !exists {
-				panic(fmt.Sprintf("%s: Tried to assign to unknown variable %#v", decl.Name.Text, name))
+				status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to assign to unknown variable %#v", name))
+				return unresolvedType
 			}
 		}
 		expr.Info = info
@@ -184,6 +193,8 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			}
 		}
 		return glbls.Void
+	case *Position:
+		return glbls.Int
 	case *Fail:
 		return glbls.Void
 	case *Call:
@@ -205,9 +216,14 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			aft := semanticExprPass(decl, arg.Expr, scope, glbls, status)
 			if st != nil {
 				fn := arg.Name.Text
-				eft := FieldType(st, fn)
-				if !TypeMatches(aft, eft, false) {
-					status.Error("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft))
+				f := GetField(st, fn)
+				if f != nil {
+					eft := ResolveType(f.Type)
+					if !TypeMatches(aft, eft, false) {
+						status.Error("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft))
+					}
+				} else {
+					status.LocationError(arg.Name.Pos, fmt.Sprintf("%s does not have field %s", TypeName(t), fn))
 				}
 			}
 		}
@@ -245,13 +261,15 @@ func semanticTypePass(node ASTTypeRef, glbls *ModuleScope, status framework.Stat
 			d, ok = glbls.Builtin[name]
 		}
 		if !ok {
-			status.Error("Unknown name %#v", name)
-			panic(name)
+			status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
+			node.T = unresolvedType
+			return unresolvedType
 		}
 		t, ok := AsType(d)
 		if !ok {
-			status.Error("%#v is not a type", name)
-			panic(name)
+			status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
+			node.T = unresolvedType
+			return unresolvedType
 		}
 		node.T = t
 		return t
@@ -302,9 +320,14 @@ func semanticDestructurePass(decl *FuncDecl, d Destructure, scope *semanticScope
 			aft := semanticDestructurePass(decl, arg.Destructure, scope, glbls, status)
 			if st != nil {
 				fn := arg.Name.Text
-				eft := FieldType(st, fn)
-				if !TypeMatches(aft, eft, false) {
-					status.Error("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft))
+				f := GetField(st, fn)
+				if f != nil {
+					eft := ResolveType(f.Type)
+					if !TypeMatches(aft, eft, false) {
+						status.Error("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft))
+					}
+				} else {
+					status.LocationError(arg.Name.Pos, fmt.Sprintf("%s does not have field %s", TypeName(t), fn))
 				}
 			}
 		}
@@ -373,13 +396,13 @@ func AsFunc(node ASTDecl) (ASTFunc, bool) {
 	}
 }
 
-func FieldType(node *StructDecl, name string) ASTType {
+func GetField(node *StructDecl, name string) *FieldDecl {
 	for _, decl := range node.Fields {
 		if decl.Name.Text == name {
-			return ResolveType(decl.Type)
+			return decl
 		}
 	}
-	panic(name)
+	return nil
 }
 
 func ResolveType(ref ASTTypeRef) ASTType {
@@ -452,9 +475,21 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *FuncDecl:
-			glbls.Module[decl.Name.Text] = decl
+			name := decl.Name.Text
+			_, exists := glbls.Module[name]
+			if exists {
+				status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
+			} else {
+				glbls.Module[name] = decl
+			}
 		case *StructDecl:
-			glbls.Module[decl.Name.Text] = decl
+			name := decl.Name.Text
+			_, exists := glbls.Module[name]
+			if exists {
+				status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
+			} else {
+				glbls.Module[name] = decl
+			}
 		default:
 			panic(decl)
 		}

@@ -55,11 +55,12 @@ func CreateIOManager() *IOManager {
 	return manager
 }
 
-func processDub(status framework.Status, manager *IOManager, name string) {
+func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, name string) {
 	fmt.Printf("Processing %s...\n", name)
 	filename := fmt.Sprintf("dub/%s.dub", name)
 	data, _ := ioutil.ReadFile(filename)
-	file := tree.ParseDub(filename, data, status)
+	p.AddFile(filename, []rune(string(data)))
+	file := tree.ParseDub(data, status)
 	if status.ShouldHalt() {
 		return
 	}
@@ -144,9 +145,10 @@ var dump bool
 func main() {
 	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
 	flag.Parse()
-	status := framework.MakeStatus()
+	p := framework.MakeProvider()
+	status := framework.MakeStatus(p)
 	manager := CreateIOManager()
-	processDub(status.CreateChild(), manager, "dub")
+	processDub(status.CreateChild(), p, manager, "dub")
 	manager.Flush()
 	if status.ShouldHalt() {
 		os.Exit(1)

@@ -34,6 +34,7 @@ struct MatchLookahead implements TextMatch {
 }
 
 struct Id {
+       Pos int
        Text string
 }
 
@@ -70,9 +71,10 @@ func EndKeyword () {
 }
 
 func Ident (Id) {
+  p := position;
   text := /[a-zA-Z_][a-zA-Z_0-9]*/;
   S();
-  return Id{Text: text};
+  return Id{Pos: p, Text: text};
 }
 
 func DecodeInt (int) {
@@ -740,6 +742,9 @@ struct Call implements ASTExpr {
   T ASTType
 }
 
+struct Position implements ASTExpr {
+}
+
 struct Fail implements ASTExpr {
 }
 
@@ -867,6 +872,10 @@ func ParseExpr (ASTExpr) {
     /"fail"/;
     EndKeyword();
     return Fail{};
+  } or {
+    /"position"/;
+    EndKeyword();
+    return Position{};
   } or {
     /"coerce"/;
     S();
