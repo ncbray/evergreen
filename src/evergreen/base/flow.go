@@ -341,3 +341,58 @@ func (gr *GraphRegion) absorbExits(other *GraphRegion) {
 		gr.exits[i] = append(gr.exits[i], otherExits...)
 	}
 }
+
+type nodeIterator struct {
+	graph   *Graph
+	current int
+}
+
+func (it *nodeIterator) Next() bool {
+	it.current += 1
+	return it.current < len(it.graph.nodes)
+}
+
+func (it *nodeIterator) Value() NodeID {
+	return NodeID(it.current)
+}
+
+func NodeIterator(g *Graph) nodeIterator {
+	return nodeIterator{graph: g, current: -1}
+}
+
+type orderedNodeIterator struct {
+	order   []NodeID
+	current int
+}
+
+func (it *orderedNodeIterator) Next() bool {
+	it.current += 1
+	return it.current < len(it.order)
+}
+
+func (it *orderedNodeIterator) Value() NodeID {
+	return it.order[it.current]
+}
+
+func OrderedIterator(order []NodeID) orderedNodeIterator {
+	return orderedNodeIterator{order: order, current: -1}
+}
+
+type entryIterator struct {
+	graph   *Graph
+	node    *Node
+	current int
+}
+
+func (it *entryIterator) Next() bool {
+	it.current += 1
+	return it.current < len(it.node.entries)
+}
+
+func (it *entryIterator) Value() NodeID {
+	return it.node.entries[it.current].src.Id
+}
+
+func EntryIterator(g *Graph, n NodeID) entryIterator {
+	return entryIterator{graph: g, node: g.nodes[n], current: -1}
+}

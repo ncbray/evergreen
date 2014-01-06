@@ -157,6 +157,13 @@ func checkNodeList(actualList []NodeID, expectedList []NodeID, t *testing.T) {
 	}
 }
 
+func checkNodeListList(actualList [][]NodeID, expectedList [][]NodeID, t *testing.T) {
+	checkInt("len", len(actualList), len(expectedList), t)
+	for i, expected := range expectedList {
+		checkNodeList(actualList[i], expected, t)
+	}
+}
+
 func checkIntList(actualList []int, expectedList []int, t *testing.T) {
 	checkInt("len", len(actualList), len(expectedList), t)
 	for i, expected := range expectedList {
@@ -297,11 +304,11 @@ func TestDiamond(t *testing.T) {
 	idoms := FindDominators(g, order, index)
 	checkNodeList(idoms, []NodeID{e, n4, e, n1, n1, n1}, t)
 
-	// Legacy
-	ordered := ToNodeListHACK(g, order)
-	old := FindIdoms(ordered)
-	df := FindFrontiers(ordered, old)
-	checkIntListList(df, [][]int{[]int{}, []int{}, []int{4}, []int{4}, []int{}, []int{}}, t)
+	df := FindDominanceFrontiers(g, idoms)
+
+	checkNodeListList(df, [][]NodeID{
+		[]NodeID{}, []NodeID{}, []NodeID{}, []NodeID{n4}, []NodeID{n4}, []NodeID{},
+	}, t)
 }
 
 //   0

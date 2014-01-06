@@ -197,13 +197,15 @@ func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
 	numNodes := len(g.nodes)
 	idoms := make([]NodeID, numNodes)
 	changed := false
-	for _, n := range order {
+	nit := OrderedIterator(order)
+	for nit.Next() {
+		n := nit.Value()
 		// If there are no forward entries into the node, assume an impossible edge.
 		new_idom := g.Entry()
 		first := true
-		numEntries := g.NumEntries(n)
-		for i := 0; i < numEntries; i++ {
-			e := g.GetEntry(n, i)
+		eit := EntryIterator(g, n)
+		for eit.Next() {
+			e := eit.Value()
 			if !isBackedge(index, e, n) {
 				if first {
 					new_idom = e
@@ -219,13 +221,17 @@ func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
 	}
 	for changed {
 		changed = false
-		for _, n := range order {
+		nit := OrderedIterator(order)
+		for nit.Next() {
+			n := nit.Value()
 			numEntries := g.NumEntries(n)
 			// 0 and 1 entry nodes should be stable after the first pass.
 			if numEntries >= 2 {
 				newIdom := idoms[n]
-				for i := 0; i < numEntries; i++ {
-					newIdom = intersectDom(idoms, index, newIdom, g.GetEntry(n, i))
+				eit := EntryIterator(g, n)
+				for eit.Next() {
+					e := eit.Value()
+					newIdom = intersectDom(idoms, index, newIdom, e)
 				}
 				if idoms[n] != newIdom {
 					idoms[n] = newIdom
@@ -235,6 +241,30 @@ func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
 		}
 	}
 	return idoms
+}
+
+// Assumes no dead entries.
+func FindDominanceFrontiers(g *Graph, idoms []NodeID) [][]NodeID {
+	n := len(g.nodes)
+	frontiers := make([][]NodeID, n)
+	nit := NodeIterator(g)
+	for nit.Next() {
+		n := nit.Value()
+		fmt.Println(n)
+		numEntries := g.NumEntries(n)
+		if numEntries >= 2 {
+			target := idoms[n]
+			eit := EntryIterator(g, n)
+			for eit.Next() {
+				runner := eit.Value()
+				for runner != target {
+					frontiers[runner] = append(frontiers[runner], n)
+					runner = idoms[runner]
+				}
+			}
+		}
+	}
+	return frontiers
 }
 
 func intersect(idoms []int, finger1 int, finger2 int) int {
@@ -306,7 +336,7 @@ func FindIdoms(ordered []*Node) []int {
 	return idoms
 }
 
-func FindFrontiers(ordered []*Node, idoms []int) [][]int {
+func OldFindFrontiers(ordered []*Node, idoms []int) [][]int {
 	n := len(ordered)
 	frontiers := make([][]int, n)
 	for i := 0; i < n; i++ {
@@ -424,7 +454,7 @@ type SSIBuilder struct {
 
 func CreateSSIBuilder(r *Region, nodes []*Node, live LivenessOracle) *SSIBuilder {
 	idoms := FindIdoms(nodes)
-	df := FindFrontiers(nodes, idoms)
+	df := OldFindFrontiers(nodes, idoms)
 	phiFuncs := make([][]int, len(nodes))
 	return &SSIBuilder{
 		nodes:    nodes,
