@@ -300,15 +300,17 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 	return block
 }
 
-func generateNode(info *regionInfo, node *base.Node, block []ast.Stmt) []ast.Stmt {
-	switch data := node.Data.(type) {
+func generateNode(info *regionInfo, node base.NodeID, block []ast.Stmt) []ast.Stmt {
+	g := info.decl.CFG
+	op := info.decl.Ops[node]
+	switch data := op.(type) {
 	case *EntryOp:
-		block = gotoNode(info, node.GetNext(0), block)
+		block = gotoNode(info, g.GetExit(node, 0), block)
 	case *FlowExitOp:
 		block = append(block, &ast.ReturnStmt{})
 	case *ExitOp:
 	case *SwitchOp:
-		block = emitSwitch(info, reg(data.Cond), node.GetNext(0), node.GetNext(1), block)
+		block = emitSwitch(info, reg(data.Cond), g.GetExit(node, 0), g.GetExit(node, 1), block)
 	case DubOp:
 		block = GenerateOp(info.decl, data, block)
 		block = generateFlowSwitch(info, node, block)
@@ -320,11 +322,10 @@ func generateNode(info *regionInfo, node *base.Node, block []ast.Stmt) []ast.Stm
 
 type regionInfo struct {
 	decl   *LLFunc
-	nodes  []*base.Node
-	labels map[*base.Node]int
+	labels map[base.NodeID]int
 }
 
-func gotoNode(info *regionInfo, n *base.Node, block []ast.Stmt) []ast.Stmt {
+func gotoNode(info *regionInfo, n base.NodeID, block []ast.Stmt) []ast.Stmt {
 	label, ok := info.labels[n]
 	if ok {
 		return append(block, &ast.BranchStmt{Tok: token.GOTO, Label: id(blockName(label))})
@@ -333,9 +334,9 @@ func gotoNode(info *regionInfo, n *base.Node, block []ast.Stmt) []ast.Stmt {
 	}
 }
 
-func emitSwitch(info *regionInfo, cond ast.Expr, t *base.Node, f *base.Node, block []ast.Stmt) []ast.Stmt {
-	if t != nil {
-		if f != nil {
+func emitSwitch(info *regionInfo, cond ast.Expr, t base.NodeID, f base.NodeID, block []ast.Stmt) []ast.Stmt {
+	if t != base.NoNode {
+		if f != base.NoNode {
 			block = append(block, &ast.IfStmt{
 				Cond: cond,
 				Body: &ast.BlockStmt{
@@ -354,30 +355,44 @@ func emitSwitch(info *regionInfo, cond ast.Expr, t *base.Node, f *base.Node, blo
 	}
 }
 
-func generateFlowSwitch(info *regionInfo, node *base.Node, block []ast.Stmt) []ast.Stmt {
-	cond := &ast.BinaryExpr{
-		X:  attr(id("frame"), "Flow"),
-		Op: token.EQL,
-		Y:  constInt(0),
+func generateFlowSwitch(info *regionInfo, node base.NodeID, block []ast.Stmt) []ast.Stmt {
+	g := info.decl.CFG
+	numExits := g.NumExits(node)
+
+	if numExits == 2 {
+		cond := &ast.BinaryExpr{
+			X:  attr(id("frame"), "Flow"),
+			Op: token.EQL,
+			Y:  constInt(0),
+		}
+		t := g.GetExit(node, 0)
+		f := g.GetExit(node, 1)
+		return emitSwitch(info, cond, t, f, block)
+	} else if numExits == 1 {
+		return gotoNode(info, g.GetExit(node, 0), block)
+	} else {
+		panic(info.decl.Ops[node])
 	}
-	return emitSwitch(info, cond, node.GetNext(0), node.GetNext(1), block)
 }
 
 func GenerateGoFunc(f *LLFunc) ast.Decl {
-	nodes := base.ReversePostorder(f.Region)
+	g := f.CFG
+	order, _ := base.ReversePostorder(g)
 
-	heads := []*base.Node{}
-	labels := map[*base.Node]int{}
+	heads := []base.NodeID{}
+	labels := map[base.NodeID]int{}
 	uid := 0
-	for i, node := range nodes {
-		_, isExit := node.Data.(*ExitOp)
-		if (i == 0 || node.NumEntries() >= 2) && !isExit {
-			heads = append(heads, node)
-			labels[node] = uid
+
+	nit := base.OrderedIterator(order)
+	for nit.Next() {
+		n := nit.Value()
+		if (n == g.Entry() || g.NumEntries(n) >= 2) && n != g.Exit() {
+			heads = append(heads, n)
+			labels[n] = uid
 			uid = uid + 1
 		}
 	}
-	info := &regionInfo{decl: f, nodes: nodes, labels: labels}
+	info := &regionInfo{decl: f, labels: labels}
 
 	stmts := []ast.Stmt{}
 

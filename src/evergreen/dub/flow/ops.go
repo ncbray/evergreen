@@ -77,7 +77,8 @@ type LLFunc struct {
 	Name        string
 	ReturnTypes []DubType
 	Registers   []RegisterInfo
-	Region      *base.Region
+	CFG         *base.Graph
+	Ops         []DubOp
 }
 
 func TypeName(t DubType) string {
@@ -361,47 +362,19 @@ func (n *ExitOp) OpToString() string {
 	return "<exit>"
 }
 
-func CreateEntry() *base.Node {
-	return base.CreateNode(&EntryOp{}, 1)
-}
-
-func CreateNode(op DubOp) *base.Node {
-	return base.CreateNode(op, 2)
-}
-
-func CreateSwitch(cond DubRegister) *base.Node {
-	return base.CreateNode(&SwitchOp{Cond: cond}, 2)
-}
-
-func CreateExit(flow int) *base.Node {
-	return base.CreateNode(&FlowExitOp{Flow: flow}, 0)
-}
-
-func CreateRegion() *base.Region {
-	r := &base.Region{
-		Entry: CreateEntry(),
-		Exits: []*base.Node{
-			CreateExit(0),
-			CreateExit(1),
-			CreateExit(2),
-			CreateExit(3),
-		},
-	}
-	r.Entry.SetExit(0, r.Exits[0])
-	return r
-}
-
 type DotStyler struct {
+	Decl *LLFunc
 }
 
-func (styler *DotStyler) NodeStyle(data interface{}) string {
-	switch data := data.(type) {
+func (styler *DotStyler) NodeStyle(node base.NodeID) string {
+	op := styler.Decl.Ops[node]
+	switch op := op.(type) {
 	case *EntryOp:
 		return `shape=point,label="entry"`
 	case *ExitOp:
 		return `shape=point,label="exit"`
 	case *FlowExitOp:
-		switch data.Flow {
+		switch op.Flow {
 		case 0:
 			return `shape=invtriangle,label="n"`
 		case 1:
@@ -414,17 +387,18 @@ func (styler *DotStyler) NodeStyle(data interface{}) string {
 			return `shape=invtriangle,label="?"`
 		}
 	case *SwitchOp:
-		return fmt.Sprintf("shape=diamond,label=%#v", RegisterName(data.Cond))
+		return fmt.Sprintf("shape=diamond,label=%#v", RegisterName(op.Cond))
 	case DubOp:
-		return fmt.Sprintf("shape=box,label=%#v", data.OpToString())
+		return fmt.Sprintf("shape=box,label=%#v", op.OpToString())
 	default:
-		panic(data)
+		panic(op)
 	}
 }
 
-func (styler *DotStyler) EdgeStyle(data interface{}, flow int) string {
+func (styler *DotStyler) EdgeStyle(node base.NodeID, flow int) string {
+	op := styler.Decl.Ops[node]
 	color := "red"
-	switch data.(type) {
+	switch op.(type) {
 	case *SwitchOp:
 		switch flow {
 		case 0:

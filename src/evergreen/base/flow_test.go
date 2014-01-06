@@ -41,8 +41,8 @@ func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *tes
 }
 
 func TestSimpleFlow(t *testing.T) {
-	g := CreateGraph(nil, nil)
-	n := g.CreateNode(nil, 1)
+	g := CreateGraph()
+	n := g.CreateNode(1)
 	g.Connect(g.Entry(), 0, n)
 	g.Connect(n, 0, g.Exit())
 
@@ -52,7 +52,7 @@ func TestSimpleFlow(t *testing.T) {
 }
 
 func TestSliceEmptySplice(t *testing.T) {
-	g := CreateGraph(nil, nil)
+	g := CreateGraph()
 	gr0 := g.CreateRegion(2)
 	gr1 := g.CreateRegion(2)
 	checkInt("sanity", len(gr0.exits[0]), 1, t)
@@ -62,10 +62,10 @@ func TestSliceEmptySplice(t *testing.T) {
 }
 
 func TestSliceEdgeEmptySplice(t *testing.T) {
-	g := CreateGraph(nil, nil)
+	g := CreateGraph()
 	gr0 := g.CreateRegion(2)
 	gr1 := g.CreateRegion(2)
-	n := g.CreateNode(nil, 1)
+	n := g.CreateNode(1)
 	gr0.AttachFlow(0, n)
 
 	checkInt("sanity", len(gr0.exits[0]), 0, t)
@@ -75,10 +75,10 @@ func TestSliceEdgeEmptySplice(t *testing.T) {
 }
 
 func TestRepeatFlow(t *testing.T) {
-	g := CreateGraph(nil, nil)
+	g := CreateGraph()
 	gr := g.CreateRegion(2)
 
-	n := g.CreateNode("n", 2)
+	n := g.CreateNode(2)
 	gr.AttachFlow(0, n)
 	gr.RegisterExit(n, 0, 0)
 	gr.RegisterExit(n, 1, 1)
@@ -100,11 +100,11 @@ func TestRepeatFlow(t *testing.T) {
 }
 
 func TestWhileFlow(t *testing.T) {
-	g := CreateGraph(nil, nil)
+	g := CreateGraph()
 	gr := g.CreateRegion(2)
-	c := g.CreateNode("c", 1)
-	d := g.CreateNode("d", 2)
-	b := g.CreateNode("b", 1)
+	c := g.CreateNode(1)
+	d := g.CreateNode(2)
+	b := g.CreateNode(1)
 
 	gr.AttachFlow(0, c)
 	gr.RegisterExit(c, 0, 0)
@@ -138,18 +138,10 @@ func checkInt(name string, actual int, expected int, t *testing.T) {
 	}
 }
 
-func checkOrder(actualOrder []*Node, expectedOrder []NodeID, t *testing.T) {
-	checkInt("len", len(actualOrder), len(expectedOrder), t)
-	for i, expected := range expectedOrder {
-		if actualOrder[i].Id != expected {
-			t.Fatalf("%d: %#v != %#v", i, actualOrder[i].Id, expected)
-		}
-		checkInt(fmt.Sprint(i), actualOrder[i].Name, i, t)
-	}
-}
-
 func checkNodeList(actualList []NodeID, expectedList []NodeID, t *testing.T) {
-	checkInt("len", len(actualList), len(expectedList), t)
+	if len(actualList) != len(expectedList) {
+		t.Fatalf("%#v != %#v", actualList, expectedList)
+	}
 	for i, expected := range expectedList {
 		if actualList[i] != expected {
 			t.Fatalf("%d: %#v != %#v", i, actualList[i], expected)
@@ -158,50 +150,47 @@ func checkNodeList(actualList []NodeID, expectedList []NodeID, t *testing.T) {
 }
 
 func checkNodeListList(actualList [][]NodeID, expectedList [][]NodeID, t *testing.T) {
-	checkInt("len", len(actualList), len(expectedList), t)
+	if len(actualList) != len(expectedList) {
+		t.Fatalf("%#v != %#v", actualList, expectedList)
+	}
 	for i, expected := range expectedList {
 		checkNodeList(actualList[i], expected, t)
 	}
 }
 
 func checkIntList(actualList []int, expectedList []int, t *testing.T) {
-	checkInt("len", len(actualList), len(expectedList), t)
+	if len(actualList) != len(expectedList) {
+		t.Fatalf("%#v != %#v", actualList, expectedList)
+	}
 	for i, expected := range expectedList {
 		checkInt(fmt.Sprint(i), actualList[i], expected, t)
 	}
 }
 
 func checkIntListList(actualList [][]int, expectedList [][]int, t *testing.T) {
-	checkInt("len", len(actualList), len(expectedList), t)
+	if len(actualList) != len(expectedList) {
+		t.Fatalf("%#v != %#v", actualList, expectedList)
+	}
 	for i, expected := range expectedList {
 		checkIntList(actualList[i], expected, t)
 	}
 }
 
-func CreateTestRegion(g *Graph) *Region {
-	return &Region{
-		Entry: g.ResolveNodeHACK(g.Entry()),
-		Exits: []*Node{
-			g.ResolveNodeHACK(g.Exit()),
-		},
-	}
-}
-
 func TestSanity(t *testing.T) {
-	g := CreateGraph(nil, nil)
+	g := CreateGraph()
 
 	e := g.Entry()
 	x := g.Exit()
-	n1 := g.CreateNode("1", 1)
-	n2 := g.CreateNode("2", 1)
-	n3 := g.CreateNode("3", 1)
+	n1 := g.CreateNode(1)
+	n2 := g.CreateNode(1)
+	n3 := g.CreateNode(1)
 
 	g.Connect(e, 0, n1)
 	g.Connect(n1, 0, n2)
 	g.Connect(n2, 0, n3)
 	g.Connect(n3, 0, x)
 
-	order, index := ReversePostorderX(g)
+	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
 	checkIntList(index, []int{0, 4, 1, 2, 3}, t)
 
@@ -210,20 +199,20 @@ func TestSanity(t *testing.T) {
 }
 
 func TestLoop(t *testing.T) {
-	g := CreateGraph(nil, nil)
+	g := CreateGraph()
 
 	e := g.Entry()
 	x := g.Exit()
-	n1 := g.CreateNode("1", 1)
-	n2 := g.CreateNode("2", 1)
-	n3 := g.CreateNode("3", 1)
+	n1 := g.CreateNode(1)
+	n2 := g.CreateNode(1)
+	n3 := g.CreateNode(1)
 
 	g.Connect(e, 0, n1)
 	g.Connect(n1, 0, n2)
 	g.Connect(n2, 0, n3)
 	g.Connect(n3, 0, n1)
 
-	order, index := ReversePostorderX(g)
+	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
 	checkIntList(index, []int{0, 4, 1, 2, 3}, t)
 
@@ -232,16 +221,16 @@ func TestLoop(t *testing.T) {
 }
 
 func TestIrreducible(t *testing.T) {
-	g := CreateGraph(nil, nil)
+	g := CreateGraph()
 
 	e := g.Entry()
 	x := g.Exit()
-	n1 := g.CreateNode("1", 1)
-	n2 := g.CreateNode("2", 2)
-	n3 := g.CreateNode("3", 1)
-	n4 := g.CreateNode("4", 2)
-	n5 := g.CreateNode("5", 1)
-	n6 := g.CreateNode("6", 2)
+	n1 := g.CreateNode(1)
+	n2 := g.CreateNode(2)
+	n3 := g.CreateNode(1)
+	n4 := g.CreateNode(2)
+	n5 := g.CreateNode(1)
+	n6 := g.CreateNode(2)
 
 	g.Connect(e, 0, n6)
 
@@ -260,7 +249,7 @@ func TestIrreducible(t *testing.T) {
 
 	g.Connect(n1, 0, n2)
 
-	order, index := ReversePostorderX(g)
+	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n6, n5, n4, n3, n2, n1, x}, t)
 	checkIntList(index, []int{0, 7, 6, 5, 4, 3, 2, 1}, t)
 
@@ -278,13 +267,13 @@ func TestIrreducible(t *testing.T) {
 //   |
 //   5
 func TestDiamond(t *testing.T) {
-	g := CreateGraph(nil, nil)
+	g := CreateGraph()
 	e := g.Entry()
 	x := g.Exit()
-	n1 := g.CreateNode("1", 2)
-	n2 := g.CreateNode("2", 1)
-	n3 := g.CreateNode("3", 1)
-	n4 := g.CreateNode("4", 1)
+	n1 := g.CreateNode(2)
+	n2 := g.CreateNode(1)
+	n3 := g.CreateNode(1)
+	n4 := g.CreateNode(1)
 
 	g.Connect(e, 0, n1)
 
@@ -297,7 +286,7 @@ func TestDiamond(t *testing.T) {
 
 	g.Connect(n4, 0, x)
 
-	order, index := ReversePostorderX(g)
+	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, n4, x}, t)
 	checkIntList(index, []int{0, 5, 1, 2, 3, 4}, t)
 
@@ -325,14 +314,16 @@ func TestDiamond(t *testing.T) {
 //   |
 //   8
 func TestDoubleDiamond(t *testing.T) {
-	g := CreateGraph(nil, nil)
-	n1 := g.CreateNode("1", 2)
-	n2 := g.CreateNode("2", 2)
-	n3 := g.CreateNode("3", 1)
-	n4 := g.CreateNode("4", 1)
-	n5 := g.CreateNode("5", 1)
-	n6 := g.CreateNode("6", 1)
-	n7 := g.CreateNode("7", 1)
+	g := CreateGraph()
+	e := g.Entry()
+	x := g.Exit()
+	n1 := g.CreateNode(2)
+	n2 := g.CreateNode(2)
+	n3 := g.CreateNode(1)
+	n4 := g.CreateNode(1)
+	n5 := g.CreateNode(1)
+	n6 := g.CreateNode(1)
+	n7 := g.CreateNode(1)
 
 	g.Connect(g.Entry(), 0, n1)
 
@@ -349,35 +340,33 @@ func TestDoubleDiamond(t *testing.T) {
 
 	g.Connect(n7, 0, g.Exit())
 
-	r := CreateTestRegion(g)
+	builder := CreateSSIBuilder(g, &SimpleLivenessOracle{})
 
-	builder := CreateSSIBuilder(r, ReversePostorder(r), &SimpleLivenessOracle{})
+	checkNodeList(builder.order, []NodeID{e, n1, n2, n3, n4, n5, n6, n7, x}, t)
+	checkNodeList(builder.Idoms, []NodeID{e, n7, e, n1, n2, n2, n2, n1, n1}, t)
 
-	checkOrder(builder.nodes, []NodeID{g.Entry(), n1, n2, n3, n4, n5, n6, n7, g.Exit()}, t)
-
-	checkIntList(builder.Idoms, []int{0, 0, 1, 2, 2, 2, 1, 1, 7}, t)
-
-	checkIntListList(builder.df, [][]int{
-		[]int{},
-		[]int{},
-		[]int{7},
-		[]int{5},
-		[]int{5},
-		[]int{7},
-		[]int{7},
-		[]int{},
-		[]int{},
+	fmt.Println(builder.df)
+	checkNodeListList(builder.df, [][]NodeID{
+		[]NodeID{},
+		[]NodeID{},
+		[]NodeID{},
+		[]NodeID{n7},
+		[]NodeID{n5},
+		[]NodeID{n5},
+		[]NodeID{n7},
+		[]NodeID{n7},
+		[]NodeID{},
 	}, t)
 
 	numVars := 3
-	defuse := CreateDefUse(len(builder.nodes), numVars)
+	defuse := CreateDefUse(len(g.nodes), numVars)
 	// Var 0
-	defuse.AddDef(1, 0)
+	defuse.AddDef(n1, 0)
 	// Var 1
-	defuse.AddDef(0, 1)
-	defuse.AddDef(3, 1)
+	defuse.AddDef(e, 1)
+	defuse.AddDef(n3, 1)
 	// Var 2
-	defuse.AddDef(6, 2)
+	defuse.AddDef(n6, 2)
 
 	for i := 0; i < numVars; i++ {
 		SSI(builder, i, defuse.VarDefAt[i])
@@ -389,9 +378,9 @@ func TestDoubleDiamond(t *testing.T) {
 		[]int{},
 		[]int{},
 		[]int{},
+		[]int{},
 		[]int{1},
 		[]int{},
 		[]int{1, 2},
-		[]int{},
 	}, t)
 }

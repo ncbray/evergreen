@@ -4,75 +4,75 @@ import (
 	"evergreen/base"
 )
 
-func AddDef(reg DubRegister, node int, defuse *base.DefUseCollector) {
+func AddDef(reg DubRegister, node base.NodeID, defuse *base.DefUseCollector) {
 	if reg != NoRegister {
 		defuse.AddDef(node, int(reg))
 	}
 }
 
-func AddUse(reg DubRegister, node int, defuse *base.DefUseCollector) {
+func AddUse(reg DubRegister, node base.NodeID, defuse *base.DefUseCollector) {
 	defuse.AddUse(node, int(reg))
 }
 
-func collectDefUse(node *base.Node, defuse *base.DefUseCollector) {
-	switch op := node.Data.(type) {
+func collectDefUse(node base.NodeID, op DubOp, defuse *base.DefUseCollector) {
+	switch op := op.(type) {
 	case *EntryOp, *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *Peek:
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *LookaheadBegin:
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *ConstantRuneOp:
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *ConstantStringOp:
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *ConstantIntOp:
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *ConstantBoolOp:
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *ConstantNilOp:
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *CallOp:
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *Slice:
-		AddUse(op.Src, node.Name, defuse)
-		AddDef(op.Dst, node.Name, defuse)
+		AddUse(op.Src, node, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *BinaryOp:
-		AddUse(op.Left, node.Name, defuse)
-		AddUse(op.Right, node.Name, defuse)
-		AddDef(op.Dst, node.Name, defuse)
+		AddUse(op.Left, node, defuse)
+		AddUse(op.Right, node, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *AppendOp:
-		AddUse(op.List, node.Name, defuse)
-		AddUse(op.Value, node.Name, defuse)
-		AddDef(op.Dst, node.Name, defuse)
+		AddUse(op.List, node, defuse)
+		AddUse(op.Value, node, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *CopyOp:
-		AddUse(op.Src, node.Name, defuse)
-		AddDef(op.Dst, node.Name, defuse)
+		AddUse(op.Src, node, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *CoerceOp:
-		AddUse(op.Src, node.Name, defuse)
-		AddDef(op.Dst, node.Name, defuse)
+		AddUse(op.Src, node, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *Recover:
-		AddUse(op.Src, node.Name, defuse)
+		AddUse(op.Src, node, defuse)
 	case *LookaheadEnd:
-		AddUse(op.Src, node.Name, defuse)
+		AddUse(op.Src, node, defuse)
 	case *SwitchOp:
-		AddUse(op.Cond, node.Name, defuse)
+		AddUse(op.Cond, node, defuse)
 	case *ReturnOp:
 		for _, arg := range op.Exprs {
-			AddUse(arg, node.Name, defuse)
+			AddUse(arg, node, defuse)
 		}
 	case *ConstructOp:
 		for _, arg := range op.Args {
-			AddUse(arg.Value, node.Name, defuse)
+			AddUse(arg.Value, node, defuse)
 		}
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	case *ConstructListOp:
 		for _, arg := range op.Args {
-			AddUse(arg, node.Name, defuse)
+			AddUse(arg, node, defuse)
 		}
-		AddDef(op.Dst, node.Name, defuse)
+		AddDef(op.Dst, node, defuse)
 	default:
 		panic(op)
 	}
@@ -81,10 +81,10 @@ func collectDefUse(node *base.Node, defuse *base.DefUseCollector) {
 type NameMap struct {
 	names     []map[int]int
 	transfers []map[int]int
-	idoms     []int
+	idoms     []base.NodeID
 }
 
-func (nm *NameMap) GetName(n int, v int) int {
+func (nm *NameMap) GetName(n base.NodeID, v int) int {
 	name, ok := nm.names[n][v]
 	if !ok {
 		if n == nm.idoms[n] {
@@ -96,11 +96,11 @@ func (nm *NameMap) GetName(n int, v int) int {
 	return name
 }
 
-func (nm *NameMap) SetName(n int, v int, name int) {
+func (nm *NameMap) SetName(n base.NodeID, v int, name int) {
 	nm.names[n][v] = name
 }
 
-func CreateNameMap(numNodes int, idoms []int) *NameMap {
+func CreateNameMap(numNodes int, idoms []base.NodeID) *NameMap {
 	nm := &NameMap{
 		names:     make([]map[int]int, numNodes),
 		transfers: make([]map[int]int, numNodes),
@@ -125,7 +125,7 @@ func (r *RegisterReallocator) Allocate(v int) int {
 	return name
 }
 
-func (r *RegisterReallocator) MakeOutput(n int, reg DubRegister) DubRegister {
+func (r *RegisterReallocator) MakeOutput(n base.NodeID, reg DubRegister) DubRegister {
 	if reg != NoRegister {
 		v := int(reg)
 		name := r.Allocate(v)
@@ -135,7 +135,7 @@ func (r *RegisterReallocator) MakeOutput(n int, reg DubRegister) DubRegister {
 	return NoRegister
 }
 
-func (r *RegisterReallocator) Transfer(dst int, reg DubRegister) DubRegister {
+func (r *RegisterReallocator) Transfer(dst base.NodeID, reg DubRegister) DubRegister {
 	v := int(reg)
 	name, ok := r.nm.transfers[dst][v]
 	if !ok {
@@ -146,16 +146,15 @@ func (r *RegisterReallocator) Transfer(dst int, reg DubRegister) DubRegister {
 	return DubRegister(name)
 }
 
-func (r *RegisterReallocator) Get(n int, reg DubRegister) DubRegister {
+func (r *RegisterReallocator) Get(n base.NodeID, reg DubRegister) DubRegister {
 	return DubRegister(r.nm.GetName(n, int(reg)))
 }
 
-func (r *RegisterReallocator) Set(n int, reg DubRegister, name DubRegister) {
+func (r *RegisterReallocator) Set(n base.NodeID, reg DubRegister, name DubRegister) {
 	r.nm.SetName(n, int(reg), int(name))
 }
 
-func renameOp(node *base.Node, data interface{}, ra *RegisterReallocator) {
-	n := node.Name
+func renameOp(n base.NodeID, data DubOp, ra *RegisterReallocator) {
 	switch op := data.(type) {
 	case *EntryOp, *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
@@ -221,7 +220,7 @@ func renameOp(node *base.Node, data interface{}, ra *RegisterReallocator) {
 			op.Srcs[i] = ra.Get(n, src)
 		}
 		// The destinations need to be consistent based on the target
-		tgt := node.GetNext(0).Name
+		tgt := ra.decl.CFG.GetExit(n, 0)
 		for i, dst := range op.Dsts {
 			op.Dsts[i] = ra.Transfer(tgt, dst)
 		}
@@ -231,24 +230,28 @@ func renameOp(node *base.Node, data interface{}, ra *RegisterReallocator) {
 }
 
 func rename(decl *LLFunc) {
-	order := base.ReversePostorder(decl.Region)
-	idoms := base.FindIdoms(order)
+	g := decl.CFG
+	order, index := base.ReversePostorder(g)
+	idoms := base.FindDominators(g, order, index)
 
-	nm := CreateNameMap(len(order), idoms)
+	nm := CreateNameMap(g.NumNodes(), idoms)
 	ra := &RegisterReallocator{decl: decl, nm: nm}
-	for _, node := range order {
-		renameOp(node, node.Data, ra)
-		_, is_copy := node.Data.(*CopyOp)
+	nit := base.OrderedIterator(order)
+	for nit.Next() {
+		n := nit.Value()
+		op := decl.Ops[n]
+		renameOp(n, op, ra)
+		_, is_copy := op.(*CopyOp)
 		if is_copy {
-			node.Remove()
+			decl.CFG.Remove(n)
 		}
 	}
 	//fmt.Println(decl.Name, len(decl.Registers), len(ra.info))
 	decl.Registers = ra.info
 }
 
-func killUnusedOutputs(n int, data interface{}, live base.LivenessOracle) {
-	switch op := data.(type) {
+func killUnusedOutputs(n base.NodeID, op DubOp, live base.LivenessOracle) {
+	switch op := op.(type) {
 	case *EntryOp, *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
@@ -320,16 +323,38 @@ func killUnusedOutputs(n int, data interface{}, live base.LivenessOracle) {
 			op.Dst = NoRegister
 		}
 	default:
-		panic(data)
+		panic(op)
 	}
 }
 
-func SSI(decl *LLFunc) {
-	order := base.ReversePostorder(decl.Region)
-	defuse := base.FindDefUse(order, len(decl.Registers), collectDefUse)
-	live := base.FindLiveVars(order, defuse)
+func CreateTransfer(decl *LLFunc, size int) (base.NodeID, *TransferOp) {
+	n := decl.CFG.CreateNode(1)
+	if int(n) != len(decl.Ops) {
+		panic("desync")
+	}
 
-	builder := base.CreateSSIBuilder(decl.Region, order, live)
+	op := &TransferOp{
+		Srcs: make([]DubRegister, size),
+		Dsts: make([]DubRegister, size),
+	}
+	decl.Ops = append(decl.Ops, op)
+
+	return n, op
+}
+
+func SSI(decl *LLFunc) {
+	g := decl.CFG
+
+	defuse := base.CreateDefUse(len(decl.Ops), len(decl.Registers))
+	nit := base.NodeIterator(g)
+	for nit.Next() {
+		n := nit.Value()
+		collectDefUse(n, decl.Ops[n], defuse)
+	}
+
+	live := base.FindLiveVars(g, defuse)
+
+	builder := base.CreateSSIBuilder(g, live)
 	for i := 0; i < len(decl.Registers); i++ {
 		base.SSI(builder, i, defuse.VarDefAt[i])
 	}
@@ -341,34 +366,29 @@ func SSI(decl *LLFunc) {
 	//fmt.Println()
 
 	// Place the transfer functions on edges.
-	for _, node := range order {
-		for i := 0; i < node.NumExits(); i++ {
-			dst := node.GetNext(i)
-			if dst == nil {
-				continue
-			}
-			phiFuncs := builder.PhiFuncs[dst.Name]
+
+	nit = base.NodeIterator(g)
+	for nit.Next() {
+		n := nit.Value()
+		eit := base.ExitIterator(g, n)
+		for eit.Next() {
+			dst := eit.Value()
+			phiFuncs := builder.PhiFuncs[dst]
 			if len(phiFuncs) == 0 {
 				continue
 			}
-			op := &TransferOp{
-				Srcs: make([]DubRegister, len(phiFuncs)),
-				Dsts: make([]DubRegister, len(phiFuncs)),
-			}
+			t, op := CreateTransfer(decl, len(phiFuncs))
 			for j, v := range phiFuncs {
 				op.Srcs[j] = DubRegister(v)
 				op.Dsts[j] = DubRegister(v)
 			}
-			n := CreateNode(op)
-			n.InsertAt(0, node.GetExit(i))
+			g.InsertAt(t, 0, eit.Edge())
 		}
 		// Do this while the order and liveness info are still good.
-		op, ok := node.Data.(DubOp)
-		if ok {
-			killUnusedOutputs(node.Name, op, live)
-			if IsNop(op) {
-				node.Remove()
-			}
+		op := decl.Ops[n]
+		killUnusedOutputs(n, op, live)
+		if IsNop(op) {
+			g.Remove(n)
 		}
 	}
 

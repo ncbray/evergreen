@@ -103,8 +103,8 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 			funcs = append(funcs, f)
 
 			if dump {
-				styler := &flow.DotStyler{}
-				dot := base.RegionToDot(f.Region, styler)
+				styler := &flow.DotStyler{Decl: f}
+				dot := base.GraphToDot(f.CFG, styler)
 				outfile := filepath.Join("output", name, fmt.Sprintf("%s.svg", f.Name))
 				manager.Create()
 				go func(dot string, outfile string) {

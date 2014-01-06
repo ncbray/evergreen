@@ -49,7 +49,7 @@ type DubBuilder struct {
 }
 
 func (builder *DubBuilder) EmitOp(op flow.DubOp) base.NodeID {
-	id := builder.graph.CreateNode(op, 2)
+	id := builder.graph.CreateNode(2)
 	if int(id) != len(builder.ops) {
 		panic(op)
 	}
@@ -595,10 +595,12 @@ func lowerBlock(block []tree.ASTExpr, builder *DubBuilder, gr *base.GraphRegion)
 }
 
 func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
-	entry := &flow.EntryOp{}
-	exit := &flow.ExitOp{}
-	g := base.CreateGraph(entry, exit)
-	builder := &DubBuilder{decl: decl, glbl: glbl, graph: g, ops: []flow.DubOp{entry, exit}}
+	g := base.CreateGraph()
+	ops := []flow.DubOp{
+		&flow.EntryOp{},
+		&flow.ExitOp{},
+	}
+	builder := &DubBuilder{decl: decl, glbl: glbl, graph: g, ops: ops}
 
 	f := &flow.LLFunc{Name: decl.Name.Text}
 	types := make([]flow.DubType, len(decl.ReturnTypes))
@@ -615,24 +617,19 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 	lowerBlock(decl.Block, builder, gr)
 	gr.MergeFlowInto(flow.RETURN, flow.NORMAL)
 
-	// Attach to the traditional entry and exit nodes.
-	r := flow.CreateRegion()
-	r.Entry = g.ResolveNodeHACK(g.Entry())
-
 	// TODO only connect the real exits, assert no virtual exits.
 	for i := 0; i < REGION_EXITS; i++ {
 		if gr.HasFlow(i) {
 			fe := builder.EmitOp(&flow.FlowExitOp{Flow: i})
 			gr.AttachFlow(i, fe)
 			gr.RegisterExit(fe, 0, 0)
-
-			r.Exits[i] = g.ResolveNodeHACK(fe)
 		}
 	}
 
 	g.ConnectRegion(gr)
 
-	f.Region = r
+	f.CFG = g
+	f.Ops = builder.ops
 	f.Registers = builder.registers
 	return f
 }

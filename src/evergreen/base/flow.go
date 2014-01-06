@@ -25,16 +25,6 @@ type Node struct {
 	entries EntryList
 	exits   []Edge
 	Id      NodeID
-	Name    int
-	Data    NodeData
-}
-
-func CreateNode(data NodeData, numExits int) *Node {
-	n := &Node{Data: data, exits: make([]Edge, numExits)}
-	for i := 0; i < numExits; i++ {
-		n.exits[i] = Edge{src: n, index: i}
-	}
-	return n
 }
 
 func (n *Node) GetNext(flow int) *Node {
@@ -121,7 +111,7 @@ func (n *Node) Remove() {
 		// Make sure there are no other active exits.
 		for j := i + 1; j < len(n.exits); j++ {
 			if n.exits[j].dst != nil {
-				panic(n.Data)
+				panic(n.Id)
 			}
 		}
 		e.dst.replaceEntry(e, n.popEntries())
@@ -155,14 +145,14 @@ func (n *Node) replaceEntry(target *Edge, replacements EntryList) {
 	panic(target)
 }
 
-type Region struct {
-	Entry *Node
-	Exits []*Node
-}
-
 type NodeID int
 
 const NoNode NodeID = ^NodeID(0)
+
+type EdgeID struct {
+	node  NodeID
+	index int
+}
 
 type Graph struct {
 	nodes []*Node
@@ -176,11 +166,10 @@ func (g *Graph) Exit() NodeID {
 	return 1
 }
 
-func (g *Graph) CreateNode(data interface{}, exits int) NodeID {
+func (g *Graph) CreateNode(exits int) NodeID {
 	id := NodeID(len(g.nodes))
 	n := &Node{
 		Id:    id,
-		Data:  data,
 		exits: make([]Edge, exits),
 	}
 	for i := 0; i < exits; i++ {
@@ -190,12 +179,22 @@ func (g *Graph) CreateNode(data interface{}, exits int) NodeID {
 	return id
 }
 
-func (g *Graph) ResolveNodeHACK(node NodeID) *Node {
-	return g.nodes[node]
+func (g *Graph) NumNodes() int {
+	return len(g.nodes)
 }
 
 func (g *Graph) Connect(src NodeID, edge int, dst NodeID) {
 	g.nodes[src].SetExit(edge, g.nodes[dst])
+}
+
+func (g *Graph) Remove(n NodeID) {
+	g.nodes[n].Remove()
+}
+
+func (g *Graph) InsertAt(n NodeID, flow int, edge EdgeID) {
+	node := g.nodes[n]
+	e := g.nodes[edge.node].GetExit(edge.index)
+	node.InsertAt(flow, e)
 }
 
 func (g *Graph) NumEntries(dst NodeID) int {
@@ -243,10 +242,12 @@ func (g *Graph) ConnectRegion(gr *GraphRegion) {
 	}
 }
 
-func CreateGraph(entry interface{}, exit interface{}) *Graph {
+func CreateGraph() *Graph {
 	g := &Graph{}
-	g.CreateNode(entry, 1)
-	g.CreateNode(exit, 0)
+	// Entry
+	g.CreateNode(1)
+	// Exit
+	g.CreateNode(0)
 	return g
 }
 
@@ -343,26 +344,27 @@ func (gr *GraphRegion) absorbExits(other *GraphRegion) {
 }
 
 type nodeIterator struct {
-	graph   *Graph
 	current int
+	count   int
 }
 
 func (it *nodeIterator) Next() bool {
 	it.current += 1
-	return it.current < len(it.graph.nodes)
+	return it.current < it.count
 }
 
 func (it *nodeIterator) Value() NodeID {
 	return NodeID(it.current)
 }
 
+// The node length is intentionally snapshotted incase the iteration creates new nodes.
 func NodeIterator(g *Graph) nodeIterator {
-	return nodeIterator{graph: g, current: -1}
+	return nodeIterator{count: len(g.nodes), current: -1}
 }
 
 type orderedNodeIterator struct {
-	order   []NodeID
 	current int
+	order   []NodeID
 }
 
 func (it *orderedNodeIterator) Next() bool {
@@ -395,4 +397,37 @@ func (it *entryIterator) Value() NodeID {
 
 func EntryIterator(g *Graph, n NodeID) entryIterator {
 	return entryIterator{graph: g, node: g.nodes[n], current: -1}
+}
+
+type exitIterator struct {
+	graph   *Graph
+	node    *Node
+	current int
+}
+
+func (it *exitIterator) Next() bool {
+	it.current += 1
+	for it.current < len(it.node.exits) {
+		if it.node.exits[it.current].dst != nil {
+			return true
+		}
+		it.current += 1
+	}
+	return false
+}
+
+func (it *exitIterator) Value() NodeID {
+	return it.node.exits[it.current].dst.Id
+}
+
+func (it *exitIterator) Edge() EdgeID {
+	return EdgeID{node: it.node.Id, index: it.current}
+}
+
+func (it *exitIterator) Label() int {
+	return it.current
+}
+
+func ExitIterator(g *Graph, n NodeID) exitIterator {
+	return exitIterator{graph: g, node: g.nodes[n], current: -1}
 }
