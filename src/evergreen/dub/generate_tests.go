@@ -129,7 +129,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 			})
 			stmts = append(stmts, makeFatalTest(
 				&ast.UnaryExpr{Op: token.NOT, X: id("ok")},
-				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, dt.Name),
+				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, dt.Name.Text),
 				id(name),
 			))
 		}
@@ -249,8 +249,9 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 
 	stmts = append(stmts, makeFatalTest(
 		checkNE(attr(id(state), "Index"), intLiteral(len(tst.Input))),
-		fmt.Sprintf("Only consumed %%d/%d runes", len(tst.Input)),
+		fmt.Sprintf("Only consumed %%d/%d (deepest %%d) runes", len(tst.Input)),
 		attr(id(state), "Index"),
+		attr(id(state), "Deepest"),
 	))
 
 	stmts = append(stmts, makeFatalTest(
