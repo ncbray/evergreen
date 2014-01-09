@@ -67,13 +67,11 @@ func S () {
 
 func EndKeyword () {
   /![a-zA-Z_0-9]/;
-  S();
 }
 
 func Ident (Id) {
   p := position;
   text := /[a-zA-Z_][a-zA-Z_0-9]*/;
-  S();
   return Id{Pos: p, Text: text};
 }
 
@@ -151,9 +149,11 @@ func DecodeRune (rune) {
 func DecodeBool (bool) {
   choose {
     /"true"/;
+    EndKeyword();
     return true;
   } or {
     /"false"/;
+    EndKeyword();
     return false;
   }
 }
@@ -164,35 +164,30 @@ func Literal (ASTExpr) {
     text := slice {
       value = DecodeRune();
     };
-    S();
     return RuneLiteral{Text: text, Value: value};
   } or {
     var value string;
     text := slice {
       value = DecodeString();
     };
-    S();
     return StringLiteral{Text: text, Value: value};
   } or {
     var value int;
     text := slice {
       value = DecodeInt();
     };
-    S();
     return IntLiteral{Text: text, Value: value};
   } or {
     var value bool;
     text := slice {
       value = DecodeBool();
     };
-    EndKeyword();
     return BoolLiteral{Text: text, Value: value};
   }
 }
 
 func BinaryOperator (string) {
   op := /[+\-*/]|([<>][=]?)|([!=][=]) ![+\-*/<>!=]/;
-  S();
   return op;
 }
 
@@ -209,8 +204,8 @@ func StringMatchExpr (StringMatch) {
   /[/]/;
   S();
   e := ParseMatchChoice();
-  /[/]/;
   S();
+  /[/]/;
   return StringMatch{Match: e};
 }
 
@@ -222,31 +217,31 @@ func RuneMatchExpr (RuneMatch) {
 }
 
 
-test Ident Alpha "a_B_c "
+test Ident Alpha "a_B_c"
   Id{Text: "a_B_c"}
 
-test Ident AlphaNum "a_1_7  "
+test Ident AlphaNum "a_1_7"
   Id{Text: "a_1_7"}
 
-test Literal Num "1234567890  "
+test Literal Num "1234567890"
   IntLiteral{
     Text: "1234567890"
     Value: 1234567890
  }
 
-test Literal Str "\"hello, world\\n\"  "
+test Literal Str "\"hello, world\\n\""
   StringLiteral{
     Text: "\"hello, world\\n\""
     Value: "hello, world\n"
   }
 
-test Literal Rune "'a'  "
+test Literal Rune "'a'"
   RuneLiteral{
     Text: "'a'"
     Value: 'a'
   }
 
-test Literal EscapedRune "'\\n'  "
+test Literal EscapedRune "'\\n'"
   RuneLiteral{
     Text: "'\\n'"
     Value: '\n'
@@ -323,36 +318,39 @@ struct DestructureList implements Destructure {
 func ParseDestructure (Destructure) {
   choose {
     t := ParseStructTypeRef();
+    S();
     /[{]/;
     S();
     fields := []DestructureField{};
     star {
       name := Ident();
+      S();
       /[:]/;
       S();
       d := ParseDestructure();
+      S();
       append(fields, DestructureField{Name: name, Destructure: d});
     }
     /[}]/;
-    S();
     return DestructureStruct{Type: t, Args: fields};
   } or {
     t := ParseListTypeRef();
+    S();
     /[{]/;
     S();
     fields := []Destructure{};
     star {
       append(fields, ParseDestructure());
+      S();
     }
     /[}]/;
-    S();
     return DestructureList{Type: t, Args: fields};
   } or {
     return DestructureValue{Expr: Literal()};
   }
 }
 
-test ParseDestructure Compound "[]Foo { Bar { Baz: 1 Biz : 'x'} } "
+test ParseDestructure Compound "[]Foo { Bar { Baz: 1 Biz : 'x'} }"
   DestructureList {
     Type: ListTypeRef {
       Type: TypeRef {
@@ -421,7 +419,6 @@ func MatchRune (RuneRangeMatch) {
     append(filters, ParseRuneFilter());
   }
   /[\]]/;
-  S();
   return RuneRangeMatch{Invert: invert, Filters: filters};
 }
 
@@ -430,14 +427,13 @@ func Atom (TextMatch) {
     return MatchRune();
   } or {
     value := DecodeString();
-    S();
     return StringLiteralMatch{Value: value};
   } or {
     /[(]/;
     S();
     e := ParseMatchChoice();
-    /[)]/;
     S();
+    /[)]/;
     return e;
   }
 }
@@ -445,16 +441,16 @@ func Atom (TextMatch) {
 func MatchPostfix (TextMatch) {
   e := Atom();
   choose {
-    /[*]/;
     S();
+    /[*]/;
     return MatchRepeat{Match: e, Min: 0};
   } or {
-    /[+]/;
     S();
+    /[+]/;
     return MatchRepeat{Match: e, Min: 1};
   } or {
-    /[?]/;
     S();
+    /[?]/;
     return MatchChoice{Matches: []TextMatch{e, MatchSequence{Matches: []TextMatch{}}}};
   } or {
     return e;
@@ -482,6 +478,7 @@ func Sequence (TextMatch) {
   choose {
     l := []TextMatch{e};
     plus {
+      S();
       append(l, MatchPrefix());
     }
     return MatchSequence{Matches: l};
@@ -495,6 +492,7 @@ func ParseMatchChoice (TextMatch) {
   choose {
     l := []TextMatch{e};
     plus {
+      S();
       /[|]/;
       S();
       append(l, Sequence());
@@ -577,7 +575,7 @@ test ParseMatchChoice Three "[a][b][c]"
     }
   }
 
-test ParseMatchChoice Repeat "[0-9] + "
+test ParseMatchChoice Repeat "[0-9] +"
   MatchRepeat {
     Match: RuneRangeMatch {
       Filters: []RuneFilter {
@@ -607,7 +605,7 @@ test ParseMatchChoice Question "[*]?"
     }
   }
 
-test ParseMatchChoice Complex "[a]([b]|[c])|[d]"
+test ParseMatchChoice Complex "[a] ( [b]|[c] ) | [d]"
   MatchChoice {
     Matches: []TextMatch {
       MatchSequence {
@@ -770,6 +768,7 @@ func ParseExprList ([]ASTExpr) {
   question {
     append(exprs, ParseExpr());
     star {
+      S();
       /[,]/;
       S();
       append(exprs, ParseExpr());
@@ -780,6 +779,7 @@ func ParseExprList ([]ASTExpr) {
 
 func ParseNamedExpr (NamedExpr) {
   name := Ident();
+  S();
   /[:]/;
   S();
   return NamedExpr{Name: name, Expr: ParseExpr()};
@@ -790,6 +790,7 @@ func ParseNamedExprList ([]NamedExpr) {
   question {
     append(exprs, ParseNamedExpr());
     star {
+      S();
       /[,]/;
       S();
       append(exprs, ParseNamedExpr());
@@ -805,14 +806,15 @@ func ParseTypeList ([]ASTTypeRef) {
   types := []ASTTypeRef{};
   question {
     append(types, ParseTypeRef());
+    S();
     star {
       /[,]/;
       S();
       append(types, ParseTypeRef());
+      S();
     }
   }
   /[)]/;
-  S();
   return types;
 }
 
@@ -822,6 +824,7 @@ func PrimaryExpr (ASTExpr) {
   } or {
     /"slice"/;
     EndKeyword();
+    S();
     block := ParseCodeBlock();
     return Slice{Block: block};
   } or {
@@ -830,27 +833,31 @@ func PrimaryExpr (ASTExpr) {
     return Position{};
   } or {
     /"coerce"/;
+    EndKeyword();
     S();
     /[(]/;
     S();
     t := ParseTypeRef();
+    S();
     /[,]/;
     S();
     e := ParseExpr();
+    S();
     /[)]/;
-    S();  
     return Coerce{Type: t, Expr: e};
   } or {
     /"append"/;
     EndKeyword();
+    S();
     /[(]/;
     S();
     name := Ident();
+    S();
     /[,]/;
     S();
     expr := ParseExpr();
+    S();
     /[)]/;
-    S();  
     return Assign{
       Expr: Append{
         List: GetName{Name: name},
@@ -860,26 +867,28 @@ func PrimaryExpr (ASTExpr) {
     };
   } or {
     name := Ident();
+    S();
     /[(]/;
     S();
     /[)]/;
-    S();  
     return Call{Name: name};
   } or {
     t := ParseStructTypeRef();
+    S();
     /[{]/;
     S();
     args := ParseNamedExprList();
-    /[}]/;
     S();
+    /[}]/;
     return Construct{Type: t, Args: args};
   } or {
     t := ParseListTypeRef();
+    S();
     /[{]/;
     S();
     args := ParseExprList();
-    /[}]/;
     S();
+    /[}]/;
     return ConstructList{Type: t, Args: args};
   } or {
     return StringMatchExpr();
@@ -889,8 +898,8 @@ func PrimaryExpr (ASTExpr) {
     /[(]/;
     S();
     e := ParseExpr();
-    /[)]/;
     S();
+    /[)]/;
     return e;
   } or {
     name := Ident();
@@ -901,7 +910,9 @@ func PrimaryExpr (ASTExpr) {
 func ParseExpr (ASTExpr) {
   e := PrimaryExpr();
   star {
+    S();
     op := BinaryOperator();
+    S();
     r := PrimaryExpr();
     e = BinaryOp{Left: e, Op: op, Right: r};
   }
@@ -912,40 +923,48 @@ func ParseCompoundStatement (ASTExpr) {
   choose {
     /"star"/;
     EndKeyword();
+    S();
     block := ParseCodeBlock();
     return Repeat{Block: block, Min: 0};
   } or {
     /"plus"/;
     EndKeyword();
+    S();
     block := ParseCodeBlock();
     return Repeat{Block: block, Min: 1};
   } or {
     /"choose"/;
     EndKeyword();
+    S();
     blocks := [][]ASTExpr{ParseCodeBlock()};
     star {
+      S();
       /"or"/;
       EndKeyword();
+      S();
       append(blocks, ParseCodeBlock());
     }
     return Choice{Blocks: blocks};
   } or {
     /"question"/;
     EndKeyword();
+    S();
     block := ParseCodeBlock();
     return Optional{Block: block};
   } or {
     /"if"/;
     EndKeyword();
+    S();
     expr := ParseExpr();
+    S();
     block := ParseCodeBlock();
     return If{Expr: expr, Block: block};
   }
 }
 
 func EOS () {
-  /[;]/;
   S();
+  /[;]/;
 }
 
 func ParseStatement (ASTExpr) {
@@ -954,10 +973,13 @@ func ParseStatement (ASTExpr) {
   } or {
     /"var"/;
     EndKeyword();
+    S();
     name := Ident();
+    S();
     t := ParseTypeRef();
     var expr ASTExpr;
     question {
+      S();
       /[=]/;
       S();
       expr = ParseExpr(); 
@@ -972,24 +994,13 @@ func ParseStatement (ASTExpr) {
   } or {
     /"return"/;
     EndKeyword();
-    choose {
-      /[(]/;
-      S();
-      exprs := ParseExprList();
-      /[)]/;
-      S();
-      EOS();
-      return Return{Exprs: exprs};
-    } or {
-      e := ParseExpr();
-      EOS();
-      return Return{Exprs: []ASTExpr{e}};
-    } or {
-      EOS();
-      return Return{Exprs: []ASTExpr{}};
-    }
+    S();
+    exprs := ParseExprList();
+    EOS();
+    return Return{Exprs: exprs};
   } or {
     name := Ident();
+    S();
     var defined bool;
     choose {
       /":="/;
@@ -1014,9 +1025,9 @@ func ParseCodeBlock([]ASTExpr) {
   exprs := []ASTExpr{};
   star {
     append(exprs, ParseStatement());
+    S();
   }
   /[}]/;
-  S();
   return exprs;
 }
 
@@ -1082,7 +1093,7 @@ test ParseStatement Define "foo := 1;"
     Define: true
   }
 
-test ParseExpr Construct "Foo{ Bar: 1} "
+test ParseExpr Construct "Foo{ Bar: 1}"
   Construct {
     Type: TypeRef {
       Name: Id{Text: "Foo"}
@@ -1097,7 +1108,7 @@ test ParseExpr Construct "Foo{ Bar: 1} "
     }
   }
 
-test ParseExpr ConstructList "[]Foo{ 1 } "
+test ParseExpr ConstructList "[]Foo{ 1 }"
   ConstructList {
     Type: ListTypeRef{
       Type: TypeRef {
@@ -1111,7 +1122,7 @@ test ParseExpr ConstructList "[]Foo{ 1 } "
     }
   }
 
-test ParseStatement Slice "a := slice{1;};"
+test ParseStatement Slice "a := slice { 1; } ;"
   Assign {
     Expr: Slice{
       Block: []ASTExpr{
@@ -1147,21 +1158,28 @@ struct StructDecl implements ASTType {
 func ParseStructDecl (StructDecl) {
   /"struct"/;
   EndKeyword();
+  S();
   name := Ident();
+  S();
   var implements ASTTypeRef;
   question {
     /"implements"/;
     EndKeyword();
+    S();
     implements = ParseTypeRef();
+    S();
   }
   /[{]/;
   S();
   fields := []FieldDecl{};
   star {
-    append(fields, FieldDecl{Name: Ident(), Type: ParseTypeRef()});
+    fn := Ident();
+    S();
+    ft := ParseTypeRef();
+    S();
+    append(fields, FieldDecl{Name: fn, Type: ft});
   }
   /[}]/;
-  S();
   return StructDecl{Name: name, Implements: implements, Fields: fields};
 }
 
@@ -1183,8 +1201,11 @@ struct FuncDecl implements ASTFunc {
 func ParseFuncDecl (FuncDecl) {
   /"func"/;
   EndKeyword();
+  S();
   name := Ident();
+  S();
   retTypes := ParseTypeList();
+  S();
   block := ParseCodeBlock();
   return FuncDecl{Name: name, ReturnTypes: retTypes, Block: block};
 }
@@ -1200,8 +1221,11 @@ struct Test {
 func ParseTest (Test) {
   /"test"/;
   EndKeyword();
+  S();
   rule := Ident();
+  S();
   name := Ident();
+  S();
   input := DecodeString();
   S();
   d := ParseDestructure();
@@ -1216,6 +1240,7 @@ struct File {
 func ParseFile (File) {
   decls := []ASTDecl{};
   tests := []Test{};
+  S();
   star {
     choose {
       append(decls, ParseFuncDecl());
@@ -1224,6 +1249,7 @@ func ParseFile (File) {
     } or {
       append(tests, ParseTest());
     }
+    S();
   }
   /![^]/;
   return File{Decls: decls, Tests: tests};
