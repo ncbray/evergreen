@@ -345,7 +345,6 @@ func TestDoubleDiamond(t *testing.T) {
 	checkNodeList(builder.order, []NodeID{e, n1, n2, n3, n4, n5, n6, n7, x}, t)
 	checkNodeList(builder.Idoms, []NodeID{e, n7, e, n1, n2, n2, n2, n1, n1}, t)
 
-	fmt.Println(builder.df)
 	checkNodeListList(builder.df, [][]NodeID{
 		[]NodeID{},
 		[]NodeID{},
