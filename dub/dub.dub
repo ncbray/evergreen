@@ -61,8 +61,20 @@ struct BoolLiteral implements ASTExpr {
   Value bool
 }
 
+func LineTerminator () {
+  /"\n"|"\r\n"|"\r"/;
+}
+
 func S () {
-  /[ \t\r\n]*/;
+  star {
+    choose {
+      /[ \t]/;
+    } or {
+      LineTerminator();
+    } or {
+      /"//" [^\n\r]*/;
+    }
+  }
 }
 
 func EndKeyword () {
@@ -822,6 +834,7 @@ func PrimaryExpr (ASTExpr) {
   choose {
     return Literal();
   } or {
+    // Slice is currently the only expression containing a code block.
     /"slice"/;
     EndKeyword();
     S();
@@ -902,11 +915,13 @@ func PrimaryExpr (ASTExpr) {
     /[)]/;
     return e;
   } or {
+    // TODO supress keywords.
     name := Ident();
     return GetName{Name: name};
   }
 }
 
+// TODO precedence
 func ParseExpr (ASTExpr) {
   e := PrimaryExpr();
   star {

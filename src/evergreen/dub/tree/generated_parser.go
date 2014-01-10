@@ -358,46 +358,123 @@ type File struct {
 	Tests []*Test
 }
 
-func S(frame *runtime.State) {
+func LineTerminator(frame *runtime.State) {
 	var r0 int
 	var r1 rune
 	var r2 rune
 	var r3 bool
 	var r4 rune
-	var r5 bool
-	var r6 rune
-	var r7 bool
+	var r5 rune
+	var r6 bool
+	var r7 rune
 	var r8 rune
 	var r9 bool
-	goto block1
-block1:
+	var r10 rune
+	var r11 rune
+	var r12 bool
 	r0 = frame.Checkpoint()
 	r1 = frame.Peek()
 	if frame.Flow == 0 {
-		r2 = ' '
+		r2 = '\n'
 		r3 = r1 == r2
 		if r3 {
+			frame.Consume()
+			goto block3
+		} else {
+			frame.Fail()
+			goto block1
+		}
+	} else {
+		goto block1
+	}
+block1:
+	frame.Recover(r0)
+	r4 = frame.Peek()
+	if frame.Flow == 0 {
+		r5 = '\r'
+		r6 = r4 == r5
+		if r6 {
+			frame.Consume()
+			r7 = frame.Peek()
+			if frame.Flow == 0 {
+				r8 = '\n'
+				r9 = r7 == r8
+				if r9 {
+					frame.Consume()
+					goto block3
+				} else {
+					frame.Fail()
+					goto block2
+				}
+			} else {
+				goto block2
+			}
+		} else {
+			frame.Fail()
+			goto block2
+		}
+	} else {
+		goto block2
+	}
+block2:
+	frame.Recover(r0)
+	r10 = frame.Peek()
+	if frame.Flow == 0 {
+		r11 = '\r'
+		r12 = r10 == r11
+		if r12 {
+			frame.Consume()
+			goto block3
+		} else {
+			frame.Fail()
+			goto block4
+		}
+	} else {
+		goto block4
+	}
+block3:
+	return
+block4:
+	return
+}
+func S(frame *runtime.State) {
+	var r0 int
+	var r1 int
+	var r2 rune
+	var r3 rune
+	var r4 bool
+	var r5 rune
+	var r6 bool
+	var r7 rune
+	var r8 rune
+	var r9 bool
+	var r10 rune
+	var r11 rune
+	var r12 bool
+	var r13 int
+	var r14 rune
+	var r15 rune
+	var r16 bool
+	var r17 rune
+	var r18 bool
+	goto block1
+block1:
+	r0 = frame.Checkpoint()
+	r1 = frame.Checkpoint()
+	r2 = frame.Peek()
+	if frame.Flow == 0 {
+		r3 = ' '
+		r4 = r2 == r3
+		if r4 {
 			goto block2
 		} else {
-			r4 = '\t'
-			r5 = r1 == r4
-			if r5 {
+			r5 = '\t'
+			r6 = r2 == r5
+			if r6 {
 				goto block2
 			} else {
-				r6 = '\r'
-				r7 = r1 == r6
-				if r7 {
-					goto block2
-				} else {
-					r8 = '\n'
-					r9 = r1 == r8
-					if r9 {
-						goto block2
-					} else {
-						frame.Fail()
-						goto block3
-					}
-				}
+				frame.Fail()
+				goto block3
 			}
 		}
 	} else {
@@ -407,6 +484,68 @@ block2:
 	frame.Consume()
 	goto block1
 block3:
+	frame.Recover(r1)
+	LineTerminator(frame)
+	if frame.Flow == 0 {
+		goto block1
+	} else {
+		frame.Recover(r1)
+		r7 = frame.Peek()
+		if frame.Flow == 0 {
+			r8 = '/'
+			r9 = r7 == r8
+			if r9 {
+				frame.Consume()
+				r10 = frame.Peek()
+				if frame.Flow == 0 {
+					r11 = '/'
+					r12 = r10 == r11
+					if r12 {
+						frame.Consume()
+						goto block4
+					} else {
+						frame.Fail()
+						goto block7
+					}
+				} else {
+					goto block7
+				}
+			} else {
+				frame.Fail()
+				goto block7
+			}
+		} else {
+			goto block7
+		}
+	}
+block4:
+	r13 = frame.Checkpoint()
+	r14 = frame.Peek()
+	if frame.Flow == 0 {
+		r15 = '\n'
+		r16 = r14 == r15
+		if r16 {
+			goto block5
+		} else {
+			r17 = '\r'
+			r18 = r14 == r17
+			if r18 {
+				goto block5
+			} else {
+				frame.Consume()
+				goto block4
+			}
+		}
+	} else {
+		goto block6
+	}
+block5:
+	frame.Fail()
+	goto block6
+block6:
+	frame.Recover(r13)
+	goto block1
+block7:
 	frame.Recover(r0)
 	return
 }
