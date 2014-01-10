@@ -127,6 +127,10 @@ func formatAssignment(op string, dst DubRegister) string {
 	return fmt.Sprintf("%s := %s", RegisterName(dst), op)
 }
 
+func formatMultiAssignment(op string, dsts []DubRegister) string {
+	return fmt.Sprintf("%s := %s", RegisterList(dsts), op)
+}
+
 type DubOp interface {
 	OpToString() string
 }
@@ -207,11 +211,11 @@ func (n *BinaryOp) OpToString() string {
 
 type CallOp struct {
 	Name string
-	Dst  DubRegister
+	Dsts []DubRegister
 }
 
 func (n *CallOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%s()", n.Name), n.Dst)
+	return formatMultiAssignment(fmt.Sprintf("%s()", n.Name), n.Dsts)
 }
 
 type KeyValue struct {

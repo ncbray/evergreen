@@ -267,6 +267,28 @@ func lowerMatch(match tree.TextMatch, builder *DubBuilder, gr *base.GraphRegion)
 	}
 }
 
+func lowerMultiValueExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.GraphRegion) []flow.DubRegister {
+	switch expr := expr.(type) {
+
+	case *tree.Call:
+		var dsts []flow.DubRegister
+		if used {
+			dsts = make([]flow.DubRegister, len(expr.T))
+			for i, t := range expr.T {
+				dsts[i] = builder.CreateRegister(t)
+			}
+		}
+		body := builder.EmitOp(&flow.CallOp{Name: expr.Name.Text, Dsts: dsts})
+		gr.AttachFlow(flow.NORMAL, body)
+		gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
+		gr.RegisterExit(body, flow.FAIL, flow.FAIL)
+
+		return dsts
+	default:
+		return []flow.DubRegister{lowerExpr(expr, builder, used, gr)}
+	}
+}
+
 func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.GraphRegion) flow.DubRegister {
 	switch expr := expr.(type) {
 	case *tree.If:
@@ -364,22 +386,31 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		return dst
 
 	case *tree.Assign:
-		tgt, ok := expr.Target.(*tree.NameRef)
-		if !ok {
-			panic(expr.Target)
-		}
-		dst := builder.localMap[tgt.Info]
-		var op flow.DubOp
+		var srcs []flow.DubRegister
 		if expr.Expr != nil {
-			src := lowerExpr(expr.Expr, builder, true, gr)
-			op = &flow.CopyOp{Src: src, Dst: dst}
-		} else {
-			op = builder.ZeroRegister(dst)
+			srcs = lowerMultiValueExpr(expr.Expr, builder, true, gr)
+			if len(expr.Targets) != len(srcs) {
+				panic(expr.Targets)
+			}
 		}
-		body := builder.EmitOp(op)
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
-		return dst
+		for i, etgt := range expr.Targets {
+			tgt, ok := etgt.(*tree.NameRef)
+			if !ok {
+				panic(expr.Targets)
+			}
+			dst := builder.localMap[tgt.Info]
+			var op flow.DubOp
+			if srcs != nil {
+				op = &flow.CopyOp{Src: srcs[i], Dst: dst}
+			} else {
+				op = builder.ZeroRegister(dst)
+			}
+			body := builder.EmitOp(op)
+			gr.AttachFlow(flow.NORMAL, body)
+			gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
+		}
+		// HACK should actuall return a multivalue
+		return flow.NoRegister
 
 	case *tree.RuneLiteral:
 		if !used {
@@ -473,14 +504,15 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		return dst
 
 	case *tree.Call:
+		dsts := lowerMultiValueExpr(expr, builder, true, gr)
 		dst := flow.NoRegister
 		if used {
-			dst = builder.CreateRegister(expr.T)
+			if len(dsts) != 1 {
+				panic(expr)
+			} else {
+				dst = dsts[0]
+			}
 		}
-		body := builder.EmitOp(&flow.CallOp{Name: expr.Name.Text, Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
-		gr.RegisterExit(body, flow.FAIL, flow.FAIL)
 		return dst
 	case *tree.Construct:
 		args := make([]*flow.KeyValue, len(expr.Args))

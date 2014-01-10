@@ -88,6 +88,26 @@ func opAssign(expr ast.Expr, dst DubRegister) ast.Stmt {
 	}
 }
 
+func opMultiAssign(expr ast.Expr, dsts []DubRegister) ast.Stmt {
+	if len(dsts) != 0 {
+		lhs := make([]ast.Expr, len(dsts))
+		for i, dst := range dsts {
+			if dst != NoRegister {
+				lhs[i] = reg(dst)
+			} else {
+				lhs[i] = id("_")
+			}
+		}
+		return &ast.AssignStmt{
+			Lhs: lhs,
+			Tok: token.ASSIGN,
+			Rhs: []ast.Expr{expr},
+		}
+	} else {
+		return &ast.ExprStmt{X: expr}
+	}
+}
+
 var opToTok = map[string]token.Token{
 	"+":  token.ADD,
 	"-":  token.SUB,
@@ -144,14 +164,14 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 			op.Dst,
 		))
 	case *CallOp:
-		block = append(block, opAssign(
+		block = append(block, opMultiAssign(
 			&ast.CallExpr{
 				Fun: id(op.Name),
 				Args: []ast.Expr{
 					id("frame"),
 				},
 			},
-			op.Dst,
+			op.Dsts,
 		))
 	case *ConstructOp:
 		elts := make([]ast.Expr, len(op.Args))

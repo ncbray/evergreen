@@ -87,13 +87,15 @@ func Ident() Id {
   return Id{Pos: p, Text: text};
 }
 
-func DecodeInt() int {
+func DecodeInt() (int, string) {
     var value int;
-    plus {
-      digit := coerce(int, $[0-9]) - coerce(int, '0');
-      value = value * 10 + digit;
-    }
-    return value;
+    text := slice {
+      plus {
+        digit := coerce(int, $[0-9]) - coerce(int, '0');
+        value = value * 10 + digit;
+      }
+    };
+    return value, text;
 }
 
 func EscapedChar() rune {
@@ -145,37 +147,39 @@ func DecodeString() string {
   return coerce(string, contents);
 }
 
-func DecodeRune() rune {
+func DecodeRune() (rune, string) {
   var value rune;
-  /[']/;
-  choose {
-    value = $[^\\'];
-  } or {
-    /[\\]/;
-    value = EscapedChar();
-  }
-  /[']/;
-  return value;
+  text := slice {
+    /[']/;
+    choose {
+      value = $[^\\'];
+    } or {
+      /[\\]/;
+      value = EscapedChar();
+    }
+    /[']/;
+  };
+  return value, text;
 }
 
-func DecodeBool() bool {
-  choose {
-    /"true"/;
+func DecodeBool() (bool, string) {
+  var value bool;
+  text := slice {
+    choose {
+      /"true"/;
+      value = true;
+    } or {
+      /"false"/;
+      value = false;
+    }
     EndKeyword();
-    return true;
-  } or {
-    /"false"/;
-    EndKeyword();
-    return false;
-  }
+  };
+  return value, text;
 }
 
 func Literal() ASTExpr {
   choose {
-    var value rune;
-    text := slice {
-      value = DecodeRune();
-    };
+    value, text := DecodeRune();
     return RuneLiteral{Text: text, Value: value};
   } or {
     var value string;
@@ -184,16 +188,10 @@ func Literal() ASTExpr {
     };
     return StringLiteral{Text: text, Value: value};
   } or {
-    var value int;
-    text := slice {
-      value = DecodeInt();
-    };
+    value, text := DecodeInt();
     return IntLiteral{Text: text, Value: value};
   } or {
-    var value bool;
-    text := slice {
-      value = DecodeBool();
-    };
+    value, text := DecodeBool();
     return BoolLiteral{Text: text, Value: value};
   }
 }
@@ -716,7 +714,7 @@ struct Slice implements ASTExpr {
 
 struct Assign implements ASTExpr {
   Expr ASTExpr
-  Target ASTExpr
+  Targets []ASTExpr
   Type ASTTypeRef
   Define bool
 }
@@ -748,7 +746,7 @@ struct Coerce implements ASTExpr {
 
 struct Call implements ASTExpr {
   Name Id
-  T ASTType
+  T []ASTType
 }
 
 struct Position implements ASTExpr {
@@ -784,6 +782,17 @@ func ParseExprList() []ASTExpr {
       S();
       append(exprs, ParseExpr());
     }
+  }
+  return exprs;
+}
+
+func ParseTargetList() []ASTExpr {
+  exprs := []ASTExpr{ParseNameRef()};
+  star {
+    S();
+    /[,]/;
+    S();
+    append(exprs, ParseNameRef());
   }
   return exprs;
 }
@@ -882,7 +891,7 @@ func PrimaryExpr() ASTExpr {
         List: NameRef{Name: name},
         Expr: expr
       },
-      Target: NameRef{Name: name}
+      Targets: []ASTExpr{NameRef{Name: name}}
     };
   } or {
     name := Ident();
@@ -1009,7 +1018,7 @@ func ParseStatement() ASTExpr {
       expr = ParseExpr(); 
     }
     EOS();
-    return Assign{Expr: expr, Target: name, Type: t, Define: true};
+    return Assign{Expr: expr, Targets: []ASTExpr{name}, Type: t, Define: true};
   } or {
     /"fail"/;
     EndKeyword();
@@ -1023,7 +1032,7 @@ func ParseStatement() ASTExpr {
     EOS();
     return Return{Exprs: exprs};
   } or {
-    name := ParseNameRef();
+    names := ParseTargetList();
     S();
     var defined bool;
     choose {
@@ -1035,7 +1044,7 @@ func ParseStatement() ASTExpr {
     S();
     expr := ParseExpr();
     EOS();
-    return Assign{Expr: expr, Target: name, Define: defined};
+    return Assign{Expr: expr, Targets: names, Define: defined};
   } or {
     e := ParseExpr();
     EOS();
@@ -1095,7 +1104,7 @@ test ParseStatement Assign "foo = 1;"
     Expr: IntLiteral {
       Value: 1
     }
-    Target: NameRef{Name: Id{Text: "foo"}}
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "foo"}}}
     Define: false
   }
 
@@ -1104,7 +1113,7 @@ test ParseStatement Lookahead "returnType = 1;"
     Expr: IntLiteral {
       Value: 1
     }
-    Target: NameRef{Name: Id{Text: "returnType"}}
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "returnType"}}}
     Define: false
   }
 
@@ -1113,9 +1122,23 @@ test ParseStatement Define "foo := 1;"
     Expr: IntLiteral {
       Value: 1
     }
-    Target: NameRef{Name: Id{Text: "foo"}}
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "foo"}}}
     Define: true
   }
+
+test ParseStatement MultiAssign "a, b, c = foo();"
+  Assign {
+    Expr: Call {
+      Name: Id{Text: "foo"}
+    }
+    Targets: []ASTExpr{
+      NameRef{Name: Id{Text: "a"}}
+      NameRef{Name: Id{Text: "b"}}
+      NameRef{Name: Id{Text: "c"}}
+    }
+    Define: false
+  }
+
 
 test ParseExpr Construct "Foo{ Bar: 1}"
   Construct {
@@ -1155,7 +1178,7 @@ test ParseStatement Slice "a := slice { 1; } ;"
         }
       }
     }
-    Target: NameRef{Name: Id{Text: "a"}}
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "a"}}}
     Define: true
   }
 

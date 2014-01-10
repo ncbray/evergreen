@@ -89,10 +89,6 @@ func semanticTargetPass(decl *FuncDecl, expr ASTExpr, t ASTType, define bool, sc
 	switch expr := expr.(type) {
 	case *NameRef:
 		name := expr.Name.Text
-		if t == nil {
-			panic(fmt.Sprintf("%s: Cannot infer the type of %#v", decl.Name.Text, name))
-		}
-
 		var info int
 		var exists bool
 		if define {
@@ -111,6 +107,7 @@ func semanticTargetPass(decl *FuncDecl, expr ASTExpr, t ASTType, define bool, sc
 				status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to assign to unknown variable %#v", name))
 				return
 			}
+			// TODO type check
 		}
 		expr.Info = info
 	default:
@@ -118,27 +115,36 @@ func semanticTargetPass(decl *FuncDecl, expr ASTExpr, t ASTType, define bool, sc
 	}
 }
 
-func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls *ModuleScope, status framework.Status) ASTType {
+func scalarSemanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls *ModuleScope, status framework.Status) ASTType {
+	types := semanticExprPass(decl, expr, scope, glbls, status)
+	if len(types) != 1 {
+		status.Error("expected a single value, got %d instead", len(types))
+		return unresolvedType
+	}
+	return types[0]
+}
+
+func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls *ModuleScope, status framework.Status) []ASTType {
 	switch expr := expr.(type) {
 	case *Repeat:
 		semanticBlockPass(decl, expr.Block, scope, glbls, status)
-		return glbls.Void
+		return nil
 	case *Choice:
 		for _, block := range expr.Blocks {
 			semanticBlockPass(decl, block, childScope(scope), glbls, status)
 		}
-		return glbls.Void
+		return nil
 	case *Optional:
 		semanticBlockPass(decl, expr.Block, scope, glbls, status)
-		return glbls.Void
+		return nil
 	case *If:
 		semanticExprPass(decl, expr.Expr, scope, glbls, status)
 		// TODO check condition type
 		semanticBlockPass(decl, expr.Block, childScope(scope), glbls, status)
-		return glbls.Void
+		return nil
 	case *BinaryOp:
-		l := semanticExprPass(decl, expr.Left, scope, glbls, status)
-		r := semanticExprPass(decl, expr.Right, scope, glbls, status)
+		l := scalarSemanticExprPass(decl, expr.Left, scope, glbls, status)
+		r := scalarSemanticExprPass(decl, expr.Right, scope, glbls, status)
 		lt, ok := l.(*BuiltinType)
 		if !ok {
 			panic(l)
@@ -153,47 +159,56 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			panic(sig)
 		}
 		expr.T = t
-		return t
+		return []ASTType{t}
 	case *NameRef:
 		name := expr.Name.Text
 		info, found := scope.localInfo(name)
 		if !found {
 			status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return unresolvedType
+			return []ASTType{unresolvedType}
 		}
 		expr.Info = info
-		return decl.Locals[info].T
+		return []ASTType{decl.Locals[info].T}
 	case *Assign:
-		var t ASTType
+		var t []ASTType
 		if expr.Expr != nil {
 			t = semanticExprPass(decl, expr.Expr, scope, glbls, status)
 		}
 		if expr.Type != nil {
-			t = semanticTypePass(expr.Type, glbls, status)
+			t = []ASTType{semanticTypePass(expr.Type, glbls, status)}
 		}
-		semanticTargetPass(decl, expr.Target, t, expr.Define, scope, glbls, status)
+		if len(expr.Targets) != len(t) {
+			status.Error("Expected %d values but got %d", len(expr.Targets), len(t))
+			t = make([]ASTType, len(expr.Targets))
+			for i, _ := range expr.Targets {
+				t[i] = unresolvedType
+			}
+		}
+		for i, target := range expr.Targets {
+			semanticTargetPass(decl, target, t[i], expr.Define, scope, glbls, status)
+		}
 		return t
 	case *Slice:
 		semanticBlockPass(decl, expr.Block, scope, glbls, status)
-		return glbls.String
+		return []ASTType{glbls.String}
 	case *StringMatch:
-		return glbls.String
+		return []ASTType{glbls.String}
 	case *RuneMatch:
-		return glbls.Rune
+		return []ASTType{glbls.Rune}
 	case *RuneLiteral:
-		return glbls.Rune
+		return []ASTType{glbls.Rune}
 	case *StringLiteral:
-		return glbls.String
+		return []ASTType{glbls.String}
 	case *IntLiteral:
-		return glbls.Int
+		return []ASTType{glbls.Int}
 	case *BoolLiteral:
-		return glbls.Bool
+		return []ASTType{glbls.Bool}
 	case *Return:
 		if len(decl.ReturnTypes) != len(expr.Exprs) {
 			status.Error("wrong number of return types: %d vs. %d", len(expr.Exprs), len(decl.ReturnTypes))
 		}
 		for i, e := range expr.Exprs {
-			at := semanticExprPass(decl, e, scope, glbls, status)
+			at := scalarSemanticExprPass(decl, e, scope, glbls, status)
 			if i < len(decl.ReturnTypes) {
 				et := ResolveType(decl.ReturnTypes[i])
 				if !TypeMatches(at, et, false) {
@@ -202,20 +217,21 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 
 			}
 		}
-		return glbls.Void
+		return nil
 	case *Position:
-		return glbls.Int
+		return []ASTType{glbls.Int}
 	case *Fail:
-		return glbls.Void
+		return nil
 	case *Call:
-		t := glbls.ReturnType(expr.Name.Text)
-		expr.T = t
-		return t
+		types := glbls.ReturnTypes(expr.Name.Text)
+		expr.T = types
+		return types
 	case *Append:
-		t := semanticExprPass(decl, expr.List, scope, glbls, status)
-		semanticExprPass(decl, expr.Expr, scope, glbls, status)
+		t := scalarSemanticExprPass(decl, expr.List, scope, glbls, status)
+		scalarSemanticExprPass(decl, expr.Expr, scope, glbls, status)
+		// TODO type check arguments
 		expr.T = t
-		return t
+		return []ASTType{t}
 	case *Construct:
 		t := semanticTypePass(expr.Type, glbls, status)
 		st, ok := t.(*StructDecl)
@@ -223,7 +239,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			panic(t)
 		}
 		for _, arg := range expr.Args {
-			aft := semanticExprPass(decl, arg.Expr, scope, glbls, status)
+			aft := scalarSemanticExprPass(decl, arg.Expr, scope, glbls, status)
 			if st != nil {
 				fn := arg.Name.Text
 				f := GetField(st, fn)
@@ -237,7 +253,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 				}
 			}
 		}
-		return t
+		return []ASTType{t}
 	case *ConstructList:
 		t := semanticTypePass(expr.Type, glbls, status)
 		lt, ok := t.(*ListType)
@@ -245,18 +261,19 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			panic(t)
 		}
 		for _, arg := range expr.Args {
-			at := semanticExprPass(decl, arg, scope, glbls, status)
+			at := scalarSemanticExprPass(decl, arg, scope, glbls, status)
 			if lt != nil {
 				if !TypeMatches(at, lt.Type, false) {
 					status.Error("%s vs. %s", TypeName(at), TypeName(lt.Type))
 				}
 			}
 		}
-		return t
+		return []ASTType{t}
 	case *Coerce:
 		t := semanticTypePass(expr.Type, glbls, status)
-		semanticExprPass(decl, expr.Expr, scope, glbls, status)
-		return t
+		scalarSemanticExprPass(decl, expr.Expr, scope, glbls, status)
+		// TODO type check
+		return []ASTType{t}
 	default:
 		panic(expr)
 	}
@@ -358,14 +375,18 @@ func semanticDestructurePass(decl *FuncDecl, d Destructure, scope *semanticScope
 		}
 		return t
 	case *DestructureValue:
-		return semanticExprPass(decl, d.Expr, scope, glbls, status)
+		return scalarSemanticExprPass(decl, d.Expr, scope, glbls, status)
 	default:
 		panic(d)
 	}
 }
 
 func semanticTestPass(tst *Test, glbls *ModuleScope, status framework.Status) {
-	tst.Type = glbls.ReturnType(tst.Rule.Text)
+	types := glbls.ReturnTypes(tst.Rule.Text)
+	if len(types) != 1 {
+		panic(types)
+	}
+	tst.Type = types[0]
 	// HACK no real context
 	at := semanticDestructurePass(nil, tst.Destructure, nil, glbls, status)
 	if !TypeMatches(at, tst.Type, false) {
@@ -426,23 +447,20 @@ func ResolveType(ref ASTTypeRef) ASTType {
 	}
 }
 
-func ReturnType(node ASTFunc) ASTType {
+func ReturnTypes(node ASTFunc) []ASTType {
 	switch node := node.(type) {
 	case *FuncDecl:
-		// HACK assume single return value
-		if len(node.ReturnTypes) == 0 {
-			return nil
+		types := make([]ASTType, len(node.ReturnTypes))
+		for i, t := range node.ReturnTypes {
+			types[i] = ResolveType(t)
 		}
-		if len(node.ReturnTypes) != 1 {
-			panic(node.Name.Text)
-		}
-		return ResolveType(node.ReturnTypes[0])
+		return types
 	default:
 		panic(node)
 	}
 }
 
-func (glbls *ModuleScope) ReturnType(name string) ASTType {
+func (glbls *ModuleScope) ReturnTypes(name string) []ASTType {
 	// HACK resolve other scopes?
 	decl, ok := glbls.Module[name]
 	if !ok {
@@ -452,7 +470,7 @@ func (glbls *ModuleScope) ReturnType(name string) ASTType {
 	if !ok {
 		panic(name)
 	}
-	return ReturnType(f)
+	return ReturnTypes(f)
 }
 
 func SemanticPass(file *File, status framework.Status) *ModuleScope {
@@ -472,9 +490,6 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 
 	glbls.Bool = &BuiltinType{"bool"}
 	glbls.Builtin["bool"] = glbls.Bool
-
-	glbls.Void = &BuiltinType{"void"}
-	glbls.Builtin["void"] = glbls.Void
 
 	glbls.BinaryOps["int+int"] = glbls.Int
 	glbls.BinaryOps["int-int"] = glbls.Int

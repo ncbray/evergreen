@@ -35,7 +35,9 @@ func collectDefUse(node base.NodeID, op DubOp, defuse *base.DefUseCollector) {
 	case *ConstantNilOp:
 		AddDef(op.Dst, node, defuse)
 	case *CallOp:
-		AddDef(op.Dst, node, defuse)
+		for _, dst := range op.Dsts {
+			AddDef(dst, node, defuse)
+		}
 	case *Slice:
 		AddUse(op.Src, node, defuse)
 		AddDef(op.Dst, node, defuse)
@@ -175,7 +177,9 @@ func renameOp(n base.NodeID, data DubOp, ra *RegisterReallocator) {
 	case *ConstantNilOp:
 		op.Dst = ra.MakeOutput(n, op.Dst)
 	case *CallOp:
-		op.Dst = ra.MakeOutput(n, op.Dst)
+		for i, dst := range op.Dsts {
+			op.Dsts[i] = ra.MakeOutput(n, dst)
+		}
 	case *Slice:
 		op.Src = ra.Get(n, op.Src)
 		op.Dst = ra.MakeOutput(n, op.Dst)
@@ -287,8 +291,16 @@ func killUnusedOutputs(n base.NodeID, op DubOp, live base.LivenessOracle) {
 			op.Dst = NoRegister
 		}
 	case *CallOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+		anyLive := false
+		for i, dst := range op.Dsts {
+			if !live.LiveAtExit(n, int(dst)) {
+				op.Dsts[i] = NoRegister
+			} else {
+				anyLive = true
+			}
+		}
+		if !anyLive {
+			op.Dsts = []DubRegister{}
 		}
 	case *Slice:
 		if !live.LiveAtExit(n, int(op.Dst)) {
