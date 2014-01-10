@@ -61,11 +61,11 @@ struct BoolLiteral implements ASTExpr {
   Value bool
 }
 
-func LineTerminator () {
+func LineTerminator() {
   /"\n"|"\r\n"|"\r"/;
 }
 
-func S () {
+func S() {
   star {
     choose {
       /[ \t]/;
@@ -77,17 +77,17 @@ func S () {
   }
 }
 
-func EndKeyword () {
+func EndKeyword() {
   /![a-zA-Z_0-9]/;
 }
 
-func Ident (Id) {
+func Ident() Id {
   p := position;
   text := /[a-zA-Z_][a-zA-Z_0-9]*/;
   return Id{Pos: p, Text: text};
 }
 
-func DecodeInt (int) {
+func DecodeInt() int {
     var value int;
     plus {
       digit := coerce(int, $[0-9]) - coerce(int, '0');
@@ -96,7 +96,7 @@ func DecodeInt (int) {
     return value;
 }
 
-func EscapedChar (rune) {
+func EscapedChar() rune {
   choose {
     /[a]/;
     return '\a';
@@ -130,7 +130,7 @@ func EscapedChar (rune) {
   }
 }
 
-func DecodeString (string) {
+func DecodeString() string {
   /["]/;
   contents := []rune{};
   star {
@@ -145,7 +145,7 @@ func DecodeString (string) {
   return coerce(string, contents);
 }
 
-func DecodeRune (rune) {
+func DecodeRune() rune {
   var value rune;
   /[']/;
   choose {
@@ -158,7 +158,7 @@ func DecodeRune (rune) {
   return value;
 }
 
-func DecodeBool (bool) {
+func DecodeBool() bool {
   choose {
     /"true"/;
     EndKeyword();
@@ -170,7 +170,7 @@ func DecodeBool (bool) {
   }
 }
 
-func Literal (ASTExpr) {
+func Literal() ASTExpr {
   choose {
     var value rune;
     text := slice {
@@ -198,7 +198,7 @@ func Literal (ASTExpr) {
   }
 }
 
-func BinaryOperator (string) {
+func BinaryOperator() string {
   op := /[+\-*/]|([<>][=]?)|([!=][=]) ![+\-*/<>!=]/;
   return op;
 }
@@ -212,7 +212,7 @@ struct RuneMatch implements ASTExpr {
    Match RuneRangeMatch
 }
 
-func StringMatchExpr (StringMatch) {
+func StringMatchExpr() StringMatch {
   /[/]/;
   S();
   e := ParseMatchChoice();
@@ -221,7 +221,7 @@ func StringMatchExpr (StringMatch) {
   return StringMatch{Match: e};
 }
 
-func RuneMatchExpr (RuneMatch) {
+func RuneMatchExpr() RuneMatch {
   /[$]/;
   S();
   e := MatchRune();
@@ -278,17 +278,17 @@ struct ListTypeRef implements ASTTypeRef {
   T ASTType
 }
 
-func ParseStructTypeRef (TypeRef) {
+func ParseStructTypeRef() TypeRef {
     return TypeRef{Name: Ident()};
 }
 
-func ParseListTypeRef (ListTypeRef) {
+func ParseListTypeRef() ListTypeRef {
     /[\[][\]]/;
     return ListTypeRef{Type: ParseTypeRef()};
 }
 
 
-func ParseTypeRef (ASTTypeRef) {
+func ParseTypeRef() ASTTypeRef {
   choose {
     return ParseStructTypeRef();
   } or {
@@ -327,7 +327,7 @@ struct DestructureList implements Destructure {
   Args []Destructure
 }
 
-func ParseDestructure (Destructure) {
+func ParseDestructure() Destructure {
   choose {
     t := ParseStructTypeRef();
     S();
@@ -396,7 +396,7 @@ test ParseDestructure Compound "[]Foo { Bar { Baz: 1 Biz : 'x'} }"
     }
   }
 
-func ParseRuneFilterRune (rune) {
+func ParseRuneFilterRune() rune {
   choose {
     return $[^\]\-\\];
   } or {
@@ -409,7 +409,7 @@ func ParseRuneFilterRune (rune) {
   }
 }
 
-func ParseRuneFilter (RuneFilter) {
+func ParseRuneFilter() RuneFilter {
   min := ParseRuneFilterRune();
   max := min;
   question {
@@ -419,7 +419,7 @@ func ParseRuneFilter (RuneFilter) {
   return RuneFilter{Min: min, Max: max};
 }
 
-func MatchRune (RuneRangeMatch) {
+func MatchRune() RuneRangeMatch {
   /[\[]/;
   invert := false;
   filters := []RuneFilter{};
@@ -434,7 +434,7 @@ func MatchRune (RuneRangeMatch) {
   return RuneRangeMatch{Invert: invert, Filters: filters};
 }
 
-func Atom (TextMatch) {
+func Atom() TextMatch {
   choose {
     return MatchRune();
   } or {
@@ -450,7 +450,7 @@ func Atom (TextMatch) {
   }
 }
 
-func MatchPostfix (TextMatch) {
+func MatchPostfix() TextMatch {
   e := Atom();
   choose {
     S();
@@ -469,7 +469,7 @@ func MatchPostfix (TextMatch) {
   }
 }
 
-func MatchPrefix (TextMatch) {
+func MatchPrefix() TextMatch {
   choose {
     var invert bool;
     choose {
@@ -485,7 +485,7 @@ func MatchPrefix (TextMatch) {
   }
 }
 
-func Sequence (TextMatch) {
+func Sequence() TextMatch {
   e := MatchPrefix();
   choose {
     l := []TextMatch{e};
@@ -499,7 +499,7 @@ func Sequence (TextMatch) {
   }
 }
 
-func ParseMatchChoice (TextMatch) {
+func ParseMatchChoice() TextMatch {
   e := Sequence();
   choose {
     l := []TextMatch{e};
@@ -716,13 +716,12 @@ struct Slice implements ASTExpr {
 
 struct Assign implements ASTExpr {
   Expr ASTExpr
-  Name Id
-  Info int
+  Target ASTExpr
   Type ASTTypeRef
   Define bool
 }
 
-struct GetName implements ASTExpr {
+struct NameRef implements ASTExpr {
   Name Id
   Info int
 }
@@ -775,7 +774,7 @@ struct BinaryOp implements ASTExpr {
   T ASTType
 }
 
-func ParseExprList ([]ASTExpr) {
+func ParseExprList() []ASTExpr {
   exprs := []ASTExpr{};
   question {
     append(exprs, ParseExpr());
@@ -789,7 +788,7 @@ func ParseExprList ([]ASTExpr) {
   return exprs;
 }
 
-func ParseNamedExpr (NamedExpr) {
+func ParseNamedExpr() NamedExpr {
   name := Ident();
   S();
   /[:]/;
@@ -797,7 +796,7 @@ func ParseNamedExpr (NamedExpr) {
   return NamedExpr{Name: name, Expr: ParseExpr()};
 }
 
-func ParseNamedExprList ([]NamedExpr) {
+func ParseNamedExprList() []NamedExpr {
   exprs := []NamedExpr{};
   question {
     append(exprs, ParseNamedExpr());
@@ -812,25 +811,31 @@ func ParseNamedExprList ([]NamedExpr) {
 }
 
 
-func ParseTypeList ([]ASTTypeRef) {
-  /[(]/;
-  S();
-  types := []ASTTypeRef{};
-  question {
-    append(types, ParseTypeRef());
+func ParseReturnTypeList() []ASTTypeRef {
+  choose {
+    /[(]/;
     S();
-    star {
-      /[,]/;
-      S();
+    types := []ASTTypeRef{};
+    question {
       append(types, ParseTypeRef());
       S();
+      star {
+        /[,]/;
+        S();
+        append(types, ParseTypeRef());
+        S();
+      }
     }
+    /[)]/;
+    return types;
+  } or {
+    return []ASTTypeRef{ParseTypeRef()};
+  } or {
+    return []ASTTypeRef{};
   }
-  /[)]/;
-  return types;
 }
 
-func PrimaryExpr (ASTExpr) {
+func PrimaryExpr() ASTExpr {
   choose {
     return Literal();
   } or {
@@ -871,12 +876,13 @@ func PrimaryExpr (ASTExpr) {
     expr := ParseExpr();
     S();
     /[)]/;
+    // TODO make the copy of the name node explicit?
     return Assign{
       Expr: Append{
-        List: GetName{Name: name},
+        List: NameRef{Name: name},
         Expr: expr
       },
-      Name: name
+      Target: NameRef{Name: name}
     };
   } or {
     name := Ident();
@@ -915,14 +921,17 @@ func PrimaryExpr (ASTExpr) {
     /[)]/;
     return e;
   } or {
-    // TODO supress keywords.
-    name := Ident();
-    return GetName{Name: name};
+    return ParseNameRef();
   }
 }
 
+func ParseNameRef() NameRef {
+    // TODO supress keywords.
+    return NameRef{Name: Ident()};
+}
+
 // TODO precedence
-func ParseExpr (ASTExpr) {
+func ParseExpr() ASTExpr {
   e := PrimaryExpr();
   star {
     S();
@@ -934,7 +943,7 @@ func ParseExpr (ASTExpr) {
   return e;
 }
 
-func ParseCompoundStatement (ASTExpr) {
+func ParseCompoundStatement() ASTExpr {
   choose {
     /"star"/;
     EndKeyword();
@@ -977,19 +986,19 @@ func ParseCompoundStatement (ASTExpr) {
   }
 }
 
-func EOS () {
+func EOS() {
   S();
   /[;]/;
 }
 
-func ParseStatement (ASTExpr) {
+func ParseStatement() ASTExpr {
   choose {
     return ParseCompoundStatement();
   } or {
     /"var"/;
     EndKeyword();
     S();
-    name := Ident();
+    name := ParseNameRef();
     S();
     t := ParseTypeRef();
     var expr ASTExpr;
@@ -1000,7 +1009,7 @@ func ParseStatement (ASTExpr) {
       expr = ParseExpr(); 
     }
     EOS();
-    return Assign{Expr: expr, Name: name, Type: t, Define: true};
+    return Assign{Expr: expr, Target: name, Type: t, Define: true};
   } or {
     /"fail"/;
     EndKeyword();
@@ -1014,7 +1023,7 @@ func ParseStatement (ASTExpr) {
     EOS();
     return Return{Exprs: exprs};
   } or {
-    name := Ident();
+    name := ParseNameRef();
     S();
     var defined bool;
     choose {
@@ -1026,7 +1035,7 @@ func ParseStatement (ASTExpr) {
     S();
     expr := ParseExpr();
     EOS();
-    return Assign{Expr: expr, Name: name, Define: defined};
+    return Assign{Expr: expr, Target: name, Define: defined};
   } or {
     e := ParseExpr();
     EOS();
@@ -1034,7 +1043,7 @@ func ParseStatement (ASTExpr) {
   }
 }
 
-func ParseCodeBlock([]ASTExpr) {
+func ParseCodeBlock() []ASTExpr {
   /[{]/;
   S();
   exprs := []ASTExpr{};
@@ -1083,28 +1092,28 @@ test ParseExpr BinaryOpRight "12 + (34 - 56)"
 
 test ParseStatement Assign "foo = 1;"
   Assign {
-    Name: Id{Text: "foo"}
     Expr: IntLiteral {
       Value: 1
     }
+    Target: NameRef{Name: Id{Text: "foo"}}
     Define: false
   }
 
 test ParseStatement Lookahead "returnType = 1;"
   Assign {
-    Name: Id{Text: "returnType"}
     Expr: IntLiteral {
       Value: 1
     }
+    Target: NameRef{Name: Id{Text: "returnType"}}
     Define: false
   }
 
 test ParseStatement Define "foo := 1;"
   Assign {
-    Name: Id{Text: "foo"}
     Expr: IntLiteral {
       Value: 1
     }
+    Target: NameRef{Name: Id{Text: "foo"}}
     Define: true
   }
 
@@ -1146,7 +1155,7 @@ test ParseStatement Slice "a := slice { 1; } ;"
         }
       }
     }
-    Name: Id{Text: "a"}
+    Target: NameRef{Name: Id{Text: "a"}}
     Define: true
   }
 
@@ -1170,7 +1179,7 @@ struct StructDecl implements ASTType {
 }
 
 
-func ParseStructDecl (StructDecl) {
+func ParseStructDecl() StructDecl {
   /"struct"/;
   EndKeyword();
   S();
@@ -1213,13 +1222,17 @@ struct FuncDecl implements ASTFunc {
   Locals []LocalInfo
 }
 
-func ParseFuncDecl (FuncDecl) {
+func ParseFuncDecl() FuncDecl {
   /"func"/;
   EndKeyword();
   S();
   name := Ident();
   S();
-  retTypes := ParseTypeList();
+  /"("/;
+  S();
+  /")"/;
+  S();
+  retTypes := ParseReturnTypeList();
   S();
   block := ParseCodeBlock();
   return FuncDecl{Name: name, ReturnTypes: retTypes, Block: block};
@@ -1233,7 +1246,7 @@ struct Test {
   Destructure Destructure
 }
 
-func ParseTest (Test) {
+func ParseTest() Test {
   /"test"/;
   EndKeyword();
   S();
@@ -1252,7 +1265,7 @@ struct File {
   Tests []Test
 }
 
-func ParseFile (File) {
+func ParseFile() File {
   decls := []ASTDecl{};
   tests := []Test{};
   S();

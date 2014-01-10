@@ -353,7 +353,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 		return flow.NoRegister
 
-	case *tree.GetName:
+	case *tree.NameRef:
 		if !used {
 			return flow.NoRegister
 		}
@@ -364,7 +364,11 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		return dst
 
 	case *tree.Assign:
-		dst := builder.localMap[expr.Info]
+		tgt, ok := expr.Target.(*tree.NameRef)
+		if !ok {
+			panic(expr.Target)
+		}
+		dst := builder.localMap[tgt.Info]
 		var op flow.DubOp
 		if expr.Expr != nil {
 			src := lowerExpr(expr.Expr, builder, true, gr)

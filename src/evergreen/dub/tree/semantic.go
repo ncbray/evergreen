@@ -85,6 +85,39 @@ func TypeName(t ASTType) string {
 	}
 }
 
+func semanticTargetPass(decl *FuncDecl, expr ASTExpr, t ASTType, define bool, scope *semanticScope, glbls *ModuleScope, status framework.Status) {
+	switch expr := expr.(type) {
+	case *NameRef:
+		name := expr.Name.Text
+		if t == nil {
+			panic(fmt.Sprintf("%s: Cannot infer the type of %#v", decl.Name.Text, name))
+		}
+
+		var info int
+		var exists bool
+		if define {
+			_, exists = scope.localInfo(expr.Name.Text)
+			if exists {
+				status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
+				return
+			}
+
+			info = len(decl.Locals)
+			decl.Locals = append(decl.Locals, &LocalInfo{Name: name, T: t})
+			scope.locals[expr.Name.Text] = info
+		} else {
+			info, exists = scope.localInfo(name)
+			if !exists {
+				status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to assign to unknown variable %#v", name))
+				return
+			}
+		}
+		expr.Info = info
+	default:
+		panic(expr)
+	}
+}
+
 func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls *ModuleScope, status framework.Status) ASTType {
 	switch expr := expr.(type) {
 	case *Repeat:
@@ -121,7 +154,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		}
 		expr.T = t
 		return t
-	case *GetName:
+	case *NameRef:
 		name := expr.Name.Text
 		info, found := scope.localInfo(name)
 		if !found {
@@ -138,30 +171,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		if expr.Type != nil {
 			t = semanticTypePass(expr.Type, glbls, status)
 		}
-		name := expr.Name.Text
-		if t == nil {
-			panic(fmt.Sprintf("%s: Cannot infer the type of %#v", decl.Name.Text, name))
-		}
-		var info int
-		var exists bool
-		if expr.Define {
-			_, exists = scope.localInfo(expr.Name.Text)
-			if exists {
-				status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
-				return unresolvedType
-			}
-
-			info = len(decl.Locals)
-			decl.Locals = append(decl.Locals, &LocalInfo{Name: name, T: t})
-			scope.locals[expr.Name.Text] = info
-		} else {
-			info, exists = scope.localInfo(name)
-			if !exists {
-				status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to assign to unknown variable %#v", name))
-				return unresolvedType
-			}
-		}
-		expr.Info = info
+		semanticTargetPass(decl, expr.Target, t, expr.Define, scope, glbls, status)
 		return t
 	case *Slice:
 		semanticBlockPass(decl, expr.Block, scope, glbls, status)
