@@ -398,6 +398,9 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 			if !ok {
 				panic(expr.Targets)
 			}
+			if tree.IsDiscard(tgt.Name.Text) {
+				continue
+			}
 			dst := builder.localMap[tgt.Info]
 			var op flow.DubOp
 			if srcs != nil {

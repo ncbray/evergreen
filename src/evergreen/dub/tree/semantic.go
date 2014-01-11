@@ -85,10 +85,18 @@ func TypeName(t ASTType) string {
 	}
 }
 
+func IsDiscard(name string) bool {
+	return name == "_"
+}
+
 func semanticTargetPass(decl *FuncDecl, expr ASTExpr, t ASTType, define bool, scope *semanticScope, glbls *ModuleScope, status framework.Status) {
 	switch expr := expr.(type) {
 	case *NameRef:
 		name := expr.Name.Text
+		if IsDiscard(name) {
+			expr.Info = -1
+			return
+		}
 		var info int
 		var exists bool
 		if define {

@@ -1543,7 +1543,7 @@ func Literal(frame *runtime.State) (ret0 ASTExpr) {
 block1:
 	return
 }
-func BinaryOperator(frame *runtime.State) (ret0 string) {
+func BinaryOperator(frame *runtime.State) (ret0 string, ret1 int) {
 	var r0 int
 	var r1 int
 	var r2 rune
@@ -1553,71 +1553,58 @@ func BinaryOperator(frame *runtime.State) (ret0 string) {
 	var r6 bool
 	var r7 rune
 	var r8 bool
-	var r9 rune
-	var r10 bool
-	var r11 rune
+	var r9 string
+	var r10 int
+	var r11 int
 	var r12 rune
-	var r13 bool
-	var r14 rune
-	var r15 bool
-	var r16 int
-	var r17 rune
-	var r18 rune
-	var r19 bool
-	var r20 rune
+	var r13 rune
+	var r14 bool
+	var r15 rune
+	var r16 bool
+	var r17 string
+	var r18 int
+	var r19 int
+	var r20 int
 	var r21 rune
-	var r22 bool
-	var r23 rune
-	var r24 bool
-	var r25 rune
-	var r26 rune
-	var r27 bool
-	var r28 int
-	var r29 rune
+	var r22 rune
+	var r23 bool
+	var r24 rune
+	var r25 bool
+	var r26 int
+	var r27 rune
+	var r28 rune
+	var r29 bool
 	var r30 rune
-	var r31 bool
-	var r32 rune
-	var r33 bool
-	var r34 rune
-	var r35 bool
+	var r31 rune
+	var r32 bool
+	var r33 rune
+	var r34 bool
+	var r35 rune
 	var r36 rune
 	var r37 bool
-	var r38 rune
-	var r39 bool
-	var r40 rune
-	var r41 bool
-	var r42 rune
-	var r43 bool
-	var r44 rune
-	var r45 bool
-	var r46 string
+	var r38 string
+	var r39 int
 	r0 = frame.Checkpoint()
 	r1 = frame.Checkpoint()
 	r2 = frame.Peek()
 	if frame.Flow == 0 {
-		r3 = '+'
+		r3 = '*'
 		r4 = r2 == r3
 		if r4 {
 			goto block1
 		} else {
-			r5 = '-'
+			r5 = '/'
 			r6 = r2 == r5
 			if r6 {
 				goto block1
 			} else {
-				r7 = '*'
+				r7 = '%'
 				r8 = r2 == r7
 				if r8 {
 					goto block1
 				} else {
-					r9 = '/'
-					r10 = r2 == r9
-					if r10 {
-						goto block1
-					} else {
-						frame.Fail()
-						goto block2
-					}
+					frame.Fail()
+					goto block2
 				}
 			}
 		}
@@ -1626,152 +1613,129 @@ func BinaryOperator(frame *runtime.State) (ret0 string) {
 	}
 block1:
 	frame.Consume()
-	goto block9
+	r9 = frame.Slice(r1)
+	r10 = 5
+	ret0 = r9
+	ret1 = r10
+	goto block10
 block2:
-	frame.Recover(r1)
-	r11 = frame.Peek()
+	frame.Recover(r0)
+	r11 = frame.Checkpoint()
+	r12 = frame.Peek()
 	if frame.Flow == 0 {
-		r12 = '<'
-		r13 = r11 == r12
-		if r13 {
+		r13 = '+'
+		r14 = r12 == r13
+		if r14 {
 			goto block3
 		} else {
-			r14 = '>'
-			r15 = r11 == r14
-			if r15 {
+			r15 = '-'
+			r16 = r12 == r15
+			if r16 {
 				goto block3
 			} else {
 				frame.Fail()
-				goto block5
+				goto block4
 			}
-		}
-	} else {
-		goto block5
-	}
-block3:
-	frame.Consume()
-	r16 = frame.Checkpoint()
-	r17 = frame.Peek()
-	if frame.Flow == 0 {
-		r18 = '='
-		r19 = r17 == r18
-		if r19 {
-			frame.Consume()
-			goto block9
-		} else {
-			frame.Fail()
-			goto block4
 		}
 	} else {
 		goto block4
 	}
+block3:
+	frame.Consume()
+	r17 = frame.Slice(r11)
+	r18 = 4
+	ret0 = r17
+	ret1 = r18
+	goto block10
 block4:
-	frame.Recover(r16)
-	goto block9
-block5:
-	frame.Recover(r1)
-	r20 = frame.Peek()
+	frame.Recover(r0)
+	r19 = frame.Checkpoint()
+	r20 = frame.Checkpoint()
+	r21 = frame.Peek()
 	if frame.Flow == 0 {
-		r21 = '!'
-		r22 = r20 == r21
-		if r22 {
-			goto block6
+		r22 = '<'
+		r23 = r21 == r22
+		if r23 {
+			goto block5
 		} else {
-			r23 = '='
-			r24 = r20 == r23
-			if r24 {
-				goto block6
+			r24 = '>'
+			r25 = r21 == r24
+			if r25 {
+				goto block5
 			} else {
 				frame.Fail()
-				goto block10
+				goto block7
 			}
 		}
 	} else {
-		goto block10
+		goto block7
 	}
-block6:
+block5:
 	frame.Consume()
-	r25 = frame.Peek()
+	r26 = frame.Checkpoint()
+	r27 = frame.Peek()
 	if frame.Flow == 0 {
-		r26 = '='
-		r27 = r25 == r26
-		if r27 {
+		r28 = '='
+		r29 = r27 == r28
+		if r29 {
 			frame.Consume()
-			r28 = frame.LookaheadBegin()
-			r29 = frame.Peek()
-			if frame.Flow == 0 {
-				r30 = '+'
-				r31 = r29 == r30
-				if r31 {
-					goto block7
-				} else {
-					r32 = '-'
-					r33 = r29 == r32
-					if r33 {
-						goto block7
-					} else {
-						r34 = '*'
-						r35 = r29 == r34
-						if r35 {
-							goto block7
-						} else {
-							r36 = '/'
-							r37 = r29 == r36
-							if r37 {
-								goto block7
-							} else {
-								r38 = '<'
-								r39 = r29 == r38
-								if r39 {
-									goto block7
-								} else {
-									r40 = '>'
-									r41 = r29 == r40
-									if r41 {
-										goto block7
-									} else {
-										r42 = '!'
-										r43 = r29 == r42
-										if r43 {
-											goto block7
-										} else {
-											r44 = '='
-											r45 = r29 == r44
-											if r45 {
-												goto block7
-											} else {
-												frame.Fail()
-												goto block8
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			} else {
-				goto block8
-			}
+			goto block9
 		} else {
 			frame.Fail()
-			goto block10
+			goto block6
 		}
 	} else {
-		goto block10
+		goto block6
 	}
-block7:
-	frame.Consume()
-	frame.LookaheadFail(r28)
-	goto block10
-block8:
-	frame.LookaheadNormal(r28)
+block6:
+	frame.Recover(r26)
 	goto block9
+block7:
+	frame.Recover(r20)
+	r30 = frame.Peek()
+	if frame.Flow == 0 {
+		r31 = '!'
+		r32 = r30 == r31
+		if r32 {
+			goto block8
+		} else {
+			r33 = '='
+			r34 = r30 == r33
+			if r34 {
+				goto block8
+			} else {
+				frame.Fail()
+				goto block11
+			}
+		}
+	} else {
+		goto block11
+	}
+block8:
+	frame.Consume()
+	r35 = frame.Peek()
+	if frame.Flow == 0 {
+		r36 = '='
+		r37 = r35 == r36
+		if r37 {
+			frame.Consume()
+			goto block9
+		} else {
+			frame.Fail()
+			goto block11
+		}
+	} else {
+		goto block11
+	}
 block9:
-	r46 = frame.Slice(r0)
-	ret0 = r46
-	return
+	r38 = frame.Slice(r19)
+	r39 = 3
+	ret0 = r38
+	ret1 = r39
+	goto block10
 block10:
+	return
+block11:
 	return
 }
 func StringMatchExpr(frame *runtime.State) (ret0 *StringMatch) {
@@ -4092,7 +4056,7 @@ block1:
 	r2 = frame.Checkpoint()
 	S(frame)
 	if frame.Flow == 0 {
-		r3 = BinaryOperator(frame)
+		r3, _ = BinaryOperator(frame)
 		if frame.Flow == 0 {
 			S(frame)
 			if frame.Flow == 0 {

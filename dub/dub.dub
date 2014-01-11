@@ -196,9 +196,16 @@ func Literal() ASTExpr {
   }
 }
 
-func BinaryOperator() string {
-  op := /[+\-*/]|([<>][=]?)|([!=][=]) ![+\-*/<>!=]/;
-  return op;
+func BinaryOperator() (string, int) {
+  var op string;
+  var prec int;
+  choose {
+    return /[*/%]/, 5;
+  } or {
+    return /[+\-]/, 4;
+  } or {
+    return /([<>][=]?)|([!=][=])/, 3;
+  }
 }
 
 
@@ -944,7 +951,7 @@ func ParseExpr() ASTExpr {
   e := PrimaryExpr();
   star {
     S();
-    op := BinaryOperator();
+    op, _ := BinaryOperator();
     S();
     r := PrimaryExpr();
     e = BinaryOp{Left: e, Op: op, Right: r};

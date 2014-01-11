@@ -101,7 +101,11 @@ func TypeName(t DubType) string {
 }
 
 func RegisterName(reg DubRegister) string {
-	return fmt.Sprintf("r%d", reg)
+	if reg != NoRegister {
+		return fmt.Sprintf("r%d", reg)
+	} else {
+		return "_"
+	}
 }
 
 func RegisterList(regs []DubRegister) string {
@@ -128,7 +132,11 @@ func formatAssignment(op string, dst DubRegister) string {
 }
 
 func formatMultiAssignment(op string, dsts []DubRegister) string {
-	return fmt.Sprintf("%s := %s", RegisterList(dsts), op)
+	if len(dsts) > 0 {
+		return fmt.Sprintf("%s := %s", RegisterList(dsts), op)
+	} else {
+		return op
+	}
 }
 
 type DubOp interface {
