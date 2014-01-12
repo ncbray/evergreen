@@ -75,6 +75,7 @@ type RegisterInfo struct {
 
 type LLFunc struct {
 	Name        string
+	Params      []DubRegister
 	ReturnTypes []DubType
 	Registers   []RegisterInfo
 	CFG         *base.Graph

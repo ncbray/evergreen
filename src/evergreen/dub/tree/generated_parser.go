@@ -334,8 +334,13 @@ type LocalInfo struct {
 	Name string
 	T    ASTType
 }
+type Param struct {
+	Name *NameRef
+	Type ASTTypeRef
+}
 type FuncDecl struct {
 	Name        *Id
+	Params      []*Param
 	ReturnTypes []ASTTypeRef
 	Block       []ASTExpr
 	Locals      []*LocalInfo
@@ -5652,6 +5657,97 @@ block4:
 block5:
 	return
 }
+func ParseParam(frame *runtime.State) (ret0 *Param) {
+	var r0 *NameRef
+	var r1 ASTTypeRef
+	var r2 *Param
+	r0 = ParseNameRef(frame)
+	if frame.Flow == 0 {
+		S(frame)
+		if frame.Flow == 0 {
+			r1 = ParseTypeRef(frame)
+			if frame.Flow == 0 {
+				r2 = &Param{Name: r0, Type: r1}
+				ret0 = r2
+				return
+			} else {
+				goto block1
+			}
+		} else {
+			goto block1
+		}
+	} else {
+		goto block1
+	}
+block1:
+	return
+}
+func ParseParamList(frame *runtime.State) (ret0 []*Param) {
+	var r0 []*Param
+	var r1 int
+	var r2 *Param
+	var r3 []*Param
+	var r4 []*Param
+	var r5 int
+	var r6 rune
+	var r7 rune
+	var r8 bool
+	var r9 *Param
+	var r10 []*Param
+	var r11 []*Param
+	r0 = []*Param{}
+	r1 = frame.Checkpoint()
+	r2 = ParseParam(frame)
+	if frame.Flow == 0 {
+		r3 = append(r0, r2)
+		r4 = r3
+		goto block1
+	} else {
+		frame.Recover(r1)
+		r11 = r0
+		goto block3
+	}
+block1:
+	r5 = frame.Checkpoint()
+	S(frame)
+	if frame.Flow == 0 {
+		r6 = frame.Peek()
+		if frame.Flow == 0 {
+			r7 = ','
+			r8 = r6 == r7
+			if r8 {
+				frame.Consume()
+				S(frame)
+				if frame.Flow == 0 {
+					r9 = ParseParam(frame)
+					if frame.Flow == 0 {
+						r10 = append(r4, r9)
+						r4 = r10
+						goto block1
+					} else {
+						goto block2
+					}
+				} else {
+					goto block2
+				}
+			} else {
+				frame.Fail()
+				goto block2
+			}
+		} else {
+			goto block2
+		}
+	} else {
+		goto block2
+	}
+block2:
+	frame.Recover(r5)
+	r11 = r4
+	goto block3
+block3:
+	ret0 = r11
+	return
+}
 func ParseFuncDecl(frame *runtime.State) (ret0 *FuncDecl) {
 	var r0 rune
 	var r1 rune
@@ -5669,12 +5765,13 @@ func ParseFuncDecl(frame *runtime.State) (ret0 *FuncDecl) {
 	var r13 rune
 	var r14 rune
 	var r15 bool
-	var r16 rune
+	var r16 []*Param
 	var r17 rune
-	var r18 bool
-	var r19 []ASTTypeRef
-	var r20 []ASTExpr
-	var r21 *FuncDecl
+	var r18 rune
+	var r19 bool
+	var r20 []ASTTypeRef
+	var r21 []ASTExpr
+	var r22 *FuncDecl
 	r0 = frame.Peek()
 	if frame.Flow == 0 {
 		r1 = 'f'
@@ -5715,23 +5812,33 @@ func ParseFuncDecl(frame *runtime.State) (ret0 *FuncDecl) {
 															frame.Consume()
 															S(frame)
 															if frame.Flow == 0 {
-																r16 = frame.Peek()
+																r16 = ParseParamList(frame)
 																if frame.Flow == 0 {
-																	r17 = ')'
-																	r18 = r16 == r17
-																	if r18 {
-																		frame.Consume()
-																		S(frame)
+																	S(frame)
+																	if frame.Flow == 0 {
+																		r17 = frame.Peek()
 																		if frame.Flow == 0 {
-																			r19 = ParseReturnTypeList(frame)
-																			if frame.Flow == 0 {
+																			r18 = ')'
+																			r19 = r17 == r18
+																			if r19 {
+																				frame.Consume()
 																				S(frame)
 																				if frame.Flow == 0 {
-																					r20 = ParseCodeBlock(frame)
+																					r20 = ParseReturnTypeList(frame)
 																					if frame.Flow == 0 {
-																						r21 = &FuncDecl{Name: r12, ReturnTypes: r19, Block: r20}
-																						ret0 = r21
-																						return
+																						S(frame)
+																						if frame.Flow == 0 {
+																							r21 = ParseCodeBlock(frame)
+																							if frame.Flow == 0 {
+																								r22 = &FuncDecl{Name: r12, Params: r16, ReturnTypes: r20, Block: r21}
+																								ret0 = r22
+																								return
+																							} else {
+																								goto block1
+																							}
+																						} else {
+																							goto block1
+																						}
 																					} else {
 																						goto block1
 																					}
@@ -5739,13 +5846,13 @@ func ParseFuncDecl(frame *runtime.State) (ret0 *FuncDecl) {
 																					goto block1
 																				}
 																			} else {
+																				frame.Fail()
 																				goto block1
 																			}
 																		} else {
 																			goto block1
 																		}
 																	} else {
-																		frame.Fail()
 																		goto block1
 																	}
 																} else {

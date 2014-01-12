@@ -395,6 +395,15 @@ func generateFlowSwitch(info *regionInfo, node base.NodeID, block []ast.Stmt) []
 	}
 }
 
+func IsParam(f *LLFunc, r DubRegister) bool {
+	for _, p := range f.Params {
+		if p == r {
+			return true
+		}
+	}
+	return false
+}
+
 func GenerateGoFunc(f *LLFunc) ast.Decl {
 	g := f.CFG
 	order, _ := base.ReversePostorder(g)
@@ -419,12 +428,16 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 	// Declare the variables.
 	// It is easier to do this up front than calculate where they need to be defined.
 	for i, info := range f.Registers {
+		r := DubRegister(i)
+		if IsParam(f, r) {
+			continue
+		}
 		stmts = append(stmts, &ast.DeclStmt{
 			Decl: &ast.GenDecl{
 				Tok: token.VAR,
 				Specs: []ast.Spec{
 					&ast.ValueSpec{
-						Names: singleName(RegisterName(DubRegister(i))),
+						Names: singleName(RegisterName(r)),
 						Type:  goTypeName(info.T),
 					},
 				},
@@ -454,16 +467,25 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 		})
 	}
 
+	fields := []*ast.Field{
+		&ast.Field{
+			Names: singleName("frame"),
+			Type:  ptr(attr(id("runtime"), "State")),
+		},
+	}
+
+	for _, p := range f.Params {
+		fields = append(fields, &ast.Field{
+			Names: singleName(RegisterName(p)),
+			Type:  goTypeName(f.Registers[p].T),
+		})
+	}
+
 	funcDecl := &ast.FuncDecl{
 		Name: id(f.Name),
 		Type: &ast.FuncType{
 			Params: &ast.FieldList{
-				List: []*ast.Field{
-					&ast.Field{
-						Names: singleName("frame"),
-						Type:  ptr(attr(id("runtime"), "State")),
-					},
-				},
+				List: fields,
 			},
 			Results: &ast.FieldList{List: results},
 		},

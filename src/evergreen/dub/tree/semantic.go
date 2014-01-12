@@ -234,7 +234,19 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *Fail:
 		return nil
 	case *Call:
-		types := glbls.ReturnTypes(expr.Name.Text)
+		name := expr.Name.Text
+		// HACK resolve other scopes?
+		decl, ok := glbls.Module[name]
+		if !ok {
+			status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
+			return []ASTType{unresolvedType}
+		}
+		f, ok := AsFunc(decl)
+		if !ok {
+			status.LocationError(expr.Name.Pos, fmt.Sprintf("%#v is not callable", name))
+			return []ASTType{unresolvedType}
+		}
+		types := ReturnTypes(f)
 		expr.T = types
 		return types
 	case *Append:
@@ -328,13 +340,20 @@ func semanticBlockPass(decl *FuncDecl, block []ASTExpr, scope *semanticScope, gl
 }
 
 func semanticFuncSignaturePass(decl *FuncDecl, glbls *ModuleScope, status framework.Status) {
+	for _, p := range decl.Params {
+		semanticTypePass(p.Type, glbls, status)
+	}
 	for _, t := range decl.ReturnTypes {
 		semanticTypePass(t, glbls, status)
 	}
 }
 
 func semanticFuncBodyPass(decl *FuncDecl, glbls *ModuleScope, status framework.Status) {
-	semanticBlockPass(decl, decl.Block, childScope(nil), glbls, status)
+	scope := childScope(nil)
+	for _, p := range decl.Params {
+		semanticTargetPass(decl, p.Name, ResolveType(p.Type), true, scope, glbls, status)
+	}
+	semanticBlockPass(decl, decl.Block, scope, glbls, status)
 }
 
 func semanticStructPass(decl *StructDecl, glbls *ModuleScope, status framework.Status) {
@@ -471,19 +490,6 @@ func ReturnTypes(node ASTFunc) []ASTType {
 	default:
 		panic(node)
 	}
-}
-
-func (glbls *ModuleScope) ReturnTypes(name string) []ASTType {
-	// HACK resolve other scopes?
-	decl, ok := glbls.Module[name]
-	if !ok {
-		panic(name)
-	}
-	f, ok := AsFunc(decl)
-	if !ok {
-		panic(name)
-	}
-	return ReturnTypes(f)
 }
 
 func SemanticPass(file *File, status framework.Status) *ModuleScope {

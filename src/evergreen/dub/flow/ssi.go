@@ -14,9 +14,13 @@ func AddUse(reg DubRegister, node base.NodeID, defuse *base.DefUseCollector) {
 	defuse.AddUse(node, int(reg))
 }
 
-func collectDefUse(node base.NodeID, op DubOp, defuse *base.DefUseCollector) {
+func collectDefUse(decl *LLFunc, node base.NodeID, op DubOp, defuse *base.DefUseCollector) {
 	switch op := op.(type) {
-	case *EntryOp, *FlowExitOp, *ExitOp:
+	case *EntryOp:
+		for _, p := range decl.Params {
+			AddDef(p, node, defuse)
+		}
+	case *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
 		AddDef(op.Dst, node, defuse)
@@ -240,6 +244,12 @@ func rename(decl *LLFunc) {
 
 	nm := CreateNameMap(g.NumNodes(), idoms)
 	ra := &RegisterReallocator{decl: decl, nm: nm}
+
+	// Define the function parameters.
+	for i, p := range decl.Params {
+		decl.Params[i] = ra.MakeOutput(g.Entry(), p)
+	}
+
 	nit := base.OrderedIterator(order)
 	for nit.Next() {
 		n := nit.Value()
@@ -361,7 +371,7 @@ func SSI(decl *LLFunc) {
 	nit := base.NodeIterator(g)
 	for nit.Next() {
 		n := nit.Value()
-		collectDefUse(n, decl.Ops[n], defuse)
+		collectDefUse(decl, n, decl.Ops[n], defuse)
 	}
 
 	live := base.FindLiveVars(g, defuse)

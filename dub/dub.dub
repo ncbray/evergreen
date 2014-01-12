@@ -1258,11 +1258,38 @@ struct LocalInfo {
   T ASTType
 }
 
+struct Param {
+       Name NameRef
+       Type ASTTypeRef
+}
+
 struct FuncDecl implements ASTFunc {
   Name Id
+  Params []Param
   ReturnTypes []ASTTypeRef
   Block []ASTExpr
   Locals []LocalInfo
+}
+
+func ParseParam() Param {
+     name := ParseNameRef();
+     S();
+     type := ParseTypeRef();
+     return Param{Name: name, Type: type};
+}
+
+func ParseParamList() []Param {
+  params := []Param{};
+  question {
+    append(params, ParseParam());
+    star {
+      S();
+      /[,]/;
+      S();
+      append(params, ParseParam());
+    }
+  }
+  return params;
 }
 
 func ParseFuncDecl() FuncDecl {
@@ -1273,12 +1300,14 @@ func ParseFuncDecl() FuncDecl {
   S();
   /"("/;
   S();
+  params := ParseParamList();
+  S();
   /")"/;
   S();
   retTypes := ParseReturnTypeList();
   S();
   block := ParseCodeBlock();
-  return FuncDecl{Name: name, ReturnTypes: retTypes, Block: block};
+  return FuncDecl{Name: name, Params: params, ReturnTypes: retTypes, Block: block};
 }
 
 struct Test {

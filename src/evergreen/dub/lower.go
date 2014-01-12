@@ -646,16 +646,27 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 	builder := &DubBuilder{decl: decl, glbl: glbl, graph: g, ops: ops}
 
 	f := &flow.LLFunc{Name: decl.Name.Text}
-	types := make([]flow.DubType, len(decl.ReturnTypes))
-	for i, node := range decl.ReturnTypes {
-		types[i] = builder.glbl.TranslateType(tree.ResolveType(node))
-	}
-	f.ReturnTypes = types
+
 	// Allocate register for locals
 	builder.localMap = make([]flow.DubRegister, len(decl.Locals))
 	for i, info := range decl.Locals {
 		builder.localMap[i] = builder.CreateRegister(info.T)
 	}
+
+	// Function parameters
+	params := make([]flow.DubRegister, len(decl.Params))
+	for i, p := range decl.Params {
+		params[i] = builder.localMap[p.Name.Info]
+	}
+	f.Params = params
+
+	// Function returns
+	types := make([]flow.DubType, len(decl.ReturnTypes))
+	for i, node := range decl.ReturnTypes {
+		types[i] = builder.glbl.TranslateType(tree.ResolveType(node))
+	}
+	f.ReturnTypes = types
+
 	gr := g.CreateRegion(REGION_EXITS)
 	lowerBlock(decl.Block, builder, gr)
 	gr.MergeFlowInto(flow.RETURN, flow.NORMAL)

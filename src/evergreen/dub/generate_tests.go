@@ -224,6 +224,14 @@ func generateExpr(state string, expr tree.ASTExpr) ast.Expr {
 			Fun:  id(expr.Name.Text),
 			Args: args,
 		}
+	case *tree.StringLiteral:
+		return strLiteral(expr.Value)
+	case *tree.RuneLiteral:
+		return runeLiteral(expr.Value)
+	case *tree.IntLiteral:
+		return intLiteral(expr.Value)
+	case *tree.BoolLiteral:
+		return boolLiteral(expr.Value)
 	default:
 		panic(expr)
 	}
