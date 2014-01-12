@@ -219,11 +219,12 @@ func (n *BinaryOp) OpToString() string {
 
 type CallOp struct {
 	Name string
+	Args []DubRegister
 	Dsts []DubRegister
 }
 
 func (n *CallOp) OpToString() string {
-	return formatMultiAssignment(fmt.Sprintf("%s()", n.Name), n.Dsts)
+	return formatMultiAssignment(fmt.Sprintf("%s(%s)", n.Name, RegisterList(n.Args)), n.Dsts)
 }
 
 type KeyValue struct {

@@ -271,6 +271,10 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *
 	switch expr := expr.(type) {
 
 	case *tree.Call:
+		args := make([]flow.DubRegister, len(expr.Args))
+		for i, arg := range expr.Args {
+			args[i] = lowerExpr(arg, builder, true, gr)
+		}
 		var dsts []flow.DubRegister
 		if used {
 			dsts = make([]flow.DubRegister, len(expr.T))
@@ -278,7 +282,7 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *
 				dsts[i] = builder.CreateRegister(t)
 			}
 		}
-		body := builder.EmitOp(&flow.CallOp{Name: expr.Name.Text, Dsts: dsts})
+		body := builder.EmitOp(&flow.CallOp{Name: expr.Name.Text, Args: args, Dsts: dsts})
 		gr.AttachFlow(flow.NORMAL, body)
 		gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
 		gr.RegisterExit(body, flow.FAIL, flow.FAIL)

@@ -40,21 +40,24 @@ func TypeMatches(actual ASTType, expected ASTType, exact bool) bool {
 		}
 		if exact {
 			return actual == other
-		} else {
-			current := actual
-			for current != nil {
-				if current == other {
-					return true
-				}
+		}
+		current := actual
+		for current != nil {
+			if current == other {
+				return true
+			}
+			if current.Implements != nil {
 				t := ResolveType(current.Implements)
 				var ok bool
 				current, ok = t.(*StructDecl)
 				if !ok {
 					panic(t)
 				}
+			} else {
+				current = nil
 			}
-			return false
 		}
+		return false
 	case *BuiltinType:
 		other, ok := expected.(*BuiltinType)
 		if !ok {
@@ -254,7 +257,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 				if f != nil {
 					eft := ResolveType(f.Type)
 					if !TypeMatches(aft, eft, false) {
-						status.Error("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft))
+						status.LocationError(arg.Name.Pos, fmt.Sprintf("Expected type %s, but got %s", TypeName(eft), TypeName(aft)))
 					}
 				} else {
 					status.LocationError(arg.Name.Pos, fmt.Sprintf("%s does not have field %s", TypeName(t), fn))
