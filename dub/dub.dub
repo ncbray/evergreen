@@ -949,17 +949,25 @@ func ParseNameRef() NameRef {
     return NameRef{Name: Ident()};
 }
 
-// TODO precedence
-func ParseExpr() ASTExpr {
+// Uses precedence climbing.
+func ParseBinaryOp(min_prec int) ASTExpr {
   e := PrimaryExpr();
   star {
     S();
-    op, _ := BinaryOperator();
+    // TODO associativity
+    op, prec := BinaryOperator();
+    if prec < min_prec {
+      fail;
+    }
     S();
-    r := PrimaryExpr();
+    r := ParseBinaryOp(prec + 1);
     e = BinaryOp{Left: e, Op: op, Right: r};
   }
   return e;
+}
+
+func ParseExpr() ASTExpr {
+     return ParseBinaryOp(1);
 }
 
 func ParseCompoundStatement() ASTExpr {
@@ -1108,6 +1116,39 @@ test BinaryOpRight ParseExpr() "12 + (34 - 56)"
     }
   }
 
+test BinaryOpPrecLeft ParseExpr() "12 * 34 + 56"
+  BinaryOp {
+    Left: BinaryOp {
+      Left: IntLiteral {
+        Value: 12
+      }
+      Op: "*"
+      Right: IntLiteral {
+        Value: 34
+      }
+    }
+    Op: "+"
+    Right: IntLiteral {
+      Value: 56
+    }
+  }
+
+test BinaryOpPrecRight ParseExpr() "12 + 34 * 56"
+  BinaryOp {
+    Left: IntLiteral {
+      Value: 12
+    }
+    Op: "+"
+    Right: BinaryOp {
+      Left: IntLiteral {
+        Value: 34
+      }
+      Op: "*"
+      Right: IntLiteral {
+        Value: 56
+      }
+    }
+  }
 
 test Assign ParseStatement() "foo = 1;"
   Assign {

@@ -234,17 +234,22 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *Fail:
 		return nil
 	case *Call:
+
 		name := expr.Name.Text
 		// HACK resolve other scopes?
-		decl, ok := glbls.Module[name]
+		fd, ok := glbls.Module[name]
 		if !ok {
 			status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
 			return []ASTType{unresolvedType}
 		}
-		f, ok := AsFunc(decl)
+		f, ok := AsFunc(fd)
 		if !ok {
 			status.LocationError(expr.Name.Pos, fmt.Sprintf("%#v is not callable", name))
 			return []ASTType{unresolvedType}
+		}
+		for _, e := range expr.Args {
+			// TODO check argument types
+			scalarSemanticExprPass(decl, e, scope, glbls, status)
 		}
 		types := ReturnTypes(f)
 		expr.T = types
@@ -514,6 +519,12 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 	glbls.BinaryOps["int-int"] = glbls.Int
 	glbls.BinaryOps["int*int"] = glbls.Int
 	glbls.BinaryOps["int/int"] = glbls.Int
+	glbls.BinaryOps["int<int"] = glbls.Bool
+	glbls.BinaryOps["int<=int"] = glbls.Bool
+	glbls.BinaryOps["int>int"] = glbls.Bool
+	glbls.BinaryOps["int>=int"] = glbls.Bool
+	glbls.BinaryOps["int==int"] = glbls.Bool
+	glbls.BinaryOps["int!=int"] = glbls.Bool
 
 	// Index the module namespace.
 	for _, decl := range file.Decls {

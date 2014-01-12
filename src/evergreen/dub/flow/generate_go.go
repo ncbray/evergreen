@@ -164,12 +164,16 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 			op.Dst,
 		))
 	case *CallOp:
+		args := []ast.Expr{
+			id("frame"),
+		}
+		for _, arg := range op.Args {
+			args = append(args, reg(arg))
+		}
 		block = append(block, opMultiAssign(
 			&ast.CallExpr{
-				Fun: id(op.Name),
-				Args: []ast.Expr{
-					id("frame"),
-				},
+				Fun:  id(op.Name),
+				Args: args,
 			},
 			op.Dsts,
 		))

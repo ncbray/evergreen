@@ -39,6 +39,9 @@ func collectDefUse(decl *LLFunc, node base.NodeID, op DubOp, defuse *base.DefUse
 	case *ConstantNilOp:
 		AddDef(op.Dst, node, defuse)
 	case *CallOp:
+		for _, arg := range op.Args {
+			AddUse(arg, node, defuse)
+		}
 		for _, dst := range op.Dsts {
 			AddDef(dst, node, defuse)
 		}
@@ -181,6 +184,9 @@ func renameOp(n base.NodeID, data DubOp, ra *RegisterReallocator) {
 	case *ConstantNilOp:
 		op.Dst = ra.MakeOutput(n, op.Dst)
 	case *CallOp:
+		for i, arg := range op.Args {
+			op.Args[i] = ra.Get(n, arg)
+		}
 		for i, dst := range op.Dsts {
 			op.Dsts[i] = ra.MakeOutput(n, dst)
 		}

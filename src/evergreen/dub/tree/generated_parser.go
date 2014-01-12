@@ -4055,38 +4055,50 @@ func ParseNameRef(frame *runtime.State) (ret0 *NameRef) {
 		return
 	}
 }
-func ParseExpr(frame *runtime.State) (ret0 ASTExpr) {
-	var r0 ASTExpr
+func ParseBinaryOp(frame *runtime.State, r0 int) (ret0 ASTExpr) {
 	var r1 ASTExpr
-	var r2 int
-	var r3 string
-	var r4 ASTExpr
-	var r5 *BinaryOp
-	r0 = PrimaryExpr(frame)
+	var r2 ASTExpr
+	var r3 int
+	var r4 string
+	var r5 int
+	var r6 bool
+	var r7 int
+	var r8 int
+	var r9 ASTExpr
+	var r10 *BinaryOp
+	r1 = PrimaryExpr(frame)
 	if frame.Flow == 0 {
-		r1 = r0
+		r2 = r1
 		goto block1
 	} else {
 		return
 	}
 block1:
-	r2 = frame.Checkpoint()
+	r3 = frame.Checkpoint()
 	S(frame)
 	if frame.Flow == 0 {
-		r3, _ = BinaryOperator(frame)
+		r4, r5 = BinaryOperator(frame)
 		if frame.Flow == 0 {
-			S(frame)
-			if frame.Flow == 0 {
-				r4 = PrimaryExpr(frame)
+			r6 = r5 < r0
+			if r6 {
+				frame.Fail()
+				goto block2
+			} else {
+				S(frame)
 				if frame.Flow == 0 {
-					r5 = &BinaryOp{Left: r1, Op: r3, Right: r4}
-					r1 = r5
-					goto block1
+					r7 = 1
+					r8 = r5 + r7
+					r9 = ParseBinaryOp(frame, r8)
+					if frame.Flow == 0 {
+						r10 = &BinaryOp{Left: r2, Op: r4, Right: r9}
+						r2 = r10
+						goto block1
+					} else {
+						goto block2
+					}
 				} else {
 					goto block2
 				}
-			} else {
-				goto block2
 			}
 		} else {
 			goto block2
@@ -4095,9 +4107,21 @@ block1:
 		goto block2
 	}
 block2:
-	frame.Recover(r2)
-	ret0 = r1
+	frame.Recover(r3)
+	ret0 = r2
 	return
+}
+func ParseExpr(frame *runtime.State) (ret0 ASTExpr) {
+	var r0 int
+	var r1 ASTExpr
+	r0 = 1
+	r1 = ParseBinaryOp(frame, r0)
+	if frame.Flow == 0 {
+		ret0 = r1
+		return
+	} else {
+		return
+	}
 }
 func ParseCompoundStatement(frame *runtime.State) (ret0 ASTExpr) {
 	var r0 int
