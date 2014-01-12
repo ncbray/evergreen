@@ -211,6 +211,25 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 	return stmts
 }
 
+func generateExpr(state string, expr tree.ASTExpr) ast.Expr {
+	switch expr := expr.(type) {
+	case *tree.Call:
+		args := []ast.Expr{
+			id(state),
+		}
+		for _, arg := range expr.Args {
+			args = append(args, generateExpr(state, arg))
+		}
+		return &ast.CallExpr{
+			Fun:  id(expr.Name.Text),
+			Args: args,
+		}
+	default:
+		panic(expr)
+	}
+
+}
+
 func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 	stmts := []ast.Stmt{}
 
@@ -238,12 +257,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 		},
 		Tok: token.DEFINE,
 		Rhs: []ast.Expr{
-			&ast.CallExpr{
-				Fun: id(tst.Rule.Text),
-				Args: []ast.Expr{
-					id(state),
-				},
-			},
+			generateExpr(state, tst.Rule),
 		},
 	})
 
@@ -263,7 +277,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, gbuilder, stmts)
 
 	return &ast.FuncDecl{
-		Name: id(fmt.Sprintf("Test_%s_%s", tst.Rule.Text, tst.Name.Text)),
+		Name: id(fmt.Sprintf("Test_%s", tst.Name.Text)),
 		Type: &ast.FuncType{
 			Params: &ast.FieldList{
 				List: []*ast.Field{

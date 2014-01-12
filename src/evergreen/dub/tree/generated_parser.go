@@ -347,8 +347,8 @@ func (node *FuncDecl) isASTFunc() {
 }
 
 type Test struct {
-	Rule        *Id
 	Name        *Id
+	Rule        ASTExpr
 	Type        ASTType
 	Input       string
 	Destructure Destructure
@@ -5818,7 +5818,7 @@ func ParseTest(frame *runtime.State) (ret0 *Test) {
 	var r10 rune
 	var r11 bool
 	var r12 *Id
-	var r13 *Id
+	var r13 ASTExpr
 	var r14 string
 	var r15 Destructure
 	var r16 *Test
@@ -5854,7 +5854,7 @@ func ParseTest(frame *runtime.State) (ret0 *Test) {
 											if frame.Flow == 0 {
 												S(frame)
 												if frame.Flow == 0 {
-													r13 = Ident(frame)
+													r13 = ParseExpr(frame)
 													if frame.Flow == 0 {
 														S(frame)
 														if frame.Flow == 0 {
@@ -5864,7 +5864,7 @@ func ParseTest(frame *runtime.State) (ret0 *Test) {
 																if frame.Flow == 0 {
 																	r15 = ParseDestructure(frame)
 																	if frame.Flow == 0 {
-																		r16 = &Test{Rule: r12, Name: r13, Input: r14, Destructure: r15}
+																		r16 = &Test{Name: r12, Rule: r13, Input: r14, Destructure: r15}
 																		ret0 = r16
 																		return
 																	} else {

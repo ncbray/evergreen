@@ -234,31 +234,31 @@ func RuneMatchExpr() RuneMatch {
 }
 
 
-test Ident Alpha "a_B_c"
+test Alpha Ident() "a_B_c"
   Id{Text: "a_B_c"}
 
-test Ident AlphaNum "a_1_7"
+test AlphaNum Ident() "a_1_7"
   Id{Text: "a_1_7"}
 
-test Literal Num "1234567890"
+test Num Literal() "1234567890"
   IntLiteral{
     Text: "1234567890"
     Value: 1234567890
  }
 
-test Literal Str "\"hello, world\\n\""
+test Str Literal() "\"hello, world\\n\""
   StringLiteral{
     Text: "\"hello, world\\n\""
     Value: "hello, world\n"
   }
 
-test Literal Rune "'a'"
+test Rune Literal() "'a'"
   RuneLiteral{
     Text: "'a'"
     Value: 'a'
   }
 
-test Literal EscapedRune "'\\n'"
+test EscapedRune Literal() "'\\n'"
   RuneLiteral{
     Text: "'\\n'"
     Value: '\n'
@@ -301,7 +301,7 @@ func ParseTypeRef() ASTTypeRef {
   }
 }
 
-test ParseTypeRef ListOfList "[][]Foo"
+test ListOfList ParseTypeRef() "[][]Foo"
   ListTypeRef{
     Type: ListTypeRef{
       Type: TypeRef{
@@ -367,7 +367,7 @@ func ParseDestructure() Destructure {
   }
 }
 
-test ParseDestructure Compound "[]Foo { Bar { Baz: 1 Biz : 'x'} }"
+test Compound ParseDestructure() "[]Foo { Bar { Baz: 1 Biz : 'x'} }"
   DestructureList {
     Type: ListTypeRef {
       Type: TypeRef {
@@ -521,7 +521,7 @@ func ParseMatchChoice() TextMatch {
 }
 
 
-test ParseMatchChoice One "[pq]"
+test One ParseMatchChoice() "[pq]"
   RuneRangeMatch {
     Invert: false
     Filters: []RuneFilter {
@@ -536,7 +536,7 @@ test ParseMatchChoice One "[pq]"
     }
   }
 
-test ParseMatchChoice Invert "[^.]"
+test Invert ParseMatchChoice() "[^.]"
   RuneRangeMatch {
     Invert: true
     Filters: []RuneFilter {
@@ -547,7 +547,7 @@ test ParseMatchChoice Invert "[^.]"
     }
   }
 
-test ParseMatchChoice Escape "[\\]\\n]"
+test Escape ParseMatchChoice() "[\\]\\n]"
   RuneRangeMatch {
     Filters: []RuneFilter {
       RuneFilter {
@@ -562,7 +562,7 @@ test ParseMatchChoice Escape "[\\]\\n]"
   }
 
 
-test ParseMatchChoice Three "[a][b][c]"
+test Three ParseMatchChoice() "[a][b][c]"
   MatchSequence {
     Matches: []TextMatch {
       RuneRangeMatch {
@@ -592,7 +592,7 @@ test ParseMatchChoice Three "[a][b][c]"
     }
   }
 
-test ParseMatchChoice Repeat "[0-9] +"
+test Repeat ParseMatchChoice() "[0-9] +"
   MatchRepeat {
     Match: RuneRangeMatch {
       Filters: []RuneFilter {
@@ -605,7 +605,7 @@ test ParseMatchChoice Repeat "[0-9] +"
     Min: 1
   }
 
-test ParseMatchChoice Question "[*]?"
+test Question ParseMatchChoice() "[*]?"
   MatchChoice {
     Matches: []TextMatch {
       RuneRangeMatch {
@@ -622,7 +622,7 @@ test ParseMatchChoice Question "[*]?"
     }
   }
 
-test ParseMatchChoice Complex "[a] ( [b]|[c] ) | [d]"
+test Complex ParseMatchChoice() "[a] ( [b]|[c] ) | [d]"
   MatchChoice {
     Matches: []TextMatch {
       MatchSequence {
@@ -668,7 +668,7 @@ test ParseMatchChoice Complex "[a] ( [b]|[c] ) | [d]"
     }
   }
 
-test ParseMatchChoice PositiveLookahead "&[.]"
+test PositiveLookahead ParseMatchChoice() "&[.]"
   MatchLookahead {
     Invert: false
     Match: RuneRangeMatch {
@@ -682,7 +682,7 @@ test ParseMatchChoice PositiveLookahead "&[.]"
     }
   }
 
-test ParseMatchChoice NegativeLookahead "![.]"
+test NegativeLookahead ParseMatchChoice() "![.]"
   MatchLookahead {
     Invert: true
     Match: RuneRangeMatch {
@@ -1074,7 +1074,7 @@ func ParseCodeBlock() []ASTExpr {
   return exprs;
 }
 
-test ParseExpr BinaryOpLeft "12 + 34 - 56"
+test BinaryOpLeft ParseExpr() "12 + 34 - 56"
   BinaryOp {
     Left: BinaryOp {
       Left: IntLiteral {
@@ -1091,7 +1091,7 @@ test ParseExpr BinaryOpLeft "12 + 34 - 56"
     }
   }
 
-test ParseExpr BinaryOpRight "12 + (34 - 56)"
+test BinaryOpRight ParseExpr() "12 + (34 - 56)"
   BinaryOp {
     Left: IntLiteral {
       Value: 12
@@ -1109,7 +1109,7 @@ test ParseExpr BinaryOpRight "12 + (34 - 56)"
   }
 
 
-test ParseStatement Assign "foo = 1;"
+test Assign ParseStatement() "foo = 1;"
   Assign {
     Expr: IntLiteral {
       Value: 1
@@ -1118,7 +1118,7 @@ test ParseStatement Assign "foo = 1;"
     Define: false
   }
 
-test ParseStatement Lookahead "returnType = 1;"
+test Lookahead ParseStatement() "returnType = 1;"
   Assign {
     Expr: IntLiteral {
       Value: 1
@@ -1127,7 +1127,7 @@ test ParseStatement Lookahead "returnType = 1;"
     Define: false
   }
 
-test ParseStatement Define "foo := 1;"
+test Define ParseStatement() "foo := 1;"
   Assign {
     Expr: IntLiteral {
       Value: 1
@@ -1136,7 +1136,7 @@ test ParseStatement Define "foo := 1;"
     Define: true
   }
 
-test ParseStatement MultiAssign "a, b, c = foo();"
+test MultiAssign ParseStatement() "a, b, c = foo();"
   Assign {
     Expr: Call {
       Name: Id{Text: "foo"}
@@ -1149,7 +1149,7 @@ test ParseStatement MultiAssign "a, b, c = foo();"
     Define: false
   }
 
-test ParseStatement MultiCall "foo(a, b, c);"
+test MultiCall ParseStatement() "foo(a, b, c);"
   Call {
     Name: Id{Text: "foo"}
     Args: []ASTExpr{
@@ -1160,7 +1160,7 @@ test ParseStatement MultiCall "foo(a, b, c);"
   }
 
 
-test ParseExpr Construct "Foo{ Bar: 1}"
+test Construct ParseExpr() "Foo{ Bar: 1}"
   Construct {
     Type: TypeRef {
       Name: Id{Text: "Foo"}
@@ -1175,7 +1175,7 @@ test ParseExpr Construct "Foo{ Bar: 1}"
     }
   }
 
-test ParseExpr ConstructList "[]Foo{ 1 }"
+test ConstructList ParseExpr() "[]Foo{ 1 }"
   ConstructList {
     Type: ListTypeRef{
       Type: TypeRef {
@@ -1189,7 +1189,7 @@ test ParseExpr ConstructList "[]Foo{ 1 }"
     }
   }
 
-test ParseStatement Slice "a := slice { 1; } ;"
+test Slice ParseStatement() "a := slice { 1; } ;"
   Assign {
     Expr: Slice{
       Block: []ASTExpr{
@@ -1282,8 +1282,8 @@ func ParseFuncDecl() FuncDecl {
 }
 
 struct Test {
-  Rule Id
   Name Id
+  Rule ASTExpr
   Type ASTType
   Input string
   Destructure Destructure
@@ -1293,14 +1293,14 @@ func ParseTest() Test {
   /"test"/;
   EndKeyword();
   S();
-  rule := Ident();
-  S();
   name := Ident();
+  S();
+  rule := ParseExpr();
   S();
   input := DecodeString();
   S();
   d := ParseDestructure();
-  return Test{Rule: rule, Name: name, Input: input, Destructure: d};
+  return Test{Name: name, Rule: rule, Input: input, Destructure: d};
 }
 
 struct File {

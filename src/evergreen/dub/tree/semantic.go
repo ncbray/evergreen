@@ -393,13 +393,15 @@ func semanticDestructurePass(decl *FuncDecl, d Destructure, scope *semanticScope
 }
 
 func semanticTestPass(tst *Test, glbls *ModuleScope, status framework.Status) {
-	types := glbls.ReturnTypes(tst.Rule.Text)
+	// HACK no real context
+	scope := childScope(nil)
+	types := semanticExprPass(nil, tst.Rule, scope, glbls, status)
 	if len(types) != 1 {
 		panic(types)
 	}
 	tst.Type = types[0]
-	// HACK no real context
-	at := semanticDestructurePass(nil, tst.Destructure, nil, glbls, status)
+
+	at := semanticDestructurePass(nil, tst.Destructure, scope, glbls, status)
 	if !TypeMatches(at, tst.Type, false) {
 		status.Error("%s vs. %s", TypeName(at), TypeName(tst.Type))
 	}
