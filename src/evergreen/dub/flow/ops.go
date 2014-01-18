@@ -141,7 +141,7 @@ func formatMultiAssignment(op string, dsts []DubRegister) string {
 }
 
 type DubOp interface {
-	OpToString() string
+	isDubOp()
 }
 
 type CoerceOp struct {
@@ -150,8 +150,7 @@ type CoerceOp struct {
 	Dst DubRegister
 }
 
-func (n *CoerceOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%s(%s)", TypeName(n.T), RegisterName(n.Src)), n.Dst)
+func (n *CoerceOp) isDubOp() {
 }
 
 type CopyOp struct {
@@ -159,16 +158,14 @@ type CopyOp struct {
 	Dst DubRegister
 }
 
-func (n *CopyOp) OpToString() string {
-	return fmt.Sprintf("%s := %s", RegisterName(n.Dst), RegisterName(n.Src))
+func (n *CopyOp) isDubOp() {
 }
 
 type ConstantNilOp struct {
 	Dst DubRegister
 }
 
-func (n *ConstantNilOp) OpToString() string {
-	return formatAssignment("nil", n.Dst)
+func (n *ConstantNilOp) isDubOp() {
 }
 
 type ConstantIntOp struct {
@@ -176,8 +173,7 @@ type ConstantIntOp struct {
 	Dst   DubRegister
 }
 
-func (n *ConstantIntOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
+func (n *ConstantIntOp) isDubOp() {
 }
 
 type ConstantBoolOp struct {
@@ -185,8 +181,7 @@ type ConstantBoolOp struct {
 	Dst   DubRegister
 }
 
-func (n *ConstantBoolOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
+func (n *ConstantBoolOp) isDubOp() {
 }
 
 type ConstantRuneOp struct {
@@ -194,8 +189,7 @@ type ConstantRuneOp struct {
 	Dst   DubRegister
 }
 
-func (n *ConstantRuneOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%#U", n.Value), n.Dst)
+func (n *ConstantRuneOp) isDubOp() {
 }
 
 type ConstantStringOp struct {
@@ -203,8 +197,7 @@ type ConstantStringOp struct {
 	Dst   DubRegister
 }
 
-func (n *ConstantStringOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%#v", n.Value), n.Dst)
+func (n *ConstantStringOp) isDubOp() {
 }
 
 type BinaryOp struct {
@@ -214,8 +207,7 @@ type BinaryOp struct {
 	Dst   DubRegister
 }
 
-func (n *BinaryOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%s %s %s", RegisterName(n.Left), n.Op, RegisterName(n.Right)), n.Dst)
+func (n *BinaryOp) isDubOp() {
 }
 
 type CallOp struct {
@@ -224,8 +216,7 @@ type CallOp struct {
 	Dsts []DubRegister
 }
 
-func (n *CallOp) OpToString() string {
-	return formatMultiAssignment(fmt.Sprintf("%s(%s)", n.Name, RegisterList(n.Args)), n.Dsts)
+func (n *CallOp) isDubOp() {
 }
 
 type KeyValue struct {
@@ -239,8 +230,7 @@ type ConstructOp struct {
 	Dst  DubRegister
 }
 
-func (n *ConstructOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%s{%s}", TypeName(n.Type), KeyValueList(n.Args)), n.Dst)
+func (n *ConstructOp) isDubOp() {
 }
 
 type ConstructListOp struct {
@@ -249,32 +239,28 @@ type ConstructListOp struct {
 	Dst  DubRegister
 }
 
-func (n *ConstructListOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("%s{%s}", TypeName(n.Type), RegisterList(n.Args)), n.Dst)
+func (n *ConstructListOp) isDubOp() {
 }
 
 type Checkpoint struct {
 	Dst DubRegister
 }
 
-func (n *Checkpoint) OpToString() string {
-	return formatAssignment("<checkpoint>", n.Dst)
+func (n *Checkpoint) isDubOp() {
 }
 
 type Recover struct {
 	Src DubRegister
 }
 
-func (n *Recover) OpToString() string {
-	return fmt.Sprintf("<recover> %s", RegisterName(n.Src))
+func (n *Recover) isDubOp() {
 }
 
 type LookaheadBegin struct {
 	Dst DubRegister
 }
 
-func (n *LookaheadBegin) OpToString() string {
-	return formatAssignment("<lookahead begin>", n.Dst)
+func (n *LookaheadBegin) isDubOp() {
 }
 
 type LookaheadEnd struct {
@@ -282,8 +268,7 @@ type LookaheadEnd struct {
 	Src    DubRegister
 }
 
-func (n *LookaheadEnd) OpToString() string {
-	return fmt.Sprintf("<lookahead end> %v %s", n.Failed, RegisterName(n.Src))
+func (n *LookaheadEnd) isDubOp() {
 }
 
 type Slice struct {
@@ -291,8 +276,7 @@ type Slice struct {
 	Dst DubRegister
 }
 
-func (n *Slice) OpToString() string {
-	return formatAssignment(fmt.Sprintf("<slice> %s", RegisterName(n.Src)), n.Dst)
+func (n *Slice) isDubOp() {
 }
 
 type AppendOp struct {
@@ -301,38 +285,33 @@ type AppendOp struct {
 	Dst   DubRegister
 }
 
-func (n *AppendOp) OpToString() string {
-	return formatAssignment(fmt.Sprintf("<append> %s %s", RegisterName(n.List), RegisterName(n.Value)), n.Dst)
+func (n *AppendOp) isDubOp() {
 }
 
 type ReturnOp struct {
 	Exprs []DubRegister
 }
 
-func (n *ReturnOp) OpToString() string {
-	return fmt.Sprintf("<return> %s", RegisterList(n.Exprs))
+func (n *ReturnOp) isDubOp() {
 }
 
 type Fail struct {
 }
 
-func (n *Fail) OpToString() string {
-	return fmt.Sprintf("<fail>")
+func (n *Fail) isDubOp() {
 }
 
 type Peek struct {
 	Dst DubRegister
 }
 
-func (n *Peek) OpToString() string {
-	return formatAssignment("<peek>", n.Dst)
+func (n *Peek) isDubOp() {
 }
 
 type Consume struct {
 }
 
-func (n *Consume) OpToString() string {
-	return "<consume>"
+func (n *Consume) isDubOp() {
 }
 
 type TransferOp struct {
@@ -340,8 +319,7 @@ type TransferOp struct {
 	Dsts []DubRegister
 }
 
-func (n *TransferOp) OpToString() string {
-	return fmt.Sprintf("%s << %s", RegisterList(n.Dsts), RegisterList(n.Srcs))
+func (n *TransferOp) isDubOp() {
 }
 
 // Flow blocks
@@ -349,35 +327,83 @@ func (n *TransferOp) OpToString() string {
 type EntryOp struct {
 }
 
-func (n *EntryOp) OpToString() string {
-	return "<entry>"
+func (n *EntryOp) isDubOp() {
 }
 
 type SwitchOp struct {
 	Cond DubRegister
 }
 
-func (n *SwitchOp) OpToString() string {
-	return fmt.Sprintf("?%s", RegisterName(n.Cond))
+func (n *SwitchOp) isDubOp() {
 }
 
 type FlowExitOp struct {
 	Flow int
 }
 
-func (n *FlowExitOp) OpToString() string {
-	return fmt.Sprintf("<flow %d>", n.Flow)
+func (n *FlowExitOp) isDubOp() {
 }
 
 type ExitOp struct {
 }
 
-func (n *ExitOp) OpToString() string {
-	return "<exit>"
+func (n *ExitOp) isDubOp() {
 }
 
 type DotStyler struct {
 	Decl *LLFunc
+}
+
+func opToString(op DubOp) string {
+	switch n := op.(type) {
+	case *CoerceOp:
+		return formatAssignment(fmt.Sprintf("%s(%s)", TypeName(n.T), RegisterName(n.Src)), n.Dst)
+	case *CopyOp:
+		return fmt.Sprintf("%s := %s", RegisterName(n.Dst), RegisterName(n.Src))
+	case *ConstantNilOp:
+		return formatAssignment("nil", n.Dst)
+	case *ConstantIntOp:
+		return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
+	case *ConstantBoolOp:
+		return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
+	case *ConstantRuneOp:
+		return formatAssignment(fmt.Sprintf("%#U", n.Value), n.Dst)
+	case *ConstantStringOp:
+		return formatAssignment(fmt.Sprintf("%#v", n.Value), n.Dst)
+	case *BinaryOp:
+		return formatAssignment(fmt.Sprintf("%s %s %s", RegisterName(n.Left), n.Op, RegisterName(n.Right)), n.Dst)
+	case *CallOp:
+		return formatMultiAssignment(fmt.Sprintf("%s(%s)", n.Name, RegisterList(n.Args)), n.Dsts)
+	case *ConstructOp:
+		return formatAssignment(fmt.Sprintf("%s{%s}", TypeName(n.Type), KeyValueList(n.Args)), n.Dst)
+	case *ConstructListOp:
+		return formatAssignment(fmt.Sprintf("%s{%s}", TypeName(n.Type), RegisterList(n.Args)), n.Dst)
+	case *Checkpoint:
+		return formatAssignment("<checkpoint>", n.Dst)
+	case *Recover:
+		return fmt.Sprintf("<recover> %s", RegisterName(n.Src))
+	case *LookaheadBegin:
+		return formatAssignment("<lookahead begin>", n.Dst)
+	case *LookaheadEnd:
+		return fmt.Sprintf("<lookahead end> %v %s", n.Failed, RegisterName(n.Src))
+	case *Slice:
+		return formatAssignment(fmt.Sprintf("<slice> %s", RegisterName(n.Src)), n.Dst)
+	case *AppendOp:
+		return formatAssignment(fmt.Sprintf("<append> %s %s", RegisterName(n.List), RegisterName(n.Value)), n.Dst)
+	case *ReturnOp:
+		return fmt.Sprintf("<return> %s", RegisterList(n.Exprs))
+	case *Fail:
+		return "<fail>"
+	case *Peek:
+		return formatAssignment("<peek>", n.Dst)
+	case *Consume:
+		return "<consume>"
+	case *TransferOp:
+		return fmt.Sprintf("%s << %s", RegisterList(n.Dsts), RegisterList(n.Srcs))
+
+	default:
+		panic(op)
+	}
 }
 
 func (styler *DotStyler) NodeStyle(node base.NodeID) string {
@@ -403,7 +429,7 @@ func (styler *DotStyler) NodeStyle(node base.NodeID) string {
 	case *SwitchOp:
 		return fmt.Sprintf("shape=diamond,label=%#v", RegisterName(op.Cond))
 	case DubOp:
-		return fmt.Sprintf("shape=box,label=%#v", op.OpToString())
+		return fmt.Sprintf("shape=box,label=%#v", opToString(op))
 	default:
 		panic(op)
 	}
