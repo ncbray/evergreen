@@ -58,7 +58,11 @@ func CreateIOManager() *IOManager {
 func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, name string) {
 	fmt.Printf("Processing %s...\n", name)
 	filename := fmt.Sprintf("dub/%s.dub", name)
-	data, _ := ioutil.ReadFile(filename)
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		status.Error("%s", err)
+		return
+	}
 	p.AddFile(filename, []rune(string(data)))
 	file := tree.ParseDub(data, status)
 	if status.ShouldHalt() {

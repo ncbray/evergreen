@@ -589,12 +589,15 @@ func GenerateGoStruct(s *LLStruct, decls []ast.Decl) []ast.Decl {
 func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
 	decls := []ast.Decl{}
 
+	imports := []ast.Spec{}
+	if len(funcs) > 0 {
+		imports = append(imports, &ast.ImportSpec{Path: strLiteral("evergreen/dub/runtime")})
+	}
+
 	decls = append([]ast.Decl{&ast.GenDecl{
 		Tok:    token.IMPORT,
 		Lparen: 1,
-		Specs: []ast.Spec{
-			&ast.ImportSpec{Path: strLiteral("evergreen/dub/runtime")},
-		},
+		Specs:  imports,
 	}}, decls...)
 
 	for _, f := range structs {
