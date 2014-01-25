@@ -1,6 +1,7 @@
 package base
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"unicode"
@@ -29,6 +30,10 @@ func (w *CodeWriter) writeLine(text string) {
 func (w *CodeWriter) Line(text string) {
 	w.flushPending()
 	w.writeLine(text)
+}
+
+func (w *CodeWriter) Linef(format string, args ...interface{}) {
+	w.Line(fmt.Sprintf(format, args...))
 }
 
 func (w *CodeWriter) EmptyLines(count int) {

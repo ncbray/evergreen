@@ -594,11 +594,13 @@ func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
 		imports = append(imports, &ast.ImportSpec{Path: strLiteral("evergreen/dub/runtime")})
 	}
 
-	decls = append([]ast.Decl{&ast.GenDecl{
-		Tok:    token.IMPORT,
-		Lparen: 1,
-		Specs:  imports,
-	}}, decls...)
+	if len(imports) > 0 {
+		decls = append([]ast.Decl{&ast.GenDecl{
+			Tok:    token.IMPORT,
+			Lparen: 1,
+			Specs:  imports,
+		}}, decls...)
+	}
 
 	for _, f := range structs {
 		decls = GenerateGoStruct(f, decls)

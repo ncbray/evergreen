@@ -153,6 +153,7 @@ func main() {
 	status := framework.MakeStatus(p)
 	manager := CreateIOManager()
 	processDub(status.CreateChild(), p, manager, "dub")
+	processDub(status.CreateChild(), p, manager, "go")
 	manager.Flush()
 	if status.ShouldHalt() {
 		os.Exit(1)
