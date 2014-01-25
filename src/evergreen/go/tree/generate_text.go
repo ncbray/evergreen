@@ -84,6 +84,10 @@ func GeneratePrecExpr(expr Expr) (string, int) {
 			args[i] = GenerateSafeExpr(arg, anyPrec)
 		}
 		return fmt.Sprintf("%s(%s)", base, strings.Join(args, ", ")), postfixPrec
+	case *TypeAssert:
+		base := GenerateSafeExpr(expr.Expr, postfixPrec)
+		t := GenerateType(expr.Type)
+		return fmt.Sprintf("%s.(%s)", base, t), postfixPrec
 	default:
 		panic(expr)
 	}
@@ -154,7 +158,7 @@ func GenerateBody(stmts []Stmt, w *base.CodeWriter) {
 }
 
 func GenerateParam(p *Param) string {
-	t := GenerateType(p.T)
+	t := GenerateType(p.Type)
 	if p.Name != "" {
 		return fmt.Sprintf("%s %s", p.Name, t)
 	} else {
@@ -166,7 +170,7 @@ func GenerateReturns(returns []*Param) string {
 	if len(returns) == 0 {
 		return ""
 	} else if len(returns) == 1 && returns[0].Name == "" {
-		return " " + GenerateType(returns[0].T)
+		return " " + GenerateType(returns[0].Type)
 	} else {
 		params := make([]string, len(returns))
 		for i, p := range returns {
@@ -202,7 +206,7 @@ func GenerateDecl(decl Decl, w *base.CodeWriter) {
 		for _, field := range decl.Fields {
 			// Align the types
 			padding := strings.Repeat(" ", biggestName-utf8.RuneCountInString(field.Name))
-			w.Linef("%s%s %s", field.Name, padding, GenerateType(field.T))
+			w.Linef("%s%s %s", field.Name, padding, GenerateType(field.Type))
 		}
 		w.PopMargin()
 		w.Line("}")

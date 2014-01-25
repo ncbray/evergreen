@@ -66,6 +66,11 @@ struct Call implements Expr {
   Args []Expr
 }
 
+struct TypeAssert implements Expr {
+  Expr Expr
+  Type Type
+}
+
 struct Assign implements Stmt {
   Sources []Expr
   Op string
@@ -86,7 +91,7 @@ struct Decl {
 
 struct Param {
   Name string
-  T Type
+  Type Type
 }
 
 struct FuncDecl implements Decl {
@@ -98,7 +103,7 @@ struct FuncDecl implements Decl {
 
 struct Field {
   Name string
-  T Type
+  Type Type
 }
 
 struct StructDecl implements Decl {

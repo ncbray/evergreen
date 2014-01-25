@@ -126,6 +126,16 @@ func (node *Call) isStmt() {
 func (node *Call) isExpr() {
 }
 
+type TypeAssert struct {
+	Expr Expr
+	Type Type
+}
+
+func (node *TypeAssert) isStmt() {
+}
+func (node *TypeAssert) isExpr() {
+}
+
 type Assign struct {
 	Sources []Expr
 	Op      string
@@ -155,7 +165,7 @@ type Decl interface {
 }
 type Param struct {
 	Name string
-	T    Type
+	Type Type
 }
 type FuncDecl struct {
 	Name    string
@@ -169,7 +179,7 @@ func (node *FuncDecl) isDecl() {
 
 type Field struct {
 	Name string
-	T    Type
+	Type Type
 }
 type StructDecl struct {
 	Name   string

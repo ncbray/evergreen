@@ -153,12 +153,12 @@ func TestFuncDecl(t *testing.T) {
 	decl := &FuncDecl{
 		Name: "foo",
 		Params: []*Param{
-			&Param{Name: "cond", T: &TypeRef{Name: "bool"}},
-			&Param{Name: "names", T: &SliceType{Element: &TypeRef{Name: "string"}}},
+			&Param{Name: "cond", Type: &TypeRef{Name: "bool"}},
+			&Param{Name: "names", Type: &SliceType{Element: &TypeRef{Name: "string"}}},
 		},
 		Returns: []*Param{
-			&Param{Name: "biz", T: &TypeRef{Name: "int"}},
-			&Param{Name: "baz", T: &PointerType{Element: &TypeRef{Name: "int"}}},
+			&Param{Name: "biz", Type: &TypeRef{Name: "int"}},
+			&Param{Name: "baz", Type: &PointerType{Element: &TypeRef{Name: "int"}}},
 		},
 		Body: []Stmt{
 			&If{
@@ -210,13 +210,13 @@ func TestFile(t *testing.T) {
 				Fields: []*Field{
 					&Field{
 						Name: "Baz",
-						T: &TypeRef{
+						Type: &TypeRef{
 							Name: "other.Biz",
 						},
 					},
 					&Field{
 						Name: "BazXYZ",
-						T: &TypeRef{
+						Type: &TypeRef{
 							Name: "more.Biz",
 						},
 					},

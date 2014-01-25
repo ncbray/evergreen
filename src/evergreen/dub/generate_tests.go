@@ -95,7 +95,10 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 				Op: ":=",
 				Sources: []dst.Expr{
 					// TODO typecast tree.
-					attr(id(name), fmt.Sprintf("(*%s)", d.Type.Name.Text)),
+					&dst.TypeAssert{
+						Expr: id(name),
+						Type: &dst.PointerType{Element: &dst.TypeRef{Name: d.Type.Name.Text}},
+					},
 				},
 			})
 			stmts = append(stmts, makeFatalTest(
@@ -260,7 +263,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *dst.FuncDecl {
 		Params: []*dst.Param{
 			&dst.Param{
 				Name: "t",
-				T:    &dst.PointerType{Element: &dst.TypeRef{Name: "testing.T"}},
+				Type: &dst.PointerType{Element: &dst.TypeRef{Name: "testing.T"}},
 			},
 		},
 		Returns: []*dst.Param{},
