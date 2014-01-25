@@ -143,6 +143,9 @@ type If struct {
 func (node *If) isStmt() {
 }
 
+type Decl interface {
+	isDecl()
+}
 type Param struct {
 	Name string
 	T    Type
@@ -152,4 +155,29 @@ type FuncDecl struct {
 	Params  []*Param
 	Returns []*Param
 	Body    []Stmt
+}
+
+func (node *FuncDecl) isDecl() {
+}
+
+type Field struct {
+	Name string
+	T    Type
+}
+type StructDecl struct {
+	Name   string
+	Fields []*Field
+}
+
+func (node *StructDecl) isDecl() {
+}
+
+type Import struct {
+	Name string
+	Path string
+}
+type File struct {
+	Package string
+	Imports []*Import
+	Decls   []Decl
 }

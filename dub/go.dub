@@ -77,14 +77,38 @@ struct If implements Stmt {
   Body []Stmt
 }
 
+struct Decl {
+}
+
 struct Param {
   Name string
   T Type
 }
 
-struct FuncDecl {
+struct FuncDecl implements Decl {
   Name string
   Params []Param
   Returns []Param
   Body []Stmt
+}
+
+struct Field {
+  Name string
+  T Type
+}
+
+struct StructDecl implements Decl {
+  Name string
+  Fields []Field
+}
+
+struct Import {
+  Name string
+  Path string
+}
+
+struct File {
+  Package string
+  Imports []Import
+  Decls []Decl
 }

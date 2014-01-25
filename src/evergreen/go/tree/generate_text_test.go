@@ -150,7 +150,6 @@ func TestIndex(t *testing.T) {
 }
 
 func TestFuncDecl(t *testing.T) {
-	b, w := bufferedWriter()
 	decl := &FuncDecl{
 		Name: "foo",
 		Params: []*Param{
@@ -184,6 +183,50 @@ func TestFuncDecl(t *testing.T) {
 			},
 		},
 	}
+	b, w := bufferedWriter()
 	GenerateFunc(decl, w)
 	checkCode(b.String(), "func foo(cond bool, names []string) (biz int, baz *int) {\n\tif cond {\n\t\t\"hello\"\n\t}\n\tbiz, baz := bar(names), 7\n}\n", t)
+}
+
+func TestFile(t *testing.T) {
+	file := &File{
+		Package: "foo",
+		Imports: []*Import{
+			&Import{
+				Path: "some/other",
+			},
+			&Import{
+				Name: "more",
+				Path: "more/other",
+			},
+			&Import{
+				Name: "x",
+				Path: "x/other",
+			},
+		},
+		Decls: []Decl{
+			&StructDecl{
+				Name: "Bar",
+				Fields: []*Field{
+					&Field{
+						Name: "Baz",
+						T: &TypeRef{
+							Name: "other.Biz",
+						},
+					},
+					&Field{
+						Name: "BazXYZ",
+						T: &TypeRef{
+							Name: "more.Biz",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	b, w := bufferedWriter()
+	GenerateFile(file, w)
+	checkCode(b.String(), "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n", t)
+
 }

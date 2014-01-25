@@ -3,8 +3,10 @@ package tree
 import (
 	"evergreen/base"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 var binaryOpToPrec map[string]int = map[string]int{
@@ -179,4 +181,72 @@ func GenerateFunc(decl *FuncDecl, w *base.CodeWriter) {
 	w.Linef("func %s(%s)%s {", decl.Name, strings.Join(params, ", "), returns)
 	GenerateBody(decl.Body, w)
 	w.Line("}")
+}
+
+func GenerateDecl(decl Decl, w *base.CodeWriter) {
+	switch decl := decl.(type) {
+	case *StructDecl:
+		w.Linef("type %s struct {", decl.Name)
+		w.PushMargin(indent)
+		biggestName := 0
+		for _, field := range decl.Fields {
+			size := utf8.RuneCountInString(field.Name)
+			if size > biggestName {
+				biggestName = size
+			}
+		}
+		for _, field := range decl.Fields {
+			// Align the types
+			padding := strings.Repeat(" ", biggestName-utf8.RuneCountInString(field.Name))
+			w.Linef("%s%s %s", field.Name, padding, GenerateType(field.T))
+		}
+		w.PopMargin()
+		w.Line("}")
+	default:
+		panic(decl)
+	}
+}
+
+type ImportOrder []*Import
+
+func (imports ImportOrder) Len() int {
+	return len(imports)
+}
+
+func (imports ImportOrder) Swap(i, j int) {
+	imports[i], imports[j] = imports[j], imports[i]
+}
+
+func (imports ImportOrder) Less(i, j int) bool {
+	return imports[i].Path < imports[j].Path
+}
+
+func GenerateFile(file *File, w *base.CodeWriter) {
+	w.Linef("package %s", file.Package)
+	w.EmptyLines(1)
+	if len(file.Imports) > 0 {
+		w.Line("import (")
+		w.PushMargin(indent)
+
+		// Sort imports
+		imports := make([]*Import, len(file.Imports))
+		copy(imports, file.Imports)
+		sort.Sort(ImportOrder(imports))
+
+		for _, imp := range imports {
+			path := strconv.Quote(imp.Path)
+			if imp.Name != "" {
+				w.Linef("%s %s", imp.Name, path)
+			} else {
+				w.Line(path)
+			}
+		}
+		w.PopMargin()
+		w.Line(")")
+		w.EmptyLines(1)
+	}
+	for _, decl := range file.Decls {
+		GenerateDecl(decl, w)
+		w.EmptyLines(1)
+	}
 }
