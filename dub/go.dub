@@ -1,3 +1,19 @@
+struct Type {
+}
+
+struct TypeRef implements Type {
+  Name string
+}
+
+struct PointerType implements Type {
+  Element Type
+}
+
+struct SliceType implements Type {
+  Element Type
+}
+
+
 struct Stmt {
 }
 
@@ -61,7 +77,14 @@ struct If implements Stmt {
   Body []Stmt
 }
 
+struct Param {
+  Name string
+  T Type
+}
+
 struct FuncDecl {
   Name string
+  Params []Param
+  Returns []Param
   Body []Stmt
 }

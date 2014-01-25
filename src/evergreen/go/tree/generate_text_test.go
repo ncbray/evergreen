@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"evergreen/base"
 	"fmt"
+	"go/format"
 	"testing"
 )
 
@@ -21,6 +22,20 @@ func checkString(actual string, expected string, t *testing.T) {
 	}
 }
 
+func checkFormat(code string, t *testing.T) {
+	out, err := format.Source([]byte(code))
+	if err != nil {
+		t.Fatal(err)
+	}
+	outs := string(out)
+	checkString(code, outs, t)
+}
+
+func checkCode(actual string, expected string, t *testing.T) {
+	checkString(actual, expected, t)
+	checkFormat(actual, t)
+}
+
 func genExpr(expr Expr) string {
 	return GenerateExpr(expr)
 }
@@ -28,25 +43,25 @@ func genExpr(expr Expr) string {
 func TestIntLiteral(t *testing.T) {
 	expr := &IntLiteral{Value: 17}
 	result := genExpr(expr)
-	checkString(result, "17", t)
+	checkCode(result, "17", t)
 }
 
 func TestBoolLiteral(t *testing.T) {
 	expr := &BoolLiteral{Value: true}
 	result := genExpr(expr)
-	checkString(result, "true", t)
+	checkCode(result, "true", t)
 }
 
 func TestStringLiteral(t *testing.T) {
 	expr := &StringLiteral{Value: "foo\nbar"}
 	result := genExpr(expr)
-	checkString(result, "\"foo\\nbar\"", t)
+	checkCode(result, "\"foo\\nbar\"", t)
 }
 
 func TestRuneLiteral(t *testing.T) {
 	expr := &RuneLiteral{Value: 'x'}
 	result := genExpr(expr)
-	checkString(result, "'x'", t)
+	checkCode(result, "'x'", t)
 }
 
 func TestSimpleUnaryExpr(t *testing.T) {
@@ -55,7 +70,7 @@ func TestSimpleUnaryExpr(t *testing.T) {
 		Expr: &IntLiteral{Value: 17},
 	}
 	result := genExpr(expr)
-	checkString(result, "-17", t)
+	checkCode(result, "-17", t)
 }
 
 func TestSimpleBinaryExpr(t *testing.T) {
@@ -65,7 +80,7 @@ func TestSimpleBinaryExpr(t *testing.T) {
 		Right: &IntLiteral{Value: 34},
 	}
 	result := genExpr(expr)
-	checkString(result, "12 + 34", t)
+	checkCode(result, "12 + 34", t)
 }
 
 func TestSimpleCompoundExpr(t *testing.T) {
@@ -79,7 +94,7 @@ func TestSimpleCompoundExpr(t *testing.T) {
 		Right: &IntLiteral{Value: 56},
 	}
 	result := genExpr(expr)
-	checkString(result, "(12 + 34) * 56", t)
+	checkCode(result, "(12 + 34) * 56", t)
 }
 
 func TestUseAssosiativity(t *testing.T) {
@@ -93,7 +108,7 @@ func TestUseAssosiativity(t *testing.T) {
 		Right: &IntLiteral{Value: 56},
 	}
 	result := genExpr(expr)
-	checkString(result, "12 * 34 * 56", t)
+	checkCode(result, "12 * 34 * 56", t)
 }
 
 func TestPreserveAssosiativity(t *testing.T) {
@@ -107,7 +122,7 @@ func TestPreserveAssosiativity(t *testing.T) {
 		},
 	}
 	result := genExpr(expr)
-	checkString(result, "12 * (34 * 56)", t)
+	checkCode(result, "12 * (34 * 56)", t)
 }
 
 func TestMethodCall(t *testing.T) {
@@ -122,7 +137,7 @@ func TestMethodCall(t *testing.T) {
 		},
 	}
 	result := genExpr(expr)
-	checkString(result, "foo.bar(12, 34)", t)
+	checkCode(result, "foo.bar(12, 34)", t)
 }
 
 func TestIndex(t *testing.T) {
@@ -131,13 +146,21 @@ func TestIndex(t *testing.T) {
 		Index: &NameRef{Text: "bar"},
 	}
 	result := genExpr(expr)
-	checkString(result, "foo[bar]", t)
+	checkCode(result, "foo[bar]", t)
 }
 
 func TestFuncDecl(t *testing.T) {
 	b, w := bufferedWriter()
 	decl := &FuncDecl{
 		Name: "foo",
+		Params: []*Param{
+			&Param{Name: "cond", T: &TypeRef{Name: "bool"}},
+			&Param{Name: "names", T: &SliceType{Element: &TypeRef{Name: "string"}}},
+		},
+		Returns: []*Param{
+			&Param{Name: "biz", T: &TypeRef{Name: "int"}},
+			&Param{Name: "baz", T: &PointerType{Element: &TypeRef{Name: "int"}}},
+		},
 		Body: []Stmt{
 			&If{
 				Cond: &NameRef{Text: "cond"},
@@ -149,7 +172,7 @@ func TestFuncDecl(t *testing.T) {
 				Sources: []Expr{
 					&Call{
 						Expr: &NameRef{Text: "bar"},
-						Args: []Expr{},
+						Args: []Expr{&NameRef{Text: "names"}},
 					},
 					&IntLiteral{Value: 7},
 				},
@@ -162,5 +185,5 @@ func TestFuncDecl(t *testing.T) {
 		},
 	}
 	GenerateFunc(decl, w)
-	checkString(b.String(), "func foo() {\n\tif cond {\n\t\t\"hello\"\n\t}\n\tbiz, baz := bar(), 7\n}\n", t)
+	checkCode(b.String(), "func foo(cond bool, names []string) (biz int, baz *int) {\n\tif cond {\n\t\t\"hello\"\n\t}\n\tbiz, baz := bar(names), 7\n}\n", t)
 }

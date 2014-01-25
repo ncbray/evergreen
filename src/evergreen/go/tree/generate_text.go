@@ -126,6 +126,19 @@ func GenerateStmt(stmt Stmt, w *base.CodeWriter) {
 	}
 }
 
+func GenerateType(t Type) string {
+	switch t := t.(type) {
+	case *TypeRef:
+		return t.Name
+	case *PointerType:
+		return fmt.Sprintf("*%s", GenerateType(t.Element))
+	case *SliceType:
+		return fmt.Sprintf("[]%s", GenerateType(t.Element))
+	default:
+		panic(t)
+	}
+}
+
 func GenerateBody(stmts []Stmt, w *base.CodeWriter) {
 	w.PushMargin(indent)
 	for _, stmt := range stmts {
@@ -134,8 +147,36 @@ func GenerateBody(stmts []Stmt, w *base.CodeWriter) {
 	w.PopMargin()
 }
 
+func GenerateParam(p *Param) string {
+	t := GenerateType(p.T)
+	if p.Name != "" {
+		return fmt.Sprintf("%s %s", p.Name, t)
+	} else {
+		return t
+	}
+}
+
+func GenerateReturns(returns []*Param) string {
+	if len(returns) == 0 {
+		return ""
+	} else if len(returns) == 1 && returns[0].Name == "" {
+		return " " + GenerateType(returns[0].T)
+	} else {
+		params := make([]string, len(returns))
+		for i, p := range returns {
+			params[i] = GenerateParam(p)
+		}
+		return fmt.Sprintf(" (%s)", strings.Join(params, ", "))
+	}
+}
+
 func GenerateFunc(decl *FuncDecl, w *base.CodeWriter) {
-	w.Linef("func %s() {", decl.Name)
+	params := make([]string, len(decl.Params))
+	for i, p := range decl.Params {
+		params[i] = GenerateParam(p)
+	}
+	returns := GenerateReturns(decl.Returns)
+	w.Linef("func %s(%s)%s {", decl.Name, strings.Join(params, ", "), returns)
 	GenerateBody(decl.Body, w)
 	w.Line("}")
 }

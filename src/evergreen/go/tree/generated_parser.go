@@ -1,5 +1,29 @@
 package tree
 
+type Type interface {
+	isType()
+}
+type TypeRef struct {
+	Name string
+}
+
+func (node *TypeRef) isType() {
+}
+
+type PointerType struct {
+	Element Type
+}
+
+func (node *PointerType) isType() {
+}
+
+type SliceType struct {
+	Element Type
+}
+
+func (node *SliceType) isType() {
+}
+
 type Stmt interface {
 	isStmt()
 }
@@ -119,7 +143,13 @@ type If struct {
 func (node *If) isStmt() {
 }
 
-type FuncDecl struct {
+type Param struct {
 	Name string
-	Body []Stmt
+	T    Type
+}
+type FuncDecl struct {
+	Name    string
+	Params  []*Param
+	Returns []*Param
+	Body    []Stmt
 }
