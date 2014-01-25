@@ -72,6 +72,10 @@ struct Assign implements Stmt {
   Targets []Expr
 }
 
+struct BlockStmt implements Stmt {
+  Body []Stmt
+}
+
 struct If implements Stmt {
   Cond Expr
   Body []Stmt

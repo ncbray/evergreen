@@ -135,6 +135,13 @@ type Assign struct {
 func (node *Assign) isStmt() {
 }
 
+type BlockStmt struct {
+	Body []Stmt
+}
+
+func (node *BlockStmt) isStmt() {
+}
+
 type If struct {
 	Cond Expr
 	Body []Stmt

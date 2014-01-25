@@ -109,10 +109,14 @@ func GenerateStmt(stmt Stmt, w *base.CodeWriter) {
 		return
 	}
 	switch stmt := stmt.(type) {
+	case *BlockStmt:
+		w.Line("{")
+		GenerateBody(stmt.Body, w)
+		w.Line("}")
 	case *If:
 		w.Linef("if %s {", GenerateExpr(stmt.Cond))
 		GenerateBody(stmt.Body, w)
-		w.Linef("}")
+		w.Line("}")
 	case *Assign:
 		sources := make([]string, len(stmt.Sources))
 		for i, src := range stmt.Sources {
@@ -202,6 +206,8 @@ func GenerateDecl(decl Decl, w *base.CodeWriter) {
 		}
 		w.PopMargin()
 		w.Line("}")
+	case *FuncDecl:
+		GenerateFunc(decl, w)
 	default:
 		panic(decl)
 	}

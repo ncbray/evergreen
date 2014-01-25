@@ -2,106 +2,76 @@ package dub
 
 import (
 	"bytes"
+	"evergreen/base"
 	"evergreen/dub/tree"
+	dst "evergreen/go/tree"
 	"fmt"
-	"go/ast"
-	"go/printer"
-	"go/token"
-	"strconv"
 )
 
-func id(name string) *ast.Ident {
-	return &ast.Ident{Name: name}
+func id(name string) dst.Expr {
+	return &dst.NameRef{Text: name}
 }
 
-func singleName(name string) []*ast.Ident {
-	return []*ast.Ident{id(name)}
+func attr(expr dst.Expr, name string) dst.Expr {
+	return &dst.Selector{Expr: expr, Text: name}
 }
 
-func addr(expr ast.Expr) ast.Expr {
-	return &ast.UnaryExpr{
-		Op: token.AND,
-		X:  expr,
-	}
+func strLiteral(value string) dst.Expr {
+	return &dst.StringLiteral{Value: value}
 }
 
-func ptr(expr ast.Expr) ast.Expr {
-	return &ast.StarExpr{X: expr}
+func runeLiteral(value rune) dst.Expr {
+	return &dst.RuneLiteral{Value: value}
 }
 
-func attr(expr ast.Expr, name string) ast.Expr {
-	return &ast.SelectorExpr{X: expr, Sel: id(name)}
+func intLiteral(value int) dst.Expr {
+	return &dst.IntLiteral{Value: value}
 }
 
-func strLiteral(name string) *ast.BasicLit {
-	return &ast.BasicLit{
-		Kind:  token.STRING,
-		Value: strconv.Quote(name),
-	}
+func boolLiteral(value bool) dst.Expr {
+	return &dst.BoolLiteral{Value: value}
 }
 
-func runeLiteral(value rune) *ast.BasicLit {
-	return &ast.BasicLit{
-		Kind:  token.CHAR,
-		Value: strconv.QuoteRune(value),
-	}
-}
-
-func intLiteral(value int) *ast.BasicLit {
-	return &ast.BasicLit{
-		Kind:  token.INT,
-		Value: strconv.FormatInt(int64(value), 10),
-	}
-}
-
-func boolLiteral(value bool) ast.Expr {
-	return id(fmt.Sprintf("%v", value))
-}
-
-func makeFatalTest(cond ast.Expr, f string, args ...ast.Expr) ast.Stmt {
-	wrapped := []ast.Expr{strLiteral(f)}
+func makeFatalTest(cond dst.Expr, f string, args ...dst.Expr) dst.Stmt {
+	wrapped := []dst.Expr{strLiteral(f)}
 	wrapped = append(wrapped, args...)
-	return &ast.IfStmt{
+	return &dst.If{
 		Cond: cond,
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				&ast.ExprStmt{
-					X: &ast.CallExpr{
-						Fun:  attr(id("t"), "Fatalf"),
-						Args: wrapped,
-					},
-				},
+		Body: []dst.Stmt{
+			&dst.Call{
+				Expr: attr(&dst.NameRef{Text: "t"}, "Fatalf"),
+				Args: wrapped,
 			},
 		},
 	}
 }
 
-func makeLen(expr ast.Expr) ast.Expr {
-	return &ast.CallExpr{
-		Fun: id("len"),
-		Args: []ast.Expr{
+func makeLen(expr dst.Expr) dst.Expr {
+	return &dst.Call{
+		Expr: id("len"),
+		Args: []dst.Expr{
 			expr,
 		},
 	}
 }
 
-func checkEQ(x ast.Expr, y ast.Expr) ast.Expr {
-	return &ast.BinaryExpr{
-		X:  x,
-		Op: token.EQL,
-		Y:  y,
+func checkEQ(x dst.Expr, y dst.Expr) dst.Expr {
+	return &dst.BinaryExpr{
+		Left:  x,
+		Op:    "==",
+		Right: y,
 	}
 }
 
-func checkNE(x ast.Expr, y ast.Expr) ast.Expr {
-	return &ast.BinaryExpr{
-		X:  x,
-		Op: token.NEQ,
-		Y:  y,
+func checkNE(x dst.Expr, y dst.Expr) dst.Expr {
+	return &dst.BinaryExpr{
+		Left:  x,
+		Op:    "!=",
+		Right: y,
 	}
 }
 
-func generateDestructure(name string, path string, d tree.Destructure, general tree.ASTType, gbuilder *GlobalDubBuilder, stmts []ast.Stmt) []ast.Stmt {
+func generateDestructure(name string, path string, d tree.Destructure, general tree.ASTType, gbuilder *GlobalDubBuilder, stmts []dst.Stmt) []dst.Stmt {
 	switch d := d.(type) {
 	case *tree.DestructureStruct:
 		actual_name := name
@@ -117,18 +87,19 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 
 		if gt != at {
 			actual_name = fmt.Sprintf("typed_%s", name)
-			stmts = append(stmts, &ast.AssignStmt{
-				Lhs: []ast.Expr{
+			stmts = append(stmts, &dst.Assign{
+				Targets: []dst.Expr{
 					id(actual_name),
 					id("ok"),
 				},
-				Tok: token.DEFINE,
-				Rhs: []ast.Expr{
+				Op: ":=",
+				Sources: []dst.Expr{
+					// TODO typecast tree.
 					attr(id(name), fmt.Sprintf("(*%s)", d.Type.Name.Text)),
 				},
 			})
 			stmts = append(stmts, makeFatalTest(
-				&ast.UnaryExpr{Op: token.NOT, X: id("ok")},
+				&dst.UnaryExpr{Op: "!", Expr: id("ok")},
 				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, dt.Name.Text),
 				id(name),
 			))
@@ -138,15 +109,15 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 
 		for _, arg := range d.Args {
 			fn := arg.Name.Text
-			childstmts := []ast.Stmt{}
+			childstmts := []dst.Stmt{}
 			child_name := fmt.Sprintf("%s_%s", name, fn)
 			child_path := fmt.Sprintf("%s.%s", path, fn)
-			childstmts = append(childstmts, &ast.AssignStmt{
-				Lhs: []ast.Expr{
+			childstmts = append(childstmts, &dst.Assign{
+				Targets: []dst.Expr{
 					id(child_name),
 				},
-				Tok: token.DEFINE,
-				Rhs: []ast.Expr{
+				Op: ":=",
+				Sources: []dst.Expr{
 					attr(id(actual_name), fn),
 				},
 			})
@@ -159,7 +130,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 				gbuilder,
 				childstmts,
 			)
-			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
+			stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
 		}
 	case *tree.DestructureList:
 		stmts = append(stmts, makeFatalTest(
@@ -173,23 +144,23 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 			panic(t)
 		}
 		for i, arg := range d.Args {
-			childstmts := []ast.Stmt{}
+			childstmts := []dst.Stmt{}
 			child_name := fmt.Sprintf("%s_%d", name, i)
 			child_path := fmt.Sprintf("%s[%d]", path, i)
-			childstmts = append(childstmts, &ast.AssignStmt{
-				Lhs: []ast.Expr{
+			childstmts = append(childstmts, &dst.Assign{
+				Targets: []dst.Expr{
 					id(child_name),
 				},
-				Tok: token.DEFINE,
-				Rhs: []ast.Expr{
-					&ast.IndexExpr{
-						X:     id(name),
+				Op: ":=",
+				Sources: []dst.Expr{
+					&dst.Index{
+						Expr:  id(name),
 						Index: intLiteral(i),
 					},
 				},
 			})
 			childstmts = generateDestructure(child_name, child_path, arg, dt.Type, gbuilder, childstmts)
-			stmts = append(stmts, &ast.BlockStmt{List: childstmts})
+			stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
 		}
 	case *tree.DestructureValue:
 		switch expr := d.Expr.(type) {
@@ -211,17 +182,17 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 	return stmts
 }
 
-func generateExpr(state string, expr tree.ASTExpr) ast.Expr {
+func generateExpr(state string, expr tree.ASTExpr) dst.Expr {
 	switch expr := expr.(type) {
 	case *tree.Call:
-		args := []ast.Expr{
+		args := []dst.Expr{
 			id(state),
 		}
 		for _, arg := range expr.Args {
 			args = append(args, generateExpr(state, arg))
 		}
-		return &ast.CallExpr{
-			Fun:  id(expr.Name.Text),
+		return &dst.Call{
+			Expr: id(expr.Name.Text),
 			Args: args,
 		}
 	case *tree.StringLiteral:
@@ -238,19 +209,19 @@ func generateExpr(state string, expr tree.ASTExpr) ast.Expr {
 
 }
 
-func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
-	stmts := []ast.Stmt{}
+func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *dst.FuncDecl {
+	stmts := []dst.Stmt{}
 
 	state := "state"
-	stmts = append(stmts, &ast.AssignStmt{
-		Lhs: []ast.Expr{
+	stmts = append(stmts, &dst.Assign{
+		Targets: []dst.Expr{
 			id(state),
 		},
-		Tok: token.DEFINE,
-		Rhs: []ast.Expr{
-			&ast.CallExpr{
-				Fun: attr(id("runtime"), "MakeState"),
-				Args: []ast.Expr{
+		Op: ":=",
+		Sources: []dst.Expr{
+			&dst.Call{
+				Expr: attr(id("runtime"), "MakeState"),
+				Args: []dst.Expr{
 					strLiteral(tst.Input),
 				},
 			},
@@ -259,12 +230,12 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 
 	root := "o"
 
-	stmts = append(stmts, &ast.AssignStmt{
-		Lhs: []ast.Expr{
+	stmts = append(stmts, &dst.Assign{
+		Targets: []dst.Expr{
 			id(root),
 		},
-		Tok: token.DEFINE,
-		Rhs: []ast.Expr{
+		Op: ":=",
+		Sources: []dst.Expr{
 			generateExpr(state, tst.Rule),
 		},
 	})
@@ -284,48 +255,40 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *ast.FuncDecl {
 
 	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, gbuilder, stmts)
 
-	return &ast.FuncDecl{
-		Name: id(fmt.Sprintf("Test_%s", tst.Name.Text)),
-		Type: &ast.FuncType{
-			Params: &ast.FieldList{
-				List: []*ast.Field{
-					&ast.Field{
-						Names: singleName("t"),
-						Type:  ptr(attr(id("testing"), "T")),
-					},
-				},
+	return &dst.FuncDecl{
+		Name: fmt.Sprintf("Test_%s", tst.Name.Text),
+		Params: []*dst.Param{
+			&dst.Param{
+				Name: "t",
+				T:    &dst.PointerType{Element: &dst.TypeRef{Name: "testing.T"}},
 			},
-			Results: &ast.FieldList{},
 		},
-		Body: &ast.BlockStmt{List: stmts},
+		Returns: []*dst.Param{},
+		Body:    stmts,
 	}
 }
 
 func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder) string {
-	decls := []ast.Decl{}
-	decls = append([]ast.Decl{&ast.GenDecl{
-		Tok:    token.IMPORT,
-		Lparen: 1,
-		Specs: []ast.Spec{
-			&ast.ImportSpec{Path: strLiteral("evergreen/dub/runtime")},
-			&ast.ImportSpec{Path: strLiteral("testing")},
-		},
-	}}, decls...)
+	imports := []*dst.Import{
+		&dst.Import{Path: "evergreen/dub/runtime"},
+		&dst.Import{Path: "testing"},
+	}
 
-	// TODO
+	decls := []dst.Decl{}
+
 	for _, tst := range tests {
 		decls = append(decls, generateGoTest(tst, gbuilder))
 	}
 
-	file := &ast.File{
-		Name:  id("tree"),
-		Decls: decls,
+	file := &dst.File{
+		Package: "tree",
+		Imports: imports,
+		Decls:   decls,
 	}
 
-	fset := token.NewFileSet()
-	var buf bytes.Buffer
-	printer.Fprint(&buf, fset, file)
-
-	return buf.String()
+	b := &bytes.Buffer{}
+	w := &base.CodeWriter{Out: b}
+	dst.GenerateFile(file, w)
+	return b.String()
 
 }
