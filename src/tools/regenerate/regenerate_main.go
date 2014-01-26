@@ -135,19 +135,28 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 		}
 	}
 
-	code := flow.GenerateGo(name, structs, funcs)
-	manager.WriteFile(fmt.Sprintf("src/generated/%s/tree/generated_parser.go", name), []byte(code))
+	root := "generated"
+	if replace {
+		root = "evergreen"
+	}
 
-	if len(file.Tests) != 0 {
+	pkg := fmt.Sprintf("%s/%s/tree", root, name)
+
+	code := flow.GenerateGo(name, structs, funcs)
+	manager.WriteFile(fmt.Sprintf("src/%s/generated_parser.go", pkg), []byte(code))
+
+	if !replace && len(file.Tests) != 0 {
 		tests := dub.GenerateTests(name, file.Tests, gbuilder)
-		manager.WriteFile(fmt.Sprintf("src/generated/%s/tree/generated_parser_test.go", name), []byte(tests))
+		manager.WriteFile(fmt.Sprintf("src/%s/generated_parser_test.go", pkg), []byte(tests))
 	}
 }
 
 var dump bool
+var replace bool
 
 func main() {
 	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
+	flag.BoolVar(&replace, "replace", false, "Replace the existing implementation.")
 	flag.Parse()
 	p := framework.MakeProvider()
 	status := framework.MakeStatus(p)
