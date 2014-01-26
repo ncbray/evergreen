@@ -160,6 +160,27 @@ type If struct {
 func (node *If) isStmt() {
 }
 
+type Goto struct {
+	Text string
+}
+
+func (node *Goto) isStmt() {
+}
+
+type Label struct {
+	Text string
+}
+
+func (node *Label) isStmt() {
+}
+
+type Return struct {
+	Args []Expr
+}
+
+func (node *Return) isStmt() {
+}
+
 type Decl interface {
 	isDecl()
 }

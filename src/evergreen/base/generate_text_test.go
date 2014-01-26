@@ -36,33 +36,33 @@ func TestEmpty(t *testing.T) {
 
 func TestMargin(t *testing.T) {
 	b, w := bufferedWriter()
-	w.PushMargin("  ")
+	w.AppendMargin("  ")
 	w.Line("foo")
-	w.PushMargin("  ")
+	w.AppendMargin("  ")
 	w.Line("bar")
-	w.PopMargin()
+	w.RestoreMargin()
 	w.Line("baz")
-	w.PopMargin()
+	w.RestoreMargin()
 	w.Line("fiz")
 	checkString(b.String(), "  foo\n    bar\n  baz\nfiz\n", t)
 }
 
 func TestTrimmedMargin1(t *testing.T) {
 	b, w := bufferedWriter()
-	w.PushMargin("  ")
+	w.AppendMargin("  ")
 	w.Line("foo ")
 	w.EmptyLines(1)
 	w.Line("bar  ")
-	w.PopMargin()
+	w.RestoreMargin()
 	checkString(b.String(), "  foo\n\n  bar\n", t)
 }
 
 func TestTrimmedMargin2(t *testing.T) {
 	b, w := bufferedWriter()
-	w.PushMargin("# ")
+	w.AppendMargin("# ")
 	w.Line("foo ")
 	w.EmptyLines(1)
 	w.Line("bar  ")
-	w.PopMargin()
+	w.RestoreMargin()
 	checkString(b.String(), "# foo\n#\n# bar\n", t)
 }

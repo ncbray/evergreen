@@ -106,6 +106,19 @@ func GenerateExpr(expr Expr) string {
 	return result
 }
 
+func GenerateExprList(exprs []Expr) string {
+	gen := make([]string, len(exprs))
+	for i, e := range exprs {
+		gen[i] = GenerateExpr(e)
+	}
+	return strings.Join(gen, ", ")
+}
+
+func Dedent(w *base.CodeWriter) {
+	margin := w.GetMargin()
+	w.SetMargin(margin[:len(margin)-1])
+}
+
 func GenerateStmt(stmt Stmt, w *base.CodeWriter) {
 	expr, ok := stmt.(Expr)
 	if ok {
@@ -122,15 +135,21 @@ func GenerateStmt(stmt Stmt, w *base.CodeWriter) {
 		GenerateBody(stmt.Body, w)
 		w.Line("}")
 	case *Assign:
-		sources := make([]string, len(stmt.Sources))
-		for i, src := range stmt.Sources {
-			sources[i] = GenerateExpr(src)
+		sources := GenerateExprList(stmt.Sources)
+		targets := GenerateExprList(stmt.Targets)
+		w.Linef("%s %s %s", targets, stmt.Op, sources)
+	case *Goto:
+		w.Linef("goto %s", stmt.Text)
+	case *Label:
+		Dedent(w)
+		w.Linef("%s:", stmt.Text)
+		w.RestoreMargin()
+	case *Return:
+		if len(stmt.Args) > 0 {
+			w.Linef("return %s", GenerateExprList(stmt.Args))
+		} else {
+			w.Line("return")
 		}
-		targets := make([]string, len(stmt.Targets))
-		for i, tgt := range stmt.Targets {
-			targets[i] = GenerateExpr(tgt)
-		}
-		w.Linef("%s %s %s", strings.Join(targets, ", "), stmt.Op, strings.Join(sources, ", "))
 	default:
 		panic(stmt)
 	}
@@ -150,11 +169,11 @@ func GenerateType(t Type) string {
 }
 
 func GenerateBody(stmts []Stmt, w *base.CodeWriter) {
-	w.PushMargin(indent)
+	w.AppendMargin(indent)
 	for _, stmt := range stmts {
 		GenerateStmt(stmt, w)
 	}
-	w.PopMargin()
+	w.RestoreMargin()
 }
 
 func GenerateParam(p *Param) string {
@@ -195,7 +214,7 @@ func GenerateDecl(decl Decl, w *base.CodeWriter) {
 	switch decl := decl.(type) {
 	case *StructDecl:
 		w.Linef("type %s struct {", decl.Name)
-		w.PushMargin(indent)
+		w.AppendMargin(indent)
 		biggestName := 0
 		for _, field := range decl.Fields {
 			size := utf8.RuneCountInString(field.Name)
@@ -208,7 +227,7 @@ func GenerateDecl(decl Decl, w *base.CodeWriter) {
 			padding := strings.Repeat(" ", biggestName-utf8.RuneCountInString(field.Name))
 			w.Linef("%s%s %s", field.Name, padding, GenerateType(field.Type))
 		}
-		w.PopMargin()
+		w.RestoreMargin()
 		w.Line("}")
 	case *FuncDecl:
 		GenerateFunc(decl, w)
@@ -236,7 +255,7 @@ func GenerateFile(file *File, w *base.CodeWriter) {
 	w.EmptyLines(1)
 	if len(file.Imports) > 0 {
 		w.Line("import (")
-		w.PushMargin(indent)
+		w.AppendMargin(indent)
 
 		// Sort imports
 		imports := make([]*Import, len(file.Imports))
@@ -251,7 +270,7 @@ func GenerateFile(file *File, w *base.CodeWriter) {
 				w.Line(path)
 			}
 		}
-		w.PopMargin()
+		w.RestoreMargin()
 		w.Line(")")
 		w.EmptyLines(1)
 	}

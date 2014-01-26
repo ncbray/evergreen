@@ -222,11 +222,23 @@ func TestFile(t *testing.T) {
 					},
 				},
 			},
+			&FuncDecl{
+				Name: "F",
+				Body: []Stmt{
+					&BlockStmt{
+						Body: []Stmt{
+							&Goto{Text: "block"},
+							&Label{Text: "block"},
+							&Return{},
+						},
+					},
+				},
+			},
 		},
 	}
 
 	b, w := bufferedWriter()
 	GenerateFile(file, w)
-	checkCode(b.String(), "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n", t)
+	checkCode(b.String(), "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n\nfunc F() {\n\t{\n\t\tgoto block\n\tblock:\n\t\treturn\n\t}\n}\n", t)
 
 }

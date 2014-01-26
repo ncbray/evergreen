@@ -53,12 +53,20 @@ func (w *CodeWriter) EmptyLines(count int) {
 	}
 }
 
-func (w *CodeWriter) PushMargin(margin string) {
-	w.marginStack = append(w.marginStack, w.currentMargin)
-	w.currentMargin += margin
+func (w *CodeWriter) AppendMargin(margin string) {
+	w.SetMargin(w.currentMargin + margin)
 }
 
-func (w *CodeWriter) PopMargin() {
+func (w *CodeWriter) GetMargin() string {
+	return w.currentMargin
+}
+
+func (w *CodeWriter) SetMargin(margin string) {
+	w.marginStack = append(w.marginStack, w.currentMargin)
+	w.currentMargin = margin
+}
+
+func (w *CodeWriter) RestoreMargin() {
 	top := len(w.marginStack) - 1
 	w.currentMargin = w.marginStack[top]
 	w.marginStack = w.marginStack[:top]
