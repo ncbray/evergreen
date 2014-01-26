@@ -177,6 +177,8 @@ func GenerateType(t Type) string {
 		return fmt.Sprintf("*%s", GenerateType(t.Element))
 	case *SliceType:
 		return fmt.Sprintf("[]%s", GenerateType(t.Element))
+	case *FuncType:
+		return GenerateFuncType(t)
 	default:
 		panic(t)
 	}
@@ -213,17 +215,22 @@ func GenerateReturns(returns []*Param) string {
 	}
 }
 
+func GenerateFuncType(t *FuncType) string {
+	params := make([]string, len(t.Params))
+	for i, p := range t.Params {
+		params[i] = GenerateParam(p)
+	}
+	returns := GenerateReturns(t.Results)
+	return fmt.Sprintf("(%s)%s", strings.Join(params, ", "), returns)
+}
+
 func GenerateFunc(decl *FuncDecl, w *base.CodeWriter) {
-	params := make([]string, len(decl.Params))
 	recv := ""
 	if decl.Recv != nil {
 		recv = fmt.Sprintf("(%s %s) ", decl.Recv.Name, GenerateType(decl.Recv.Type))
 	}
-	for i, p := range decl.Params {
-		params[i] = GenerateParam(p)
-	}
-	returns := GenerateReturns(decl.Returns)
-	w.Linef("func %s%s(%s)%s {", recv, decl.Name, strings.Join(params, ", "), returns)
+	t := GenerateFuncType(decl.Type)
+	w.Linef("func %s%s%s {", recv, decl.Name, t)
 	GenerateBody(decl.Body, w)
 	w.Line("}")
 }
@@ -244,6 +251,14 @@ func GenerateDecl(decl Decl, w *base.CodeWriter) {
 			// Align the types
 			padding := strings.Repeat(" ", biggestName-utf8.RuneCountInString(field.Name))
 			w.Linef("%s%s %s", field.Name, padding, GenerateType(field.Type))
+		}
+		w.RestoreMargin()
+		w.Line("}")
+	case *InterfaceDecl:
+		w.Linef("type %s interface {", decl.Name)
+		w.AppendMargin(indent)
+		for _, field := range decl.Fields {
+			w.Linef("%s%s", field.Name, GenerateType(field.Type))
 		}
 		w.RestoreMargin()
 		w.Line("}")

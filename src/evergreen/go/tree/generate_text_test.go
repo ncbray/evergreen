@@ -183,13 +183,15 @@ func TestFuncDecl(t *testing.T) {
 	decl := &FuncDecl{
 		Name: "foo",
 		Recv: &Param{Name: "o", Type: &PointerType{Element: &TypeRef{Name: "Obj"}}},
-		Params: []*Param{
-			&Param{Name: "cond", Type: &TypeRef{Name: "bool"}},
-			&Param{Name: "names", Type: &SliceType{Element: &TypeRef{Name: "string"}}},
-		},
-		Returns: []*Param{
-			&Param{Name: "biz", Type: &TypeRef{Name: "int"}},
-			&Param{Name: "baz", Type: &PointerType{Element: &TypeRef{Name: "int"}}},
+		Type: &FuncType{
+			Params: []*Param{
+				&Param{Name: "cond", Type: &TypeRef{Name: "bool"}},
+				&Param{Name: "names", Type: &SliceType{Element: &TypeRef{Name: "string"}}},
+			},
+			Results: []*Param{
+				&Param{Name: "biz", Type: &TypeRef{Name: "int"}},
+				&Param{Name: "baz", Type: &PointerType{Element: &TypeRef{Name: "int"}}},
+			},
 		},
 		Body: []Stmt{
 			&If{
@@ -255,6 +257,7 @@ func TestFile(t *testing.T) {
 			},
 			&FuncDecl{
 				Name: "F",
+				Type: &FuncType{},
 				Body: []Stmt{
 					&BlockStmt{
 						Body: []Stmt{
@@ -265,11 +268,31 @@ func TestFile(t *testing.T) {
 					},
 				},
 			},
+			&InterfaceDecl{
+				Name: "I",
+				Fields: []*Field{
+					&Field{
+						Name: "Touch",
+						Type: &FuncType{},
+					},
+					&Field{
+						Name: "Process",
+						Type: &FuncType{
+							Params: []*Param{
+								&Param{Name: "inp", Type: &TypeRef{Name: "int"}},
+							},
+							Results: []*Param{
+								&Param{Name: "outp", Type: &TypeRef{Name: "string"}},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
 	b, w := bufferedWriter()
 	GenerateFile(file, w)
-	checkCode(b.String(), "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n\nfunc F() {\n\t{\n\t\tgoto block\n\tblock:\n\t\treturn\n\t}\n}\n", t)
+	checkCode(b.String(), "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n\nfunc F() {\n\t{\n\t\tgoto block\n\tblock:\n\t\treturn\n\t}\n}\n\ntype I interface {\n\tTouch()\n\tProcess(inp int) (outp string)\n}\n", t)
 
 }

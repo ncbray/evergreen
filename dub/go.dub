@@ -13,6 +13,15 @@ struct SliceType implements Type {
   Element Type
 }
 
+struct Param {
+  Name string
+  Type Type
+}
+
+struct FuncType implements Type {
+  Params []Param
+  Results []Param
+}
 
 struct Stmt {
 }
@@ -118,16 +127,10 @@ struct Return implements Stmt {
 struct Decl {
 }
 
-struct Param {
-  Name string
-  Type Type
-}
-
 struct FuncDecl implements Decl {
   Name string
   Recv Param
-  Params []Param
-  Returns []Param
+  Type FuncType
   Body []Stmt
 }
 
@@ -137,6 +140,11 @@ struct Field {
 }
 
 struct StructDecl implements Decl {
+  Name string
+  Fields []Field
+}
+
+struct InterfaceDecl implements Decl {
   Name string
   Fields []Field
 }

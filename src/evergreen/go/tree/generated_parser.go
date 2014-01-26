@@ -24,6 +24,18 @@ type SliceType struct {
 func (node *SliceType) isType() {
 }
 
+type Param struct {
+	Name string
+	Type Type
+}
+type FuncType struct {
+	Params  []*Param
+	Results []*Param
+}
+
+func (node *FuncType) isType() {
+}
+
 type Stmt interface {
 	isStmt()
 }
@@ -208,16 +220,11 @@ func (node *Return) isStmt() {
 type Decl interface {
 	isDecl()
 }
-type Param struct {
-	Name string
-	Type Type
-}
 type FuncDecl struct {
-	Name    string
-	Recv    *Param
-	Params  []*Param
-	Returns []*Param
-	Body    []Stmt
+	Name string
+	Recv *Param
+	Type *FuncType
+	Body []Stmt
 }
 
 func (node *FuncDecl) isDecl() {
@@ -233,6 +240,14 @@ type StructDecl struct {
 }
 
 func (node *StructDecl) isDecl() {
+}
+
+type InterfaceDecl struct {
+	Name   string
+	Fields []*Field
+}
+
+func (node *InterfaceDecl) isDecl() {
 }
 
 type Import struct {

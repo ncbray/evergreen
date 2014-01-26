@@ -260,14 +260,16 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *dst.FuncDecl {
 
 	return &dst.FuncDecl{
 		Name: fmt.Sprintf("Test_%s", tst.Name.Text),
-		Params: []*dst.Param{
-			&dst.Param{
-				Name: "t",
-				Type: &dst.PointerType{Element: &dst.TypeRef{Name: "testing.T"}},
+		Type: &dst.FuncType{
+			Params: []*dst.Param{
+				&dst.Param{
+					Name: "t",
+					Type: &dst.PointerType{Element: &dst.TypeRef{Name: "testing.T"}},
+				},
 			},
+			Results: []*dst.Param{},
 		},
-		Returns: []*dst.Param{},
-		Body:    stmts,
+		Body: stmts,
 	}
 }
 
