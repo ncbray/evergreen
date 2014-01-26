@@ -32,8 +32,19 @@ func (w *CodeWriter) Line(text string) {
 	w.writeLine(text)
 }
 
-func (w *CodeWriter) Linef(format string, args ...interface{}) {
-	w.Line(fmt.Sprintf(format, args...))
+// The type signature of this function is stricter than what is done in fmt.
+// This helps catch refactoring bugs where types being passed to Sprintf change.
+// In general, code generators should not be using format strings for turning
+// non-string data types into strings. Be explicit, don't implicitly rely on how
+// Go formats data.
+func (w *CodeWriter) Linef(format string, args ...string) {
+	// "arg..." passes the slice straight through, so the type needs to match.
+	// This is a gotcha for Python programers - the argument list is not expanded.
+	rewrapped := make([]interface{}, len(args))
+	for i, arg := range args {
+		rewrapped[i] = arg
+	}
+	w.Line(fmt.Sprintf(format, rewrapped...))
 }
 
 func (w *CodeWriter) EmptyLines(count int) {
