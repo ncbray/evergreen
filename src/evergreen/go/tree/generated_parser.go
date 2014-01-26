@@ -3,6 +3,7 @@ package tree
 type Type interface {
 	isType()
 }
+
 type TypeRef struct {
 	Name string
 }
@@ -28,6 +29,7 @@ type Param struct {
 	Name string
 	Type Type
 }
+
 type FuncType struct {
 	Params  []*Param
 	Results []*Param
@@ -39,15 +41,18 @@ func (node *FuncType) isType() {
 type Stmt interface {
 	isStmt()
 }
+
 type Expr interface {
 	isExpr()
 }
+
 type IntLiteral struct {
 	Value int
 }
 
 func (node *IntLiteral) isStmt() {
 }
+
 func (node *IntLiteral) isExpr() {
 }
 
@@ -57,6 +62,7 @@ type BoolLiteral struct {
 
 func (node *BoolLiteral) isStmt() {
 }
+
 func (node *BoolLiteral) isExpr() {
 }
 
@@ -66,6 +72,7 @@ type StringLiteral struct {
 
 func (node *StringLiteral) isStmt() {
 }
+
 func (node *StringLiteral) isExpr() {
 }
 
@@ -75,6 +82,7 @@ type RuneLiteral struct {
 
 func (node *RuneLiteral) isStmt() {
 }
+
 func (node *RuneLiteral) isExpr() {
 }
 
@@ -83,6 +91,7 @@ type NilLiteral struct {
 
 func (node *NilLiteral) isStmt() {
 }
+
 func (node *NilLiteral) isExpr() {
 }
 
@@ -90,6 +99,7 @@ type KeywordExpr struct {
 	Name string
 	Expr Expr
 }
+
 type StructLiteral struct {
 	Type *TypeRef
 	Args []*KeywordExpr
@@ -97,6 +107,7 @@ type StructLiteral struct {
 
 func (node *StructLiteral) isStmt() {
 }
+
 func (node *StructLiteral) isExpr() {
 }
 
@@ -107,6 +118,7 @@ type ListLiteral struct {
 
 func (node *ListLiteral) isStmt() {
 }
+
 func (node *ListLiteral) isExpr() {
 }
 
@@ -116,6 +128,7 @@ type NameRef struct {
 
 func (node *NameRef) isStmt() {
 }
+
 func (node *NameRef) isExpr() {
 }
 
@@ -126,6 +139,7 @@ type UnaryExpr struct {
 
 func (node *UnaryExpr) isStmt() {
 }
+
 func (node *UnaryExpr) isExpr() {
 }
 
@@ -137,6 +151,7 @@ type BinaryExpr struct {
 
 func (node *BinaryExpr) isStmt() {
 }
+
 func (node *BinaryExpr) isExpr() {
 }
 
@@ -147,6 +162,7 @@ type Selector struct {
 
 func (node *Selector) isStmt() {
 }
+
 func (node *Selector) isExpr() {
 }
 
@@ -157,6 +173,7 @@ type Index struct {
 
 func (node *Index) isStmt() {
 }
+
 func (node *Index) isExpr() {
 }
 
@@ -167,6 +184,7 @@ type Call struct {
 
 func (node *Call) isStmt() {
 }
+
 func (node *Call) isExpr() {
 }
 
@@ -177,6 +195,7 @@ type TypeAssert struct {
 
 func (node *TypeAssert) isStmt() {
 }
+
 func (node *TypeAssert) isExpr() {
 }
 
@@ -187,6 +206,7 @@ type TypeCoerce struct {
 
 func (node *TypeCoerce) isStmt() {
 }
+
 func (node *TypeCoerce) isExpr() {
 }
 
@@ -248,6 +268,7 @@ func (node *Return) isStmt() {
 type Decl interface {
 	isDecl()
 }
+
 type FuncDecl struct {
 	Name string
 	Recv *Param
@@ -262,6 +283,7 @@ type Field struct {
 	Name string
 	Type Type
 }
+
 type StructDecl struct {
 	Name   string
 	Fields []*Field
@@ -282,6 +304,7 @@ type Import struct {
 	Name string
 	Path string
 }
+
 type File struct {
 	Package string
 	Imports []*Import
