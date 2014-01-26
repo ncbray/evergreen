@@ -78,6 +78,14 @@ func (node *RuneLiteral) isStmt() {
 func (node *RuneLiteral) isExpr() {
 }
 
+type NilLiteral struct {
+}
+
+func (node *NilLiteral) isStmt() {
+}
+func (node *NilLiteral) isExpr() {
+}
+
 type KeywordExpr struct {
 	Name string
 	Expr Expr
@@ -172,6 +180,16 @@ func (node *TypeAssert) isStmt() {
 func (node *TypeAssert) isExpr() {
 }
 
+type TypeCoerce struct {
+	Type Type
+	Expr Expr
+}
+
+func (node *TypeCoerce) isStmt() {
+}
+func (node *TypeCoerce) isExpr() {
+}
+
 type Assign struct {
 	Sources []Expr
 	Op      string
@@ -179,6 +197,15 @@ type Assign struct {
 }
 
 func (node *Assign) isStmt() {
+}
+
+type Var struct {
+	Name string
+	Type Type
+	Expr Expr
+}
+
+func (node *Var) isStmt() {
 }
 
 type BlockStmt struct {
@@ -191,6 +218,7 @@ func (node *BlockStmt) isStmt() {
 type If struct {
 	Cond Expr
 	Body []Stmt
+	Else Stmt
 }
 
 func (node *If) isStmt() {

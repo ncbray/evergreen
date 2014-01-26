@@ -45,6 +45,8 @@ struct RuneLiteral implements Expr {
   Value rune
 }
 
+struct NilLiteral implements Expr {
+}
 
 struct KeywordExpr {
   Name string
@@ -97,10 +99,22 @@ struct TypeAssert implements Expr {
   Type Type
 }
 
+struct TypeCoerce implements Expr {
+  Type Type
+  Expr Expr
+}
+
+
 struct Assign implements Stmt {
   Sources []Expr
   Op string
   Targets []Expr
+}
+
+struct Var implements Stmt {
+  Name string
+  Type Type
+  Expr Expr
 }
 
 struct BlockStmt implements Stmt {
@@ -110,14 +124,15 @@ struct BlockStmt implements Stmt {
 struct If implements Stmt {
   Cond Expr
   Body []Stmt
+  Else Stmt
 }
 
 struct Goto implements Stmt {
-       Text string
+  Text string
 }
 
 struct Label implements Stmt {
-       Text string
+  Text string
 }
 
 struct Return implements Stmt {

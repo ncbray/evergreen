@@ -64,6 +64,12 @@ func TestRuneLiteral(t *testing.T) {
 	checkCode(result, "'x'", t)
 }
 
+func TestNilLiteral(t *testing.T) {
+	expr := &NilLiteral{}
+	result := genExpr(expr)
+	checkCode(result, "nil", t)
+}
+
 func TestSimpleUnaryExpr(t *testing.T) {
 	expr := &UnaryExpr{
 		Op:   "-",
@@ -149,6 +155,15 @@ func TestIndex(t *testing.T) {
 	checkCode(result, "foo[bar]", t)
 }
 
+func TestTypeCoerce(t *testing.T) {
+	expr := &TypeCoerce{
+		Type: &SliceType{Element: &TypeRef{Name: "rune"}},
+		Expr: &NameRef{Text: "s"},
+	}
+	result := genExpr(expr)
+	checkCode(result, "[]rune(s)", t)
+}
+
 func TestStructLiteral(t *testing.T) {
 	expr := &StructLiteral{
 		Type: &TypeRef{Name: "Foo"},
@@ -199,6 +214,17 @@ func TestFuncDecl(t *testing.T) {
 				Body: []Stmt{
 					&StringLiteral{Value: "hello"},
 				},
+				Else: &If{
+					Cond: &UnaryExpr{Op: "!", Expr: &NameRef{Text: "cond"}},
+					Body: []Stmt{
+						&StringLiteral{Value: "goodbye"},
+					},
+					Else: &BlockStmt{
+						Body: []Stmt{
+							&StringLiteral{Value: "impossible"},
+						},
+					},
+				},
 			},
 			&Assign{
 				Sources: []Expr{
@@ -218,7 +244,7 @@ func TestFuncDecl(t *testing.T) {
 	}
 	b, w := bufferedWriter()
 	GenerateFunc(decl, w)
-	checkCode(b.String(), "func (o *Obj) foo(cond bool, names []string) (biz int, baz *int) {\n\tif cond {\n\t\t\"hello\"\n\t}\n\tbiz, baz := bar(names), 7\n}\n", t)
+	checkCode(b.String(), "func (o *Obj) foo(cond bool, names []string) (biz int, baz *int) {\n\tif cond {\n\t\t\"hello\"\n\t} else if !cond {\n\t\t\"goodbye\"\n\t} else {\n\t\t\"impossible\"\n\t}\n\tbiz, baz := bar(names), 7\n}\n", t)
 }
 
 func TestFile(t *testing.T) {
@@ -261,6 +287,7 @@ func TestFile(t *testing.T) {
 				Body: []Stmt{
 					&BlockStmt{
 						Body: []Stmt{
+							&Var{Name: "foo", Type: &TypeRef{Name: "int"}, Expr: &IntLiteral{Value: 7}},
 							&Goto{Text: "block"},
 							&Label{Text: "block"},
 							&Return{},
@@ -293,6 +320,6 @@ func TestFile(t *testing.T) {
 
 	b, w := bufferedWriter()
 	GenerateFile(file, w)
-	checkCode(b.String(), "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n\nfunc F() {\n\t{\n\t\tgoto block\n\tblock:\n\t\treturn\n\t}\n}\n\ntype I interface {\n\tTouch()\n\tProcess(inp int) (outp string)\n}\n", t)
+	checkCode(b.String(), "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n\nfunc F() {\n\t{\n\t\tvar foo int = 7\n\t\tgoto block\n\tblock:\n\t\treturn\n\t}\n}\n\ntype I interface {\n\tTouch()\n\tProcess(inp int) (outp string)\n}\n", t)
 
 }

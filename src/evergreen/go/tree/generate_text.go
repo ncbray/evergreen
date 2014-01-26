@@ -56,6 +56,8 @@ func GeneratePrecExpr(expr Expr) (string, int) {
 		} else {
 			return "false", operandPrec
 		}
+	case *NilLiteral:
+		return "nil", operandPrec
 	case *StringLiteral:
 		return strconv.Quote(expr.Value), operandPrec
 	case *RuneLiteral:
@@ -102,6 +104,10 @@ func GeneratePrecExpr(expr Expr) (string, int) {
 		base := GenerateSafeExpr(expr.Expr, postfixPrec)
 		t := GenerateType(expr.Type)
 		return fmt.Sprintf("%s.(%s)", base, t), postfixPrec
+	case *TypeCoerce:
+		t := GenerateType(expr.Type)
+		e := GenerateSafeExpr(expr.Expr, anyPrec)
+		return fmt.Sprintf("%s(%s)", t, e), postfixPrec
 	default:
 		panic(expr)
 	}
@@ -147,11 +153,33 @@ func GenerateStmt(stmt Stmt, w *base.CodeWriter) {
 	case *If:
 		w.Linef("if %s {", GenerateExpr(stmt.Cond))
 		GenerateBody(stmt.Body, w)
+		next := stmt.Else
+		for next != nil {
+			switch stmt := next.(type) {
+			case *If:
+				w.Linef("} else if %s {", GenerateExpr(stmt.Cond))
+				GenerateBody(stmt.Body, w)
+				next = stmt.Else
+			case *BlockStmt:
+				w.Line("} else {")
+				GenerateBody(stmt.Body, w)
+				next = nil
+			default:
+				panic(next)
+			}
+		}
 		w.Line("}")
 	case *Assign:
 		sources := GenerateExprList(stmt.Sources)
 		targets := GenerateExprList(stmt.Targets)
 		w.Linef("%s %s %s", targets, stmt.Op, sources)
+	case *Var:
+		t := GenerateType(stmt.Type)
+		if stmt.Expr != nil {
+			w.Linef("var %s %s = %s", stmt.Name, t, GenerateExpr(stmt.Expr))
+		} else {
+			w.Linef("var %s %s", stmt.Name, t)
+		}
 	case *Goto:
 		w.Linef("goto %s", stmt.Text)
 	case *Label:
