@@ -1,7 +1,6 @@
 package flow
 
 import (
-	"bytes"
 	"evergreen/base"
 	ast "evergreen/go/tree"
 	"fmt"
@@ -509,7 +508,7 @@ func GenerateGoStruct(s *LLStruct, decls []ast.Decl) []ast.Decl {
 	return decls
 }
 
-func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
+func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) *ast.File {
 	imports := []*ast.Import{}
 	if len(funcs) > 0 {
 		imports = append(imports, &ast.Import{
@@ -526,13 +525,10 @@ func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) string {
 	}
 
 	file := &ast.File{
+		Name:    "generated_parser.go",
 		Package: "tree",
 		Imports: imports,
 		Decls:   decls,
 	}
-
-	b := &bytes.Buffer{}
-	w := &base.CodeWriter{Out: b}
-	ast.GenerateFile(file, w)
-	return b.String()
+	return file
 }

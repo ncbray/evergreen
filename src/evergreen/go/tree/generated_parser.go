@@ -306,7 +306,17 @@ type Import struct {
 }
 
 type File struct {
+	Name    string
 	Package string
 	Imports []*Import
 	Decls   []Decl
+}
+
+type Package struct {
+	Path  []string
+	Files []*File
+}
+
+type Program struct {
+	Packages []*Package
 }

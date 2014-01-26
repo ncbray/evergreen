@@ -6,6 +6,7 @@ import (
 	"evergreen/dub/flow"
 	"evergreen/dub/tree"
 	"evergreen/framework"
+	gotree "evergreen/go/tree"
 	"evergreen/io"
 	"flag"
 	"fmt"
@@ -135,20 +136,32 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 		}
 	}
 
+	GenerateGo(name, file, structs, funcs, gbuilder)
+}
+
+func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []*flow.LLFunc, gbuilder *dub.GlobalDubBuilder) {
 	root := "generated"
 	if replace {
 		root = "evergreen"
 	}
 
-	pkg := fmt.Sprintf("%s/%s/tree", root, name)
-
-	code := flow.GenerateGo(name, structs, funcs)
-	manager.WriteFile(fmt.Sprintf("src/%s/generated_parser.go", pkg), []byte(code))
+	files := []*gotree.File{}
+	files = append(files, flow.GenerateGo(name, structs, funcs))
 
 	if !replace && len(file.Tests) != 0 {
-		tests := dub.GenerateTests(name, file.Tests, gbuilder)
-		manager.WriteFile(fmt.Sprintf("src/%s/generated_parser_test.go", pkg), []byte(tests))
+		files = append(files, dub.GenerateTests(name, file.Tests, gbuilder))
 	}
+
+	pkg := &gotree.Package{
+		Path:  []string{root, name, "tree"},
+		Files: files,
+	}
+
+	prog := &gotree.Program{
+		Packages: []*gotree.Package{pkg},
+	}
+
+	gotree.OutputProgram(prog, "src")
 }
 
 var dump bool

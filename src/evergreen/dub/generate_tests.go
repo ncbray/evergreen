@@ -1,8 +1,6 @@
 package dub
 
 import (
-	"bytes"
-	"evergreen/base"
 	"evergreen/dub/tree"
 	dst "evergreen/go/tree"
 	"fmt"
@@ -273,7 +271,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *dst.FuncDecl {
 	}
 }
 
-func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder) string {
+func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder) *dst.File {
 	imports := []*dst.Import{
 		&dst.Import{Path: "evergreen/dub/runtime"},
 		&dst.Import{Path: "testing"},
@@ -286,14 +284,10 @@ func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder
 	}
 
 	file := &dst.File{
+		Name:    "generated_parser_test.go",
 		Package: "tree",
 		Imports: imports,
 		Decls:   decls,
 	}
-
-	b := &bytes.Buffer{}
-	w := &base.CodeWriter{Out: b}
-	dst.GenerateFile(file, w)
-	return b.String()
-
+	return file
 }

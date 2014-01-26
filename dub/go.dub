@@ -170,7 +170,17 @@ struct Import {
 }
 
 struct File {
+  Name string
   Package string
   Imports []Import
   Decls []Decl
+}
+
+struct Package {
+  Path []string
+  Files []File
+}
+
+struct Program {
+  Packages []Package
 }
