@@ -83,7 +83,7 @@ func TestSimpleBinaryExpr(t *testing.T) {
 	checkCode(result, "12 + 34", t)
 }
 
-func TestSimpleCompoundExpr(t *testing.T) {
+func TestSimpleundExpr(t *testing.T) {
 	expr := &BinaryExpr{
 		Left: &BinaryExpr{
 			Left:  &IntLiteral{Value: 12},
@@ -147,6 +147,36 @@ func TestIndex(t *testing.T) {
 	}
 	result := genExpr(expr)
 	checkCode(result, "foo[bar]", t)
+}
+
+func TestStructLiteral(t *testing.T) {
+	expr := &StructLiteral{
+		Type: &TypeRef{Name: "Foo"},
+		Args: []*KeywordExpr{
+			&KeywordExpr{
+				Name: "Bar",
+				Expr: &IntLiteral{Value: 12},
+			},
+			&KeywordExpr{
+				Name: "Baz",
+				Expr: &IntLiteral{Value: 34},
+			},
+		},
+	}
+	result := genExpr(expr)
+	checkCode(result, "Foo{Bar: 12, Baz: 34}", t)
+}
+
+func TestListLiteral(t *testing.T) {
+	expr := &ListLiteral{
+		Type: &SliceType{Element: &TypeRef{Name: "int"}},
+		Args: []Expr{
+			&IntLiteral{Value: 12},
+			&IntLiteral{Value: 34},
+		},
+	}
+	result := genExpr(expr)
+	checkCode(result, "[]int{12, 34}", t)
 }
 
 func TestFuncDecl(t *testing.T) {

@@ -84,6 +84,20 @@ func GeneratePrecExpr(expr Expr) (string, int) {
 			args[i] = GenerateSafeExpr(arg, anyPrec)
 		}
 		return fmt.Sprintf("%s(%s)", base, strings.Join(args, ", ")), postfixPrec
+	case *StructLiteral:
+		t := GenerateType(expr.Type)
+		args := make([]string, len(expr.Args))
+		for i, arg := range expr.Args {
+			args[i] = fmt.Sprintf("%s: %s", arg.Name, GenerateSafeExpr(arg.Expr, anyPrec))
+		}
+		return fmt.Sprintf("%s{%s}", t, strings.Join(args, ", ")), postfixPrec
+	case *ListLiteral:
+		t := GenerateType(expr.Type)
+		args := make([]string, len(expr.Args))
+		for i, arg := range expr.Args {
+			args[i] = GenerateSafeExpr(arg, anyPrec)
+		}
+		return fmt.Sprintf("%s{%s}", t, strings.Join(args, ", ")), postfixPrec
 	case *TypeAssert:
 		base := GenerateSafeExpr(expr.Expr, postfixPrec)
 		t := GenerateType(expr.Type)

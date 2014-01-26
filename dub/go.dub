@@ -36,6 +36,23 @@ struct RuneLiteral implements Expr {
   Value rune
 }
 
+
+struct KeywordExpr {
+  Name string
+  Expr Expr
+}
+
+struct StructLiteral implements Expr {
+  Type TypeRef
+  Args []KeywordExpr
+}
+
+struct ListLiteral implements Expr {
+  Type SliceType
+  Args []Expr
+}
+
+
 struct NameRef implements Expr {
   Text string
 }

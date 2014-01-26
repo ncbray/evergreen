@@ -66,6 +66,30 @@ func (node *RuneLiteral) isStmt() {
 func (node *RuneLiteral) isExpr() {
 }
 
+type KeywordExpr struct {
+	Name string
+	Expr Expr
+}
+type StructLiteral struct {
+	Type *TypeRef
+	Args []*KeywordExpr
+}
+
+func (node *StructLiteral) isStmt() {
+}
+func (node *StructLiteral) isExpr() {
+}
+
+type ListLiteral struct {
+	Type *SliceType
+	Args []Expr
+}
+
+func (node *ListLiteral) isStmt() {
+}
+func (node *ListLiteral) isExpr() {
+}
+
 type NameRef struct {
 	Text string
 }
