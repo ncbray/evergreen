@@ -214,6 +214,7 @@ type Param struct {
 }
 type FuncDecl struct {
 	Name    string
+	Recv    *Param
 	Params  []*Param
 	Returns []*Param
 	Body    []Stmt

@@ -182,6 +182,7 @@ func TestListLiteral(t *testing.T) {
 func TestFuncDecl(t *testing.T) {
 	decl := &FuncDecl{
 		Name: "foo",
+		Recv: &Param{Name: "o", Type: &PointerType{Element: &TypeRef{Name: "Obj"}}},
 		Params: []*Param{
 			&Param{Name: "cond", Type: &TypeRef{Name: "bool"}},
 			&Param{Name: "names", Type: &SliceType{Element: &TypeRef{Name: "string"}}},
@@ -215,7 +216,7 @@ func TestFuncDecl(t *testing.T) {
 	}
 	b, w := bufferedWriter()
 	GenerateFunc(decl, w)
-	checkCode(b.String(), "func foo(cond bool, names []string) (biz int, baz *int) {\n\tif cond {\n\t\t\"hello\"\n\t}\n\tbiz, baz := bar(names), 7\n}\n", t)
+	checkCode(b.String(), "func (o *Obj) foo(cond bool, names []string) (biz int, baz *int) {\n\tif cond {\n\t\t\"hello\"\n\t}\n\tbiz, baz := bar(names), 7\n}\n", t)
 }
 
 func TestFile(t *testing.T) {

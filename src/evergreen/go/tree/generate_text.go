@@ -215,11 +215,15 @@ func GenerateReturns(returns []*Param) string {
 
 func GenerateFunc(decl *FuncDecl, w *base.CodeWriter) {
 	params := make([]string, len(decl.Params))
+	recv := ""
+	if decl.Recv != nil {
+		recv = fmt.Sprintf("(%s %s) ", decl.Recv.Name, GenerateType(decl.Recv.Type))
+	}
 	for i, p := range decl.Params {
 		params[i] = GenerateParam(p)
 	}
 	returns := GenerateReturns(decl.Returns)
-	w.Linef("func %s(%s)%s {", decl.Name, strings.Join(params, ", "), returns)
+	w.Linef("func %s%s(%s)%s {", recv, decl.Name, strings.Join(params, ", "), returns)
 	GenerateBody(decl.Body, w)
 	w.Line("}")
 }

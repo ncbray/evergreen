@@ -125,6 +125,7 @@ struct Param {
 
 struct FuncDecl implements Decl {
   Name string
+  Recv Param
   Params []Param
   Returns []Param
   Body []Stmt
