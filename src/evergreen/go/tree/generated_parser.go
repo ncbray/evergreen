@@ -6,6 +6,7 @@ type Type interface {
 
 type TypeRef struct {
 	Name string
+	Impl TypeImpl
 }
 
 func (node *TypeRef) isType() {
@@ -270,10 +271,11 @@ type Decl interface {
 }
 
 type FuncDecl struct {
-	Name string
-	Recv *Param
-	Type *FuncType
-	Body []Stmt
+	Name    string
+	Recv    *Param
+	Type    *FuncType
+	Body    []Stmt
+	Package *Package
 }
 
 func (node *FuncDecl) isDecl() {
@@ -284,20 +286,43 @@ type Field struct {
 	Type Type
 }
 
+type TypeImpl interface {
+	isTypeImpl()
+}
+
 type StructDecl struct {
-	Name   string
-	Fields []*Field
+	Name    string
+	Fields  []*Field
+	Package *Package
 }
 
 func (node *StructDecl) isDecl() {
 }
 
+func (node *StructDecl) isTypeImpl() {
+}
+
 type InterfaceDecl struct {
-	Name   string
-	Fields []*Field
+	Name    string
+	Fields  []*Field
+	Package *Package
 }
 
 func (node *InterfaceDecl) isDecl() {
+}
+
+func (node *InterfaceDecl) isTypeImpl() {
+}
+
+type ExternalType struct {
+	Name    string
+	Package *Package
+}
+
+func (node *ExternalType) isDecl() {
+}
+
+func (node *ExternalType) isTypeImpl() {
 }
 
 type Import struct {

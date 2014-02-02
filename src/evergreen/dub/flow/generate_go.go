@@ -6,6 +6,58 @@ import (
 	"fmt"
 )
 
+type DubToGoLinker interface {
+	TypeRef(r *ast.TypeRef, s *LLStruct)
+	ForwardType(s *LLStruct, impl ast.TypeImpl)
+	Finish()
+}
+
+type linkElement struct {
+	impl ast.TypeImpl
+	refs []*ast.TypeRef
+}
+
+type linkerImpl struct {
+	types map[*LLStruct]*linkElement
+}
+
+func (l *linkerImpl) get(s *LLStruct) *linkElement {
+	e, ok := l.types[s]
+	if !ok {
+		e = &linkElement{}
+		l.types[s] = e
+	}
+	return e
+}
+
+func (l *linkerImpl) TypeRef(r *ast.TypeRef, s *LLStruct) {
+	e := l.get(s)
+	e.refs = append(e.refs, r)
+}
+
+func (l *linkerImpl) ForwardType(s *LLStruct, impl ast.TypeImpl) {
+	e := l.get(s)
+	e.impl = impl
+}
+
+func (l *linkerImpl) Finish() {
+	for s, e := range l.types {
+		if e.impl == nil {
+			panic(s)
+		}
+		for _, r := range e.refs {
+			r.Impl = e.impl
+		}
+		e.refs = nil
+	}
+}
+
+func makeLinker() DubToGoLinker {
+	return &linkerImpl{
+		types: map[*LLStruct]*linkElement{},
+	}
+}
+
 // Begin AST construction wrappers
 
 func id(name string) ast.Expr {
@@ -89,7 +141,7 @@ func opMultiAssign(expr ast.Expr, dsts []DubRegister) ast.Stmt {
 	}
 }
 
-func goTypeName(t DubType) ast.Type {
+func goTypeName(t DubType, link DubToGoLinker) ast.Type {
 	switch t := t.(type) {
 	case *BoolType:
 		return &ast.TypeRef{Name: "bool"}
@@ -100,9 +152,9 @@ func goTypeName(t DubType) ast.Type {
 	case *StringType:
 		return &ast.TypeRef{Name: "string"}
 	case *ListType:
-		return &ast.SliceType{Element: goTypeName(t.Type)}
+		return &ast.SliceType{Element: goTypeName(t.Type, link)}
 	case *LLStruct:
-		out := &ast.TypeRef{Name: t.Name}
+		out := goStructType(t, link)
 		if t.Abstract {
 			return out
 		} else {
@@ -113,7 +165,13 @@ func goTypeName(t DubType) ast.Type {
 	}
 }
 
-func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
+func goStructType(t *LLStruct, link DubToGoLinker) *ast.TypeRef {
+	out := &ast.TypeRef{Name: t.Name}
+	link.TypeRef(out, t)
+	return out
+}
+
+func GenerateOp(f *LLFunc, op DubOp, link DubToGoLinker, block []ast.Stmt) []ast.Stmt {
 	if IsNop(op) {
 		return block
 	}
@@ -155,8 +213,7 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 			&ast.UnaryExpr{
 				Op: "&",
 				Expr: &ast.StructLiteral{
-					// Don't autocovert - that would give a pointer type.
-					Type: &ast.TypeRef{Name: op.Type.Name},
+					Type: goStructType(op.Type, link),
 					Args: elts,
 				},
 			},
@@ -170,7 +227,7 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 		block = append(block, opAssign(
 			&ast.ListLiteral{
 				// TODO unhack
-				Type: goTypeName(op.Type).(*ast.SliceType),
+				Type: goTypeName(op.Type, link).(*ast.SliceType),
 				Args: elts,
 			},
 			op.Dst,
@@ -178,7 +235,7 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 	case *CoerceOp:
 		block = append(block, opAssign(
 			&ast.TypeCoerce{
-				Type: goTypeName(op.T),
+				Type: goTypeName(op.T, link),
 				Expr: reg(op.Src),
 			},
 			op.Dst,
@@ -291,20 +348,20 @@ func GenerateOp(f *LLFunc, op DubOp, block []ast.Stmt) []ast.Stmt {
 	return block
 }
 
-func generateNode(info *regionInfo, node base.NodeID, block []ast.Stmt) []ast.Stmt {
+func generateNode(info *regionInfo, node base.NodeID, link DubToGoLinker, block []ast.Stmt) []ast.Stmt {
 	g := info.decl.CFG
 	op := info.decl.Ops[node]
 	switch data := op.(type) {
 	case *EntryOp:
-		block = gotoNode(info, g.GetExit(node, 0), block)
+		block = gotoNode(info, g.GetExit(node, 0), link, block)
 	case *FlowExitOp:
 		block = append(block, &ast.Return{})
 	case *ExitOp:
 	case *SwitchOp:
-		block = emitSwitch(info, reg(data.Cond), g.GetExit(node, 0), g.GetExit(node, 1), block)
+		block = emitSwitch(info, reg(data.Cond), g.GetExit(node, 0), g.GetExit(node, 1), link, block)
 	case DubOp:
-		block = GenerateOp(info.decl, data, block)
-		block = generateFlowSwitch(info, node, block)
+		block = GenerateOp(info.decl, data, link, block)
+		block = generateFlowSwitch(info, node, link, block)
 	default:
 		panic(data)
 	}
@@ -316,35 +373,35 @@ type regionInfo struct {
 	labels map[base.NodeID]int
 }
 
-func gotoNode(info *regionInfo, n base.NodeID, block []ast.Stmt) []ast.Stmt {
+func gotoNode(info *regionInfo, n base.NodeID, link DubToGoLinker, block []ast.Stmt) []ast.Stmt {
 	label, ok := info.labels[n]
 	if ok {
 		return append(block, &ast.Goto{Text: blockName(label)})
 	} else {
-		return generateNode(info, n, block)
+		return generateNode(info, n, link, block)
 	}
 }
 
-func emitSwitch(info *regionInfo, cond ast.Expr, t base.NodeID, f base.NodeID, block []ast.Stmt) []ast.Stmt {
+func emitSwitch(info *regionInfo, cond ast.Expr, t base.NodeID, f base.NodeID, link DubToGoLinker, block []ast.Stmt) []ast.Stmt {
 	if t != base.NoNode {
 		if f != base.NoNode {
 			block = append(block, &ast.If{
 				Cond: cond,
-				Body: gotoNode(info, t, nil),
+				Body: gotoNode(info, t, link, nil),
 				Else: &ast.BlockStmt{
-					Body: gotoNode(info, f, nil),
+					Body: gotoNode(info, f, link, nil),
 				},
 			})
 			return block
 		} else {
-			return gotoNode(info, t, block)
+			return gotoNode(info, t, link, block)
 		}
 	} else {
-		return gotoNode(info, f, block)
+		return gotoNode(info, f, link, block)
 	}
 }
 
-func generateFlowSwitch(info *regionInfo, node base.NodeID, block []ast.Stmt) []ast.Stmt {
+func generateFlowSwitch(info *regionInfo, node base.NodeID, link DubToGoLinker, block []ast.Stmt) []ast.Stmt {
 	g := info.decl.CFG
 	numExits := g.NumExits(node)
 
@@ -356,9 +413,9 @@ func generateFlowSwitch(info *regionInfo, node base.NodeID, block []ast.Stmt) []
 		}
 		t := g.GetExit(node, 0)
 		f := g.GetExit(node, 1)
-		return emitSwitch(info, cond, t, f, block)
+		return emitSwitch(info, cond, t, f, link, block)
 	} else if numExits == 1 {
-		return gotoNode(info, g.GetExit(node, 0), block)
+		return gotoNode(info, g.GetExit(node, 0), link, block)
 	} else {
 		panic(info.decl.Ops[node])
 	}
@@ -373,7 +430,7 @@ func IsParam(f *LLFunc, r DubRegister) bool {
 	return false
 }
 
-func GenerateGoFunc(f *LLFunc) ast.Decl {
+func GenerateGoFunc(f *LLFunc, link DubToGoLinker) ast.Decl {
 	g := f.CFG
 	order, _ := base.ReversePostorder(g)
 
@@ -403,7 +460,7 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 		}
 		stmts = append(stmts, &ast.Var{
 			Name: RegisterName(r),
-			Type: goTypeName(info.T),
+			Type: goTypeName(info.T, link),
 		})
 	}
 
@@ -415,7 +472,7 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 		if label != 0 {
 			block = append(block, &ast.Label{Text: blockName(label)})
 		}
-		block = generateNode(info, node, block)
+		block = generateNode(info, node, link, block)
 		// Extend the statement list
 		stmts = append(stmts, block...)
 	}
@@ -424,7 +481,7 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 	for i, t := range f.ReturnTypes {
 		results = append(results, &ast.Param{
 			Name: returnVarName(i),
-			Type: goTypeName(t),
+			Type: goTypeName(t, link),
 		})
 	}
 
@@ -438,7 +495,7 @@ func GenerateGoFunc(f *LLFunc) ast.Decl {
 	for _, p := range f.Params {
 		params = append(params, &ast.Param{
 			Name: RegisterName(p),
-			Type: goTypeName(f.Registers[p].T),
+			Type: goTypeName(f.Registers[p].T, link),
 		})
 	}
 
@@ -458,14 +515,14 @@ func tagName(s *LLStruct) string {
 	return fmt.Sprintf("is%s", s.Name)
 }
 
-func addTags(base *LLStruct, parent *LLStruct, decls []ast.Decl) []ast.Decl {
+func addTags(base *LLStruct, parent *LLStruct, link DubToGoLinker, decls []ast.Decl) []ast.Decl {
 	if parent != nil {
-		decls = addTags(base, parent.Implements, decls)
+		decls = addTags(base, parent.Implements, link, decls)
 		decls = append(decls, &ast.FuncDecl{
 			Name: tagName(parent),
 			Recv: &ast.Param{
 				Name: "node",
-				Type: goTypeName(base),
+				Type: goTypeName(base, link),
 			},
 			Type: &ast.FuncType{},
 			Body: []ast.Stmt{},
@@ -474,7 +531,7 @@ func addTags(base *LLStruct, parent *LLStruct, decls []ast.Decl) []ast.Decl {
 	return decls
 }
 
-func GenerateGoStruct(s *LLStruct, decls []ast.Decl) []ast.Decl {
+func GenerateGoStruct(s *LLStruct, link DubToGoLinker, decls []ast.Decl) []ast.Decl {
 	if s.Abstract {
 		if len(s.Fields) != 0 {
 			panic(s.Name)
@@ -486,29 +543,34 @@ func GenerateGoStruct(s *LLStruct, decls []ast.Decl) []ast.Decl {
 			},
 		}
 
-		decls = append(decls, &ast.InterfaceDecl{
+		impl := &ast.InterfaceDecl{
 			Name:   s.Name,
 			Fields: fields,
-		})
+		}
+		link.ForwardType(s, impl)
+		decls = append(decls, impl)
 	} else {
 		fields := []*ast.Field{}
 		for _, f := range s.Fields {
 			fields = append(fields, &ast.Field{
 				Name: f.Name,
-				Type: goTypeName(f.T),
+				Type: goTypeName(f.T, link),
 			})
 		}
-		decls = append(decls, &ast.StructDecl{
+		impl := &ast.StructDecl{
 			Name:   s.Name,
 			Fields: fields,
-		})
-
-		decls = addTags(s, s.Implements, decls)
+		}
+		link.ForwardType(s, impl)
+		decls = append(decls, impl)
+		decls = addTags(s, s.Implements, link, decls)
 	}
 	return decls
 }
 
 func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) *ast.File {
+	link := makeLinker()
+
 	imports := []*ast.Import{}
 	if len(funcs) > 0 {
 		imports = append(imports, &ast.Import{
@@ -518,11 +580,13 @@ func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) *ast.File {
 
 	decls := []ast.Decl{}
 	for _, f := range structs {
-		decls = GenerateGoStruct(f, decls)
+		decls = GenerateGoStruct(f, link, decls)
 	}
 	for _, f := range funcs {
-		decls = append(decls, GenerateGoFunc(f))
+		decls = append(decls, GenerateGoFunc(f, link))
 	}
+
+	link.Finish()
 
 	file := &ast.File{
 		Name:    "generated_parser.go",

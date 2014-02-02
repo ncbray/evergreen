@@ -3,6 +3,7 @@ struct Type {
 
 struct TypeRef implements Type {
   Name string
+  Impl TypeImpl
 }
 
 struct PointerType implements Type {
@@ -147,6 +148,7 @@ struct FuncDecl implements Decl {
   Recv Param
   Type FuncType
   Body []Stmt
+  Package Package
 }
 
 struct Field {
@@ -154,14 +156,24 @@ struct Field {
   Type Type
 }
 
-struct StructDecl implements Decl {
-  Name string
-  Fields []Field
+struct TypeImpl implements Decl {
 }
 
-struct InterfaceDecl implements Decl {
+struct StructDecl implements TypeImpl {
   Name string
   Fields []Field
+  Package Package
+}
+
+struct InterfaceDecl implements TypeImpl {
+  Name string
+  Fields []Field
+  Package Package
+}
+
+struct ExternalType implements TypeImpl {
+  Name string
+  Package Package
 }
 
 struct Import {

@@ -161,6 +161,7 @@ func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []
 		Packages: []*gotree.Package{pkg},
 	}
 
+	gotree.Nameify(prog)
 	gotree.OutputProgram(prog, "src")
 }
 
