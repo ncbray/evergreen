@@ -145,11 +145,13 @@ func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []
 		root = "evergreen"
 	}
 
+	link := flow.MakeLinker()
+
 	files := []*gotree.File{}
-	files = append(files, flow.GenerateGo(name, structs, funcs))
+	files = append(files, flow.GenerateGo(name, structs, funcs, link))
 
 	if !replace && len(file.Tests) != 0 {
-		files = append(files, dub.GenerateTests(name, file.Tests, gbuilder))
+		files = append(files, dub.GenerateTests(name, file.Tests, gbuilder, link))
 	}
 
 	pkg := &gotree.Package{
@@ -160,6 +162,8 @@ func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []
 	prog := &gotree.Program{
 		Packages: []*gotree.Package{pkg},
 	}
+
+	link.Finish()
 
 	gotree.Nameify(prog)
 	gotree.OutputProgram(prog, "src")

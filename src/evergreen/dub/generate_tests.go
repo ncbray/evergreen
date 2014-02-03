@@ -1,6 +1,7 @@
 package dub
 
 import (
+	"evergreen/dub/flow"
 	"evergreen/dub/tree"
 	dst "evergreen/go/tree"
 	"fmt"
@@ -69,7 +70,7 @@ func checkNE(x dst.Expr, y dst.Expr) dst.Expr {
 	}
 }
 
-func generateDestructure(name string, path string, d tree.Destructure, general tree.ASTType, gbuilder *GlobalDubBuilder, stmts []dst.Stmt) []dst.Stmt {
+func generateDestructure(name string, path string, d tree.Destructure, general tree.ASTType, gbuilder *GlobalDubBuilder, link flow.DubToGoLinker, stmts []dst.Stmt) []dst.Stmt {
 	switch d := d.(type) {
 	case *tree.DestructureStruct:
 		actual_name := name
@@ -83,8 +84,15 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 		at := gbuilder.TranslateType(t)
 		gt := gbuilder.TranslateType(general)
 
+		cat, ok := at.(*flow.LLStruct)
+		if !ok {
+			panic(at)
+		}
+
 		if gt != at {
 			actual_name = fmt.Sprintf("typed_%s", name)
+			ref := &dst.TypeRef{Name: cat.Name}
+			link.TypeRef(ref, cat)
 			stmts = append(stmts, &dst.Assign{
 				Targets: []dst.Expr{
 					id(actual_name),
@@ -95,7 +103,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 					// TODO typecast tree.
 					&dst.TypeAssert{
 						Expr: id(name),
-						Type: &dst.PointerType{Element: &dst.TypeRef{Name: d.Type.Name.Text}},
+						Type: &dst.PointerType{Element: ref},
 					},
 				},
 			})
@@ -129,6 +137,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 				arg.Destructure,
 				tree.ResolveType(f.Type),
 				gbuilder,
+				link,
 				childstmts,
 			)
 			stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
@@ -160,7 +169,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 					},
 				},
 			})
-			childstmts = generateDestructure(child_name, child_path, arg, dt.Type, gbuilder, childstmts)
+			childstmts = generateDestructure(child_name, child_path, arg, dt.Type, gbuilder, link, childstmts)
 			stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
 		}
 	case *tree.DestructureValue:
@@ -210,7 +219,7 @@ func generateExpr(state string, expr tree.ASTExpr) dst.Expr {
 
 }
 
-func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *dst.FuncDecl {
+func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder, link flow.DubToGoLinker) *dst.FuncDecl {
 	stmts := []dst.Stmt{}
 
 	state := "state"
@@ -254,7 +263,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *dst.FuncDecl {
 		attr(id(state), "Flow"),
 	))
 
-	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, gbuilder, stmts)
+	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, gbuilder, link, stmts)
 
 	return &dst.FuncDecl{
 		Name: fmt.Sprintf("Test_%s", tst.Name.Text),
@@ -271,7 +280,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder) *dst.FuncDecl {
 	}
 }
 
-func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder) *dst.File {
+func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder, link flow.DubToGoLinker) *dst.File {
 	imports := []*dst.Import{
 		&dst.Import{Path: "evergreen/dub/runtime"},
 		&dst.Import{Path: "testing"},
@@ -280,7 +289,7 @@ func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder
 	decls := []dst.Decl{}
 
 	for _, tst := range tests {
-		decls = append(decls, generateGoTest(tst, gbuilder))
+		decls = append(decls, generateGoTest(tst, gbuilder, link))
 	}
 
 	file := &dst.File{

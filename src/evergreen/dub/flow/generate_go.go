@@ -52,7 +52,7 @@ func (l *linkerImpl) Finish() {
 	}
 }
 
-func makeLinker() DubToGoLinker {
+func MakeLinker() DubToGoLinker {
 	return &linkerImpl{
 		types: map[*LLStruct]*linkElement{},
 	}
@@ -568,9 +568,7 @@ func GenerateGoStruct(s *LLStruct, link DubToGoLinker, decls []ast.Decl) []ast.D
 	return decls
 }
 
-func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) *ast.File {
-	link := makeLinker()
-
+func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc, link DubToGoLinker) *ast.File {
 	imports := []*ast.Import{}
 	if len(funcs) > 0 {
 		imports = append(imports, &ast.Import{
@@ -585,8 +583,6 @@ func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc) *ast.File {
 	for _, f := range funcs {
 		decls = append(decls, GenerateGoFunc(f, link))
 	}
-
-	link.Finish()
 
 	file := &ast.File{
 		Name:    "generated_parser.go",
