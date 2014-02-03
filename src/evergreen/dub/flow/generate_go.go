@@ -79,6 +79,7 @@ func intLiteral(value int) ast.Expr {
 // End AST construction wrappers
 
 type DubToGoContext struct {
+	index *BuiltinIndex
 	state *ast.StructDecl
 	link  DubToGoLinker
 }
@@ -149,13 +150,13 @@ func opMultiAssign(expr ast.Expr, dsts []DubRegister) ast.Stmt {
 func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
 	switch t := t.(type) {
 	case *BoolType:
-		return &ast.TypeRef{Name: "bool"}
+		return &ast.TypeRef{Name: "bool", Impl: ctx.index.BoolType}
 	case *IntType:
-		return &ast.TypeRef{Name: "int"}
+		return &ast.TypeRef{Name: "int", Impl: ctx.index.IntType}
 	case *RuneType:
-		return &ast.TypeRef{Name: "rune"}
+		return &ast.TypeRef{Name: "rune", Impl: ctx.index.RuneType}
 	case *StringType:
-		return &ast.TypeRef{Name: "string"}
+		return &ast.TypeRef{Name: "string", Impl: ctx.index.StringType}
 	case *ListType:
 		return &ast.SliceType{Element: goTypeName(t.Type, ctx)}
 	case *LLStruct:
@@ -593,8 +594,44 @@ func ExternParserRuntime() (*ast.Package, *ast.StructDecl) {
 	return pkg, state
 }
 
-func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc, state *ast.StructDecl, link DubToGoLinker) *ast.File {
-	ctx := &DubToGoContext{state: state, link: link}
+type BuiltinIndex struct {
+	IntType    ast.TypeImpl
+	BoolType   ast.TypeImpl
+	StringType ast.TypeImpl
+	RuneType   ast.TypeImpl
+}
+
+func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
+	intType := &ast.ExternalType{Name: "int"}
+	boolType := &ast.ExternalType{Name: "bool"}
+	stringType := &ast.ExternalType{Name: "string"}
+	runeType := &ast.ExternalType{Name: "rune"}
+
+	pkg := &ast.Package{
+		Extern: true,
+		Path:   []string{},
+		Files: []*ast.File{
+			&ast.File{
+				Decls: []ast.Decl{
+					intType,
+					boolType,
+					stringType,
+					runeType,
+				},
+			},
+		},
+	}
+	index := &BuiltinIndex{
+		IntType:    intType,
+		BoolType:   boolType,
+		StringType: stringType,
+		RuneType:   runeType,
+	}
+	return pkg, index
+}
+
+func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc, index *BuiltinIndex, state *ast.StructDecl, link DubToGoLinker) *ast.File {
+	ctx := &DubToGoContext{index: index, state: state, link: link}
 
 	imports := []*ast.Import{}
 

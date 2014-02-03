@@ -15,6 +15,10 @@ func DefaultPackageName(pkg *Package) string {
 	return pkg.Path[n-1]
 }
 
+func IsBuiltinPackage(pkg *Package) bool {
+	return len(pkg.Path) == 0
+}
+
 func (info *FileInfo) ImportedName(pkg *Package) string {
 	name, ok := info.PackageName[pkg]
 	if !ok {
@@ -26,7 +30,7 @@ func (info *FileInfo) ImportedName(pkg *Package) string {
 }
 
 func (info *FileInfo) QualifyName(pkg *Package, name string) string {
-	if pkg != info.Package {
+	if pkg != info.Package && !IsBuiltinPackage(pkg) {
 		return fmt.Sprintf("%s.%s", info.ImportedName(pkg), name)
 	}
 	return name
@@ -37,14 +41,14 @@ func nameifyType(t Type, info *FileInfo) {
 	case *TypeRef:
 		impl := t.Impl
 		if impl == nil {
-			// TODO panic
-			//fmt.Println("???", t.Name)
-			return
+			panic(t)
 		}
 		switch impl := impl.(type) {
 		case *StructDecl:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
 		case *InterfaceDecl:
+			t.Name = info.QualifyName(impl.Package, impl.Name)
+		case *ExternalType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
 		default:
 			panic(impl)
@@ -194,6 +198,9 @@ func nameifyFile(pkg *Package, file *File) {
 func Nameify(prog *Program) {
 	nameifyPrepass(prog)
 	for _, pkg := range prog.Packages {
+		if pkg.Extern {
+			continue
+		}
 		pkgName := ""
 		if len(pkg.Path) > 0 {
 			pkgName = pkg.Path[len(pkg.Path)-1]
@@ -215,6 +222,8 @@ func nameifyPrepass(prog *Program) {
 				case *StructDecl:
 					decl.Package = pkg
 				case *FuncDecl:
+					decl.Package = pkg
+				case *ExternalType:
 					decl.Package = pkg
 				default:
 					panic(decl)

@@ -149,11 +149,14 @@ func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []
 
 	packages := []*gotree.Package{}
 
-	rt, state := flow.ExternParserRuntime()
-	packages = append(packages, rt)
+	pkg, index := flow.ExternBuiltinRuntime()
+	packages = append(packages, pkg)
+
+	pkg, state := flow.ExternParserRuntime()
+	packages = append(packages, pkg)
 
 	files := []*gotree.File{}
-	files = append(files, flow.GenerateGo(name, structs, funcs, state, link))
+	files = append(files, flow.GenerateGo(name, structs, funcs, index, state, link))
 
 	if !replace && len(file.Tests) != 0 {
 		pkg, t := dub.ExternTestingRuntime()
