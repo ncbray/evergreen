@@ -311,6 +311,15 @@ func (imports ImportOrder) Less(i, j int) bool {
 	return imports[i].Path < imports[j].Path
 }
 
+func NeedsName(imp *Import) bool {
+	if imp.Name != "" {
+		parts := strings.Split(imp.Path, "/")
+		name := parts[len(parts)-1]
+		return name != imp.Name
+	}
+	return false
+}
+
 func GenerateFile(file *File, w *base.CodeWriter) {
 	w.Linef("package %s", file.Package)
 	w.EmptyLines(1)
@@ -325,7 +334,7 @@ func GenerateFile(file *File, w *base.CodeWriter) {
 
 		for _, imp := range imports {
 			path := strconv.Quote(imp.Path)
-			if imp.Name != "" {
+			if NeedsName(imp) {
 				w.Linef("%s %s", imp.Name, path)
 			} else {
 				w.Line(path)

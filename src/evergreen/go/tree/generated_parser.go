@@ -338,8 +338,9 @@ type File struct {
 }
 
 type Package struct {
-	Path  []string
-	Files []*File
+	Path   []string
+	Files  []*File
+	Extern bool
 }
 
 type Program struct {

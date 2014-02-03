@@ -7,6 +7,12 @@ import (
 	"fmt"
 )
 
+type TestingContext struct {
+	gbuilder *GlobalDubBuilder
+	link     flow.DubToGoLinker
+	t        *dst.StructDecl
+}
+
 func id(name string) dst.Expr {
 	return &dst.NameRef{Text: name}
 }
@@ -70,7 +76,7 @@ func checkNE(x dst.Expr, y dst.Expr) dst.Expr {
 	}
 }
 
-func generateDestructure(name string, path string, d tree.Destructure, general tree.ASTType, gbuilder *GlobalDubBuilder, link flow.DubToGoLinker, stmts []dst.Stmt) []dst.Stmt {
+func generateDestructure(name string, path string, d tree.Destructure, general tree.ASTType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
 	switch d := d.(type) {
 	case *tree.DestructureStruct:
 		actual_name := name
@@ -81,8 +87,8 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 			panic(t)
 		}
 
-		at := gbuilder.TranslateType(t)
-		gt := gbuilder.TranslateType(general)
+		at := ctx.gbuilder.TranslateType(t)
+		gt := ctx.gbuilder.TranslateType(general)
 
 		cat, ok := at.(*flow.LLStruct)
 		if !ok {
@@ -92,7 +98,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 		if gt != at {
 			actual_name = fmt.Sprintf("typed_%s", name)
 			ref := &dst.TypeRef{Name: cat.Name}
-			link.TypeRef(ref, cat)
+			ctx.link.TypeRef(ref, cat)
 			stmts = append(stmts, &dst.Assign{
 				Targets: []dst.Expr{
 					id(actual_name),
@@ -136,8 +142,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 				child_path,
 				arg.Destructure,
 				tree.ResolveType(f.Type),
-				gbuilder,
-				link,
+				ctx,
 				childstmts,
 			)
 			stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
@@ -169,7 +174,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 					},
 				},
 			})
-			childstmts = generateDestructure(child_name, child_path, arg, dt.Type, gbuilder, link, childstmts)
+			childstmts = generateDestructure(child_name, child_path, arg, dt.Type, ctx, childstmts)
 			stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
 		}
 	case *tree.DestructureValue:
@@ -219,7 +224,7 @@ func generateExpr(state string, expr tree.ASTExpr) dst.Expr {
 
 }
 
-func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder, link flow.DubToGoLinker) *dst.FuncDecl {
+func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	stmts := []dst.Stmt{}
 
 	state := "state"
@@ -263,7 +268,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder, link flow.DubToG
 		attr(id(state), "Flow"),
 	))
 
-	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, gbuilder, link, stmts)
+	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, ctx, stmts)
 
 	return &dst.FuncDecl{
 		Name: fmt.Sprintf("Test_%s", tst.Name.Text),
@@ -271,7 +276,7 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder, link flow.DubToG
 			Params: []*dst.Param{
 				&dst.Param{
 					Name: "t",
-					Type: &dst.PointerType{Element: &dst.TypeRef{Name: "testing.T"}},
+					Type: &dst.PointerType{Element: &dst.TypeRef{Impl: ctx.t}},
 				},
 			},
 			Results: []*dst.Param{},
@@ -280,16 +285,36 @@ func generateGoTest(tst *tree.Test, gbuilder *GlobalDubBuilder, link flow.DubToG
 	}
 }
 
-func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder, link flow.DubToGoLinker) *dst.File {
+func ExternTestingRuntime() (*dst.Package, *dst.StructDecl) {
+	t := &dst.StructDecl{
+		Name: "T",
+	}
+	pkg := &dst.Package{
+		Extern: true,
+		Path:   []string{"testing"},
+		Files: []*dst.File{
+			&dst.File{
+				Decls: []dst.Decl{
+					t,
+				},
+			},
+		},
+	}
+	return pkg, t
+}
+
+func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder, t *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
+	ctx := &TestingContext{gbuilder: gbuilder, link: link, t: t}
+
 	imports := []*dst.Import{
+		// HACK for runtime.MakeState
 		&dst.Import{Path: "evergreen/dub/runtime"},
-		&dst.Import{Path: "testing"},
 	}
 
 	decls := []dst.Decl{}
 
 	for _, tst := range tests {
-		decls = append(decls, generateGoTest(tst, gbuilder, link))
+		decls = append(decls, generateGoTest(tst, ctx))
 	}
 
 	file := &dst.File{

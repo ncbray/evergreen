@@ -191,6 +191,7 @@ struct File {
 struct Package {
   Path []string
   Files []File
+  Extern bool
 }
 
 struct Program {

@@ -8,6 +8,9 @@ import (
 )
 
 func OutputFile(file *File, dirname string) {
+	if file.Name == "" {
+		panic(file)
+	}
 	filename := filepath.Join(dirname, file.Name)
 	b := &bytes.Buffer{}
 	w := &base.CodeWriter{Out: b}
@@ -26,6 +29,8 @@ func OutputPackage(pkg *Package, dirname string) {
 
 func OutputProgram(prog *Program, dirname string) {
 	for _, pkg := range prog.Packages {
-		OutputPackage(pkg, dirname)
+		if !pkg.Extern {
+			OutputPackage(pkg, dirname)
+		}
 	}
 }

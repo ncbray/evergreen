@@ -2,11 +2,34 @@ package tree
 
 import (
 	"fmt"
+	"strings"
 )
 
 type FileInfo struct {
-	Package *Package
-	Imports []string
+	Package     *Package
+	PackageName map[*Package]string
+}
+
+func DefaultPackageName(pkg *Package) string {
+	n := len(pkg.Path)
+	return pkg.Path[n-1]
+}
+
+func (info *FileInfo) ImportedName(pkg *Package) string {
+	name, ok := info.PackageName[pkg]
+	if !ok {
+		// HACK assume no import name conflicts
+		name = DefaultPackageName(pkg)
+		info.PackageName[pkg] = name
+	}
+	return name
+}
+
+func (info *FileInfo) QualifyName(pkg *Package, name string) string {
+	if pkg != info.Package {
+		return fmt.Sprintf("%s.%s", info.ImportedName(pkg), name)
+	}
+	return name
 }
 
 func nameifyType(t Type, info *FileInfo) {
@@ -20,15 +43,9 @@ func nameifyType(t Type, info *FileInfo) {
 		}
 		switch impl := impl.(type) {
 		case *StructDecl:
-			if impl.Package != info.Package {
-				panic(fmt.Sprintf("Can't handle interpackage refs: %#v vs %#v", impl.Package, info.Package))
-			}
-			t.Name = impl.Name
+			t.Name = info.QualifyName(impl.Package, impl.Name)
 		case *InterfaceDecl:
-			if impl.Package != info.Package {
-				panic(fmt.Sprintf("Can't handle interpackage refs: %#v vs %#v", impl.Package, info.Package))
-			}
-			t.Name = impl.Name
+			t.Name = info.QualifyName(impl.Package, impl.Name)
 		default:
 			panic(impl)
 		}
@@ -161,17 +178,28 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 func nameifyFile(pkg *Package, file *File) {
 	file.Package = pkg.Path[len(pkg.Path)-1]
 
-	info := &FileInfo{Package: pkg}
+	info := &FileInfo{Package: pkg, PackageName: map[*Package]string{}}
 
 	for _, decl := range file.Decls {
 		nameifyDecl(decl, info)
+	}
+
+	// TODO clear existing imports.
+	for pkg, name := range info.PackageName {
+		path := strings.Join(pkg.Path, "/")
+		file.Imports = append(file.Imports, &Import{Path: path, Name: name})
 	}
 }
 
 func Nameify(prog *Program) {
 	nameifyPrepass(prog)
 	for _, pkg := range prog.Packages {
+		pkgName := ""
+		if len(pkg.Path) > 0 {
+			pkgName = pkg.Path[len(pkg.Path)-1]
+		}
 		for _, file := range pkg.Files {
+			file.Package = pkgName
 			nameifyFile(pkg, file)
 		}
 	}
