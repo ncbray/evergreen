@@ -149,14 +149,19 @@ func opMultiAssign(expr ast.Expr, dsts []DubRegister) ast.Stmt {
 
 func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
 	switch t := t.(type) {
-	case *BoolType:
-		return &ast.TypeRef{Name: "bool", Impl: ctx.index.BoolType}
-	case *IntType:
-		return &ast.TypeRef{Name: "int", Impl: ctx.index.IntType}
-	case *RuneType:
-		return &ast.TypeRef{Name: "rune", Impl: ctx.index.RuneType}
-	case *StringType:
-		return &ast.TypeRef{Name: "string", Impl: ctx.index.StringType}
+	case *IntrinsicType:
+		switch t.Name {
+		case "bool":
+			return &ast.TypeRef{Impl: ctx.index.BoolType}
+		case "int":
+			return &ast.TypeRef{Impl: ctx.index.IntType}
+		case "rune":
+			return &ast.TypeRef{Impl: ctx.index.RuneType}
+		case "string":
+			return &ast.TypeRef{Impl: ctx.index.StringType}
+		default:
+			panic(t.Name)
+		}
 	case *ListType:
 		return &ast.SliceType{Element: goTypeName(t.Type, ctx)}
 	case *LLStruct:

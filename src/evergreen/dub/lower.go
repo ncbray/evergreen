@@ -68,17 +68,23 @@ func (builder *DubBuilder) CreateLLRegister(t flow.DubType) flow.DubRegister {
 
 func (builder *DubBuilder) ZeroRegister(dst flow.DubRegister) flow.DubOp {
 	info := builder.registers[dst]
-	switch info.T.(type) {
+	switch t := info.T.(type) {
 	case *flow.LLStruct:
 		return &flow.ConstantNilOp{Dst: dst}
-	case *flow.RuneType:
-		return &flow.ConstantRuneOp{Value: 0, Dst: dst}
-	case *flow.StringType:
-		return &flow.ConstantStringOp{Value: "", Dst: dst}
-	case *flow.IntType:
-		return &flow.ConstantIntOp{Value: 0, Dst: dst}
-	case *flow.BoolType:
-		return &flow.ConstantBoolOp{Value: false, Dst: dst}
+	case *flow.IntrinsicType:
+		// TODO switch on object identity
+		switch t.Name {
+		case "rune":
+			return &flow.ConstantRuneOp{Value: 0, Dst: dst}
+		case "string":
+			return &flow.ConstantStringOp{Value: "", Dst: dst}
+		case "int":
+			return &flow.ConstantIntOp{Value: 0, Dst: dst}
+		case "bool":
+			return &flow.ConstantBoolOp{Value: false, Dst: dst}
+		default:
+			panic(t.Name)
+		}
 	default:
 		panic(info.T)
 	}

@@ -19,28 +19,11 @@ type DubType interface {
 	isDubType()
 }
 
-type BoolType struct {
+type IntrinsicType struct {
+	Name string
 }
 
-func (t *BoolType) isDubType() {
-}
-
-type IntType struct {
-}
-
-func (t *IntType) isDubType() {
-}
-
-type RuneType struct {
-}
-
-func (t *RuneType) isDubType() {
-}
-
-type StringType struct {
-}
-
-func (t *StringType) isDubType() {
+func (t *IntrinsicType) isDubType() {
 }
 
 type ListType struct {
@@ -88,14 +71,8 @@ func TypeName(t DubType) string {
 		return t.Name
 	case *ListType:
 		return fmt.Sprintf("[]%s", TypeName(t.Type))
-	case *StringType:
-		return "string"
-	case *RuneType:
-		return "rune"
-	case *IntType:
-		return "int"
-	case *BoolType:
-		return "bool"
+	case *IntrinsicType:
+		return t.Name
 	default:
 		panic(t)
 	}

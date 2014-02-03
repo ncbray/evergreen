@@ -76,16 +76,16 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 
 	gbuilder := &dub.GlobalDubBuilder{Types: map[tree.ASTType]flow.DubType{}}
 
-	gbuilder.String = &flow.StringType{}
+	gbuilder.String = &flow.IntrinsicType{Name: "string"}
 	gbuilder.Types[glbls.String] = gbuilder.String
 
-	gbuilder.Rune = &flow.RuneType{}
+	gbuilder.Rune = &flow.IntrinsicType{Name: "rune"}
 	gbuilder.Types[glbls.Rune] = gbuilder.Rune
 
-	gbuilder.Int = &flow.IntType{}
+	gbuilder.Int = &flow.IntrinsicType{Name: "int"}
 	gbuilder.Types[glbls.Int] = gbuilder.Int
 
-	gbuilder.Bool = &flow.BoolType{}
+	gbuilder.Bool = &flow.IntrinsicType{Name: "bool"}
 	gbuilder.Types[glbls.Bool] = gbuilder.Bool
 
 	for _, decl := range file.Decls {
