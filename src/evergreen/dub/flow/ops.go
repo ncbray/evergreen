@@ -188,9 +188,10 @@ func (n *BinaryOp) isDubOp() {
 }
 
 type CallOp struct {
-	Name string
-	Args []DubRegister
-	Dsts []DubRegister
+	Name   string
+	Target *LLFunc
+	Args   []DubRegister
+	Dsts   []DubRegister
 }
 
 func (n *CallOp) isDubOp() {

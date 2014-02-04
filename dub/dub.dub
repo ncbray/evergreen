@@ -754,6 +754,7 @@ struct Coerce implements ASTExpr {
 struct Call implements ASTExpr {
   Name Id
   Args []ASTExpr
+  Target ASTCallable
   T []ASTType
 }
 
@@ -1291,7 +1292,7 @@ func ParseStructDecl() StructDecl {
   return StructDecl{Name: name, Implements: implements, Fields: fields};
 }
 
-struct ASTFunc implements ASTDecl {
+struct ASTCallable implements ASTDecl {
 }
 
 struct LocalInfo {
@@ -1304,7 +1305,7 @@ struct Param {
        Type ASTTypeRef
 }
 
-struct FuncDecl implements ASTFunc {
+struct FuncDecl implements ASTCallable {
   Name Id
   Params []Param
   ReturnTypes []ASTTypeRef

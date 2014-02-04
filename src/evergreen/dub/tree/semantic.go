@@ -252,6 +252,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			scalarSemanticExprPass(decl, e, scope, glbls, status)
 		}
 		types := ReturnTypes(f)
+		expr.Target = f
 		expr.T = types
 		return types
 	case *Append:
@@ -455,7 +456,7 @@ func AsType(node ASTDecl) (ASTType, bool) {
 	}
 }
 
-func AsFunc(node ASTDecl) (ASTFunc, bool) {
+func AsFunc(node ASTDecl) (ASTCallable, bool) {
 	switch node := node.(type) {
 	case *FuncDecl:
 		return node, true
@@ -484,7 +485,7 @@ func ResolveType(ref ASTTypeRef) ASTType {
 	}
 }
 
-func ReturnTypes(node ASTFunc) []ASTType {
+func ReturnTypes(node ASTCallable) []ASTType {
 	switch node := node.(type) {
 	case *FuncDecl:
 		types := make([]ASTType, len(node.ReturnTypes))
