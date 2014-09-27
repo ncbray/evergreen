@@ -58,6 +58,9 @@ func TypeMatches(actual ASTType, expected ASTType, exact bool) bool {
 			}
 		}
 		return false
+	case *NilType:
+		_, ok := expected.(*StructDecl)
+		return ok
 	case *BuiltinType:
 		other, ok := expected.(*BuiltinType)
 		if !ok {
@@ -214,6 +217,8 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		return []ASTType{glbls.Int}
 	case *BoolLiteral:
 		return []ASTType{glbls.Bool}
+	case *NilLiteral:
+		return []ASTType{glbls.Nil}
 	case *Return:
 		if len(decl.ReturnTypes) != len(expr.Exprs) {
 			status.Error("wrong number of return types: %d vs. %d", len(expr.Exprs), len(decl.ReturnTypes))
@@ -428,7 +433,7 @@ func semanticTestPass(tst *Test, glbls *ModuleScope, status framework.Status) {
 
 	at := semanticDestructurePass(nil, tst.Destructure, scope, glbls, status)
 	if !TypeMatches(at, tst.Type, false) {
-		status.Error("%s vs. %s", TypeName(at), TypeName(tst.Type))
+		status.Error(fmt.Sprintf("destructure %s vs. %s", TypeName(at), TypeName(tst.Type)))
 	}
 }
 
@@ -443,6 +448,7 @@ type ModuleScope struct {
 	Int    *BuiltinType
 	Bool   *BuiltinType
 	Void   *BuiltinType
+	Nil    *NilType
 }
 
 func AsType(node ASTDecl) (ASTType, bool) {
@@ -515,6 +521,8 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 
 	glbls.Bool = &BuiltinType{"bool"}
 	glbls.Builtin["bool"] = glbls.Bool
+
+	glbls.Nil = &NilType{}
 
 	glbls.BinaryOps["int+int"] = glbls.Int
 	glbls.BinaryOps["int-int"] = glbls.Int

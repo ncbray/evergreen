@@ -37,6 +37,10 @@ func boolLiteral(value bool) dst.Expr {
 	return &dst.BoolLiteral{Value: value}
 }
 
+func nilLiteral() dst.Expr {
+	return &dst.NilLiteral{}
+}
+
 func makeFatalTest(cond dst.Expr, f string, args ...dst.Expr) dst.Stmt {
 	wrapped := []dst.Expr{strLiteral(f)}
 	wrapped = append(wrapped, args...)
@@ -187,6 +191,8 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), id(name)))
 		case *tree.BoolLiteral:
 			stmts = append(stmts, makeFatalTest(checkNE(id(name), boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), id(name)))
+		case *tree.NilLiteral:
+			stmts = append(stmts, makeFatalTest(checkNE(id(name), nilLiteral()), fmt.Sprintf("%s: expected nil but got %%#v", path), id(name)))
 		default:
 			panic(expr)
 		}

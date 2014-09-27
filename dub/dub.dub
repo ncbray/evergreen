@@ -61,6 +61,9 @@ struct BoolLiteral implements ASTExpr {
   Value bool
 }
 
+struct NilLiteral implements ASTExpr {
+}
+
 func LineTerminator() {
   /"\n"|"\r\n"|"\r"/;
 }
@@ -83,6 +86,8 @@ func EndKeyword() {
 
 func Ident() Id {
   p := position;
+  // Don't allow keywords as identifiers.
+  /!(("func"|"test"|"struct"|"star"|"plus"|"choose"|"or"|"question"|"if"|"else"|"true"|"false"|"nil") ![a-zA-Z_0-9])/;
   text := /[a-zA-Z_][a-zA-Z_0-9]*/;
   return Id{Pos: p, Text: text};
 }
@@ -193,6 +198,9 @@ func Literal() ASTExpr {
   } or {
     value, text := DecodeBool();
     return BoolLiteral{Text: text, Value: value};
+  } or {
+    /"nil"/;
+    return NilLiteral{};
   }
 }
 
@@ -263,6 +271,21 @@ test EscapedRune Literal() "'\\n'"
     Text: "'\\n'"
     Value: '\n'
   }
+
+test True Literal() "true"
+  BoolLiteral{
+    Text: "true"
+    Value: true
+  }
+
+test False Literal() "false"
+  BoolLiteral{
+    Text: "false"
+    Value: false
+  }
+
+test Nil Literal() "nil"
+  NilLiteral{}
 
 struct ASTDecl {
 }
@@ -950,6 +973,23 @@ func ParseNameRef() NameRef {
     return NameRef{Name: Ident()};
 }
 
+test SimpleName ParseNameRef() "foobar"
+  NameRef {
+    Name: Id {
+      Text: "foobar"
+    }
+  }
+
+test PartKeyword ParseNameRef() "trueish"
+  NameRef {
+    Name: Id {
+      Text: "trueish"
+    }
+  }
+
+//test RejectKeyword ParseNameRef() "true"
+//  nil
+
 // Uses precedence climbing.
 func ParseBinaryOp(min_prec int) ASTExpr {
   e := PrimaryExpr();
@@ -1157,6 +1197,7 @@ test Assign ParseStatement() "foo = 1;"
       Value: 1
     }
     Targets: []ASTExpr{NameRef{Name: Id{Text: "foo"}}}
+    Type: nil
     Define: false
   }
 
@@ -1166,6 +1207,7 @@ test Lookahead ParseStatement() "returnType = 1;"
       Value: 1
     }
     Targets: []ASTExpr{NameRef{Name: Id{Text: "returnType"}}}
+    Type: nil
     Define: false
   }
 
@@ -1175,8 +1217,24 @@ test Define ParseStatement() "foo := 1;"
       Value: 1
     }
     Targets: []ASTExpr{NameRef{Name: Id{Text: "foo"}}}
+    Type: nil
     Define: true
   }
+
+test VarDecl ParseStatement() "var foo int = 1;"
+  Assign {
+    Expr: IntLiteral {
+      Value: 1
+    }
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "foo"}}}
+    Type: TypeRef {
+      Name: Id {
+        Text: "int"
+      }
+    }
+    Define: true
+  }
+
 
 test MultiAssign ParseStatement() "a, b, c = foo();"
   Assign {
@@ -1246,6 +1304,9 @@ test Slice ParseStatement() "a := slice { 1; } ;"
 
 struct BuiltinType implements ASTType {
   Name string
+}
+
+struct NilType implements ASTType {
 }
 
 struct ListType implements ASTType {
