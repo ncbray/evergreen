@@ -1,6 +1,7 @@
 package base
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -70,4 +71,10 @@ func (w *CodeWriter) RestoreMargin() {
 	top := len(w.marginStack) - 1
 	w.currentMargin = w.marginStack[top]
 	w.marginStack = w.marginStack[:top]
+}
+
+func BufferedCodeWriter() (*bytes.Buffer, *CodeWriter) {
+	b := &bytes.Buffer{}
+	w := &CodeWriter{Out: b}
+	return b, w
 }

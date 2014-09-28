@@ -176,7 +176,13 @@ func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []
 
 	link.Finish()
 
+	// Compact simple expressions back into tree form.
+	gotree.Retree(prog)
+
+	// Give everything names: variables, etc.
 	gotree.Nameify(prog)
+
+	// Generate the sources.
 	gotree.OutputProgram(prog, "src")
 }
 

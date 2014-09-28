@@ -212,11 +212,15 @@ func GenerateType(t Type) string {
 	}
 }
 
-func GenerateBody(stmts []Stmt, w *base.CodeWriter) {
-	w.AppendMargin(indent)
+func generateBlock(stmts []Stmt, w *base.CodeWriter) {
 	for _, stmt := range stmts {
 		GenerateStmt(stmt, w)
 	}
+}
+
+func GenerateBody(stmts []Stmt, w *base.CodeWriter) {
+	w.AppendMargin(indent)
+	generateBlock(stmts, w)
 	w.RestoreMargin()
 }
 
