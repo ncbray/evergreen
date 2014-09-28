@@ -396,14 +396,22 @@ func gotoNode(info *regionInfo, n base.NodeID, ctx *DubToGoContext, block []ast.
 func emitSwitch(info *regionInfo, cond ast.Expr, t base.NodeID, f base.NodeID, ctx *DubToGoContext, block []ast.Stmt) []ast.Stmt {
 	if t != base.NoNode {
 		if f != base.NoNode {
-			block = append(block, &ast.If{
-				Cond: cond,
-				Body: gotoNode(info, t, ctx, nil),
-				Else: &ast.BlockStmt{
-					Body: gotoNode(info, f, ctx, nil),
-				},
-			})
-			return block
+			body := gotoNode(info, t, ctx, nil)
+			if ast.NormalFlowMightExit(body) {
+				return append(block, &ast.If{
+					Cond: cond,
+					Body: body,
+					Else: &ast.BlockStmt{
+						Body: gotoNode(info, f, ctx, nil),
+					},
+				})
+			} else {
+				block = append(block, &ast.If{
+					Cond: cond,
+					Body: body,
+				})
+				return gotoNode(info, f, ctx, block)
+			}
 		} else {
 			return gotoNode(info, t, ctx, block)
 		}

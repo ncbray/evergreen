@@ -411,13 +411,11 @@ func LineTerminator(frame *runtime.State) {
 		if r1 == '\n' {
 			frame.Consume()
 			goto block3
-		} else {
-			frame.Fail()
-			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	frame.Recover(r0)
 	r4 = frame.Peek()
@@ -429,20 +427,16 @@ block1:
 				if r7 == '\n' {
 					frame.Consume()
 					goto block3
-				} else {
-					frame.Fail()
-					goto block2
 				}
-			} else {
+				frame.Fail()
 				goto block2
 			}
-		} else {
-			frame.Fail()
 			goto block2
 		}
-	} else {
+		frame.Fail()
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r0)
 	r10 = frame.Peek()
@@ -450,13 +444,11 @@ block2:
 		if r10 == '\r' {
 			frame.Consume()
 			goto block3
-		} else {
-			frame.Fail()
-			goto block4
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block3:
 	return
 block4:
@@ -479,17 +471,14 @@ block1:
 	if frame.Flow == 0 {
 		if r2 == ' ' {
 			goto block2
-		} else {
-			if r2 == '\t' {
-				goto block2
-			} else {
-				frame.Fail()
-				goto block3
-			}
 		}
-	} else {
+		if r2 == '\t' {
+			goto block2
+		}
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block2:
 	frame.Consume()
 	goto block1
@@ -498,49 +487,41 @@ block3:
 	LineTerminator(frame)
 	if frame.Flow == 0 {
 		goto block1
-	} else {
-		frame.Recover(r1)
-		r7 = frame.Peek()
-		if frame.Flow == 0 {
-			if r7 == '/' {
-				frame.Consume()
-				r10 = frame.Peek()
-				if frame.Flow == 0 {
-					if r10 == '/' {
-						frame.Consume()
-						goto block4
-					} else {
-						frame.Fail()
-						goto block7
-					}
-				} else {
-					goto block7
+	}
+	frame.Recover(r1)
+	r7 = frame.Peek()
+	if frame.Flow == 0 {
+		if r7 == '/' {
+			frame.Consume()
+			r10 = frame.Peek()
+			if frame.Flow == 0 {
+				if r10 == '/' {
+					frame.Consume()
+					goto block4
 				}
-			} else {
 				frame.Fail()
 				goto block7
 			}
-		} else {
 			goto block7
 		}
+		frame.Fail()
+		goto block7
 	}
+	goto block7
 block4:
 	r13 = frame.Checkpoint()
 	r14 = frame.Peek()
 	if frame.Flow == 0 {
 		if r14 == '\n' {
 			goto block5
-		} else {
-			if r14 == '\r' {
-				goto block5
-			} else {
-				frame.Consume()
-				goto block4
-			}
 		}
-	} else {
-		goto block6
+		if r14 == '\r' {
+			goto block5
+		}
+		frame.Consume()
+		goto block4
 	}
+	goto block6
 block5:
 	frame.Fail()
 	goto block6
@@ -561,39 +542,31 @@ func EndKeyword(frame *runtime.State) {
 		if r1 >= 'a' {
 			if r1 <= 'z' {
 				goto block3
-			} else {
-				goto block1
 			}
-		} else {
 			goto block1
 		}
-	} else {
-		goto block5
+		goto block1
 	}
+	goto block5
 block1:
 	if r1 >= 'A' {
 		if r1 <= 'Z' {
 			goto block3
-		} else {
-			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	if r1 == '_' {
 		goto block3
-	} else {
-		if r1 >= '0' {
-			if r1 <= '9' {
-				goto block3
-			} else {
-				goto block4
-			}
-		} else {
-			goto block4
-		}
 	}
+	if r1 >= '0' {
+		if r1 <= '9' {
+			goto block3
+		}
+		goto block4
+	}
+	goto block4
 block3:
 	frame.Consume()
 	frame.LookaheadFail(r0)
@@ -692,34 +665,26 @@ func Ident(frame *runtime.State) (ret0 *Id) {
 								if r12 == 'c' {
 									frame.Consume()
 									goto block13
-								} else {
-									frame.Fail()
-									goto block1
 								}
-							} else {
+								frame.Fail()
 								goto block1
 							}
-						} else {
-							frame.Fail()
 							goto block1
 						}
-					} else {
+						frame.Fail()
 						goto block1
 					}
-				} else {
-					frame.Fail()
 					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
-			frame.Fail()
 			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	frame.Recover(r2)
 	r15 = frame.Peek()
@@ -739,34 +704,26 @@ block1:
 								if r24 == 't' {
 									frame.Consume()
 									goto block13
-								} else {
-									frame.Fail()
-									goto block2
 								}
-							} else {
+								frame.Fail()
 								goto block2
 							}
-						} else {
-							frame.Fail()
 							goto block2
 						}
-					} else {
+						frame.Fail()
 						goto block2
 					}
-				} else {
-					frame.Fail()
 					goto block2
 				}
-			} else {
+				frame.Fail()
 				goto block2
 			}
-		} else {
-			frame.Fail()
 			goto block2
 		}
-	} else {
+		frame.Fail()
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r2)
 	r27 = frame.Peek()
@@ -794,48 +751,36 @@ block2:
 												if r42 == 't' {
 													frame.Consume()
 													goto block13
-												} else {
-													frame.Fail()
-													goto block3
 												}
-											} else {
+												frame.Fail()
 												goto block3
 											}
-										} else {
-											frame.Fail()
 											goto block3
 										}
-									} else {
+										frame.Fail()
 										goto block3
 									}
-								} else {
-									frame.Fail()
 									goto block3
 								}
-							} else {
+								frame.Fail()
 								goto block3
 							}
-						} else {
-							frame.Fail()
 							goto block3
 						}
-					} else {
+						frame.Fail()
 						goto block3
 					}
-				} else {
-					frame.Fail()
 					goto block3
 				}
-			} else {
+				frame.Fail()
 				goto block3
 			}
-		} else {
-			frame.Fail()
 			goto block3
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block3:
 	frame.Recover(r2)
 	r45 = frame.Peek()
@@ -855,34 +800,26 @@ block3:
 								if r54 == 'r' {
 									frame.Consume()
 									goto block13
-								} else {
-									frame.Fail()
-									goto block4
 								}
-							} else {
+								frame.Fail()
 								goto block4
 							}
-						} else {
-							frame.Fail()
 							goto block4
 						}
-					} else {
+						frame.Fail()
 						goto block4
 					}
-				} else {
-					frame.Fail()
 					goto block4
 				}
-			} else {
+				frame.Fail()
 				goto block4
 			}
-		} else {
-			frame.Fail()
 			goto block4
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block4:
 	frame.Recover(r2)
 	r57 = frame.Peek()
@@ -902,34 +839,26 @@ block4:
 								if r66 == 's' {
 									frame.Consume()
 									goto block13
-								} else {
-									frame.Fail()
-									goto block5
 								}
-							} else {
+								frame.Fail()
 								goto block5
 							}
-						} else {
-							frame.Fail()
 							goto block5
 						}
-					} else {
+						frame.Fail()
 						goto block5
 					}
-				} else {
-					frame.Fail()
 					goto block5
 				}
-			} else {
+				frame.Fail()
 				goto block5
 			}
-		} else {
-			frame.Fail()
 			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block5:
 	frame.Recover(r2)
 	r69 = frame.Peek()
@@ -957,48 +886,36 @@ block5:
 												if r84 == 'e' {
 													frame.Consume()
 													goto block13
-												} else {
-													frame.Fail()
-													goto block6
 												}
-											} else {
+												frame.Fail()
 												goto block6
 											}
-										} else {
-											frame.Fail()
 											goto block6
 										}
-									} else {
+										frame.Fail()
 										goto block6
 									}
-								} else {
-									frame.Fail()
 									goto block6
 								}
-							} else {
+								frame.Fail()
 								goto block6
 							}
-						} else {
-							frame.Fail()
 							goto block6
 						}
-					} else {
+						frame.Fail()
 						goto block6
 					}
-				} else {
-					frame.Fail()
 					goto block6
 				}
-			} else {
+				frame.Fail()
 				goto block6
 			}
-		} else {
-			frame.Fail()
 			goto block6
 		}
-	} else {
+		frame.Fail()
 		goto block6
 	}
+	goto block6
 block6:
 	frame.Recover(r2)
 	r87 = frame.Peek()
@@ -1010,20 +927,16 @@ block6:
 				if r90 == 'r' {
 					frame.Consume()
 					goto block13
-				} else {
-					frame.Fail()
-					goto block7
 				}
-			} else {
+				frame.Fail()
 				goto block7
 			}
-		} else {
-			frame.Fail()
 			goto block7
 		}
-	} else {
+		frame.Fail()
 		goto block7
 	}
+	goto block7
 block7:
 	frame.Recover(r2)
 	r93 = frame.Peek()
@@ -1059,62 +972,46 @@ block7:
 																if r114 == 'n' {
 																	frame.Consume()
 																	goto block13
-																} else {
-																	frame.Fail()
-																	goto block8
 																}
-															} else {
+																frame.Fail()
 																goto block8
 															}
-														} else {
-															frame.Fail()
 															goto block8
 														}
-													} else {
+														frame.Fail()
 														goto block8
 													}
-												} else {
-													frame.Fail()
 													goto block8
 												}
-											} else {
+												frame.Fail()
 												goto block8
 											}
-										} else {
-											frame.Fail()
 											goto block8
 										}
-									} else {
+										frame.Fail()
 										goto block8
 									}
-								} else {
-									frame.Fail()
 									goto block8
 								}
-							} else {
+								frame.Fail()
 								goto block8
 							}
-						} else {
-							frame.Fail()
 							goto block8
 						}
-					} else {
+						frame.Fail()
 						goto block8
 					}
-				} else {
-					frame.Fail()
 					goto block8
 				}
-			} else {
+				frame.Fail()
 				goto block8
 			}
-		} else {
-			frame.Fail()
 			goto block8
 		}
-	} else {
+		frame.Fail()
 		goto block8
 	}
+	goto block8
 block8:
 	frame.Recover(r2)
 	r117 = frame.Peek()
@@ -1126,20 +1023,16 @@ block8:
 				if r120 == 'f' {
 					frame.Consume()
 					goto block13
-				} else {
-					frame.Fail()
-					goto block9
 				}
-			} else {
+				frame.Fail()
 				goto block9
 			}
-		} else {
-			frame.Fail()
 			goto block9
 		}
-	} else {
+		frame.Fail()
 		goto block9
 	}
+	goto block9
 block9:
 	frame.Recover(r2)
 	r123 = frame.Peek()
@@ -1159,34 +1052,26 @@ block9:
 								if r132 == 'e' {
 									frame.Consume()
 									goto block13
-								} else {
-									frame.Fail()
-									goto block10
 								}
-							} else {
+								frame.Fail()
 								goto block10
 							}
-						} else {
-							frame.Fail()
 							goto block10
 						}
-					} else {
+						frame.Fail()
 						goto block10
 					}
-				} else {
-					frame.Fail()
 					goto block10
 				}
-			} else {
+				frame.Fail()
 				goto block10
 			}
-		} else {
-			frame.Fail()
 			goto block10
 		}
-	} else {
+		frame.Fail()
 		goto block10
 	}
+	goto block10
 block10:
 	frame.Recover(r2)
 	r135 = frame.Peek()
@@ -1206,34 +1091,26 @@ block10:
 								if r144 == 'e' {
 									frame.Consume()
 									goto block13
-								} else {
-									frame.Fail()
-									goto block11
 								}
-							} else {
+								frame.Fail()
 								goto block11
 							}
-						} else {
-							frame.Fail()
 							goto block11
 						}
-					} else {
+						frame.Fail()
 						goto block11
 					}
-				} else {
-					frame.Fail()
 					goto block11
 				}
-			} else {
+				frame.Fail()
 				goto block11
 			}
-		} else {
-			frame.Fail()
 			goto block11
 		}
-	} else {
+		frame.Fail()
 		goto block11
 	}
+	goto block11
 block11:
 	frame.Recover(r2)
 	r147 = frame.Peek()
@@ -1257,41 +1134,31 @@ block11:
 										if r159 == 'e' {
 											frame.Consume()
 											goto block13
-										} else {
-											frame.Fail()
-											goto block12
 										}
-									} else {
+										frame.Fail()
 										goto block12
 									}
-								} else {
-									frame.Fail()
 									goto block12
 								}
-							} else {
+								frame.Fail()
 								goto block12
 							}
-						} else {
-							frame.Fail()
 							goto block12
 						}
-					} else {
+						frame.Fail()
 						goto block12
 					}
-				} else {
-					frame.Fail()
 					goto block12
 				}
-			} else {
+				frame.Fail()
 				goto block12
 			}
-		} else {
-			frame.Fail()
 			goto block12
 		}
-	} else {
+		frame.Fail()
 		goto block12
 	}
+	goto block12
 block12:
 	frame.Recover(r2)
 	r162 = frame.Peek()
@@ -1307,27 +1174,21 @@ block12:
 						if r168 == 'l' {
 							frame.Consume()
 							goto block13
-						} else {
-							frame.Fail()
-							goto block19
 						}
-					} else {
+						frame.Fail()
 						goto block19
 					}
-				} else {
-					frame.Fail()
 					goto block19
 				}
-			} else {
+				frame.Fail()
 				goto block19
 			}
-		} else {
-			frame.Fail()
 			goto block19
 		}
-	} else {
+		frame.Fail()
 		goto block19
 	}
+	goto block19
 block13:
 	r171 = frame.LookaheadBegin()
 	r172 = frame.Peek()
@@ -1335,39 +1196,31 @@ block13:
 		if r172 >= 'a' {
 			if r172 <= 'z' {
 				goto block16
-			} else {
-				goto block14
 			}
-		} else {
 			goto block14
 		}
-	} else {
-		goto block18
+		goto block14
 	}
+	goto block18
 block14:
 	if r172 >= 'A' {
 		if r172 <= 'Z' {
 			goto block16
-		} else {
-			goto block15
 		}
-	} else {
 		goto block15
 	}
+	goto block15
 block15:
 	if r172 == '_' {
 		goto block16
-	} else {
-		if r172 >= '0' {
-			if r172 <= '9' {
-				goto block16
-			} else {
-				goto block17
-			}
-		} else {
-			goto block17
-		}
 	}
+	if r172 >= '0' {
+		if r172 <= '9' {
+			goto block16
+		}
+		goto block17
+	}
+	goto block17
 block16:
 	frame.Consume()
 	frame.LookaheadFail(r171)
@@ -1387,32 +1240,26 @@ block19:
 		if r188 >= 'a' {
 			if r188 <= 'z' {
 				goto block22
-			} else {
-				goto block20
 			}
-		} else {
 			goto block20
 		}
-	} else {
-		goto block29
+		goto block20
 	}
+	goto block29
 block20:
 	if r188 >= 'A' {
 		if r188 <= 'Z' {
 			goto block22
-		} else {
-			goto block21
 		}
-	} else {
 		goto block21
 	}
+	goto block21
 block21:
 	if r188 == '_' {
 		goto block22
-	} else {
-		frame.Fail()
-		goto block29
 	}
+	frame.Fail()
+	goto block29
 block22:
 	frame.Consume()
 	goto block23
@@ -1423,39 +1270,31 @@ block23:
 		if r200 >= 'a' {
 			if r200 <= 'z' {
 				goto block26
-			} else {
-				goto block24
 			}
-		} else {
 			goto block24
 		}
-	} else {
-		goto block28
+		goto block24
 	}
+	goto block28
 block24:
 	if r200 >= 'A' {
 		if r200 <= 'Z' {
 			goto block26
-		} else {
-			goto block25
 		}
-	} else {
 		goto block25
 	}
+	goto block25
 block25:
 	if r200 == '_' {
 		goto block26
-	} else {
-		if r200 >= '0' {
-			if r200 <= '9' {
-				goto block26
-			} else {
-				goto block27
-			}
-		} else {
-			goto block27
-		}
 	}
+	if r200 >= '0' {
+		if r200 <= '9' {
+			goto block26
+		}
+		goto block27
+	}
+	goto block27
 block26:
 	frame.Consume()
 	goto block23
@@ -1490,15 +1329,12 @@ func DecodeInt(frame *runtime.State) (ret0 int, ret1 string) {
 				r10 = int(r2) - int('0')
 				r14 = r0*10 + r10
 				goto block1
-			} else {
-				goto block4
 			}
-		} else {
 			goto block4
 		}
-	} else {
-		goto block5
+		goto block4
 	}
+	goto block5
 block1:
 	r15 = frame.Checkpoint()
 	r16 = frame.Peek()
@@ -1509,15 +1345,12 @@ block1:
 				r24 = int(r16) - int('0')
 				r14 = r14*10 + r24
 				goto block1
-			} else {
-				goto block2
 			}
-		} else {
 			goto block2
 		}
-	} else {
-		goto block3
+		goto block2
 	}
+	goto block3
 block2:
 	frame.Fail()
 	goto block3
@@ -1553,13 +1386,11 @@ func EscapedChar(frame *runtime.State) (ret0 rune) {
 			frame.Consume()
 			ret0 = '\a'
 			goto block10
-		} else {
-			frame.Fail()
-			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	frame.Recover(r0)
 	r5 = frame.Peek()
@@ -1568,13 +1399,11 @@ block1:
 			frame.Consume()
 			ret0 = '\b'
 			goto block10
-		} else {
-			frame.Fail()
-			goto block2
 		}
-	} else {
+		frame.Fail()
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r0)
 	r9 = frame.Peek()
@@ -1583,13 +1412,11 @@ block2:
 			frame.Consume()
 			ret0 = '\f'
 			goto block10
-		} else {
-			frame.Fail()
-			goto block3
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block3:
 	frame.Recover(r0)
 	r13 = frame.Peek()
@@ -1598,13 +1425,11 @@ block3:
 			frame.Consume()
 			ret0 = '\n'
 			goto block10
-		} else {
-			frame.Fail()
-			goto block4
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block4:
 	frame.Recover(r0)
 	r17 = frame.Peek()
@@ -1613,13 +1438,11 @@ block4:
 			frame.Consume()
 			ret0 = '\r'
 			goto block10
-		} else {
-			frame.Fail()
-			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block5:
 	frame.Recover(r0)
 	r21 = frame.Peek()
@@ -1628,13 +1451,11 @@ block5:
 			frame.Consume()
 			ret0 = '\t'
 			goto block10
-		} else {
-			frame.Fail()
-			goto block6
 		}
-	} else {
+		frame.Fail()
 		goto block6
 	}
+	goto block6
 block6:
 	frame.Recover(r0)
 	r25 = frame.Peek()
@@ -1643,13 +1464,11 @@ block6:
 			frame.Consume()
 			ret0 = '\v'
 			goto block10
-		} else {
-			frame.Fail()
-			goto block7
 		}
-	} else {
+		frame.Fail()
 		goto block7
 	}
+	goto block7
 block7:
 	frame.Recover(r0)
 	r29 = frame.Peek()
@@ -1658,13 +1477,11 @@ block7:
 			frame.Consume()
 			ret0 = '\\'
 			goto block10
-		} else {
-			frame.Fail()
-			goto block8
 		}
-	} else {
+		frame.Fail()
 		goto block8
 	}
+	goto block8
 block8:
 	frame.Recover(r0)
 	r33 = frame.Peek()
@@ -1673,13 +1490,11 @@ block8:
 			frame.Consume()
 			ret0 = '\''
 			goto block10
-		} else {
-			frame.Fail()
-			goto block9
 		}
-	} else {
+		frame.Fail()
 		goto block9
 	}
+	goto block9
 block9:
 	frame.Recover(r0)
 	r37 = frame.Peek()
@@ -1688,13 +1503,11 @@ block9:
 			frame.Consume()
 			ret0 = '"'
 			goto block10
-		} else {
-			frame.Fail()
-			goto block11
 		}
-	} else {
+		frame.Fail()
 		goto block11
 	}
+	goto block11
 block10:
 	return
 block11:
@@ -1716,13 +1529,11 @@ func DecodeString(frame *runtime.State) (ret0 string) {
 			frame.Consume()
 			r4 = []rune{}
 			goto block1
-		} else {
-			frame.Fail()
-			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block1:
 	r5 = frame.Checkpoint()
 	r6 = frame.Checkpoint()
@@ -1730,18 +1541,15 @@ block1:
 	if frame.Flow == 0 {
 		if r7 == '"' {
 			goto block2
-		} else {
-			if r7 == '\\' {
-				goto block2
-			} else {
-				frame.Consume()
-				r4 = append(r4, r7)
-				goto block1
-			}
 		}
-	} else {
-		goto block3
+		if r7 == '\\' {
+			goto block2
+		}
+		frame.Consume()
+		r4 = append(r4, r7)
+		goto block1
 	}
+	goto block3
 block2:
 	frame.Fail()
 	goto block3
@@ -1755,16 +1563,13 @@ block3:
 			if frame.Flow == 0 {
 				r4 = append(r4, r16)
 				goto block1
-			} else {
-				goto block4
 			}
-		} else {
-			frame.Fail()
 			goto block4
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block4:
 	frame.Recover(r5)
 	r18 = frame.Peek()
@@ -1773,13 +1578,11 @@ block4:
 			frame.Consume()
 			ret0 = string(r4)
 			return
-		} else {
-			frame.Fail()
-			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block5:
 	return
 }
@@ -1804,25 +1607,20 @@ func DecodeRune(frame *runtime.State) (ret0 rune, ret1 string) {
 			if frame.Flow == 0 {
 				if r5 == '\\' {
 					goto block1
-				} else {
-					if r5 == '\'' {
-						goto block1
-					} else {
-						frame.Consume()
-						r10 = r5
-						goto block3
-					}
 				}
-			} else {
-				goto block2
+				if r5 == '\'' {
+					goto block1
+				}
+				frame.Consume()
+				r10 = r5
+				goto block3
 			}
-		} else {
-			frame.Fail()
-			goto block4
+			goto block2
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block1:
 	frame.Fail()
 	goto block2
@@ -1836,16 +1634,13 @@ block2:
 			if frame.Flow == 0 {
 				r10 = r14
 				goto block3
-			} else {
-				goto block4
 			}
-		} else {
-			frame.Fail()
 			goto block4
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block3:
 	r15 = frame.Peek()
 	if frame.Flow == 0 {
@@ -1855,13 +1650,11 @@ block3:
 			ret0 = r10
 			ret1 = r18
 			return
-		} else {
-			frame.Fail()
-			goto block4
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block4:
 	return
 }
@@ -1900,34 +1693,26 @@ func DecodeBool(frame *runtime.State) (ret0 bool, ret1 string) {
 									frame.Consume()
 									r15 = true
 									goto block2
-								} else {
-									frame.Fail()
-									goto block1
 								}
-							} else {
+								frame.Fail()
 								goto block1
 							}
-						} else {
-							frame.Fail()
 							goto block1
 						}
-					} else {
+						frame.Fail()
 						goto block1
 					}
-				} else {
-					frame.Fail()
 					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
-			frame.Fail()
 			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	frame.Recover(r1)
 	r16 = frame.Peek()
@@ -1952,41 +1737,31 @@ block1:
 											frame.Consume()
 											r15 = false
 											goto block2
-										} else {
-											frame.Fail()
-											goto block3
 										}
-									} else {
+										frame.Fail()
 										goto block3
 									}
-								} else {
-									frame.Fail()
 									goto block3
 								}
-							} else {
+								frame.Fail()
 								goto block3
 							}
-						} else {
-							frame.Fail()
 							goto block3
 						}
-					} else {
+						frame.Fail()
 						goto block3
 					}
-				} else {
-					frame.Fail()
 					goto block3
 				}
-			} else {
+				frame.Fail()
 				goto block3
 			}
-		} else {
-			frame.Fail()
 			goto block3
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block2:
 	EndKeyword(frame)
 	if frame.Flow == 0 {
@@ -1994,9 +1769,8 @@ block2:
 		ret0 = r15
 		ret1 = r32
 		return
-	} else {
-		goto block3
 	}
+	goto block3
 block3:
 	return
 }
@@ -2019,66 +1793,56 @@ func Literal(frame *runtime.State) (ret0 ASTExpr) {
 	if frame.Flow == 0 {
 		ret0 = &RuneLiteral{Text: r2, Value: r1}
 		goto block1
-	} else {
-		frame.Recover(r0)
-		r4 = frame.Checkpoint()
-		r5 = DecodeString(frame)
-		if frame.Flow == 0 {
-			ret0 = &StringLiteral{Text: frame.Slice(r4), Value: r5}
-			goto block1
-		} else {
-			frame.Recover(r0)
-			r8, r9 = DecodeInt(frame)
+	}
+	frame.Recover(r0)
+	r4 = frame.Checkpoint()
+	r5 = DecodeString(frame)
+	if frame.Flow == 0 {
+		ret0 = &StringLiteral{Text: frame.Slice(r4), Value: r5}
+		goto block1
+	}
+	frame.Recover(r0)
+	r8, r9 = DecodeInt(frame)
+	if frame.Flow == 0 {
+		ret0 = &IntLiteral{Text: r9, Value: r8}
+		goto block1
+	}
+	frame.Recover(r0)
+	r11, r12 = DecodeBool(frame)
+	if frame.Flow == 0 {
+		ret0 = &BoolLiteral{Text: r12, Value: r11}
+		goto block1
+	}
+	frame.Recover(r0)
+	r14 = frame.Peek()
+	if frame.Flow == 0 {
+		if r14 == 'n' {
+			frame.Consume()
+			r17 = frame.Peek()
 			if frame.Flow == 0 {
-				ret0 = &IntLiteral{Text: r9, Value: r8}
-				goto block1
-			} else {
-				frame.Recover(r0)
-				r11, r12 = DecodeBool(frame)
-				if frame.Flow == 0 {
-					ret0 = &BoolLiteral{Text: r12, Value: r11}
-					goto block1
-				} else {
-					frame.Recover(r0)
-					r14 = frame.Peek()
+				if r17 == 'i' {
+					frame.Consume()
+					r20 = frame.Peek()
 					if frame.Flow == 0 {
-						if r14 == 'n' {
+						if r20 == 'l' {
 							frame.Consume()
-							r17 = frame.Peek()
-							if frame.Flow == 0 {
-								if r17 == 'i' {
-									frame.Consume()
-									r20 = frame.Peek()
-									if frame.Flow == 0 {
-										if r20 == 'l' {
-											frame.Consume()
-											ret0 = &NilLiteral{}
-											goto block1
-										} else {
-											frame.Fail()
-											goto block2
-										}
-									} else {
-										goto block2
-									}
-								} else {
-									frame.Fail()
-									goto block2
-								}
-							} else {
-								goto block2
-							}
-						} else {
-							frame.Fail()
-							goto block2
+							ret0 = &NilLiteral{}
+							goto block1
 						}
-					} else {
+						frame.Fail()
 						goto block2
 					}
+					goto block2
 				}
+				frame.Fail()
+				goto block2
 			}
+			goto block2
 		}
+		frame.Fail()
+		goto block2
 	}
+	goto block2
 block1:
 	return
 block2:
@@ -2110,21 +1874,17 @@ func BinaryOperator(frame *runtime.State) (ret0 string, ret1 int) {
 	if frame.Flow == 0 {
 		if r2 == '*' {
 			goto block1
-		} else {
-			if r2 == '/' {
-				goto block1
-			} else {
-				if r2 == '%' {
-					goto block1
-				} else {
-					frame.Fail()
-					goto block2
-				}
-			}
 		}
-	} else {
+		if r2 == '/' {
+			goto block1
+		}
+		if r2 == '%' {
+			goto block1
+		}
+		frame.Fail()
 		goto block2
 	}
+	goto block2
 block1:
 	frame.Consume()
 	r9 = frame.Slice(r1)
@@ -2139,17 +1899,14 @@ block2:
 	if frame.Flow == 0 {
 		if r12 == '+' {
 			goto block3
-		} else {
-			if r12 == '-' {
-				goto block3
-			} else {
-				frame.Fail()
-				goto block4
-			}
 		}
-	} else {
+		if r12 == '-' {
+			goto block3
+		}
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block3:
 	frame.Consume()
 	r17 = frame.Slice(r11)
@@ -2165,17 +1922,14 @@ block4:
 	if frame.Flow == 0 {
 		if r21 == '<' {
 			goto block5
-		} else {
-			if r21 == '>' {
-				goto block5
-			} else {
-				frame.Fail()
-				goto block7
-			}
 		}
-	} else {
+		if r21 == '>' {
+			goto block5
+		}
+		frame.Fail()
 		goto block7
 	}
+	goto block7
 block5:
 	frame.Consume()
 	r26 = frame.Checkpoint()
@@ -2184,13 +1938,11 @@ block5:
 		if r27 == '=' {
 			frame.Consume()
 			goto block9
-		} else {
-			frame.Fail()
-			goto block6
 		}
-	} else {
+		frame.Fail()
 		goto block6
 	}
+	goto block6
 block6:
 	frame.Recover(r26)
 	goto block9
@@ -2200,17 +1952,14 @@ block7:
 	if frame.Flow == 0 {
 		if r30 == '!' {
 			goto block8
-		} else {
-			if r30 == '=' {
-				goto block8
-			} else {
-				frame.Fail()
-				goto block11
-			}
 		}
-	} else {
+		if r30 == '=' {
+			goto block8
+		}
+		frame.Fail()
 		goto block11
 	}
+	goto block11
 block8:
 	frame.Consume()
 	r35 = frame.Peek()
@@ -2218,13 +1967,11 @@ block8:
 		if r35 == '=' {
 			frame.Consume()
 			goto block9
-		} else {
-			frame.Fail()
-			goto block11
 		}
-	} else {
+		frame.Fail()
 		goto block11
 	}
+	goto block11
 block9:
 	r38 = frame.Slice(r19)
 	r39 = 3
@@ -2257,29 +2004,22 @@ func StringMatchExpr(frame *runtime.State) (ret0 *StringMatch) {
 								frame.Consume()
 								ret0 = &StringMatch{Match: r3}
 								return
-							} else {
-								frame.Fail()
-								goto block1
 							}
-						} else {
+							frame.Fail()
 							goto block1
 						}
-					} else {
 						goto block1
 					}
-				} else {
 					goto block1
 				}
-			} else {
 				goto block1
 			}
-		} else {
-			frame.Fail()
 			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	return
 }
@@ -2297,19 +2037,15 @@ func RuneMatchExpr(frame *runtime.State) (ret0 *RuneMatch) {
 				if frame.Flow == 0 {
 					ret0 = &RuneMatch{Match: r3}
 					return
-				} else {
-					goto block1
 				}
-			} else {
 				goto block1
 			}
-		} else {
-			frame.Fail()
 			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	return
 }
@@ -2320,9 +2056,8 @@ func ParseStructTypeRef(frame *runtime.State) (ret0 *TypeRef) {
 	if frame.Flow == 0 {
 		ret0 = &TypeRef{Name: r0}
 		return
-	} else {
-		return
 	}
+	return
 }
 
 func ParseListTypeRef(frame *runtime.State) (ret0 *ListTypeRef) {
@@ -2341,23 +2076,18 @@ func ParseListTypeRef(frame *runtime.State) (ret0 *ListTypeRef) {
 					if frame.Flow == 0 {
 						ret0 = &ListTypeRef{Type: r6}
 						return
-					} else {
-						goto block1
 					}
-				} else {
-					frame.Fail()
 					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
-			frame.Fail()
 			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	return
 }
@@ -2371,16 +2101,14 @@ func ParseTypeRef(frame *runtime.State) (ret0 ASTTypeRef) {
 	if frame.Flow == 0 {
 		ret0 = r1
 		goto block1
-	} else {
-		frame.Recover(r0)
-		r2 = ParseListTypeRef(frame)
-		if frame.Flow == 0 {
-			ret0 = r2
-			goto block1
-		} else {
-			return
-		}
 	}
+	frame.Recover(r0)
+	r2 = ParseListTypeRef(frame)
+	if frame.Flow == 0 {
+		ret0 = r2
+		goto block1
+	}
+	return
 block1:
 	return
 }
@@ -2417,22 +2145,17 @@ func ParseDestructure(frame *runtime.State) (ret0 Destructure) {
 					if frame.Flow == 0 {
 						r6 = []*DestructureField{}
 						goto block1
-					} else {
-						goto block3
 					}
-				} else {
-					frame.Fail()
 					goto block3
 				}
-			} else {
+				frame.Fail()
 				goto block3
 			}
-		} else {
 			goto block3
 		}
-	} else {
 		goto block3
 	}
+	goto block3
 block1:
 	r7 = frame.Checkpoint()
 	r8 = Ident(frame)
@@ -2451,28 +2174,21 @@ block1:
 							if frame.Flow == 0 {
 								r6 = append(r6, &DestructureField{Name: r8, Destructure: r12})
 								goto block1
-							} else {
-								goto block2
 							}
-						} else {
 							goto block2
 						}
-					} else {
 						goto block2
 					}
-				} else {
-					frame.Fail()
 					goto block2
 				}
-			} else {
+				frame.Fail()
 				goto block2
 			}
-		} else {
 			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r7)
 	r15 = frame.Peek()
@@ -2481,13 +2197,11 @@ block2:
 			frame.Consume()
 			ret0 = &DestructureStruct{Type: r1, Args: r6}
 			goto block7
-		} else {
-			frame.Fail()
-			goto block3
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block3:
 	frame.Recover(r0)
 	r19 = ParseListTypeRef(frame)
@@ -2502,22 +2216,17 @@ block3:
 					if frame.Flow == 0 {
 						r24 = []Destructure{}
 						goto block4
-					} else {
-						goto block6
 					}
-				} else {
-					frame.Fail()
 					goto block6
 				}
-			} else {
+				frame.Fail()
 				goto block6
 			}
-		} else {
 			goto block6
 		}
-	} else {
 		goto block6
 	}
+	goto block6
 block4:
 	r25 = frame.Checkpoint()
 	r26 = ParseDestructure(frame)
@@ -2527,14 +2236,12 @@ block4:
 		if frame.Flow == 0 {
 			r24 = r27
 			goto block4
-		} else {
-			r28 = r27
-			goto block5
 		}
-	} else {
-		r28 = r24
+		r28 = r27
 		goto block5
 	}
+	r28 = r24
+	goto block5
 block5:
 	frame.Recover(r25)
 	r29 = frame.Peek()
@@ -2543,22 +2250,19 @@ block5:
 			frame.Consume()
 			ret0 = &DestructureList{Type: r19, Args: r28}
 			goto block7
-		} else {
-			frame.Fail()
-			goto block6
 		}
-	} else {
+		frame.Fail()
 		goto block6
 	}
+	goto block6
 block6:
 	frame.Recover(r0)
 	r33 = Literal(frame)
 	if frame.Flow == 0 {
 		ret0 = &DestructureValue{Expr: r33}
 		goto block7
-	} else {
-		return
 	}
+	return
 block7:
 	return
 }
@@ -2575,22 +2279,18 @@ func ParseRuneFilterRune(frame *runtime.State) (ret0 rune) {
 	if frame.Flow == 0 {
 		if r1 == ']' {
 			goto block1
-		} else {
-			if r1 == '-' {
-				goto block1
-			} else {
-				if r1 == '\\' {
-					goto block1
-				} else {
-					frame.Consume()
-					ret0 = r1
-					goto block3
-				}
-			}
 		}
-	} else {
-		goto block2
+		if r1 == '-' {
+			goto block1
+		}
+		if r1 == '\\' {
+			goto block1
+		}
+		frame.Consume()
+		ret0 = r1
+		goto block3
 	}
+	goto block2
 block1:
 	frame.Fail()
 	goto block2
@@ -2605,24 +2305,20 @@ block2:
 			if frame.Flow == 0 {
 				ret0 = r12
 				goto block3
-			} else {
-				frame.Recover(r11)
-				r13 = frame.Peek()
-				if frame.Flow == 0 {
-					frame.Consume()
-					ret0 = r13
-					goto block3
-				} else {
-					goto block4
-				}
 			}
-		} else {
-			frame.Fail()
+			frame.Recover(r11)
+			r13 = frame.Peek()
+			if frame.Flow == 0 {
+				frame.Consume()
+				ret0 = r13
+				goto block3
+			}
 			goto block4
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block3:
 	return
 block4:
@@ -2646,19 +2342,15 @@ func ParseRuneFilter(frame *runtime.State) (ret0 *RuneFilter) {
 				if frame.Flow == 0 {
 					r6 = r5
 					goto block2
-				} else {
-					goto block1
 				}
-			} else {
-				frame.Fail()
 				goto block1
 			}
-		} else {
+			frame.Fail()
 			goto block1
 		}
-	} else {
-		return
+		goto block1
 	}
+	return
 block1:
 	frame.Recover(r1)
 	r6 = r0
@@ -2692,20 +2384,16 @@ func MatchRune(frame *runtime.State) (ret0 *RuneRangeMatch) {
 					frame.Consume()
 					r10, r11 = true, r4
 					goto block2
-				} else {
-					frame.Fail()
-					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
-			frame.Fail()
-			goto block3
+			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block1:
 	frame.Recover(r5)
 	r10, r11 = r3, r4
@@ -2716,22 +2404,19 @@ block2:
 	if frame.Flow == 0 {
 		r10, r11 = r10, append(r11, r13)
 		goto block2
-	} else {
-		frame.Recover(r12)
-		r15 = frame.Peek()
-		if frame.Flow == 0 {
-			if r15 == ']' {
-				frame.Consume()
-				ret0 = &RuneRangeMatch{Invert: r10, Filters: r11}
-				return
-			} else {
-				frame.Fail()
-				goto block3
-			}
-		} else {
-			goto block3
-		}
 	}
+	frame.Recover(r12)
+	r15 = frame.Peek()
+	if frame.Flow == 0 {
+		if r15 == ']' {
+			frame.Consume()
+			ret0 = &RuneRangeMatch{Invert: r10, Filters: r11}
+			return
+		}
+		frame.Fail()
+		goto block3
+	}
+	goto block3
 block3:
 	return
 }
@@ -2748,55 +2433,46 @@ func Atom(frame *runtime.State) (ret0 TextMatch) {
 	if frame.Flow == 0 {
 		ret0 = r1
 		goto block1
-	} else {
-		frame.Recover(r0)
-		r2 = DecodeString(frame)
-		if frame.Flow == 0 {
-			ret0 = &StringLiteralMatch{Value: r2}
-			goto block1
-		} else {
-			frame.Recover(r0)
-			r4 = frame.Peek()
+	}
+	frame.Recover(r0)
+	r2 = DecodeString(frame)
+	if frame.Flow == 0 {
+		ret0 = &StringLiteralMatch{Value: r2}
+		goto block1
+	}
+	frame.Recover(r0)
+	r4 = frame.Peek()
+	if frame.Flow == 0 {
+		if r4 == '(' {
+			frame.Consume()
+			S(frame)
 			if frame.Flow == 0 {
-				if r4 == '(' {
-					frame.Consume()
+				r7 = ParseMatchChoice(frame)
+				if frame.Flow == 0 {
 					S(frame)
 					if frame.Flow == 0 {
-						r7 = ParseMatchChoice(frame)
+						r8 = frame.Peek()
 						if frame.Flow == 0 {
-							S(frame)
-							if frame.Flow == 0 {
-								r8 = frame.Peek()
-								if frame.Flow == 0 {
-									if r8 == ')' {
-										frame.Consume()
-										ret0 = r7
-										goto block1
-									} else {
-										frame.Fail()
-										goto block2
-									}
-								} else {
-									goto block2
-								}
-							} else {
-								goto block2
+							if r8 == ')' {
+								frame.Consume()
+								ret0 = r7
+								goto block1
 							}
-						} else {
+							frame.Fail()
 							goto block2
 						}
-					} else {
 						goto block2
 					}
-				} else {
-					frame.Fail()
 					goto block2
 				}
-			} else {
 				goto block2
 			}
+			goto block2
 		}
+		frame.Fail()
+		goto block2
 	}
+	goto block2
 block1:
 	return
 block2:
@@ -2820,19 +2496,15 @@ func MatchPostfix(frame *runtime.State) (ret0 TextMatch) {
 					frame.Consume()
 					ret0 = &MatchRepeat{Match: r0, Min: 0}
 					goto block4
-				} else {
-					frame.Fail()
-					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
 			goto block1
 		}
-	} else {
-		return
+		goto block1
 	}
+	return
 block1:
 	frame.Recover(r1)
 	S(frame)
@@ -2843,16 +2515,13 @@ block1:
 				frame.Consume()
 				ret0 = &MatchRepeat{Match: r0, Min: 1}
 				goto block4
-			} else {
-				frame.Fail()
-				goto block2
 			}
-		} else {
+			frame.Fail()
 			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r1)
 	S(frame)
@@ -2863,16 +2532,13 @@ block2:
 				frame.Consume()
 				ret0 = &MatchChoice{Matches: []TextMatch{r0, &MatchSequence{Matches: []TextMatch{}}}}
 				goto block4
-			} else {
-				frame.Fail()
-				goto block3
 			}
-		} else {
+			frame.Fail()
 			goto block3
 		}
-	} else {
 		goto block3
 	}
+	goto block3
 block3:
 	frame.Recover(r1)
 	ret0 = r0
@@ -2899,13 +2565,11 @@ func MatchPrefix(frame *runtime.State) (ret0 TextMatch) {
 			frame.Consume()
 			r7 = true
 			goto block2
-		} else {
-			frame.Fail()
-			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	frame.Recover(r2)
 	r8 = frame.Peek()
@@ -2914,13 +2578,11 @@ block1:
 			frame.Consume()
 			r7 = r1
 			goto block2
-		} else {
-			frame.Fail()
-			goto block3
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block2:
 	S(frame)
 	if frame.Flow == 0 {
@@ -2928,21 +2590,18 @@ block2:
 		if frame.Flow == 0 {
 			ret0 = &MatchLookahead{Invert: r7, Match: r11}
 			goto block4
-		} else {
-			goto block3
 		}
-	} else {
 		goto block3
 	}
+	goto block3
 block3:
 	frame.Recover(r0)
 	r13 = MatchPostfix(frame)
 	if frame.Flow == 0 {
 		ret0 = r13
 		goto block4
-	} else {
-		return
 	}
+	return
 block4:
 	return
 }
@@ -2965,15 +2624,12 @@ func Sequence(frame *runtime.State) (ret0 TextMatch) {
 			if frame.Flow == 0 {
 				r5 = append(r2, r3)
 				goto block1
-			} else {
-				goto block3
 			}
-		} else {
 			goto block3
 		}
-	} else {
-		return
+		goto block3
 	}
+	return
 block1:
 	r6 = frame.Checkpoint()
 	S(frame)
@@ -2982,12 +2638,10 @@ block1:
 		if frame.Flow == 0 {
 			r5 = append(r5, r7)
 			goto block1
-		} else {
-			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r6)
 	ret0 = &MatchSequence{Matches: r5}
@@ -3026,25 +2680,19 @@ func ParseMatchChoice(frame *runtime.State) (ret0 TextMatch) {
 						if frame.Flow == 0 {
 							r8 = append(r2, r6)
 							goto block1
-						} else {
-							goto block3
 						}
-					} else {
 						goto block3
 					}
-				} else {
-					frame.Fail()
 					goto block3
 				}
-			} else {
+				frame.Fail()
 				goto block3
 			}
-		} else {
 			goto block3
 		}
-	} else {
-		return
+		goto block3
 	}
+	return
 block1:
 	r9 = frame.Checkpoint()
 	S(frame)
@@ -3059,22 +2707,17 @@ block1:
 					if frame.Flow == 0 {
 						r8 = append(r8, r13)
 						goto block1
-					} else {
-						goto block2
 					}
-				} else {
 					goto block2
 				}
-			} else {
-				frame.Fail()
 				goto block2
 			}
-		} else {
+			frame.Fail()
 			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r9)
 	ret0 = &MatchChoice{Matches: r8}
@@ -3102,11 +2745,10 @@ func ParseExprList(frame *runtime.State) (ret0 []ASTExpr) {
 	if frame.Flow == 0 {
 		r4 = append(r0, r2)
 		goto block1
-	} else {
-		frame.Recover(r1)
-		r11 = r0
-		goto block3
 	}
+	frame.Recover(r1)
+	r11 = r0
+	goto block3
 block1:
 	r5 = frame.Checkpoint()
 	S(frame)
@@ -3121,22 +2763,17 @@ block1:
 					if frame.Flow == 0 {
 						r4 = append(r4, r9)
 						goto block1
-					} else {
-						goto block2
 					}
-				} else {
 					goto block2
 				}
-			} else {
-				frame.Fail()
 				goto block2
 			}
-		} else {
+			frame.Fail()
 			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r5)
 	r11 = r4
@@ -3156,9 +2793,8 @@ func ParseTargetList(frame *runtime.State) (ret0 []ASTExpr) {
 	if frame.Flow == 0 {
 		r2 = []ASTExpr{r0}
 		goto block1
-	} else {
-		return
 	}
+	return
 block1:
 	r3 = frame.Checkpoint()
 	S(frame)
@@ -3173,22 +2809,17 @@ block1:
 					if frame.Flow == 0 {
 						r2 = append(r2, r7)
 						goto block1
-					} else {
-						goto block2
 					}
-				} else {
 					goto block2
 				}
-			} else {
-				frame.Fail()
 				goto block2
 			}
-		} else {
+			frame.Fail()
 			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r3)
 	ret0 = r2
@@ -3213,25 +2844,19 @@ func ParseNamedExpr(frame *runtime.State) (ret0 *NamedExpr) {
 						if frame.Flow == 0 {
 							ret0 = &NamedExpr{Name: r0, Expr: r4}
 							return
-						} else {
-							goto block1
 						}
-					} else {
 						goto block1
 					}
-				} else {
-					frame.Fail()
 					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
 			goto block1
 		}
-	} else {
 		goto block1
 	}
+	goto block1
 block1:
 	return
 }
@@ -3251,11 +2876,10 @@ func ParseNamedExprList(frame *runtime.State) (ret0 []*NamedExpr) {
 	if frame.Flow == 0 {
 		r4 = append(r0, r2)
 		goto block1
-	} else {
-		frame.Recover(r1)
-		r11 = r0
-		goto block3
 	}
+	frame.Recover(r1)
+	r11 = r0
+	goto block3
 block1:
 	r5 = frame.Checkpoint()
 	S(frame)
@@ -3270,22 +2894,17 @@ block1:
 					if frame.Flow == 0 {
 						r4 = append(r4, r9)
 						goto block1
-					} else {
-						goto block2
 					}
-				} else {
 					goto block2
 				}
-			} else {
-				frame.Fail()
 				goto block2
 			}
-		} else {
+			frame.Fail()
 			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r5)
 	r11 = r4
@@ -3328,24 +2947,19 @@ func ParseReturnTypeList(frame *runtime.State) (ret0 []ASTTypeRef) {
 					if frame.Flow == 0 {
 						r8 = r7
 						goto block1
-					} else {
-						r17 = r7
-						goto block3
 					}
-				} else {
-					r17 = r4
+					r17 = r7
 					goto block3
 				}
-			} else {
-				goto block5
+				r17 = r4
+				goto block3
 			}
-		} else {
-			frame.Fail()
 			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block1:
 	r9 = frame.Checkpoint()
 	r10 = frame.Peek()
@@ -3361,27 +2975,22 @@ block1:
 					if frame.Flow == 0 {
 						r8 = r14
 						goto block1
-					} else {
-						r15 = r14
-						goto block2
 					}
-				} else {
-					r15 = r8
+					r15 = r14
 					goto block2
 				}
-			} else {
 				r15 = r8
 				goto block2
 			}
-		} else {
-			frame.Fail()
 			r15 = r8
 			goto block2
 		}
-	} else {
+		frame.Fail()
 		r15 = r8
 		goto block2
 	}
+	r15 = r8
+	goto block2
 block2:
 	frame.Recover(r9)
 	r16 = r15
@@ -3397,24 +3006,21 @@ block4:
 			frame.Consume()
 			ret0 = r16
 			goto block6
-		} else {
-			frame.Fail()
-			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block5:
 	frame.Recover(r0)
 	r21 = ParseTypeRef(frame)
 	if frame.Flow == 0 {
 		ret0 = []ASTTypeRef{r21}
 		goto block6
-	} else {
-		frame.Recover(r0)
-		ret0 = []ASTTypeRef{}
-		goto block6
 	}
+	frame.Recover(r0)
+	ret0 = []ASTTypeRef{}
+	goto block6
 block6:
 	return
 }
@@ -3481,81 +3087,67 @@ func PrimaryExpr(frame *runtime.State) (ret0 ASTExpr) {
 	if frame.Flow == 0 {
 		ret0 = r1
 		goto block9
-	} else {
-		frame.Recover(r0)
-		r2 = frame.Peek()
-		if frame.Flow == 0 {
-			if r2 == 's' {
-				frame.Consume()
-				r5 = frame.Peek()
-				if frame.Flow == 0 {
-					if r5 == 'l' {
-						frame.Consume()
-						r8 = frame.Peek()
-						if frame.Flow == 0 {
-							if r8 == 'i' {
-								frame.Consume()
-								r11 = frame.Peek()
-								if frame.Flow == 0 {
-									if r11 == 'c' {
-										frame.Consume()
-										r14 = frame.Peek()
-										if frame.Flow == 0 {
-											if r14 == 'e' {
-												frame.Consume()
-												EndKeyword(frame)
+	}
+	frame.Recover(r0)
+	r2 = frame.Peek()
+	if frame.Flow == 0 {
+		if r2 == 's' {
+			frame.Consume()
+			r5 = frame.Peek()
+			if frame.Flow == 0 {
+				if r5 == 'l' {
+					frame.Consume()
+					r8 = frame.Peek()
+					if frame.Flow == 0 {
+						if r8 == 'i' {
+							frame.Consume()
+							r11 = frame.Peek()
+							if frame.Flow == 0 {
+								if r11 == 'c' {
+									frame.Consume()
+									r14 = frame.Peek()
+									if frame.Flow == 0 {
+										if r14 == 'e' {
+											frame.Consume()
+											EndKeyword(frame)
+											if frame.Flow == 0 {
+												S(frame)
 												if frame.Flow == 0 {
-													S(frame)
+													r17 = ParseCodeBlock(frame)
 													if frame.Flow == 0 {
-														r17 = ParseCodeBlock(frame)
-														if frame.Flow == 0 {
-															ret0 = &Slice{Block: r17}
-															goto block9
-														} else {
-															goto block1
-														}
-													} else {
-														goto block1
+														ret0 = &Slice{Block: r17}
+														goto block9
 													}
-												} else {
 													goto block1
 												}
-											} else {
-												frame.Fail()
 												goto block1
 											}
-										} else {
 											goto block1
 										}
-									} else {
 										frame.Fail()
 										goto block1
 									}
-								} else {
 									goto block1
 								}
-							} else {
 								frame.Fail()
 								goto block1
 							}
-						} else {
 							goto block1
 						}
-					} else {
 						frame.Fail()
 						goto block1
 					}
-				} else {
 					goto block1
 				}
-			} else {
 				frame.Fail()
 				goto block1
 			}
-		} else {
 			goto block1
 		}
+		frame.Fail()
+		goto block1
 	}
+	goto block1
 block1:
 	frame.Recover(r0)
 	r19 = frame.Peek()
@@ -3594,65 +3186,48 @@ block1:
 																	if frame.Flow == 0 {
 																		ret0 = &Position{}
 																		goto block9
-																	} else {
-																		goto block2
 																	}
-																} else {
-																	frame.Fail()
 																	goto block2
 																}
-															} else {
+																frame.Fail()
 																goto block2
 															}
-														} else {
-															frame.Fail()
 															goto block2
 														}
-													} else {
+														frame.Fail()
 														goto block2
 													}
-												} else {
-													frame.Fail()
 													goto block2
 												}
-											} else {
+												frame.Fail()
 												goto block2
 											}
-										} else {
-											frame.Fail()
 											goto block2
 										}
-									} else {
+										frame.Fail()
 										goto block2
 									}
-								} else {
-									frame.Fail()
 									goto block2
 								}
-							} else {
+								frame.Fail()
 								goto block2
 							}
-						} else {
-							frame.Fail()
 							goto block2
 						}
-					} else {
+						frame.Fail()
 						goto block2
 					}
-				} else {
-					frame.Fail()
 					goto block2
 				}
-			} else {
+				frame.Fail()
 				goto block2
 			}
-		} else {
-			frame.Fail()
 			goto block2
 		}
-	} else {
+		frame.Fail()
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r0)
 	r44 = frame.Peek()
@@ -3709,93 +3284,67 @@ block2:
 																											frame.Consume()
 																											ret0 = &Coerce{Type: r65, Expr: r69}
 																											goto block9
-																										} else {
-																											frame.Fail()
-																											goto block3
 																										}
-																									} else {
+																										frame.Fail()
 																										goto block3
 																									}
-																								} else {
 																									goto block3
 																								}
-																							} else {
 																								goto block3
 																							}
-																						} else {
 																							goto block3
 																						}
-																					} else {
-																						frame.Fail()
 																						goto block3
 																					}
-																				} else {
+																					frame.Fail()
 																					goto block3
 																				}
-																			} else {
 																				goto block3
 																			}
-																		} else {
 																			goto block3
 																		}
-																	} else {
 																		goto block3
 																	}
-																} else {
-																	frame.Fail()
 																	goto block3
 																}
-															} else {
+																frame.Fail()
 																goto block3
 															}
-														} else {
 															goto block3
 														}
-													} else {
 														goto block3
 													}
-												} else {
-													frame.Fail()
 													goto block3
 												}
-											} else {
+												frame.Fail()
 												goto block3
 											}
-										} else {
-											frame.Fail()
 											goto block3
 										}
-									} else {
+										frame.Fail()
 										goto block3
 									}
-								} else {
-									frame.Fail()
 									goto block3
 								}
-							} else {
+								frame.Fail()
 								goto block3
 							}
-						} else {
-							frame.Fail()
 							goto block3
 						}
-					} else {
+						frame.Fail()
 						goto block3
 					}
-				} else {
-					frame.Fail()
 					goto block3
 				}
-			} else {
+				frame.Fail()
 				goto block3
 			}
-		} else {
-			frame.Fail()
 			goto block3
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block3:
 	frame.Recover(r0)
 	r74 = frame.Peek()
@@ -3852,93 +3401,67 @@ block3:
 																											frame.Consume()
 																											ret0 = &Assign{Expr: &Append{List: &NameRef{Name: r95}, Expr: r99}, Targets: []ASTExpr{&NameRef{Name: r95}}}
 																											goto block9
-																										} else {
-																											frame.Fail()
-																											goto block4
 																										}
-																									} else {
+																										frame.Fail()
 																										goto block4
 																									}
-																								} else {
 																									goto block4
 																								}
-																							} else {
 																								goto block4
 																							}
-																						} else {
 																							goto block4
 																						}
-																					} else {
-																						frame.Fail()
 																						goto block4
 																					}
-																				} else {
+																					frame.Fail()
 																					goto block4
 																				}
-																			} else {
 																				goto block4
 																			}
-																		} else {
 																			goto block4
 																		}
-																	} else {
 																		goto block4
 																	}
-																} else {
-																	frame.Fail()
 																	goto block4
 																}
-															} else {
+																frame.Fail()
 																goto block4
 															}
-														} else {
 															goto block4
 														}
-													} else {
 														goto block4
 													}
-												} else {
-													frame.Fail()
 													goto block4
 												}
-											} else {
+												frame.Fail()
 												goto block4
 											}
-										} else {
-											frame.Fail()
 											goto block4
 										}
-									} else {
+										frame.Fail()
 										goto block4
 									}
-								} else {
-									frame.Fail()
 									goto block4
 								}
-							} else {
+								frame.Fail()
 								goto block4
 							}
-						} else {
-							frame.Fail()
 							goto block4
 						}
-					} else {
+						frame.Fail()
 						goto block4
 					}
-				} else {
-					frame.Fail()
 					goto block4
 				}
-			} else {
+				frame.Fail()
 				goto block4
 			}
-		} else {
-			frame.Fail()
 			goto block4
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block4:
 	frame.Recover(r0)
 	r108 = Ident(frame)
@@ -3961,35 +3484,26 @@ block4:
 										frame.Consume()
 										ret0 = &Call{Name: r108, Args: r112}
 										goto block9
-									} else {
-										frame.Fail()
-										goto block5
 									}
-								} else {
+									frame.Fail()
 									goto block5
 								}
-							} else {
 								goto block5
 							}
-						} else {
 							goto block5
 						}
-					} else {
 						goto block5
 					}
-				} else {
-					frame.Fail()
 					goto block5
 				}
-			} else {
+				frame.Fail()
 				goto block5
 			}
-		} else {
 			goto block5
 		}
-	} else {
 		goto block5
 	}
+	goto block5
 block5:
 	frame.Recover(r0)
 	r117 = ParseStructTypeRef(frame)
@@ -4012,35 +3526,26 @@ block5:
 										frame.Consume()
 										ret0 = &Construct{Type: r117, Args: r121}
 										goto block9
-									} else {
-										frame.Fail()
-										goto block6
 									}
-								} else {
+									frame.Fail()
 									goto block6
 								}
-							} else {
 								goto block6
 							}
-						} else {
 							goto block6
 						}
-					} else {
 						goto block6
 					}
-				} else {
-					frame.Fail()
 					goto block6
 				}
-			} else {
+				frame.Fail()
 				goto block6
 			}
-		} else {
 			goto block6
 		}
-	} else {
 		goto block6
 	}
+	goto block6
 block6:
 	frame.Recover(r0)
 	r126 = ParseListTypeRef(frame)
@@ -4063,99 +3568,80 @@ block6:
 										frame.Consume()
 										ret0 = &ConstructList{Type: r126, Args: r130}
 										goto block9
-									} else {
-										frame.Fail()
-										goto block7
 									}
-								} else {
+									frame.Fail()
 									goto block7
 								}
-							} else {
 								goto block7
 							}
-						} else {
 							goto block7
 						}
-					} else {
 						goto block7
 					}
-				} else {
-					frame.Fail()
 					goto block7
 				}
-			} else {
+				frame.Fail()
 				goto block7
 			}
-		} else {
 			goto block7
 		}
-	} else {
 		goto block7
 	}
+	goto block7
 block7:
 	frame.Recover(r0)
 	r135 = StringMatchExpr(frame)
 	if frame.Flow == 0 {
 		ret0 = r135
 		goto block9
-	} else {
-		frame.Recover(r0)
-		r136 = RuneMatchExpr(frame)
-		if frame.Flow == 0 {
-			ret0 = r136
-			goto block9
-		} else {
-			frame.Recover(r0)
-			r137 = frame.Peek()
+	}
+	frame.Recover(r0)
+	r136 = RuneMatchExpr(frame)
+	if frame.Flow == 0 {
+		ret0 = r136
+		goto block9
+	}
+	frame.Recover(r0)
+	r137 = frame.Peek()
+	if frame.Flow == 0 {
+		if r137 == '(' {
+			frame.Consume()
+			S(frame)
 			if frame.Flow == 0 {
-				if r137 == '(' {
-					frame.Consume()
+				r140 = ParseExpr(frame)
+				if frame.Flow == 0 {
 					S(frame)
 					if frame.Flow == 0 {
-						r140 = ParseExpr(frame)
+						r141 = frame.Peek()
 						if frame.Flow == 0 {
-							S(frame)
-							if frame.Flow == 0 {
-								r141 = frame.Peek()
-								if frame.Flow == 0 {
-									if r141 == ')' {
-										frame.Consume()
-										ret0 = r140
-										goto block9
-									} else {
-										frame.Fail()
-										goto block8
-									}
-								} else {
-									goto block8
-								}
-							} else {
-								goto block8
+							if r141 == ')' {
+								frame.Consume()
+								ret0 = r140
+								goto block9
 							}
-						} else {
+							frame.Fail()
 							goto block8
 						}
-					} else {
 						goto block8
 					}
-				} else {
-					frame.Fail()
 					goto block8
 				}
-			} else {
 				goto block8
 			}
+			goto block8
 		}
+		frame.Fail()
+		goto block8
 	}
+	goto block8
 block8:
 	frame.Recover(r0)
 	r144 = ParseNameRef(frame)
 	if frame.Flow == 0 {
 		ret0 = r144
 		goto block9
-	} else {
-		return
 	}
+	return
 block9:
 	return
 }
@@ -4166,9 +3652,8 @@ func ParseNameRef(frame *runtime.State) (ret0 *NameRef) {
 	if frame.Flow == 0 {
 		ret0 = &NameRef{Name: r0}
 		return
-	} else {
-		return
 	}
+	return
 }
 
 func ParseBinaryOp(frame *runtime.State, r0 int) (ret0 ASTExpr) {
@@ -4182,9 +3667,8 @@ func ParseBinaryOp(frame *runtime.State, r0 int) (ret0 ASTExpr) {
 	if frame.Flow == 0 {
 		r2 = r1
 		goto block1
-	} else {
-		return
 	}
+	return
 block1:
 	r3 = frame.Checkpoint()
 	S(frame)
@@ -4194,26 +3678,21 @@ block1:
 			if r5 < r0 {
 				frame.Fail()
 				goto block2
-			} else {
-				S(frame)
-				if frame.Flow == 0 {
-					r9 = ParseBinaryOp(frame, r5+1)
-					if frame.Flow == 0 {
-						r2 = &BinaryOp{Left: r2, Op: r4, Right: r9}
-						goto block1
-					} else {
-						goto block2
-					}
-				} else {
-					goto block2
-				}
 			}
-		} else {
+			S(frame)
+			if frame.Flow == 0 {
+				r9 = ParseBinaryOp(frame, r5+1)
+				if frame.Flow == 0 {
+					r2 = &BinaryOp{Left: r2, Op: r4, Right: r9}
+					goto block1
+				}
+				goto block2
+			}
 			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r3)
 	ret0 = r2
@@ -4226,9 +3705,8 @@ func ParseExpr(frame *runtime.State) (ret0 ASTExpr) {
 	if frame.Flow == 0 {
 		ret0 = r1
 		return
-	} else {
-		return
 	}
+	return
 }
 
 func ParseCompoundStatement(frame *runtime.State) (ret0 ASTExpr) {
@@ -4293,43 +3771,32 @@ func ParseCompoundStatement(frame *runtime.State) (ret0 ASTExpr) {
 											if frame.Flow == 0 {
 												ret0 = &Repeat{Block: r13, Min: 0}
 												goto block7
-											} else {
-												goto block1
 											}
-										} else {
 											goto block1
 										}
-									} else {
 										goto block1
 									}
-								} else {
-									frame.Fail()
 									goto block1
 								}
-							} else {
+								frame.Fail()
 								goto block1
 							}
-						} else {
-							frame.Fail()
 							goto block1
 						}
-					} else {
+						frame.Fail()
 						goto block1
 					}
-				} else {
-					frame.Fail()
 					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
-			frame.Fail()
 			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	frame.Recover(r0)
 	r16 = frame.Peek()
@@ -4356,43 +3823,32 @@ block1:
 											if frame.Flow == 0 {
 												ret0 = &Repeat{Block: r28, Min: 1}
 												goto block7
-											} else {
-												goto block2
 											}
-										} else {
 											goto block2
 										}
-									} else {
 										goto block2
 									}
-								} else {
-									frame.Fail()
 									goto block2
 								}
-							} else {
+								frame.Fail()
 								goto block2
 							}
-						} else {
-							frame.Fail()
 							goto block2
 						}
-					} else {
+						frame.Fail()
 						goto block2
 					}
-				} else {
-					frame.Fail()
 					goto block2
 				}
-			} else {
+				frame.Fail()
 				goto block2
 			}
-		} else {
-			frame.Fail()
 			goto block2
 		}
-	} else {
+		frame.Fail()
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r0)
 	r31 = frame.Peek()
@@ -4427,57 +3883,42 @@ block2:
 															if frame.Flow == 0 {
 																r51 = [][]ASTExpr{r49}
 																goto block3
-															} else {
-																goto block5
 															}
-														} else {
 															goto block5
 														}
-													} else {
 														goto block5
 													}
-												} else {
-													frame.Fail()
 													goto block5
 												}
-											} else {
+												frame.Fail()
 												goto block5
 											}
-										} else {
-											frame.Fail()
 											goto block5
 										}
-									} else {
+										frame.Fail()
 										goto block5
 									}
-								} else {
-									frame.Fail()
 									goto block5
 								}
-							} else {
+								frame.Fail()
 								goto block5
 							}
-						} else {
-							frame.Fail()
 							goto block5
 						}
-					} else {
+						frame.Fail()
 						goto block5
 					}
-				} else {
-					frame.Fail()
 					goto block5
 				}
-			} else {
+				frame.Fail()
 				goto block5
 			}
-		} else {
-			frame.Fail()
 			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block3:
 	r52 = frame.Checkpoint()
 	S(frame)
@@ -4498,32 +3939,24 @@ block3:
 								if frame.Flow == 0 {
 									r51 = append(r51, r59)
 									goto block3
-								} else {
-									goto block4
 								}
-							} else {
 								goto block4
 							}
-						} else {
 							goto block4
 						}
-					} else {
-						frame.Fail()
 						goto block4
 					}
-				} else {
+					frame.Fail()
 					goto block4
 				}
-			} else {
-				frame.Fail()
 				goto block4
 			}
-		} else {
+			frame.Fail()
 			goto block4
 		}
-	} else {
 		goto block4
 	}
+	goto block4
 block4:
 	frame.Recover(r52)
 	ret0 = &Choice{Blocks: r51}
@@ -4570,71 +4003,52 @@ block5:
 																			if frame.Flow == 0 {
 																				ret0 = &Optional{Block: r86}
 																				goto block7
-																			} else {
-																				goto block6
 																			}
-																		} else {
 																			goto block6
 																		}
-																	} else {
 																		goto block6
 																	}
-																} else {
-																	frame.Fail()
 																	goto block6
 																}
-															} else {
+																frame.Fail()
 																goto block6
 															}
-														} else {
-															frame.Fail()
 															goto block6
 														}
-													} else {
+														frame.Fail()
 														goto block6
 													}
-												} else {
-													frame.Fail()
 													goto block6
 												}
-											} else {
+												frame.Fail()
 												goto block6
 											}
-										} else {
-											frame.Fail()
 											goto block6
 										}
-									} else {
+										frame.Fail()
 										goto block6
 									}
-								} else {
-									frame.Fail()
 									goto block6
 								}
-							} else {
+								frame.Fail()
 								goto block6
 							}
-						} else {
-							frame.Fail()
 							goto block6
 						}
-					} else {
+						frame.Fail()
 						goto block6
 					}
-				} else {
-					frame.Fail()
 					goto block6
 				}
-			} else {
+				frame.Fail()
 				goto block6
 			}
-		} else {
-			frame.Fail()
 			goto block6
 		}
-	} else {
+		frame.Fail()
 		goto block6
 	}
+	goto block6
 block6:
 	frame.Recover(r0)
 	r88 = frame.Peek()
@@ -4657,35 +4071,26 @@ block6:
 									if frame.Flow == 0 {
 										ret0 = &If{Expr: r94, Block: r95}
 										goto block7
-									} else {
-										goto block8
 									}
-								} else {
 									goto block8
 								}
-							} else {
 								goto block8
 							}
-						} else {
 							goto block8
 						}
-					} else {
 						goto block8
 					}
-				} else {
-					frame.Fail()
 					goto block8
 				}
-			} else {
+				frame.Fail()
 				goto block8
 			}
-		} else {
-			frame.Fail()
 			goto block8
 		}
-	} else {
+		frame.Fail()
 		goto block8
 	}
+	goto block8
 block7:
 	return
 block8:
@@ -4701,16 +4106,13 @@ func EOS(frame *runtime.State) {
 			if r0 == ';' {
 				frame.Consume()
 				return
-			} else {
-				frame.Fail()
-				goto block1
 			}
-		} else {
+			frame.Fail()
 			goto block1
 		}
-	} else {
 		goto block1
 	}
+	goto block1
 block1:
 	return
 }
@@ -4753,97 +4155,80 @@ func ParseStatement(frame *runtime.State) (ret0 ASTExpr) {
 	if frame.Flow == 0 {
 		ret0 = r1
 		goto block9
-	} else {
-		frame.Recover(r0)
-		r2 = frame.Peek()
-		if frame.Flow == 0 {
-			if r2 == 'v' {
-				frame.Consume()
-				r5 = frame.Peek()
-				if frame.Flow == 0 {
-					if r5 == 'a' {
-						frame.Consume()
-						r8 = frame.Peek()
-						if frame.Flow == 0 {
-							if r8 == 'r' {
-								frame.Consume()
-								EndKeyword(frame)
+	}
+	frame.Recover(r0)
+	r2 = frame.Peek()
+	if frame.Flow == 0 {
+		if r2 == 'v' {
+			frame.Consume()
+			r5 = frame.Peek()
+			if frame.Flow == 0 {
+				if r5 == 'a' {
+					frame.Consume()
+					r8 = frame.Peek()
+					if frame.Flow == 0 {
+						if r8 == 'r' {
+							frame.Consume()
+							EndKeyword(frame)
+							if frame.Flow == 0 {
+								S(frame)
 								if frame.Flow == 0 {
-									S(frame)
+									r11 = ParseNameRef(frame)
 									if frame.Flow == 0 {
-										r11 = ParseNameRef(frame)
+										S(frame)
 										if frame.Flow == 0 {
-											S(frame)
+											r12 = ParseTypeRef(frame)
 											if frame.Flow == 0 {
-												r12 = ParseTypeRef(frame)
+												r13 = nil
+												r14 = frame.Checkpoint()
+												S(frame)
 												if frame.Flow == 0 {
-													r13 = nil
-													r14 = frame.Checkpoint()
-													S(frame)
+													r15 = frame.Peek()
 													if frame.Flow == 0 {
-														r15 = frame.Peek()
-														if frame.Flow == 0 {
-															if r15 == '=' {
-																frame.Consume()
-																S(frame)
+														if r15 == '=' {
+															frame.Consume()
+															S(frame)
+															if frame.Flow == 0 {
+																r18 = ParseExpr(frame)
 																if frame.Flow == 0 {
-																	r18 = ParseExpr(frame)
-																	if frame.Flow == 0 {
-																		r19 = r18
-																		goto block2
-																	} else {
-																		goto block1
-																	}
-																} else {
-																	goto block1
+																	r19 = r18
+																	goto block2
 																}
-															} else {
-																frame.Fail()
 																goto block1
 															}
-														} else {
 															goto block1
 														}
-													} else {
+														frame.Fail()
 														goto block1
 													}
-												} else {
-													goto block3
+													goto block1
 												}
-											} else {
-												goto block3
+												goto block1
 											}
-										} else {
 											goto block3
 										}
-									} else {
 										goto block3
 									}
-								} else {
 									goto block3
 								}
-							} else {
-								frame.Fail()
 								goto block3
 							}
-						} else {
 							goto block3
 						}
-					} else {
 						frame.Fail()
 						goto block3
 					}
-				} else {
 					goto block3
 				}
-			} else {
 				frame.Fail()
 				goto block3
 			}
-		} else {
 			goto block3
 		}
+		frame.Fail()
+		goto block3
 	}
+	goto block3
 block1:
 	frame.Recover(r14)
 	r19 = r13
@@ -4853,9 +4238,8 @@ block2:
 	if frame.Flow == 0 {
 		ret0 = &Assign{Expr: r19, Targets: []ASTExpr{r11}, Type: r12, Define: true}
 		goto block9
-	} else {
-		goto block3
 	}
+	goto block3
 block3:
 	frame.Recover(r0)
 	r23 = frame.Peek()
@@ -4880,40 +4264,30 @@ block3:
 										if frame.Flow == 0 {
 											ret0 = &Fail{}
 											goto block9
-										} else {
-											goto block4
 										}
-									} else {
 										goto block4
 									}
-								} else {
-									frame.Fail()
 									goto block4
 								}
-							} else {
+								frame.Fail()
 								goto block4
 							}
-						} else {
-							frame.Fail()
 							goto block4
 						}
-					} else {
+						frame.Fail()
 						goto block4
 					}
-				} else {
-					frame.Fail()
 					goto block4
 				}
-			} else {
+				frame.Fail()
 				goto block4
 			}
-		} else {
-			frame.Fail()
 			goto block4
 		}
-	} else {
+		frame.Fail()
 		goto block4
 	}
+	goto block4
 block4:
 	frame.Recover(r0)
 	r36 = frame.Peek()
@@ -4950,60 +4324,44 @@ block4:
 																if frame.Flow == 0 {
 																	ret0 = &Return{Exprs: r54}
 																	goto block9
-																} else {
-																	goto block5
 																}
-															} else {
 																goto block5
 															}
-														} else {
 															goto block5
 														}
-													} else {
 														goto block5
 													}
-												} else {
-													frame.Fail()
 													goto block5
 												}
-											} else {
+												frame.Fail()
 												goto block5
 											}
-										} else {
-											frame.Fail()
 											goto block5
 										}
-									} else {
+										frame.Fail()
 										goto block5
 									}
-								} else {
-									frame.Fail()
 									goto block5
 								}
-							} else {
+								frame.Fail()
 								goto block5
 							}
-						} else {
-							frame.Fail()
 							goto block5
 						}
-					} else {
+						frame.Fail()
 						goto block5
 					}
-				} else {
-					frame.Fail()
 					goto block5
 				}
-			} else {
+				frame.Fail()
 				goto block5
 			}
-		} else {
-			frame.Fail()
 			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block5:
 	frame.Recover(r0)
 	r56 = ParseTargetList(frame)
@@ -5022,26 +4380,20 @@ block5:
 							frame.Consume()
 							r66 = true
 							goto block7
-						} else {
-							frame.Fail()
-							goto block6
 						}
-					} else {
+						frame.Fail()
 						goto block6
 					}
-				} else {
-					frame.Fail()
 					goto block6
 				}
-			} else {
+				frame.Fail()
 				goto block6
 			}
-		} else {
-			goto block8
+			goto block6
 		}
-	} else {
 		goto block8
 	}
+	goto block8
 block6:
 	frame.Recover(r58)
 	r67 = frame.Peek()
@@ -5050,13 +4402,11 @@ block6:
 			frame.Consume()
 			r66 = r57
 			goto block7
-		} else {
-			frame.Fail()
-			goto block8
 		}
-	} else {
+		frame.Fail()
 		goto block8
 	}
+	goto block8
 block7:
 	S(frame)
 	if frame.Flow == 0 {
@@ -5066,15 +4416,12 @@ block7:
 			if frame.Flow == 0 {
 				ret0 = &Assign{Expr: r70, Targets: r56, Define: r66}
 				goto block9
-			} else {
-				goto block8
 			}
-		} else {
 			goto block8
 		}
-	} else {
 		goto block8
 	}
+	goto block8
 block8:
 	frame.Recover(r0)
 	r72 = ParseExpr(frame)
@@ -5083,12 +4430,10 @@ block8:
 		if frame.Flow == 0 {
 			ret0 = r72
 			goto block9
-		} else {
-			goto block10
 		}
-	} else {
 		goto block10
 	}
+	goto block10
 block9:
 	return
 block10:
@@ -5111,16 +4456,13 @@ func ParseCodeBlock(frame *runtime.State) (ret0 []ASTExpr) {
 			if frame.Flow == 0 {
 				r4 = []ASTExpr{}
 				goto block1
-			} else {
-				goto block3
 			}
-		} else {
-			frame.Fail()
 			goto block3
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block1:
 	r5 = frame.Checkpoint()
 	r6 = ParseStatement(frame)
@@ -5130,14 +4472,12 @@ block1:
 		if frame.Flow == 0 {
 			r4 = r7
 			goto block1
-		} else {
-			r8 = r7
-			goto block2
 		}
-	} else {
-		r8 = r4
+		r8 = r7
 		goto block2
 	}
+	r8 = r4
+	goto block2
 block2:
 	frame.Recover(r5)
 	r9 = frame.Peek()
@@ -5146,13 +4486,11 @@ block2:
 			frame.Consume()
 			ret0 = r8
 			return
-		} else {
-			frame.Fail()
-			goto block3
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block3:
 	return
 }
@@ -5270,166 +4608,126 @@ func ParseStructDecl(frame *runtime.State) (ret0 *StructDecl) {
 																																								if frame.Flow == 0 {
 																																									r52 = r51
 																																									goto block2
-																																								} else {
-																																									r53 = r51
-																																									goto block1
 																																								}
-																																							} else {
-																																								r53 = r19
+																																								r53 = r51
 																																								goto block1
 																																							}
-																																						} else {
 																																							r53 = r19
 																																							goto block1
 																																						}
-																																					} else {
 																																						r53 = r19
 																																						goto block1
 																																					}
-																																				} else {
-																																					frame.Fail()
 																																					r53 = r19
 																																					goto block1
 																																				}
-																																			} else {
+																																				frame.Fail()
 																																				r53 = r19
 																																				goto block1
 																																			}
-																																		} else {
-																																			frame.Fail()
 																																			r53 = r19
 																																			goto block1
 																																		}
-																																	} else {
+																																		frame.Fail()
 																																		r53 = r19
 																																		goto block1
 																																	}
-																																} else {
-																																	frame.Fail()
 																																	r53 = r19
 																																	goto block1
 																																}
-																															} else {
+																																frame.Fail()
 																																r53 = r19
 																																goto block1
 																															}
-																														} else {
-																															frame.Fail()
 																															r53 = r19
 																															goto block1
 																														}
-																													} else {
+																														frame.Fail()
 																														r53 = r19
 																														goto block1
 																													}
-																												} else {
-																													frame.Fail()
 																													r53 = r19
 																													goto block1
 																												}
-																											} else {
+																												frame.Fail()
 																												r53 = r19
 																												goto block1
 																											}
-																										} else {
-																											frame.Fail()
 																											r53 = r19
 																											goto block1
 																										}
-																									} else {
+																										frame.Fail()
 																										r53 = r19
 																										goto block1
 																									}
-																								} else {
-																									frame.Fail()
 																									r53 = r19
 																									goto block1
 																								}
-																							} else {
+																								frame.Fail()
 																								r53 = r19
 																								goto block1
 																							}
-																						} else {
-																							frame.Fail()
 																							r53 = r19
 																							goto block1
 																						}
-																					} else {
+																						frame.Fail()
 																						r53 = r19
 																						goto block1
 																					}
-																				} else {
-																					frame.Fail()
 																					r53 = r19
 																					goto block1
 																				}
-																			} else {
+																				frame.Fail()
 																				r53 = r19
 																				goto block1
 																			}
-																		} else {
-																			frame.Fail()
 																			r53 = r19
 																			goto block1
 																		}
-																	} else {
+																		frame.Fail()
 																		r53 = r19
 																		goto block1
 																	}
-																} else {
-																	goto block5
+																	r53 = r19
+																	goto block1
 																}
-															} else {
 																goto block5
 															}
-														} else {
 															goto block5
 														}
-													} else {
 														goto block5
 													}
-												} else {
-													frame.Fail()
 													goto block5
 												}
-											} else {
+												frame.Fail()
 												goto block5
 											}
-										} else {
-											frame.Fail()
 											goto block5
 										}
-									} else {
+										frame.Fail()
 										goto block5
 									}
-								} else {
-									frame.Fail()
 									goto block5
 								}
-							} else {
+								frame.Fail()
 								goto block5
 							}
-						} else {
-							frame.Fail()
 							goto block5
 						}
-					} else {
+						frame.Fail()
 						goto block5
 					}
-				} else {
-					frame.Fail()
 					goto block5
 				}
-			} else {
+				frame.Fail()
 				goto block5
 			}
-		} else {
-			frame.Fail()
 			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block1:
 	frame.Recover(r20)
 	r52 = r53
@@ -5443,16 +4741,13 @@ block2:
 			if frame.Flow == 0 {
 				r58 = []*FieldDecl{}
 				goto block3
-			} else {
-				goto block5
 			}
-		} else {
-			frame.Fail()
 			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block3:
 	r59 = frame.Checkpoint()
 	r60 = Ident(frame)
@@ -5465,18 +4760,14 @@ block3:
 				if frame.Flow == 0 {
 					r58 = append(r58, &FieldDecl{Name: r60, Type: r61})
 					goto block3
-				} else {
-					goto block4
 				}
-			} else {
 				goto block4
 			}
-		} else {
 			goto block4
 		}
-	} else {
 		goto block4
 	}
+	goto block4
 block4:
 	frame.Recover(r59)
 	r64 = frame.Peek()
@@ -5485,13 +4776,11 @@ block4:
 			frame.Consume()
 			ret0 = &StructDecl{Name: r18, Implements: r52, Fields: r58}
 			return
-		} else {
-			frame.Fail()
-			goto block5
 		}
-	} else {
+		frame.Fail()
 		goto block5
 	}
+	goto block5
 block5:
 	return
 }
@@ -5507,15 +4796,12 @@ func ParseParam(frame *runtime.State) (ret0 *Param) {
 			if frame.Flow == 0 {
 				ret0 = &Param{Name: r0, Type: r1}
 				return
-			} else {
-				goto block1
 			}
-		} else {
 			goto block1
 		}
-	} else {
 		goto block1
 	}
+	goto block1
 block1:
 	return
 }
@@ -5535,11 +4821,10 @@ func ParseParamList(frame *runtime.State) (ret0 []*Param) {
 	if frame.Flow == 0 {
 		r4 = append(r0, r2)
 		goto block1
-	} else {
-		frame.Recover(r1)
-		r11 = r0
-		goto block3
 	}
+	frame.Recover(r1)
+	r11 = r0
+	goto block3
 block1:
 	r5 = frame.Checkpoint()
 	S(frame)
@@ -5554,22 +4839,17 @@ block1:
 					if frame.Flow == 0 {
 						r4 = append(r4, r9)
 						goto block1
-					} else {
-						goto block2
 					}
-				} else {
 					goto block2
 				}
-			} else {
-				frame.Fail()
 				goto block2
 			}
-		} else {
+			frame.Fail()
 			goto block2
 		}
-	} else {
 		goto block2
 	}
+	goto block2
 block2:
 	frame.Recover(r5)
 	r11 = r4
@@ -5638,81 +4918,58 @@ func ParseFuncDecl(frame *runtime.State) (ret0 *FuncDecl) {
 																							if frame.Flow == 0 {
 																								ret0 = &FuncDecl{Name: r12, Params: r16, ReturnTypes: r20, Block: r21}
 																								return
-																							} else {
-																								goto block1
 																							}
-																						} else {
 																							goto block1
 																						}
-																					} else {
 																						goto block1
 																					}
-																				} else {
 																					goto block1
 																				}
-																			} else {
-																				frame.Fail()
 																				goto block1
 																			}
-																		} else {
+																			frame.Fail()
 																			goto block1
 																		}
-																	} else {
 																		goto block1
 																	}
-																} else {
 																	goto block1
 																}
-															} else {
 																goto block1
 															}
-														} else {
-															frame.Fail()
 															goto block1
 														}
-													} else {
+														frame.Fail()
 														goto block1
 													}
-												} else {
 													goto block1
 												}
-											} else {
 												goto block1
 											}
-										} else {
 											goto block1
 										}
-									} else {
 										goto block1
 									}
-								} else {
-									frame.Fail()
 									goto block1
 								}
-							} else {
+								frame.Fail()
 								goto block1
 							}
-						} else {
-							frame.Fail()
 							goto block1
 						}
-					} else {
+						frame.Fail()
 						goto block1
 					}
-				} else {
-					frame.Fail()
 					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
-			frame.Fail()
 			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	return
 }
@@ -5760,48 +5017,36 @@ func ParseMatchState(frame *runtime.State) (ret0 string) {
 												if r18 == 'L' {
 													frame.Consume()
 													goto block2
-												} else {
-													frame.Fail()
-													goto block1
 												}
-											} else {
+												frame.Fail()
 												goto block1
 											}
-										} else {
-											frame.Fail()
 											goto block1
 										}
-									} else {
+										frame.Fail()
 										goto block1
 									}
-								} else {
-									frame.Fail()
 									goto block1
 								}
-							} else {
+								frame.Fail()
 								goto block1
 							}
-						} else {
-							frame.Fail()
 							goto block1
 						}
-					} else {
+						frame.Fail()
 						goto block1
 					}
-				} else {
-					frame.Fail()
 					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
-			frame.Fail()
 			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	frame.Recover(r2)
 	r21 = frame.Peek()
@@ -5821,43 +5066,34 @@ block1:
 								if r30 == 'L' {
 									frame.Consume()
 									goto block2
-								} else {
-									frame.Fail()
-									goto block3
 								}
-							} else {
+								frame.Fail()
 								goto block3
 							}
-						} else {
-							frame.Fail()
 							goto block3
 						}
-					} else {
+						frame.Fail()
 						goto block3
 					}
-				} else {
-					frame.Fail()
 					goto block3
 				}
-			} else {
+				frame.Fail()
 				goto block3
 			}
-		} else {
-			frame.Fail()
 			goto block3
 		}
-	} else {
+		frame.Fail()
 		goto block3
 	}
+	goto block3
 block2:
 	r33 = frame.Slice(r1)
 	EndKeyword(frame)
 	if frame.Flow == 0 {
 		ret0 = r33
 		goto block4
-	} else {
-		goto block3
 	}
+	goto block3
 block3:
 	frame.Recover(r0)
 	ret0 = "NORMAL"
@@ -5916,67 +5152,48 @@ func ParseTest(frame *runtime.State) (ret0 *Test) {
 																			if frame.Flow == 0 {
 																				ret0 = &Test{Name: r12, Rule: r13, Input: r14, Flow: r15, Destructure: r16}
 																				return
-																			} else {
-																				goto block1
 																			}
-																		} else {
 																			goto block1
 																		}
-																	} else {
 																		goto block1
 																	}
-																} else {
 																	goto block1
 																}
-															} else {
 																goto block1
 															}
-														} else {
 															goto block1
 														}
-													} else {
 														goto block1
 													}
-												} else {
 													goto block1
 												}
-											} else {
 												goto block1
 											}
-										} else {
 											goto block1
 										}
-									} else {
 										goto block1
 									}
-								} else {
-									frame.Fail()
 									goto block1
 								}
-							} else {
+								frame.Fail()
 								goto block1
 							}
-						} else {
-							frame.Fail()
 							goto block1
 						}
-					} else {
+						frame.Fail()
 						goto block1
 					}
-				} else {
-					frame.Fail()
 					goto block1
 				}
-			} else {
+				frame.Fail()
 				goto block1
 			}
-		} else {
-			frame.Fail()
 			goto block1
 		}
-	} else {
+		frame.Fail()
 		goto block1
 	}
+	goto block1
 block1:
 	return
 }
@@ -6002,9 +5219,8 @@ func ParseFile(frame *runtime.State) (ret0 *File) {
 	if frame.Flow == 0 {
 		r2, r3 = r0, r1
 		goto block1
-	} else {
-		goto block4
 	}
+	goto block4
 block1:
 	r4 = frame.Checkpoint()
 	r5 = frame.Checkpoint()
@@ -6012,33 +5228,29 @@ block1:
 	if frame.Flow == 0 {
 		r8, r9 = append(r2, r6), r3
 		goto block2
-	} else {
-		frame.Recover(r5)
-		r10 = ParseStructDecl(frame)
-		if frame.Flow == 0 {
-			r8, r9 = append(r2, r10), r3
-			goto block2
-		} else {
-			frame.Recover(r5)
-			r12 = ParseTest(frame)
-			if frame.Flow == 0 {
-				r8, r9 = r2, append(r3, r12)
-				goto block2
-			} else {
-				r14, r15 = r2, r3
-				goto block3
-			}
-		}
 	}
+	frame.Recover(r5)
+	r10 = ParseStructDecl(frame)
+	if frame.Flow == 0 {
+		r8, r9 = append(r2, r10), r3
+		goto block2
+	}
+	frame.Recover(r5)
+	r12 = ParseTest(frame)
+	if frame.Flow == 0 {
+		r8, r9 = r2, append(r3, r12)
+		goto block2
+	}
+	r14, r15 = r2, r3
+	goto block3
 block2:
 	S(frame)
 	if frame.Flow == 0 {
 		r2, r3 = r8, r9
 		goto block1
-	} else {
-		r14, r15 = r8, r9
-		goto block3
 	}
+	r14, r15 = r8, r9
+	goto block3
 block3:
 	frame.Recover(r4)
 	r16 = frame.LookaheadBegin()
@@ -6047,11 +5259,10 @@ block3:
 		frame.Consume()
 		frame.LookaheadFail(r16)
 		goto block4
-	} else {
-		frame.LookaheadNormal(r16)
-		ret0 = &File{Decls: r14, Tests: r15}
-		return
 	}
+	frame.LookaheadNormal(r16)
+	ret0 = &File{Decls: r14, Tests: r15}
+	return
 block4:
 	return
 }
