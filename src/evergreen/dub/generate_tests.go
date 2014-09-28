@@ -261,17 +261,23 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 		},
 	})
 
-	stmts = append(stmts, makeFatalTest(
-		checkNE(attr(id(state), "Index"), intLiteral(len(tst.Input))),
-		fmt.Sprintf("Only consumed %%d/%d (deepest %%d) runes", len(tst.Input)),
-		attr(id(state), "Index"),
-		attr(id(state), "Deepest"),
-	))
+	flowName := tst.Flow
 
+	// Runes consumed should only be checked if the call succeeds.
+	if flowName == "NORMAL" {
+		stmts = append(stmts, makeFatalTest(
+			checkNE(attr(id(state), "Index"), intLiteral(len(tst.Input))),
+			fmt.Sprintf("Only consumed %%d/%d (deepest %%d) runes", len(tst.Input)),
+			attr(id(state), "Index"),
+			attr(id(state), "Deepest"),
+		))
+	}
+
+	// Make sure the flow is what we expect.
 	stmts = append(stmts, makeFatalTest(
-		checkNE(attr(id(state), "Flow"), intLiteral(0)),
-		"Expected flow to be 0, but got %d",
-		attr(id(state), "Flow"),
+		checkNE(attr(id(state), "Flow"), attr(id("runtime"), flowName)),
+		"Expected flow to be %d, but got %d",
+		attr(id("runtime"), flowName), attr(id(state), "Flow"),
 	))
 
 	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, ctx, stmts)

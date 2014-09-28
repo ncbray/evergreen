@@ -390,6 +390,7 @@ type Test struct {
 	Rule        ASTExpr
 	Type        ASTType
 	Input       string
+	Flow        string
 	Destructure Destructure
 }
 
@@ -7086,6 +7087,197 @@ block1:
 	return
 }
 
+func ParseMatchState(frame *runtime.State) (ret0 string) {
+	var r0 int
+	var r1 int
+	var r2 int
+	var r3 rune
+	var r4 rune
+	var r5 bool
+	var r6 rune
+	var r7 rune
+	var r8 bool
+	var r9 rune
+	var r10 rune
+	var r11 bool
+	var r12 rune
+	var r13 rune
+	var r14 bool
+	var r15 rune
+	var r16 rune
+	var r17 bool
+	var r18 rune
+	var r19 rune
+	var r20 bool
+	var r21 rune
+	var r22 rune
+	var r23 bool
+	var r24 rune
+	var r25 rune
+	var r26 bool
+	var r27 rune
+	var r28 rune
+	var r29 bool
+	var r30 rune
+	var r31 rune
+	var r32 bool
+	var r33 string
+	var r34 string
+	r0 = frame.Checkpoint()
+	r1 = frame.Checkpoint()
+	r2 = frame.Checkpoint()
+	r3 = frame.Peek()
+	if frame.Flow == 0 {
+		r4 = 'N'
+		r5 = r3 == r4
+		if r5 {
+			frame.Consume()
+			r6 = frame.Peek()
+			if frame.Flow == 0 {
+				r7 = 'O'
+				r8 = r6 == r7
+				if r8 {
+					frame.Consume()
+					r9 = frame.Peek()
+					if frame.Flow == 0 {
+						r10 = 'R'
+						r11 = r9 == r10
+						if r11 {
+							frame.Consume()
+							r12 = frame.Peek()
+							if frame.Flow == 0 {
+								r13 = 'M'
+								r14 = r12 == r13
+								if r14 {
+									frame.Consume()
+									r15 = frame.Peek()
+									if frame.Flow == 0 {
+										r16 = 'A'
+										r17 = r15 == r16
+										if r17 {
+											frame.Consume()
+											r18 = frame.Peek()
+											if frame.Flow == 0 {
+												r19 = 'L'
+												r20 = r18 == r19
+												if r20 {
+													frame.Consume()
+													goto block2
+												} else {
+													frame.Fail()
+													goto block1
+												}
+											} else {
+												goto block1
+											}
+										} else {
+											frame.Fail()
+											goto block1
+										}
+									} else {
+										goto block1
+									}
+								} else {
+									frame.Fail()
+									goto block1
+								}
+							} else {
+								goto block1
+							}
+						} else {
+							frame.Fail()
+							goto block1
+						}
+					} else {
+						goto block1
+					}
+				} else {
+					frame.Fail()
+					goto block1
+				}
+			} else {
+				goto block1
+			}
+		} else {
+			frame.Fail()
+			goto block1
+		}
+	} else {
+		goto block1
+	}
+block1:
+	frame.Recover(r2)
+	r21 = frame.Peek()
+	if frame.Flow == 0 {
+		r22 = 'F'
+		r23 = r21 == r22
+		if r23 {
+			frame.Consume()
+			r24 = frame.Peek()
+			if frame.Flow == 0 {
+				r25 = 'A'
+				r26 = r24 == r25
+				if r26 {
+					frame.Consume()
+					r27 = frame.Peek()
+					if frame.Flow == 0 {
+						r28 = 'I'
+						r29 = r27 == r28
+						if r29 {
+							frame.Consume()
+							r30 = frame.Peek()
+							if frame.Flow == 0 {
+								r31 = 'L'
+								r32 = r30 == r31
+								if r32 {
+									frame.Consume()
+									goto block2
+								} else {
+									frame.Fail()
+									goto block3
+								}
+							} else {
+								goto block3
+							}
+						} else {
+							frame.Fail()
+							goto block3
+						}
+					} else {
+						goto block3
+					}
+				} else {
+					frame.Fail()
+					goto block3
+				}
+			} else {
+				goto block3
+			}
+		} else {
+			frame.Fail()
+			goto block3
+		}
+	} else {
+		goto block3
+	}
+block2:
+	r33 = frame.Slice(r1)
+	EndKeyword(frame)
+	if frame.Flow == 0 {
+		ret0 = r33
+		goto block4
+	} else {
+		goto block3
+	}
+block3:
+	frame.Recover(r0)
+	r34 = "NORMAL"
+	ret0 = r34
+	goto block4
+block4:
+	return
+}
+
 func ParseTest(frame *runtime.State) (ret0 *Test) {
 	var r0 rune
 	var r1 rune
@@ -7102,8 +7294,9 @@ func ParseTest(frame *runtime.State) (ret0 *Test) {
 	var r12 *Id
 	var r13 ASTExpr
 	var r14 string
-	var r15 Destructure
-	var r16 *Test
+	var r15 string
+	var r16 Destructure
+	var r17 *Test
 	r0 = frame.Peek()
 	if frame.Flow == 0 {
 		r1 = 't'
@@ -7144,11 +7337,21 @@ func ParseTest(frame *runtime.State) (ret0 *Test) {
 															if frame.Flow == 0 {
 																S(frame)
 																if frame.Flow == 0 {
-																	r15 = ParseDestructure(frame)
+																	r15 = ParseMatchState(frame)
 																	if frame.Flow == 0 {
-																		r16 = &Test{Name: r12, Rule: r13, Input: r14, Destructure: r15}
-																		ret0 = r16
-																		return
+																		S(frame)
+																		if frame.Flow == 0 {
+																			r16 = ParseDestructure(frame)
+																			if frame.Flow == 0 {
+																				r17 = &Test{Name: r12, Rule: r13, Input: r14, Flow: r15, Destructure: r16}
+																				ret0 = r17
+																				return
+																			} else {
+																				goto block1
+																			}
+																		} else {
+																			goto block1
+																		}
 																	} else {
 																		goto block1
 																	}

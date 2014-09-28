@@ -987,8 +987,9 @@ test PartKeyword ParseNameRef() "trueish"
     }
   }
 
-//test RejectKeyword ParseNameRef() "true"
-//  nil
+test RejectKeyword ParseNameRef() "true"
+  FAIL
+  nil
 
 // Uses precedence climbing.
 func ParseBinaryOp(min_prec int) ASTExpr {
@@ -1418,7 +1419,18 @@ struct Test {
   Rule ASTExpr
   Type ASTType
   Input string
+  Flow string // TODO enum
   Destructure Destructure
+}
+
+func ParseMatchState() string {
+  choose {
+    text := /"NORMAL"|"FAIL"/;
+    EndKeyword();
+    return text;
+  } or {
+    return "NORMAL";
+  }
 }
 
 func ParseTest() Test {
@@ -1431,8 +1443,10 @@ func ParseTest() Test {
   S();
   input := DecodeString();
   S();
+  flow := ParseMatchState();
+  S();
   d := ParseDestructure();
-  return Test{Name: name, Rule: rule, Input: input, Destructure: d};
+  return Test{Name: name, Rule: rule, Input: input, Flow: flow, Destructure: d};
 }
 
 struct File {
