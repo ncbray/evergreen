@@ -169,11 +169,17 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 			nameifyType(field.Type, info)
 		}
 	case *FuncDecl:
+		CompactFunc(decl)
+		for _, lcl := range decl.Locals {
+			nameifyType(lcl.T, info)
+		}
+
 		if decl.Recv != nil {
 			nameifyType(decl.Recv.Type, info)
 		}
 		nameifyType(decl.Type, info)
 		nameifyBody(decl.Body, info)
+		InsertVarDecls(decl)
 	default:
 		panic(decl)
 	}

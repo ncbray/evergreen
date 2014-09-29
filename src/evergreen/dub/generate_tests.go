@@ -14,7 +14,10 @@ type TestingContext struct {
 }
 
 func id(name string) dst.Expr {
-	return &dst.NameRef{Text: name}
+	return &dst.NameRef{
+		Text: name,
+		Info: -1, // HACK
+	}
 }
 
 func attr(expr dst.Expr, name string) dst.Expr {
@@ -48,7 +51,10 @@ func makeFatalTest(cond dst.Expr, f string, args ...dst.Expr) dst.Stmt {
 		Cond: cond,
 		Body: []dst.Stmt{
 			&dst.Call{
-				Expr: attr(&dst.NameRef{Text: "t"}, "Fatalf"),
+				Expr: attr(&dst.NameRef{
+					Text: "t",
+					Info: -1, // HACK
+				}, "Fatalf"),
 				Args: wrapped,
 			},
 		},

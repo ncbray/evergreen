@@ -29,6 +29,7 @@ func (node *SliceType) isType() {
 type Param struct {
 	Name string
 	Type Type
+	Info int
 }
 
 type FuncType struct {
@@ -123,8 +124,14 @@ func (node *ListLiteral) isStmt() {
 func (node *ListLiteral) isExpr() {
 }
 
+type LocalInfo struct {
+	Name string
+	T    Type
+}
+
 type NameRef struct {
 	Text string
+	Info int
 }
 
 func (node *NameRef) isStmt() {
@@ -224,6 +231,7 @@ type Var struct {
 	Name string
 	Type Type
 	Expr Expr
+	Info int
 }
 
 func (node *Var) isStmt() {
@@ -276,6 +284,7 @@ type FuncDecl struct {
 	Type    *FuncType
 	Body    []Stmt
 	Package *Package
+	Locals  []*LocalInfo
 }
 
 func (node *FuncDecl) isDecl() {

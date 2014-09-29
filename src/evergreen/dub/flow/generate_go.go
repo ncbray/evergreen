@@ -58,10 +58,30 @@ func MakeLinker() DubToGoLinker {
 	}
 }
 
+type regionInfo struct {
+	decl   *LLFunc
+	labels map[base.NodeID]int
+}
+
+func (info *regionInfo) FrameVar() ast.Expr {
+	return id("frame")
+}
+
+func (info *regionInfo) FrameAttr(name string) ast.Expr {
+	return attr(info.FrameVar(), name)
+}
+
+func (info *regionInfo) Reg(r DubRegister) ast.Expr {
+	return &ast.NameRef{
+		Text: RegisterName(r),
+		Info: int(r),
+	}
+}
+
 // Begin AST construction wrappers
 
 func id(name string) ast.Expr {
-	return &ast.NameRef{Text: name}
+	return &ast.NameRef{Text: name, Info: -1}
 }
 
 func attr(expr ast.Expr, name string) ast.Expr {
@@ -92,12 +112,12 @@ func blockName(i int) string {
 	return fmt.Sprintf("block%d", i)
 }
 
-func builtinStmt(name string, args ...ast.Expr) ast.Stmt {
-	return &ast.Call{Expr: attr(id("frame"), name), Args: args}
+func builtinStmt(info *regionInfo, name string, args ...ast.Expr) ast.Stmt {
+	return &ast.Call{Expr: info.FrameAttr(name), Args: args}
 }
 
-func builtinExpr(name string, args ...ast.Expr) ast.Expr {
-	return &ast.Call{Expr: attr(id("frame"), name), Args: args}
+func builtinExpr(info *regionInfo, name string, args ...ast.Expr) ast.Expr {
+	return &ast.Call{Expr: info.FrameAttr(name), Args: args}
 }
 
 func constInt(v int64) ast.Expr {
@@ -105,18 +125,14 @@ func constInt(v int64) ast.Expr {
 	return intLiteral(int(v))
 }
 
-func reg(r DubRegister) ast.Expr {
-	return id(RegisterName(r))
-}
-
 func returnVarName(i int) string {
 	return fmt.Sprintf("ret%d", i)
 }
 
-func opAssign(expr ast.Expr, dst DubRegister) ast.Stmt {
+func opAssign(info *regionInfo, expr ast.Expr, dst DubRegister) ast.Stmt {
 	if dst != NoRegister {
 		return &ast.Assign{
-			Targets: []ast.Expr{reg(dst)},
+			Targets: []ast.Expr{info.Reg(dst)},
 			Op:      "=",
 			Sources: []ast.Expr{expr},
 		}
@@ -126,12 +142,12 @@ func opAssign(expr ast.Expr, dst DubRegister) ast.Stmt {
 	}
 }
 
-func opMultiAssign(expr ast.Expr, dsts []DubRegister) ast.Stmt {
+func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []DubRegister) ast.Stmt {
 	if len(dsts) != 0 {
 		lhs := make([]ast.Expr, len(dsts))
 		for i, dst := range dsts {
 			if dst != NoRegister {
-				lhs[i] = reg(dst)
+				lhs[i] = info.Reg(dst)
 			} else {
 				lhs[i] = id("_")
 			}
@@ -182,7 +198,7 @@ func goStructType(t *LLStruct, ctx *DubToGoContext) *ast.TypeRef {
 	return out
 }
 
-func GenerateOp(f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []ast.Stmt {
+func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []ast.Stmt {
 	if IsNop(op) {
 		return block
 	}
@@ -191,10 +207,11 @@ func GenerateOp(f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []as
 	case *BinaryOp:
 		// TODO validate Op?
 		block = append(block, opAssign(
+			info,
 			&ast.BinaryExpr{
-				Left:  reg(op.Left),
+				Left:  info.Reg(op.Left),
 				Op:    op.Op,
-				Right: reg(op.Right),
+				Right: info.Reg(op.Right),
 			},
 			op.Dst,
 		))
@@ -203,9 +220,10 @@ func GenerateOp(f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []as
 			id("frame"),
 		}
 		for _, arg := range op.Args {
-			args = append(args, reg(arg))
+			args = append(args, info.Reg(arg))
 		}
 		block = append(block, opMultiAssign(
+			info,
 			&ast.Call{
 				Expr: id(op.Name),
 				Args: args,
@@ -217,10 +235,11 @@ func GenerateOp(f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []as
 		for i, arg := range op.Args {
 			elts[i] = &ast.KeywordExpr{
 				Name: arg.Key,
-				Expr: reg(arg.Value),
+				Expr: info.Reg(arg.Value),
 			}
 		}
 		block = append(block, opAssign(
+			info,
 			&ast.UnaryExpr{
 				Op: "&",
 				Expr: &ast.StructLiteral{
@@ -233,9 +252,10 @@ func GenerateOp(f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []as
 	case *ConstructListOp:
 		elts := make([]ast.Expr, len(op.Args))
 		for i, arg := range op.Args {
-			elts[i] = reg(arg)
+			elts[i] = info.Reg(arg)
 		}
 		block = append(block, opAssign(
+			info,
 			&ast.ListLiteral{
 				// TODO unhack
 				Type: goTypeName(op.Type, ctx).(*ast.SliceType),
@@ -245,54 +265,62 @@ func GenerateOp(f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []as
 		))
 	case *CoerceOp:
 		block = append(block, opAssign(
+			info,
 			&ast.TypeCoerce{
 				Type: goTypeName(op.T, ctx),
-				Expr: reg(op.Src),
+				Expr: info.Reg(op.Src),
 			},
 			op.Dst,
 		))
 	case *ConstantNilOp:
 		block = append(block, opAssign(
+			info,
 			&ast.NilLiteral{},
 			op.Dst,
 		))
 	case *ConstantBoolOp:
 		block = append(block, opAssign(
+			info,
 			&ast.BoolLiteral{Value: op.Value},
 			op.Dst,
 		))
 	case *ConstantIntOp:
 		block = append(block, opAssign(
+			info,
 			// TODO unhack
 			&ast.IntLiteral{Value: int(op.Value)},
 			op.Dst,
 		))
 	case *ConstantRuneOp:
 		block = append(block, opAssign(
+			info,
 			&ast.RuneLiteral{Value: op.Value},
 			op.Dst,
 		))
 	case *ConstantStringOp:
 		block = append(block, opAssign(
+			info,
 			&ast.StringLiteral{Value: op.Value},
 			op.Dst,
 		))
 	case *Peek:
 		block = append(block, opAssign(
-			builtinExpr("Peek"),
+			info,
+			builtinExpr(info, "Peek"),
 			op.Dst,
 		))
 	case *Consume:
 		block = append(block,
-			builtinStmt("Consume"),
+			builtinStmt(info, "Consume"),
 		)
 	case *AppendOp:
 		block = append(block, opAssign(
+			info,
 			&ast.Call{
 				Expr: id("append"),
 				Args: []ast.Expr{
-					reg(op.List),
-					reg(op.Value),
+					info.Reg(op.List),
+					info.Reg(op.Value),
 				},
 			},
 			op.Dst,
@@ -305,48 +333,52 @@ func GenerateOp(f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []as
 			block = append(block, &ast.Assign{
 				Targets: []ast.Expr{id(returnVarName(i))},
 				Op:      "=",
-				Sources: []ast.Expr{reg(e)},
+				Sources: []ast.Expr{info.Reg(e)},
 			})
 		}
 	case *Fail:
-		block = append(block, builtinStmt("Fail"))
+		block = append(block, builtinStmt(info, "Fail"))
 	case *Checkpoint:
 		block = append(block, opAssign(
-			builtinExpr("Checkpoint"),
+			info,
+			builtinExpr(info, "Checkpoint"),
 			op.Dst,
 		))
 	case *Recover:
-		block = append(block, builtinStmt("Recover", reg(op.Src)))
+		block = append(block, builtinStmt(info, "Recover", info.Reg(op.Src)))
 	case *LookaheadBegin:
 		block = append(block, opAssign(
-			builtinExpr("LookaheadBegin"),
+			info,
+			builtinExpr(info, "LookaheadBegin"),
 			op.Dst,
 		))
 	case *LookaheadEnd:
 		if op.Failed {
-			block = append(block, builtinStmt("LookaheadFail", reg(op.Src)))
+			block = append(block, builtinStmt(info, "LookaheadFail", info.Reg(op.Src)))
 		} else {
-			block = append(block, builtinStmt("LookaheadNormal", reg(op.Src)))
+			block = append(block, builtinStmt(info, "LookaheadNormal", info.Reg(op.Src)))
 		}
 	case *Slice:
 		block = append(block, opAssign(
-			builtinExpr("Slice", reg(op.Src)),
+			info,
+			builtinExpr(info, "Slice", info.Reg(op.Src)),
 			op.Dst,
 		))
 	case *CopyOp:
 		block = append(block, opAssign(
-			reg(op.Src),
+			info,
+			info.Reg(op.Src),
 			op.Dst,
 		))
 
 	case *TransferOp:
 		lhs := make([]ast.Expr, len(op.Dsts))
 		for i, dst := range op.Dsts {
-			lhs[i] = reg(dst)
+			lhs[i] = info.Reg(dst)
 		}
 		rhs := make([]ast.Expr, len(op.Srcs))
 		for i, src := range op.Srcs {
-			rhs[i] = reg(src)
+			rhs[i] = info.Reg(src)
 		}
 		block = append(block, &ast.Assign{
 			Targets: lhs,
@@ -369,19 +401,14 @@ func generateNode(info *regionInfo, node base.NodeID, ctx *DubToGoContext, block
 		block = append(block, &ast.Return{})
 	case *ExitOp:
 	case *SwitchOp:
-		block = emitSwitch(info, reg(data.Cond), g.GetExit(node, 0), g.GetExit(node, 1), ctx, block)
+		block = emitSwitch(info, info.Reg(data.Cond), g.GetExit(node, 0), g.GetExit(node, 1), ctx, block)
 	case DubOp:
-		block = GenerateOp(info.decl, data, ctx, block)
+		block = GenerateOp(info, info.decl, data, ctx, block)
 		block = generateFlowSwitch(info, node, ctx, block)
 	default:
 		panic(data)
 	}
 	return block
-}
-
-type regionInfo struct {
-	decl   *LLFunc
-	labels map[base.NodeID]int
 }
 
 func gotoNode(info *regionInfo, n base.NodeID, ctx *DubToGoContext, block []ast.Stmt) []ast.Stmt {
@@ -426,7 +453,7 @@ func generateFlowSwitch(info *regionInfo, node base.NodeID, ctx *DubToGoContext,
 
 	if numExits == 2 {
 		cond := &ast.BinaryExpr{
-			Left:  attr(id("frame"), "Flow"),
+			Left:  info.FrameAttr("Flow"),
 			Op:    "==",
 			Right: constInt(0),
 		}
@@ -440,13 +467,17 @@ func generateFlowSwitch(info *regionInfo, node base.NodeID, ctx *DubToGoContext,
 	}
 }
 
-func IsParam(f *LLFunc, r DubRegister) bool {
-	for _, p := range f.Params {
+func ParamIndex(f *LLFunc, r DubRegister) int {
+	for i, p := range f.Params {
 		if p == r {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
+}
+
+func IsParam(f *LLFunc, r DubRegister) bool {
+	return ParamIndex(f, r) != -1
 }
 
 func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
@@ -468,20 +499,15 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 	}
 	info := &regionInfo{decl: f, labels: labels}
 
-	stmts := []ast.Stmt{}
-
-	// Declare the variables.
-	// It is easier to do this up front than calculate where they need to be defined.
+	locals := []*ast.LocalInfo{}
 	for i, info := range f.Registers {
-		r := DubRegister(i)
-		if IsParam(f, r) {
-			continue
-		}
-		stmts = append(stmts, &ast.Var{
-			Name: RegisterName(r),
-			Type: goTypeName(info.T, ctx),
+		locals = append(locals, &ast.LocalInfo{
+			Name: RegisterName(DubRegister(i)),
+			T:    goTypeName(info.T, ctx),
 		})
 	}
+
+	stmts := []ast.Stmt{}
 
 	// Generate Go code from flow blocks
 	for _, node := range heads {
@@ -510,13 +536,18 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 		&ast.Param{
 			Name: "frame",
 			Type: &ast.PointerType{Element: ref},
+			Info: -1, // HACK
 		},
 	}
 
 	for _, p := range f.Params {
+		if len(f.Params) > len(locals) {
+			panic(f)
+		}
 		params = append(params, &ast.Param{
 			Name: RegisterName(p),
 			Type: goTypeName(f.Registers[p].T, ctx),
+			Info: int(p),
 		})
 	}
 
@@ -526,7 +557,8 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 			Params:  params,
 			Results: results,
 		},
-		Body: stmts,
+		Body:   stmts,
+		Locals: locals,
 	}
 
 	return funcDecl
@@ -544,6 +576,7 @@ func addTags(base *LLStruct, parent *LLStruct, ctx *DubToGoContext, decls []ast.
 			Recv: &ast.Param{
 				Name: "node",
 				Type: goTypeName(base, ctx),
+				Info: -1, // HACK
 			},
 			Type: &ast.FuncType{},
 			Body: []ast.Stmt{},

@@ -17,6 +17,7 @@ struct SliceType implements Type {
 struct Param {
   Name string
   Type Type
+  Info int
 }
 
 struct FuncType implements Type {
@@ -64,9 +65,14 @@ struct ListLiteral implements Expr {
   Args []Expr
 }
 
+struct LocalInfo {
+  Name string
+  T Type
+}
 
 struct NameRef implements Expr {
   Text string
+  Info int
 }
 
 struct UnaryExpr implements Expr {
@@ -116,6 +122,7 @@ struct Var implements Stmt {
   Name string
   Type Type
   Expr Expr
+  Info int
 }
 
 struct BlockStmt implements Stmt {
@@ -149,6 +156,7 @@ struct FuncDecl implements Decl {
   Type FuncType
   Body []Stmt
   Package Package
+  Locals []LocalInfo
 }
 
 struct Field {
