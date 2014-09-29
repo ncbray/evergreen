@@ -2,7 +2,6 @@ package tree
 
 import (
 	"evergreen/base"
-	"fmt"
 	"testing"
 )
 
@@ -111,7 +110,6 @@ func TestBinaryExprRetreeSwap(t *testing.T) {
 
 func TestFuncRetree(t *testing.T) {
 	decl := functionExample()
-	fmt.Println(decl)
 	retreeDecl(decl)
 
 	b, w := base.BufferedCodeWriter()

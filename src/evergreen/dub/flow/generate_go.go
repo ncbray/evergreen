@@ -59,28 +59,55 @@ func MakeLinker() DubToGoLinker {
 }
 
 type regionInfo struct {
-	decl   *LLFunc
-	labels map[base.NodeID]int
+	decl       *LLFunc
+	funcDecl   *ast.FuncDecl
+	labels     map[base.NodeID]int
+	frameInfo  int
+	dubToGo    []int
+	returnInfo []int
 }
 
 func (info *regionInfo) FrameVar() ast.Expr {
-	return id("frame")
+	return info.MakeNameRef(info.frameInfo)
 }
 
 func (info *regionInfo) FrameAttr(name string) ast.Expr {
 	return attr(info.FrameVar(), name)
 }
 
+func (info *regionInfo) GetLocalInfo(r DubRegister) int {
+	return info.dubToGo[int(r)]
+}
+
+func (info *regionInfo) MakeParam(idx int) *ast.Param {
+	return info.funcDecl.MakeParam(idx)
+}
+
+func (info *regionInfo) MakeNameRef(idx int) ast.Expr {
+	return info.funcDecl.MakeNameRef(idx)
+}
+
+func (info *regionInfo) MakeReturnRef(ret int) ast.Expr {
+	return info.MakeNameRef(info.returnInfo[ret])
+}
+
 func (info *regionInfo) Reg(r DubRegister) ast.Expr {
-	return &ast.NameRef{
-		Text: RegisterName(r),
-		Info: int(r),
-	}
+	idx := info.GetLocalInfo(r)
+	return info.MakeNameRef(idx)
+}
+
+func (info *regionInfo) Param(r DubRegister) *ast.Param {
+	idx := info.GetLocalInfo(r)
+	return info.MakeParam(idx)
 }
 
 // Begin AST construction wrappers
 
-func id(name string) ast.Expr {
+func discard() ast.Expr {
+	return &ast.NameRef{Text: "_", Info: -1}
+}
+
+func globalRef(name string) ast.Expr {
 	return &ast.NameRef{Text: name, Info: -1}
 }
 
@@ -149,7 +176,7 @@ func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []DubRegister) ast.Stmt
 			if dst != NoRegister {
 				lhs[i] = info.Reg(dst)
 			} else {
-				lhs[i] = id("_")
+				lhs[i] = discard()
 			}
 		}
 		return &ast.Assign{
@@ -217,7 +244,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 		))
 	case *CallOp:
 		args := []ast.Expr{
-			id("frame"),
+			info.FrameVar(),
 		}
 		for _, arg := range op.Args {
 			args = append(args, info.Reg(arg))
@@ -225,7 +252,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 		block = append(block, opMultiAssign(
 			info,
 			&ast.Call{
-				Expr: id(op.Name),
+				Expr: globalRef(op.Name),
 				Args: args,
 			},
 			op.Dsts,
@@ -317,7 +344,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 		block = append(block, opAssign(
 			info,
 			&ast.Call{
-				Expr: id("append"),
+				Expr: globalRef("append"),
 				Args: []ast.Expr{
 					info.Reg(op.List),
 					info.Reg(op.Value),
@@ -331,7 +358,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 		}
 		for i, e := range op.Exprs {
 			block = append(block, &ast.Assign{
-				Targets: []ast.Expr{id(returnVarName(i))},
+				Targets: []ast.Expr{info.MakeReturnRef(i)},
 				Op:      "=",
 				Sources: []ast.Expr{info.Reg(e)},
 			})
@@ -497,19 +524,52 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 			uid = uid + 1
 		}
 	}
-	info := &regionInfo{decl: f, labels: labels}
 
-	locals := []*ast.LocalInfo{}
-	for i, info := range f.Registers {
-		locals = append(locals, &ast.LocalInfo{
-			Name: RegisterName(DubRegister(i)),
-			T:    goTypeName(info.T, ctx),
-		})
+	funcDecl := &ast.FuncDecl{
+		Name: f.Name,
 	}
 
-	stmts := []ast.Stmt{}
+	// Make local infos
+	frameType := &ast.PointerType{Element: &ast.TypeRef{Impl: ctx.state}}
+
+	frameInfo := funcDecl.CreateLocalInfo("frame", frameType)
+
+	dubToGo := make([]int, len(f.Registers))
+	for i, info := range f.Registers {
+		dubToGo[i] = funcDecl.CreateLocalInfo(
+			RegisterName(DubRegister(i)),
+			goTypeName(info.T, ctx),
+		)
+	}
+
+	info := &regionInfo{
+		decl:      f,
+		funcDecl:  funcDecl,
+		labels:    labels,
+		frameInfo: frameInfo,
+		dubToGo:   dubToGo,
+	}
+
+	// Map function parameters
+	params := []*ast.Param{
+		info.MakeParam(frameInfo),
+	}
+	for _, p := range f.Params {
+		params = append(params, info.Param(p))
+	}
+
+	// Map function results
+	resultInfo := make([]int, len(f.ReturnTypes))
+	results := []*ast.Param{}
+	for i, t := range f.ReturnTypes {
+		idx := funcDecl.CreateLocalInfo(returnVarName(i), goTypeName(t, ctx))
+		resultInfo[i] = idx
+		results = append(results, info.MakeParam(idx))
+	}
+	info.returnInfo = resultInfo
 
 	// Generate Go code from flow blocks
+	stmts := []ast.Stmt{}
 	for _, node := range heads {
 		block := []ast.Stmt{}
 		label, _ := info.labels[node]
@@ -522,44 +582,11 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 		stmts = append(stmts, block...)
 	}
 
-	results := []*ast.Param{}
-	for i, t := range f.ReturnTypes {
-		results = append(results, &ast.Param{
-			Name: returnVarName(i),
-			Type: goTypeName(t, ctx),
-		})
+	funcDecl.Type = &ast.FuncType{
+		Params:  params,
+		Results: results,
 	}
-
-	ref := &ast.TypeRef{Impl: ctx.state}
-
-	params := []*ast.Param{
-		&ast.Param{
-			Name: "frame",
-			Type: &ast.PointerType{Element: ref},
-			Info: -1, // HACK
-		},
-	}
-
-	for _, p := range f.Params {
-		if len(f.Params) > len(locals) {
-			panic(f)
-		}
-		params = append(params, &ast.Param{
-			Name: RegisterName(p),
-			Type: goTypeName(f.Registers[p].T, ctx),
-			Info: int(p),
-		})
-	}
-
-	funcDecl := &ast.FuncDecl{
-		Name: f.Name,
-		Type: &ast.FuncType{
-			Params:  params,
-			Results: results,
-		},
-		Body:   stmts,
-		Locals: locals,
-	}
+	funcDecl.Body = stmts
 
 	return funcDecl
 }
@@ -571,16 +598,14 @@ func tagName(s *LLStruct) string {
 func addTags(base *LLStruct, parent *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
 	if parent != nil {
 		decls = addTags(base, parent.Implements, ctx, decls)
-		decls = append(decls, &ast.FuncDecl{
+		decl := &ast.FuncDecl{
 			Name: tagName(parent),
-			Recv: &ast.Param{
-				Name: "node",
-				Type: goTypeName(base, ctx),
-				Info: -1, // HACK
-			},
 			Type: &ast.FuncType{},
 			Body: []ast.Stmt{},
-		})
+		}
+		recv := decl.CreateLocalInfo("node", goTypeName(base, ctx))
+		decl.Recv = decl.MakeParam(recv)
+		decls = append(decls, decl)
 	}
 	return decls
 }

@@ -105,6 +105,24 @@ func sweepBlock(stmts []Stmt, rewriter refRewriter) {
 	}
 }
 
+func sweepParam(param *Param, rewriter refRewriter) {
+	param.Info = rewriter.rewriteLocalInfo(param.Info)
+}
+
+func sweepFunc(decl *FuncDecl, rewriter refRewriter) {
+	// TODO self
+	if decl.Recv != nil {
+		sweepParam(decl.Recv, rewriter)
+	}
+	for _, p := range decl.Type.Params {
+		sweepParam(p, rewriter)
+	}
+	for _, p := range decl.Type.Results {
+		sweepParam(p, rewriter)
+	}
+	sweepBlock(decl.Body, rewriter)
+}
+
 func MakeRemap(live []bool) ([]int, int) {
 	remap := make([]int, len(live))
 	count := 0
@@ -123,10 +141,10 @@ func MakeRemap(live []bool) ([]int, int) {
 
 func CompactFunc(decl *FuncDecl) {
 	sweep := &funcGC{live: make([]bool, len(decl.Locals))}
-	sweepBlock(decl.Body, sweep)
+	sweepFunc(decl, sweep)
 
 	remap, count := MakeRemap(sweep.live)
-	sweepBlock(decl.Body, &funcRemap{remap: remap})
+	sweepFunc(decl, &funcRemap{remap: remap})
 
 	locals := make([]*LocalInfo, count)
 	for i, info := range decl.Locals {
@@ -148,6 +166,11 @@ func isParam(decl *FuncDecl, ref int) bool {
 		}
 	}
 	for _, p := range decl.Type.Params {
+		if p.Info == ref {
+			return true
+		}
+	}
+	for _, p := range decl.Type.Results {
 		if p.Info == ref {
 			return true
 		}
@@ -174,4 +197,34 @@ func InsertVarDecls(decl *FuncDecl) {
 	}
 
 	decl.Body = append(stmts, decl.Body...)
+}
+
+func (decl *FuncDecl) CreateLocalInfo(name string, T Type) int {
+	idx := len(decl.Locals)
+	decl.Locals = append(decl.Locals, &LocalInfo{
+		Name: name,
+		T:    T,
+	})
+	return idx
+}
+
+func (decl *FuncDecl) GetLocalInfo(idx int) *LocalInfo {
+	return decl.Locals[idx]
+}
+
+func (decl *FuncDecl) MakeParam(idx int) *Param {
+	localInfo := decl.GetLocalInfo(idx)
+	return &Param{
+		Name: localInfo.Name,
+		Type: localInfo.T,
+		Info: idx,
+	}
+}
+
+func (decl *FuncDecl) MakeNameRef(idx int) Expr {
+	localInfo := decl.GetLocalInfo(idx)
+	return &NameRef{
+		Text: localInfo.Name,
+		Info: idx,
+	}
 }

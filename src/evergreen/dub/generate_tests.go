@@ -11,6 +11,8 @@ type TestingContext struct {
 	gbuilder *GlobalDubBuilder
 	link     flow.DubToGoLinker
 	t        *dst.StructDecl
+	funcDecl *dst.FuncDecl
+	tInfo    int
 }
 
 func id(name string) dst.Expr {
@@ -44,17 +46,14 @@ func nilLiteral() dst.Expr {
 	return &dst.NilLiteral{}
 }
 
-func makeFatalTest(cond dst.Expr, f string, args ...dst.Expr) dst.Stmt {
+func (ctx *TestingContext) makeFatalTest(cond dst.Expr, f string, args ...dst.Expr) dst.Stmt {
 	wrapped := []dst.Expr{strLiteral(f)}
 	wrapped = append(wrapped, args...)
 	return &dst.If{
 		Cond: cond,
 		Body: []dst.Stmt{
 			&dst.Call{
-				Expr: attr(&dst.NameRef{
-					Text: "t",
-					Info: -1, // HACK
-				}, "Fatalf"),
+				Expr: attr(ctx.funcDecl.MakeNameRef(ctx.tInfo), "Fatalf"),
 				Args: wrapped,
 			},
 		},
@@ -123,14 +122,14 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 					},
 				},
 			})
-			stmts = append(stmts, makeFatalTest(
+			stmts = append(stmts, ctx.makeFatalTest(
 				&dst.UnaryExpr{Op: "!", Expr: id("ok")},
 				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, dt.Name.Text),
 				id(name),
 			))
 		}
 		cond := checkEQ(id(actual_name), id("nil"))
-		stmts = append(stmts, makeFatalTest(cond, fmt.Sprintf("%s: nil", path)))
+		stmts = append(stmts, ctx.makeFatalTest(cond, fmt.Sprintf("%s: nil", path)))
 
 		for _, arg := range d.Args {
 			fn := arg.Name.Text
@@ -158,7 +157,7 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 			stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
 		}
 	case *tree.DestructureList:
-		stmts = append(stmts, makeFatalTest(
+		stmts = append(stmts, ctx.makeFatalTest(
 			checkNE(makeLen(id(name)), intLiteral(len(d.Args))),
 			fmt.Sprintf("%s: expected length %d but got %%d", path, len(d.Args)),
 			makeLen(id(name)),
@@ -190,15 +189,15 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 	case *tree.DestructureValue:
 		switch expr := d.Expr.(type) {
 		case *tree.StringLiteral:
-			stmts = append(stmts, makeFatalTest(checkNE(id(name), strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), id(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(id(name), strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), id(name)))
 		case *tree.RuneLiteral:
-			stmts = append(stmts, makeFatalTest(checkNE(id(name), runeLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(expr.Value), id(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(id(name), runeLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(expr.Value), id(name)))
 		case *tree.IntLiteral:
-			stmts = append(stmts, makeFatalTest(checkNE(id(name), intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), id(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(id(name), intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), id(name)))
 		case *tree.BoolLiteral:
-			stmts = append(stmts, makeFatalTest(checkNE(id(name), boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), id(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(id(name), boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), id(name)))
 		case *tree.NilLiteral:
-			stmts = append(stmts, makeFatalTest(checkNE(id(name), nilLiteral()), fmt.Sprintf("%s: expected nil but got %%#v", path), id(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(id(name), nilLiteral()), fmt.Sprintf("%s: expected nil but got %%#v", path), id(name)))
 		default:
 			panic(expr)
 		}
@@ -237,6 +236,15 @@ func generateExpr(state string, expr tree.ASTExpr) dst.Expr {
 }
 
 func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
+	decl := &dst.FuncDecl{
+		Name: fmt.Sprintf("Test_%s", tst.Name.Text),
+	}
+	tInfo := decl.CreateLocalInfo("t", &dst.PointerType{Element: &dst.TypeRef{Impl: ctx.t}})
+
+	// HACK
+	ctx.funcDecl = decl
+	ctx.tInfo = tInfo
+
 	stmts := []dst.Stmt{}
 
 	state := "state"
@@ -271,7 +279,7 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 
 	// Runes consumed should only be checked if the call succeeds.
 	if flowName == "NORMAL" {
-		stmts = append(stmts, makeFatalTest(
+		stmts = append(stmts, ctx.makeFatalTest(
 			checkNE(attr(id(state), "Index"), intLiteral(len(tst.Input))),
 			fmt.Sprintf("Only consumed %%d/%d (deepest %%d) runes", len(tst.Input)),
 			attr(id(state), "Index"),
@@ -280,7 +288,7 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	}
 
 	// Make sure the flow is what we expect.
-	stmts = append(stmts, makeFatalTest(
+	stmts = append(stmts, ctx.makeFatalTest(
 		checkNE(attr(id(state), "Flow"), attr(id("runtime"), flowName)),
 		"Expected flow to be %d, but got %d",
 		attr(id("runtime"), flowName), attr(id(state), "Flow"),
@@ -288,19 +296,14 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 
 	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, ctx, stmts)
 
-	return &dst.FuncDecl{
-		Name: fmt.Sprintf("Test_%s", tst.Name.Text),
-		Type: &dst.FuncType{
-			Params: []*dst.Param{
-				&dst.Param{
-					Name: "t",
-					Type: &dst.PointerType{Element: &dst.TypeRef{Impl: ctx.t}},
-				},
-			},
-			Results: []*dst.Param{},
+	decl.Type = &dst.FuncType{
+		Params: []*dst.Param{
+			decl.MakeParam(tInfo),
 		},
-		Body: stmts,
+		Results: []*dst.Param{},
 	}
+	decl.Body = stmts
+	return decl
 }
 
 func ExternTestingRuntime() (*dst.Package, *dst.StructDecl) {

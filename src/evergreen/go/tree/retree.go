@@ -122,6 +122,27 @@ func approxDefUseBlock(stmts []Stmt, du *approxDefUse) {
 	}
 }
 
+func approxDefUseParam(param *Param, input bool, du *approxDefUse) {
+	// Outputs are implicitly zeroed.
+	du.GetInfo(param.Name).Defs += 1
+	if !input {
+		du.GetInfo(param.Name).Uses += 1
+	}
+}
+
+func approxDefUseFunc(decl *FuncDecl, du *approxDefUse) {
+	if decl.Recv != nil {
+		approxDefUseParam(decl.Recv, true, du)
+	}
+	for _, p := range decl.Type.Params {
+		approxDefUseParam(p, true, du)
+	}
+	for _, p := range decl.Type.Results {
+		approxDefUseParam(p, false, du)
+	}
+	approxDefUseBlock(decl.Body, du)
+}
+
 func pullName(expr *NameRef, du *approxDefUse, out []Stmt) (Expr, []Stmt) {
 	info := du.GetInfo(expr.Text)
 	if info.Uses != 1 || info.Defs != 1 {
@@ -268,7 +289,7 @@ func retreeDecl(decl Decl) {
 	case *FuncDecl:
 		du := makeApproxDefUse()
 		if decl.Body != nil {
-			approxDefUseBlock(decl.Body, du)
+			approxDefUseFunc(decl, du)
 			decl.Body = retreeBlock(decl.Body, du)
 			decl.Body = removeVarHackBlock(decl.Body, du)
 		}
