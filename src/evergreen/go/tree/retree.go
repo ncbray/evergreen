@@ -7,7 +7,6 @@ type approxDefUseInfo struct {
 
 type approxDefUse struct {
 	nameToStruct map[string]*approxDefUseInfo
-	removed      map[string]bool
 }
 
 func (du *approxDefUse) GetInfo(name string) *approxDefUseInfo {
@@ -22,7 +21,6 @@ func (du *approxDefUse) GetInfo(name string) *approxDefUseInfo {
 func makeApproxDefUse() *approxDefUse {
 	return &approxDefUse{
 		nameToStruct: map[string]*approxDefUseInfo{},
-		removed:      map[string]bool{},
 	}
 }
 
@@ -165,7 +163,6 @@ func pullName(expr *NameRef, du *approxDefUse, out []Stmt) (Expr, []Stmt) {
 	if !ok || target.Text != expr.Text {
 		return expr, out
 	}
-	du.removed[expr.Text] = true
 	return lastAssign.Sources[0], out[:n-1]
 }
 
@@ -255,33 +252,6 @@ func retreeBlock(stmts []Stmt, du *approxDefUse) []Stmt {
 	return out
 }
 
-func removeVarHackStmt(stmt Stmt, du *approxDefUse, out []Stmt) []Stmt {
-	switch stmt := stmt.(type) {
-	case *Goto, *Label, *Assign, *Call, *Return:
-		return append(out, stmt)
-	case *If:
-		stmt.Body = removeVarHackBlock(stmt.Body, du)
-	case *BlockStmt:
-		stmt.Body = removeVarHackBlock(stmt.Body, du)
-	case *Var:
-		removed, _ := du.removed[stmt.Name]
-		if removed {
-			return out
-		}
-	default:
-		panic(stmt)
-	}
-	return append(out, stmt)
-}
-
-func removeVarHackBlock(stmts []Stmt, du *approxDefUse) []Stmt {
-	out := []Stmt{}
-	for _, stmt := range stmts {
-		out = removeVarHackStmt(stmt, du, out)
-	}
-	return out
-}
-
 func retreeDecl(decl Decl) {
 	switch decl := decl.(type) {
 	case *InterfaceDecl, *StructDecl:
@@ -291,7 +261,6 @@ func retreeDecl(decl Decl) {
 		if decl.Body != nil {
 			approxDefUseFunc(decl, du)
 			decl.Body = retreeBlock(decl.Body, du)
-			decl.Body = removeVarHackBlock(decl.Body, du)
 		}
 	default:
 		panic(decl)
