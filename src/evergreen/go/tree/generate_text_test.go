@@ -1,19 +1,11 @@
 package tree
 
 import (
+	"evergreen/assert"
 	"evergreen/base"
-	"fmt"
 	"go/format"
 	"testing"
 )
-
-func checkString(actual string, expected string, t *testing.T) {
-	if actual != expected {
-		fmt.Println(actual)
-		fmt.Println(expected)
-		t.Fatalf("%#v != %#v", actual, expected)
-	}
-}
 
 func checkFormat(code string, t *testing.T) {
 	out, err := format.Source([]byte(code))
@@ -21,11 +13,11 @@ func checkFormat(code string, t *testing.T) {
 		t.Fatal(err)
 	}
 	outs := string(out)
-	checkString(code, outs, t)
+	assert.StringEquals(t, code, outs)
 }
 
 func checkCode(actual string, expected string, t *testing.T) {
-	checkString(actual, expected, t)
+	assert.StringEquals(t, actual, expected)
 	checkFormat(actual, t)
 }
 

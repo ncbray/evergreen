@@ -1,15 +1,10 @@
 package tree
 
 import (
+	"evergreen/assert"
 	"evergreen/base"
 	"testing"
 )
-
-func checkInt(actual int, expected int, t *testing.T) {
-	if actual != expected {
-		t.Fatalf("%#v != %#v", actual, expected)
-	}
-}
 
 func binaryOpExample(swap bool) []Stmt {
 	first := "a"
@@ -70,16 +65,16 @@ func TestBinaryExprDefUse(t *testing.T) {
 	approxDefUseBlock(block, du)
 
 	info := du.GetInfo("a")
-	checkInt(info.Defs, 1, t)
-	checkInt(info.Uses, 1, t)
+	assert.IntEquals(t, info.Defs, 1)
+	assert.IntEquals(t, info.Uses, 1)
 
 	info = du.GetInfo("b")
-	checkInt(info.Defs, 1, t)
-	checkInt(info.Uses, 1, t)
+	assert.IntEquals(t, info.Defs, 1)
+	assert.IntEquals(t, info.Uses, 1)
 
 	info = du.GetInfo("ret0")
-	checkInt(info.Defs, 1, t)
-	checkInt(info.Uses, 0, t)
+	assert.IntEquals(t, info.Defs, 1)
+	assert.IntEquals(t, info.Uses, 0)
 }
 
 func TestBinaryExprRetree(t *testing.T) {

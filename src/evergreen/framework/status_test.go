@@ -1,40 +1,21 @@
 package framework
 
 import (
-	"fmt"
+	"evergreen/assert"
 	"testing"
 )
 
-func checkString(actual string, expected string, t *testing.T) {
-	if actual != expected {
-		t.Fatalf("%#v != %#v", actual, expected)
-	}
-}
-
-func checkInt(name string, actual int, expected int, t *testing.T) {
-	if actual != expected {
-		t.Fatalf("%s: %d != %d", name, actual, expected)
-	}
-}
-
-func checkIntList(actualList []int, expectedList []int, t *testing.T) {
-	checkInt("len", len(actualList), len(expectedList), t)
-	for i, expected := range expectedList {
-		checkInt(fmt.Sprint(i), actualList[i], expected, t)
-	}
-}
-
 func checkLocation(stream []rune, lines []int, pos int, eLine int, eCol int, eText string, t *testing.T) {
 	line, col, text := GetLocation(stream, lines, pos)
-	checkInt("line", line, eLine, t)
-	checkInt("col", col, eCol, t)
-	checkString(text, eText, t)
+	assert.IntEquals(t, line, eLine)
+	assert.IntEquals(t, col, eCol)
+	assert.StringEquals(t, text, eText)
 }
 
 func TestFileLinesFull(t *testing.T) {
 	stream := []rune("a\nb\nc")
 	lines := FindLines(stream)
-	checkIntList(lines, []int{0, 2, 4}, t)
+	assert.IntListEquals(t, lines, []int{0, 2, 4})
 	checkLocation(stream, lines, 0, 0, 0, "a", t)
 	checkLocation(stream, lines, 1, 0, 1, "a", t)
 	checkLocation(stream, lines, 2, 1, 0, "b", t)
@@ -47,7 +28,7 @@ func TestFileLinesFull(t *testing.T) {
 func TestFileLinesEmpty(t *testing.T) {
 	stream := []rune("\nx\n\n")
 	lines := FindLines(stream)
-	checkIntList(lines, []int{0, 1, 3, 4}, t)
+	assert.IntListEquals(t, lines, []int{0, 1, 3, 4})
 	checkLocation(stream, lines, 0, 0, 0, "", t)
 	checkLocation(stream, lines, 1, 1, 0, "x", t)
 	checkLocation(stream, lines, 2, 1, 1, "x", t)

@@ -1,7 +1,7 @@
 package base
 
 import (
-	"fmt"
+	"evergreen/assert"
 	"testing"
 )
 
@@ -55,10 +55,10 @@ func TestSliceEmptySplice(t *testing.T) {
 	g := CreateGraph()
 	gr0 := g.CreateRegion(2)
 	gr1 := g.CreateRegion(2)
-	checkInt("sanity", len(gr0.exits[0]), 1, t)
+	assert.IntEquals(t, len(gr0.exits[0]), 1)
 	gr1.Swap(0, 1)
 	gr0.Splice(0, gr1)
-	checkInt("swaped", len(gr0.exits[1]), 1, t)
+	assert.IntEquals(t, len(gr0.exits[1]), 1)
 }
 
 func TestSliceEdgeEmptySplice(t *testing.T) {
@@ -68,10 +68,10 @@ func TestSliceEdgeEmptySplice(t *testing.T) {
 	n := g.CreateNode(1)
 	gr0.AttachFlow(0, n)
 
-	checkInt("sanity", len(gr0.exits[0]), 0, t)
+	assert.IntEquals(t, len(gr0.exits[0]), 0)
 	gr1.Swap(0, 1)
 	gr0.SpliceToEdge(n, 0, gr1)
-	checkInt("swaped", len(gr0.exits[1]), 1, t)
+	assert.IntEquals(t, len(gr0.exits[1]), 1)
 }
 
 func TestRepeatFlow(t *testing.T) {
@@ -132,12 +132,6 @@ func TestWhileFlow(t *testing.T) {
 	checkTopology(g, x, []NodeID{d}, []NodeID{}, t)
 }
 
-func checkInt(name string, actual int, expected int, t *testing.T) {
-	if actual != expected {
-		t.Fatalf("%s: %d != %d", name, actual, expected)
-	}
-}
-
 func checkNodeList(actualList []NodeID, expectedList []NodeID, t *testing.T) {
 	if len(actualList) != len(expectedList) {
 		t.Fatalf("%#v != %#v", actualList, expectedList)
@@ -158,24 +152,6 @@ func checkNodeListList(actualList [][]NodeID, expectedList [][]NodeID, t *testin
 	}
 }
 
-func checkIntList(actualList []int, expectedList []int, t *testing.T) {
-	if len(actualList) != len(expectedList) {
-		t.Fatalf("%#v != %#v", actualList, expectedList)
-	}
-	for i, expected := range expectedList {
-		checkInt(fmt.Sprint(i), actualList[i], expected, t)
-	}
-}
-
-func checkIntListList(actualList [][]int, expectedList [][]int, t *testing.T) {
-	if len(actualList) != len(expectedList) {
-		t.Fatalf("%#v != %#v", actualList, expectedList)
-	}
-	for i, expected := range expectedList {
-		checkIntList(actualList[i], expected, t)
-	}
-}
-
 func TestSanity(t *testing.T) {
 	g := CreateGraph()
 
@@ -192,7 +168,7 @@ func TestSanity(t *testing.T) {
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
-	checkIntList(index, []int{0, 4, 1, 2, 3}, t)
+	assert.IntListEquals(t, index, []int{0, 4, 1, 2, 3})
 
 	idoms := FindDominators(g, order, index)
 	checkNodeList(idoms, []NodeID{e, n3, e, n1, n2}, t)
@@ -214,7 +190,7 @@ func TestLoop(t *testing.T) {
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
-	checkIntList(index, []int{0, 4, 1, 2, 3}, t)
+	assert.IntListEquals(t, index, []int{0, 4, 1, 2, 3})
 
 	idoms := FindDominators(g, order, index)
 	checkNodeList(idoms, []NodeID{e, e, e, n1, n2}, t)
@@ -251,7 +227,7 @@ func TestIrreducible(t *testing.T) {
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n6, n5, n4, n3, n2, n1, x}, t)
-	checkIntList(index, []int{0, 7, 6, 5, 4, 3, 2, 1}, t)
+	assert.IntListEquals(t, index, []int{0, 7, 6, 5, 4, 3, 2, 1})
 
 	idoms := FindDominators(g, order, index)
 	checkNodeList(idoms, []NodeID{e, e, n6, n6, n6, n6, n6, e}, t)
@@ -288,7 +264,7 @@ func TestDiamond(t *testing.T) {
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, n4, x}, t)
-	checkIntList(index, []int{0, 5, 1, 2, 3, 4}, t)
+	assert.IntListEquals(t, index, []int{0, 5, 1, 2, 3, 4})
 
 	idoms := FindDominators(g, order, index)
 	checkNodeList(idoms, []NodeID{e, n4, e, n1, n1, n1}, t)
@@ -371,15 +347,18 @@ func TestDoubleDiamond(t *testing.T) {
 		SSI(builder, i, defuse.VarDefAt[i])
 	}
 
-	checkIntListList(builder.PhiFuncs, [][]int{
-		[]int{},
-		[]int{},
-		[]int{},
-		[]int{},
-		[]int{},
-		[]int{},
-		[]int{1},
-		[]int{},
-		[]int{1, 2},
-	}, t)
+	assert.IntListListEquals(
+
+		t, builder.PhiFuncs, [][]int{
+			[]int{},
+			[]int{},
+			[]int{},
+			[]int{},
+			[]int{},
+			[]int{},
+			[]int{1},
+			[]int{},
+			[]int{1, 2},
+		})
+
 }

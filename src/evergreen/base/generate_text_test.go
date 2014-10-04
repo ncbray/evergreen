@@ -1,41 +1,29 @@
 package base
 
 import (
-	"bytes"
+	"evergreen/assert"
 	"testing"
 )
 
-func bufferedWriter() (*bytes.Buffer, *CodeWriter) {
-	b := &bytes.Buffer{}
-	w := &CodeWriter{Out: b}
-	return b, w
-}
-
-func checkString(actual string, expected string, t *testing.T) {
-	if actual != expected {
-		t.Fatalf("%#v != %#v", actual, expected)
-	}
-}
-
 func TestSimple(t *testing.T) {
-	b, w := bufferedWriter()
+	b, w := BufferedCodeWriter()
 	w.Line("foo")
 	w.Line("bar")
-	checkString(b.String(), "foo\nbar\n", t)
+	assert.StringEquals(t, b.String(), "foo\nbar\n")
 }
 
 func TestEmpty(t *testing.T) {
-	b, w := bufferedWriter()
+	b, w := BufferedCodeWriter()
 	w.Line("foo")
 	w.EmptyLines(2)
 	w.EmptyLines(1)
 	w.Line("bar")
 	w.EmptyLines(2)
-	checkString(b.String(), "foo\n\n\nbar\n", t)
+	assert.StringEquals(t, b.String(), "foo\n\n\nbar\n")
 }
 
 func TestMargin(t *testing.T) {
-	b, w := bufferedWriter()
+	b, w := BufferedCodeWriter()
 	w.AppendMargin("  ")
 	w.Line("foo")
 	w.AppendMargin("  ")
@@ -44,25 +32,25 @@ func TestMargin(t *testing.T) {
 	w.Line("baz")
 	w.RestoreMargin()
 	w.Line("fiz")
-	checkString(b.String(), "  foo\n    bar\n  baz\nfiz\n", t)
+	assert.StringEquals(t, b.String(), "  foo\n    bar\n  baz\nfiz\n")
 }
 
 func TestTrimmedMargin1(t *testing.T) {
-	b, w := bufferedWriter()
+	b, w := BufferedCodeWriter()
 	w.AppendMargin("  ")
 	w.Line("foo ")
 	w.EmptyLines(1)
 	w.Line("bar  ")
 	w.RestoreMargin()
-	checkString(b.String(), "  foo\n\n  bar\n", t)
+	assert.StringEquals(t, b.String(), "  foo\n\n  bar\n")
 }
 
 func TestTrimmedMargin2(t *testing.T) {
-	b, w := bufferedWriter()
+	b, w := BufferedCodeWriter()
 	w.AppendMargin("# ")
 	w.Line("foo ")
 	w.EmptyLines(1)
 	w.Line("bar  ")
 	w.RestoreMargin()
-	checkString(b.String(), "# foo\n#\n# bar\n", t)
+	assert.StringEquals(t, b.String(), "# foo\n#\n# bar\n")
 }
