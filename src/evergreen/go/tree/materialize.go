@@ -36,9 +36,9 @@ func sweepExprList(exprs []Expr, rewriter refRewriter) {
 
 func sweepExpr(expr Expr, rewriter refRewriter) {
 	switch expr := expr.(type) {
-	case *IntLiteral, *BoolLiteral, *StringLiteral, *RuneLiteral, *NilLiteral:
+	case *IntLiteral, *BoolLiteral, *StringLiteral, *RuneLiteral, *NilLiteral, *GetGlobal, *GetName:
 		// Leaf
-	case *NameRef:
+	case *GetLocal:
 		expr.Info = rewriter.rewriteLocalInfo(expr.Info)
 	case *TypeAssert:
 		sweepExpr(expr.Expr, rewriter)
@@ -68,6 +68,17 @@ func sweepExpr(expr Expr, rewriter refRewriter) {
 	}
 }
 
+func sweepTarget(expr Target, rewriter refRewriter) {
+	switch expr := expr.(type) {
+	case *SetLocal:
+		expr.Info = rewriter.rewriteLocalInfo(expr.Info)
+	case *SetName:
+		// Leaf
+	default:
+		panic(expr)
+	}
+}
+
 func sweepStmt(stmt Stmt, rewriter refRewriter) {
 	switch stmt := stmt.(type) {
 	case *Goto, *Label:
@@ -77,7 +88,7 @@ func sweepStmt(stmt Stmt, rewriter refRewriter) {
 			sweepExpr(src, rewriter)
 		}
 		for _, tgt := range stmt.Targets {
-			sweepExpr(tgt, rewriter)
+			sweepTarget(tgt, rewriter)
 		}
 	case *If:
 		sweepExpr(stmt.Cond, rewriter)
@@ -221,10 +232,20 @@ func (decl *FuncDecl) MakeParam(idx int) *Param {
 	}
 }
 
-func (decl *FuncDecl) MakeNameRef(idx int) Expr {
-	localInfo := decl.GetLocalInfo(idx)
-	return &NameRef{
-		Text: localInfo.Name,
+func (decl *FuncDecl) MakeGetLocal(idx int) Expr {
+	if idx >= len(decl.Locals) {
+		panic(idx)
+	}
+	return &GetLocal{
+		Info: idx,
+	}
+}
+
+func (decl *FuncDecl) MakeSetLocal(idx int) Target {
+	if idx >= len(decl.Locals) {
+		panic(idx)
+	}
+	return &SetLocal{
 		Info: idx,
 	}
 }

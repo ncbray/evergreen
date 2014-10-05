@@ -71,7 +71,7 @@ func nameifyType(t Type, info *FileInfo) {
 
 func nameifyExpr(expr Expr, info *FileInfo) {
 	switch expr := expr.(type) {
-	case *NameRef:
+	case *GetName, *GetLocal, *GetGlobal:
 		// TODO
 	case *UnaryExpr:
 		nameifyExpr(expr.Expr, info)
@@ -111,6 +111,15 @@ func nameifyExpr(expr Expr, info *FileInfo) {
 	}
 }
 
+func nameifyTarget(expr Target, info *FileInfo) {
+	switch expr := expr.(type) {
+	case *SetName, *SetLocal:
+		// TODO
+	default:
+		panic(expr)
+	}
+}
+
 func nameifyStmt(stmt Stmt, info *FileInfo) {
 	switch stmt := stmt.(type) {
 	case *Var:
@@ -123,7 +132,7 @@ func nameifyStmt(stmt Stmt, info *FileInfo) {
 			nameifyExpr(e, info)
 		}
 		for _, e := range stmt.Targets {
-			nameifyExpr(e, info)
+			nameifyTarget(e, info)
 		}
 	case *If:
 		nameifyExpr(stmt.Cond, info)

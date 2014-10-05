@@ -20,8 +20,8 @@ func binaryOpExample(swap bool) []Stmt {
 				},
 			},
 			Op: ":=",
-			Targets: []Expr{
-				&NameRef{Text: first},
+			Targets: []Target{
+				&SetName{Text: first},
 			},
 		},
 		&Assign{
@@ -31,21 +31,21 @@ func binaryOpExample(swap bool) []Stmt {
 				},
 			},
 			Op: ":=",
-			Targets: []Expr{
-				&NameRef{Text: second},
+			Targets: []Target{
+				&SetName{Text: second},
 			},
 		},
 		&Assign{
 			Sources: []Expr{
 				&BinaryExpr{
-					Left:  &NameRef{Text: "a"},
+					Left:  &GetName{Text: "a"},
 					Op:    "+",
-					Right: &NameRef{Text: "b"},
+					Right: &GetName{Text: "b"},
 				},
 			},
 			Op: ":=",
-			Targets: []Expr{
-				&NameRef{Text: "ret0"},
+			Targets: []Target{
+				&SetName{Text: "ret0"},
 			},
 		},
 	}
@@ -61,7 +61,7 @@ func functionExample() *FuncDecl {
 
 func TestBinaryExprDefUse(t *testing.T) {
 	block := binaryOpExample(false)
-	du := makeApproxDefUse()
+	du := makeApproxDefUse(&FuncDecl{})
 	approxDefUseBlock(block, du)
 
 	info := du.GetInfo("a")
@@ -80,26 +80,28 @@ func TestBinaryExprDefUse(t *testing.T) {
 func TestBinaryExprRetree(t *testing.T) {
 	block := binaryOpExample(false)
 
-	du := makeApproxDefUse()
+	du := makeApproxDefUse(&FuncDecl{})
 
 	approxDefUseBlock(block, du)
 	block = retreeBlock(block, du)
 
 	b, w := base.BufferedCodeWriter()
-	generateBlock(block, w)
+	gen := &textGenerator{}
+	generateBlock(gen, block, w)
 	checkCode(b.String(), "ret0 := 2 + 3\n", t)
 }
 
 func TestBinaryExprRetreeSwap(t *testing.T) {
 	block := binaryOpExample(true)
 
-	du := makeApproxDefUse()
+	du := makeApproxDefUse(&FuncDecl{})
 
 	approxDefUseBlock(block, du)
 	block = retreeBlock(block, du)
 
 	b, w := base.BufferedCodeWriter()
-	generateBlock(block, w)
+	gen := &textGenerator{}
+	generateBlock(gen, block, w)
 	checkCode(b.String(), "b := 2\nret0 := 3 + b\n", t)
 }
 
@@ -108,6 +110,7 @@ func TestFuncRetree(t *testing.T) {
 	retreeDecl(decl)
 
 	b, w := base.BufferedCodeWriter()
-	GenerateFunc(decl, w)
+	gen := &textGenerator{decl: decl}
+	GenerateFunc(gen, decl, w)
 	checkCode(b.String(), "func foo() {\n\tret0 := 2 + 3\n}\n", t)
 }

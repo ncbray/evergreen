@@ -48,6 +48,10 @@ type Expr interface {
 	isExpr()
 }
 
+type Target interface {
+	isTarget()
+}
+
 type IntLiteral struct {
 	Value int
 }
@@ -129,15 +133,54 @@ type LocalInfo struct {
 	T    Type
 }
 
-type NameRef struct {
+type GetName struct {
 	Text string
+}
+
+func (node *GetName) isStmt() {
+}
+
+func (node *GetName) isExpr() {
+}
+
+type SetName struct {
+	Text string
+}
+
+func (node *SetName) isTarget() {
+}
+
+type GetLocal struct {
 	Info int
 }
 
-func (node *NameRef) isStmt() {
+func (node *GetLocal) isStmt() {
 }
 
-func (node *NameRef) isExpr() {
+func (node *GetLocal) isExpr() {
+}
+
+type SetLocal struct {
+	Info int
+}
+
+func (node *SetLocal) isTarget() {
+}
+
+type GetGlobal struct {
+	Text string
+}
+
+func (node *GetGlobal) isStmt() {
+}
+
+func (node *GetGlobal) isExpr() {
+}
+
+type SetDiscard struct {
+}
+
+func (node *SetDiscard) isTarget() {
 }
 
 type UnaryExpr struct {
@@ -221,7 +264,7 @@ func (node *TypeCoerce) isExpr() {
 type Assign struct {
 	Sources []Expr
 	Op      string
-	Targets []Expr
+	Targets []Target
 }
 
 func (node *Assign) isStmt() {

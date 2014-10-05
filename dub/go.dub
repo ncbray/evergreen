@@ -31,6 +31,9 @@ struct Stmt {
 struct Expr implements Stmt {
 }
 
+struct Target {
+}
+
 struct IntLiteral implements Expr {
   Value int
 }
@@ -70,9 +73,27 @@ struct LocalInfo {
   T Type
 }
 
-struct NameRef implements Expr {
+struct GetName implements Expr {
   Text string
+}
+
+struct SetName implements Target {
+  Text string
+}
+
+struct GetLocal implements Expr {
   Info int
+}
+
+struct SetLocal implements Target {
+  Info int
+}
+
+struct GetGlobal implements Expr {
+  Text string
+}
+
+struct SetDiscard implements Target {
 }
 
 struct UnaryExpr implements Expr {
@@ -115,7 +136,7 @@ struct TypeCoerce implements Expr {
 struct Assign implements Stmt {
   Sources []Expr
   Op string
-  Targets []Expr
+  Targets []Target
 }
 
 struct Var implements Stmt {

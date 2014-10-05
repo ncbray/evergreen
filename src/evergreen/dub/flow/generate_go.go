@@ -68,7 +68,7 @@ type regionInfo struct {
 }
 
 func (info *regionInfo) FrameVar() ast.Expr {
-	return info.MakeNameRef(info.frameInfo)
+	return info.MakeGetLocal(info.frameInfo)
 }
 
 func (info *regionInfo) FrameAttr(name string) ast.Expr {
@@ -83,17 +83,26 @@ func (info *regionInfo) MakeParam(idx int) *ast.Param {
 	return info.funcDecl.MakeParam(idx)
 }
 
-func (info *regionInfo) MakeNameRef(idx int) ast.Expr {
-	return info.funcDecl.MakeNameRef(idx)
+func (info *regionInfo) MakeGetLocal(idx int) ast.Expr {
+	return info.funcDecl.MakeGetLocal(idx)
 }
 
-func (info *regionInfo) MakeReturnRef(ret int) ast.Expr {
-	return info.MakeNameRef(info.returnInfo[ret])
+func (info *regionInfo) MakeSetLocal(idx int) ast.Target {
+	return info.funcDecl.MakeSetLocal(idx)
 }
 
-func (info *regionInfo) Reg(r DubRegister) ast.Expr {
+func (info *regionInfo) MakeSetReturn(ret int) ast.Target {
+	return info.MakeSetLocal(info.returnInfo[ret])
+}
+
+func (info *regionInfo) GetReg(r DubRegister) ast.Expr {
 	idx := info.GetLocalInfo(r)
-	return info.MakeNameRef(idx)
+	return info.MakeGetLocal(idx)
+}
+
+func (info *regionInfo) SetReg(r DubRegister) ast.Target {
+	idx := info.GetLocalInfo(r)
+	return info.MakeSetLocal(idx)
 }
 
 func (info *regionInfo) Param(r DubRegister) *ast.Param {
@@ -103,12 +112,12 @@ func (info *regionInfo) Param(r DubRegister) *ast.Param {
 
 // Begin AST construction wrappers
 
-func discard() ast.Expr {
-	return &ast.NameRef{Text: "_", Info: -1}
+func discard() ast.Target {
+	return &ast.SetDiscard{}
 }
 
 func globalRef(name string) ast.Expr {
-	return &ast.NameRef{Text: name, Info: -1}
+	return &ast.GetGlobal{Text: name}
 }
 
 func attr(expr ast.Expr, name string) ast.Expr {
@@ -159,7 +168,7 @@ func returnVarName(i int) string {
 func opAssign(info *regionInfo, expr ast.Expr, dst DubRegister) ast.Stmt {
 	if dst != NoRegister {
 		return &ast.Assign{
-			Targets: []ast.Expr{info.Reg(dst)},
+			Targets: []ast.Target{info.SetReg(dst)},
 			Op:      "=",
 			Sources: []ast.Expr{expr},
 		}
@@ -171,10 +180,10 @@ func opAssign(info *regionInfo, expr ast.Expr, dst DubRegister) ast.Stmt {
 
 func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []DubRegister) ast.Stmt {
 	if len(dsts) != 0 {
-		lhs := make([]ast.Expr, len(dsts))
+		lhs := make([]ast.Target, len(dsts))
 		for i, dst := range dsts {
 			if dst != NoRegister {
-				lhs[i] = info.Reg(dst)
+				lhs[i] = info.SetReg(dst)
 			} else {
 				lhs[i] = discard()
 			}
@@ -236,9 +245,9 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 		block = append(block, opAssign(
 			info,
 			&ast.BinaryExpr{
-				Left:  info.Reg(op.Left),
+				Left:  info.GetReg(op.Left),
 				Op:    op.Op,
-				Right: info.Reg(op.Right),
+				Right: info.GetReg(op.Right),
 			},
 			op.Dst,
 		))
@@ -247,7 +256,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			info.FrameVar(),
 		}
 		for _, arg := range op.Args {
-			args = append(args, info.Reg(arg))
+			args = append(args, info.GetReg(arg))
 		}
 		block = append(block, opMultiAssign(
 			info,
@@ -262,7 +271,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 		for i, arg := range op.Args {
 			elts[i] = &ast.KeywordExpr{
 				Name: arg.Key,
-				Expr: info.Reg(arg.Value),
+				Expr: info.GetReg(arg.Value),
 			}
 		}
 		block = append(block, opAssign(
@@ -279,7 +288,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 	case *ConstructListOp:
 		elts := make([]ast.Expr, len(op.Args))
 		for i, arg := range op.Args {
-			elts[i] = info.Reg(arg)
+			elts[i] = info.GetReg(arg)
 		}
 		block = append(block, opAssign(
 			info,
@@ -295,7 +304,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			info,
 			&ast.TypeCoerce{
 				Type: goTypeName(op.T, ctx),
-				Expr: info.Reg(op.Src),
+				Expr: info.GetReg(op.Src),
 			},
 			op.Dst,
 		))
@@ -346,8 +355,8 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			&ast.Call{
 				Expr: globalRef("append"),
 				Args: []ast.Expr{
-					info.Reg(op.List),
-					info.Reg(op.Value),
+					info.GetReg(op.List),
+					info.GetReg(op.Value),
 				},
 			},
 			op.Dst,
@@ -358,9 +367,9 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 		}
 		for i, e := range op.Exprs {
 			block = append(block, &ast.Assign{
-				Targets: []ast.Expr{info.MakeReturnRef(i)},
+				Targets: []ast.Target{info.MakeSetReturn(i)},
 				Op:      "=",
-				Sources: []ast.Expr{info.Reg(e)},
+				Sources: []ast.Expr{info.GetReg(e)},
 			})
 		}
 	case *Fail:
@@ -372,7 +381,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			op.Dst,
 		))
 	case *Recover:
-		block = append(block, builtinStmt(info, "Recover", info.Reg(op.Src)))
+		block = append(block, builtinStmt(info, "Recover", info.GetReg(op.Src)))
 	case *LookaheadBegin:
 		block = append(block, opAssign(
 			info,
@@ -381,31 +390,31 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 		))
 	case *LookaheadEnd:
 		if op.Failed {
-			block = append(block, builtinStmt(info, "LookaheadFail", info.Reg(op.Src)))
+			block = append(block, builtinStmt(info, "LookaheadFail", info.GetReg(op.Src)))
 		} else {
-			block = append(block, builtinStmt(info, "LookaheadNormal", info.Reg(op.Src)))
+			block = append(block, builtinStmt(info, "LookaheadNormal", info.GetReg(op.Src)))
 		}
 	case *Slice:
 		block = append(block, opAssign(
 			info,
-			builtinExpr(info, "Slice", info.Reg(op.Src)),
+			builtinExpr(info, "Slice", info.GetReg(op.Src)),
 			op.Dst,
 		))
 	case *CopyOp:
 		block = append(block, opAssign(
 			info,
-			info.Reg(op.Src),
+			info.GetReg(op.Src),
 			op.Dst,
 		))
 
 	case *TransferOp:
-		lhs := make([]ast.Expr, len(op.Dsts))
+		lhs := make([]ast.Target, len(op.Dsts))
 		for i, dst := range op.Dsts {
-			lhs[i] = info.Reg(dst)
+			lhs[i] = info.SetReg(dst)
 		}
 		rhs := make([]ast.Expr, len(op.Srcs))
 		for i, src := range op.Srcs {
-			rhs[i] = info.Reg(src)
+			rhs[i] = info.GetReg(src)
 		}
 		block = append(block, &ast.Assign{
 			Targets: lhs,
@@ -428,7 +437,7 @@ func generateNode(info *regionInfo, node base.NodeID, ctx *DubToGoContext, block
 		block = append(block, &ast.Return{})
 	case *ExitOp:
 	case *SwitchOp:
-		block = emitSwitch(info, info.Reg(data.Cond), g.GetExit(node, 0), g.GetExit(node, 1), ctx, block)
+		block = emitSwitch(info, info.GetReg(data.Cond), g.GetExit(node, 0), g.GetExit(node, 1), ctx, block)
 	case DubOp:
 		block = GenerateOp(info, info.decl, data, ctx, block)
 		block = generateFlowSwitch(info, node, ctx, block)

@@ -42,7 +42,11 @@ const anyPrec = 0
 
 const indent = "\t"
 
-func GeneratePrecExpr(expr Expr) (string, int) {
+type textGenerator struct {
+	decl *FuncDecl
+}
+
+func GeneratePrecExpr(gen *textGenerator, expr Expr) (string, int) {
 	if expr == nil {
 		panic("expr is nil")
 	}
@@ -62,76 +66,101 @@ func GeneratePrecExpr(expr Expr) (string, int) {
 		return strconv.Quote(expr.Value), operandPrec
 	case *RuneLiteral:
 		return strconv.QuoteRune(expr.Value), operandPrec
-	case *NameRef:
+	case *GetGlobal:
+		return expr.Text, operandPrec
+	case *GetLocal:
+		info := gen.decl.GetLocalInfo(expr.Info)
+		return info.Name, operandPrec
+	case *GetName:
 		return expr.Text, operandPrec
 	case *UnaryExpr:
-		return fmt.Sprintf("%s%s", expr.Op, GenerateSafeExpr(expr.Expr, prefixPrec)), prefixPrec
+		return fmt.Sprintf("%s%s", expr.Op, GenerateSafeExpr(gen, expr.Expr, prefixPrec)), prefixPrec
 	case *BinaryExpr:
 		prec, ok := binaryOpToPrec[expr.Op]
 		if !ok {
 			panic(expr.Op)
 		}
-		return fmt.Sprintf("%s %s %s", GenerateSafeExpr(expr.Left, prec), expr.Op, GenerateSafeExpr(expr.Right, prec+1)), prec
+		return fmt.Sprintf("%s %s %s", GenerateSafeExpr(gen, expr.Left, prec), expr.Op, GenerateSafeExpr(gen, expr.Right, prec+1)), prec
 	case *Selector:
-		base := GenerateSafeExpr(expr.Expr, postfixPrec)
+		base := GenerateSafeExpr(gen, expr.Expr, postfixPrec)
 		return fmt.Sprintf("%s.%s", base, expr.Text), postfixPrec
 	case *Index:
-		base := GenerateSafeExpr(expr.Expr, postfixPrec)
-		index := GenerateSafeExpr(expr.Index, anyPrec)
+		base := GenerateSafeExpr(gen, expr.Expr, postfixPrec)
+		index := GenerateSafeExpr(gen, expr.Index, anyPrec)
 		return fmt.Sprintf("%s[%s]", base, index), postfixPrec
 	case *Call:
-		base := GenerateSafeExpr(expr.Expr, postfixPrec)
+		base := GenerateSafeExpr(gen, expr.Expr, postfixPrec)
 		args := make([]string, len(expr.Args))
 		for i, arg := range expr.Args {
-			args[i] = GenerateSafeExpr(arg, anyPrec)
+			args[i] = GenerateSafeExpr(gen, arg, anyPrec)
 		}
 		return fmt.Sprintf("%s(%s)", base, strings.Join(args, ", ")), postfixPrec
 	case *StructLiteral:
 		t := GenerateType(expr.Type)
 		args := make([]string, len(expr.Args))
 		for i, arg := range expr.Args {
-			args[i] = fmt.Sprintf("%s: %s", arg.Name, GenerateSafeExpr(arg.Expr, anyPrec))
+			args[i] = fmt.Sprintf("%s: %s", arg.Name, GenerateSafeExpr(gen, arg.Expr, anyPrec))
 		}
 		return fmt.Sprintf("%s{%s}", t, strings.Join(args, ", ")), postfixPrec
 	case *ListLiteral:
 		t := GenerateType(expr.Type)
 		args := make([]string, len(expr.Args))
 		for i, arg := range expr.Args {
-			args[i] = GenerateSafeExpr(arg, anyPrec)
+			args[i] = GenerateSafeExpr(gen, arg, anyPrec)
 		}
 		return fmt.Sprintf("%s{%s}", t, strings.Join(args, ", ")), postfixPrec
 	case *TypeAssert:
-		base := GenerateSafeExpr(expr.Expr, postfixPrec)
+		base := GenerateSafeExpr(gen, expr.Expr, postfixPrec)
 		t := GenerateType(expr.Type)
 		return fmt.Sprintf("%s.(%s)", base, t), postfixPrec
 	case *TypeCoerce:
 		t := GenerateType(expr.Type)
-		e := GenerateSafeExpr(expr.Expr, anyPrec)
+		e := GenerateSafeExpr(gen, expr.Expr, anyPrec)
 		return fmt.Sprintf("%s(%s)", t, e), postfixPrec
 	default:
 		panic(expr)
 	}
 }
 
-func GenerateSafeExpr(expr Expr, requiredPrec int) string {
-	result, actualPrec := GeneratePrecExpr(expr)
+func GenerateSafeExpr(gen *textGenerator, expr Expr, requiredPrec int) string {
+	result, actualPrec := GeneratePrecExpr(gen, expr)
 	if requiredPrec > actualPrec {
 		result = fmt.Sprintf("(%s)", result)
 	}
 	return result
 }
 
-func GenerateExpr(expr Expr) string {
-	result, _ := GeneratePrecExpr(expr)
+func GenerateExpr(gen *textGenerator, expr Expr) string {
+	result, _ := GeneratePrecExpr(gen, expr)
 	return result
 }
 
-func GenerateExprList(exprs []Expr) string {
-	gen := make([]string, len(exprs))
+func GenerateExprList(gen *textGenerator, exprs []Expr) string {
+	parts := make([]string, len(exprs))
 	for i, e := range exprs {
-		gen[i] = GenerateExpr(e)
+		parts[i] = GenerateExpr(gen, e)
 	}
-	return strings.Join(gen, ", ")
+	return strings.Join(parts, ", ")
+}
+
+func GenerateTarget(gen *textGenerator, expr Target) string {
+	switch expr := expr.(type) {
+	case *SetLocal:
+		info := gen.decl.GetLocalInfo(expr.Info)
+		return info.Name
+	case *SetName:
+		return expr.Text
+	default:
+		panic(expr)
+	}
+}
+
+func GenerateTargetList(gen *textGenerator, exprs []Target) string {
+	parts := make([]string, len(exprs))
+	for i, e := range exprs {
+		parts[i] = GenerateTarget(gen, e)
+	}
+	return strings.Join(parts, ", ")
 }
 
 func Dedent(w *base.CodeWriter) {
@@ -139,30 +168,30 @@ func Dedent(w *base.CodeWriter) {
 	w.SetMargin(margin[:len(margin)-1])
 }
 
-func GenerateStmt(stmt Stmt, w *base.CodeWriter) {
+func GenerateStmt(gen *textGenerator, stmt Stmt, w *base.CodeWriter) {
 	expr, ok := stmt.(Expr)
 	if ok {
-		w.Line(GenerateExpr(expr))
+		w.Line(GenerateExpr(gen, expr))
 		return
 	}
 	switch stmt := stmt.(type) {
 	case *BlockStmt:
 		w.Line("{")
-		GenerateBody(stmt.Body, w)
+		GenerateBody(gen, stmt.Body, w)
 		w.Line("}")
 	case *If:
-		w.Linef("if %s {", GenerateExpr(stmt.Cond))
-		GenerateBody(stmt.Body, w)
+		w.Linef("if %s {", GenerateExpr(gen, stmt.Cond))
+		GenerateBody(gen, stmt.Body, w)
 		next := stmt.Else
 		for next != nil {
 			switch stmt := next.(type) {
 			case *If:
-				w.Linef("} else if %s {", GenerateExpr(stmt.Cond))
-				GenerateBody(stmt.Body, w)
+				w.Linef("} else if %s {", GenerateExpr(gen, stmt.Cond))
+				GenerateBody(gen, stmt.Body, w)
 				next = stmt.Else
 			case *BlockStmt:
 				w.Line("} else {")
-				GenerateBody(stmt.Body, w)
+				GenerateBody(gen, stmt.Body, w)
 				next = nil
 			default:
 				panic(next)
@@ -170,13 +199,13 @@ func GenerateStmt(stmt Stmt, w *base.CodeWriter) {
 		}
 		w.Line("}")
 	case *Assign:
-		sources := GenerateExprList(stmt.Sources)
-		targets := GenerateExprList(stmt.Targets)
+		sources := GenerateExprList(gen, stmt.Sources)
+		targets := GenerateTargetList(gen, stmt.Targets)
 		w.Linef("%s %s %s", targets, stmt.Op, sources)
 	case *Var:
 		t := GenerateType(stmt.Type)
 		if stmt.Expr != nil {
-			w.Linef("var %s %s = %s", stmt.Name, t, GenerateExpr(stmt.Expr))
+			w.Linef("var %s %s = %s", stmt.Name, t, GenerateExpr(gen, stmt.Expr))
 		} else {
 			w.Linef("var %s %s", stmt.Name, t)
 		}
@@ -188,7 +217,7 @@ func GenerateStmt(stmt Stmt, w *base.CodeWriter) {
 		w.RestoreMargin()
 	case *Return:
 		if len(stmt.Args) > 0 {
-			w.Linef("return %s", GenerateExprList(stmt.Args))
+			w.Linef("return %s", GenerateExprList(gen, stmt.Args))
 		} else {
 			w.Line("return")
 		}
@@ -212,15 +241,15 @@ func GenerateType(t Type) string {
 	}
 }
 
-func generateBlock(stmts []Stmt, w *base.CodeWriter) {
+func generateBlock(gen *textGenerator, stmts []Stmt, w *base.CodeWriter) {
 	for _, stmt := range stmts {
-		GenerateStmt(stmt, w)
+		GenerateStmt(gen, stmt, w)
 	}
 }
 
-func GenerateBody(stmts []Stmt, w *base.CodeWriter) {
+func GenerateBody(gen *textGenerator, stmts []Stmt, w *base.CodeWriter) {
 	w.AppendMargin(indent)
-	generateBlock(stmts, w)
+	generateBlock(gen, stmts, w)
 	w.RestoreMargin()
 }
 
@@ -256,14 +285,14 @@ func GenerateFuncType(t *FuncType) string {
 	return fmt.Sprintf("(%s)%s", strings.Join(params, ", "), returns)
 }
 
-func GenerateFunc(decl *FuncDecl, w *base.CodeWriter) {
+func GenerateFunc(gen *textGenerator, decl *FuncDecl, w *base.CodeWriter) {
 	recv := ""
 	if decl.Recv != nil {
 		recv = fmt.Sprintf("(%s %s) ", decl.Recv.Name, GenerateType(decl.Recv.Type))
 	}
 	t := GenerateFuncType(decl.Type)
 	w.Linef("func %s%s%s {", recv, decl.Name, t)
-	GenerateBody(decl.Body, w)
+	GenerateBody(gen, decl.Body, w)
 	w.Line("}")
 }
 
@@ -295,7 +324,8 @@ func GenerateDecl(decl Decl, w *base.CodeWriter) {
 		w.RestoreMargin()
 		w.Line("}")
 	case *FuncDecl:
-		GenerateFunc(decl, w)
+		gen := &textGenerator{decl: decl}
+		GenerateFunc(gen, decl, w)
 	default:
 		panic(decl)
 	}

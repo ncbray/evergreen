@@ -22,7 +22,8 @@ func checkCode(actual string, expected string, t *testing.T) {
 }
 
 func genExpr(expr Expr) string {
-	return GenerateExpr(expr)
+	gen := &textGenerator{}
+	return GenerateExpr(gen, expr)
 }
 
 func TestIntLiteral(t *testing.T) {
@@ -119,7 +120,7 @@ func TestPreserveAssosiativity(t *testing.T) {
 func TestMethodCall(t *testing.T) {
 	expr := &Call{
 		Expr: &Selector{
-			Expr: &NameRef{Text: "foo"},
+			Expr: &GetName{Text: "foo"},
 			Text: "bar",
 		},
 		Args: []Expr{
@@ -133,8 +134,8 @@ func TestMethodCall(t *testing.T) {
 
 func TestIndex(t *testing.T) {
 	expr := &Index{
-		Expr:  &NameRef{Text: "foo"},
-		Index: &NameRef{Text: "bar"},
+		Expr:  &GetName{Text: "foo"},
+		Index: &GetName{Text: "bar"},
 	}
 	result := genExpr(expr)
 	checkCode(result, "foo[bar]", t)
@@ -143,7 +144,7 @@ func TestIndex(t *testing.T) {
 func TestTypeCoerce(t *testing.T) {
 	expr := &TypeCoerce{
 		Type: &SliceType{Element: &TypeRef{Name: "rune"}},
-		Expr: &NameRef{Text: "s"},
+		Expr: &GetName{Text: "s"},
 	}
 	result := genExpr(expr)
 	checkCode(result, "[]rune(s)", t)
@@ -195,12 +196,12 @@ func TestFuncDecl(t *testing.T) {
 		},
 		Body: []Stmt{
 			&If{
-				Cond: &NameRef{Text: "cond"},
+				Cond: &GetName{Text: "cond"},
 				Body: []Stmt{
 					&StringLiteral{Value: "hello"},
 				},
 				Else: &If{
-					Cond: &UnaryExpr{Op: "!", Expr: &NameRef{Text: "cond"}},
+					Cond: &UnaryExpr{Op: "!", Expr: &GetName{Text: "cond"}},
 					Body: []Stmt{
 						&StringLiteral{Value: "goodbye"},
 					},
@@ -214,21 +215,22 @@ func TestFuncDecl(t *testing.T) {
 			&Assign{
 				Sources: []Expr{
 					&Call{
-						Expr: &NameRef{Text: "bar"},
-						Args: []Expr{&NameRef{Text: "names"}},
+						Expr: &GetName{Text: "bar"},
+						Args: []Expr{&GetName{Text: "names"}},
 					},
 					&IntLiteral{Value: 7},
 				},
 				Op: ":=",
-				Targets: []Expr{
-					&NameRef{Text: "biz"},
-					&NameRef{Text: "baz"},
+				Targets: []Target{
+					&SetName{Text: "biz"},
+					&SetName{Text: "baz"},
 				},
 			},
 		},
 	}
 	b, w := base.BufferedCodeWriter()
-	GenerateFunc(decl, w)
+	gen := &textGenerator{decl: decl}
+	GenerateFunc(gen, decl, w)
 	checkCode(b.String(), "func (o *Obj) foo(cond bool, names []string) (biz int, baz *int) {\n\tif cond {\n\t\t\"hello\"\n\t} else if !cond {\n\t\t\"goodbye\"\n\t} else {\n\t\t\"impossible\"\n\t}\n\tbiz, baz := bar(names), 7\n}\n", t)
 }
 
