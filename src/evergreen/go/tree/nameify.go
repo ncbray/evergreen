@@ -40,9 +40,6 @@ func nameifyType(t Type, info *FileInfo) {
 	switch t := t.(type) {
 	case *TypeRef:
 		impl := t.Impl
-		if impl == nil {
-			panic(t)
-		}
 		switch impl := impl.(type) {
 		case *StructDecl:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
@@ -203,7 +200,9 @@ func nameifyFile(pkg *Package, file *File) {
 		nameifyDecl(decl, info)
 	}
 
-	// TODO clear existing imports.
+	if len(file.Imports) != 0 {
+		panic(file.Imports)
+	}
 	for pkg, name := range info.PackageName {
 		path := strings.Join(pkg.Path, "/")
 		file.Imports = append(file.Imports, &Import{Path: path, Name: name})

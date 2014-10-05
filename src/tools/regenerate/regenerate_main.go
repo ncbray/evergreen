@@ -159,10 +159,12 @@ func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []
 	files = append(files, flow.GenerateGo(name, structs, funcs, index, state, link))
 
 	if !replace && len(file.Tests) != 0 {
-		pkg, t := dub.ExternTestingRuntime()
+		pkg, t := dub.ExternTestingPackage()
+		packages = append(packages, pkg)
+		pkg, stateT := dub.ExternRuntimePackage()
 		packages = append(packages, pkg)
 
-		files = append(files, dub.GenerateTests(name, file.Tests, gbuilder, t, link))
+		files = append(files, dub.GenerateTests(name, file.Tests, gbuilder, t, stateT, link))
 	}
 
 	packages = append(packages, &gotree.Package{

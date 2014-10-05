@@ -11,8 +11,14 @@ type TestingContext struct {
 	gbuilder *GlobalDubBuilder
 	link     flow.DubToGoLinker
 	t        *dst.StructDecl
+	stateT   *dst.StructDecl
+	state    int
 	funcDecl *dst.FuncDecl
 	tInfo    int
+}
+
+func (ctx *TestingContext) GetState() dst.Expr {
+	return &dst.GetLocal{Info: ctx.state}
 }
 
 func lcl(name string) dst.Expr {
@@ -214,14 +220,14 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 	return stmts
 }
 
-func generateExpr(state string, expr tree.ASTExpr) dst.Expr {
+func generateExpr(ctx *TestingContext, expr tree.ASTExpr) dst.Expr {
 	switch expr := expr.(type) {
 	case *tree.Call:
 		args := []dst.Expr{
-			lcl(state),
+			ctx.GetState(),
 		}
 		for _, arg := range expr.Args {
-			args = append(args, generateExpr(state, arg))
+			args = append(args, generateExpr(ctx, arg))
 		}
 		return &dst.Call{
 			Expr: glbl(expr.Name.Text),
@@ -245,7 +251,11 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	decl := &dst.FuncDecl{
 		Name: fmt.Sprintf("Test_%s", tst.Name.Text),
 	}
-	tInfo := decl.CreateLocalInfo("t", &dst.PointerType{Element: &dst.TypeRef{Impl: ctx.t}})
+	tInfo := decl.CreateLocalInfo("t", &dst.PointerType{
+		Element: &dst.TypeRef{
+			Impl: ctx.t,
+		},
+	})
 
 	// HACK
 	ctx.funcDecl = decl
@@ -253,13 +263,18 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 
 	stmts := []dst.Stmt{}
 
-	state := "state"
+	ctx.state = decl.CreateLocalInfo("state", &dst.PointerType{
+		Element: &dst.TypeRef{
+			Impl: ctx.stateT,
+		},
+	})
 	stmts = append(stmts, &dst.Assign{
 		Targets: []dst.Target{
-			// HACK
-			&dst.SetName{Text: state},
+			&dst.SetLocal{
+				Info: ctx.state,
+			},
 		},
-		Op: ":=",
+		Op: "=",
 		Sources: []dst.Expr{
 			&dst.Call{
 				Expr: attr(glbl("runtime"), "MakeState"),
@@ -279,7 +294,7 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 		},
 		Op: ":=",
 		Sources: []dst.Expr{
-			generateExpr(state, tst.Rule),
+			generateExpr(ctx, tst.Rule),
 		},
 	})
 
@@ -288,18 +303,18 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	// Runes consumed should only be checked if the call succeeds.
 	if flowName == "NORMAL" {
 		stmts = append(stmts, ctx.makeFatalTest(
-			checkNE(attr(lcl(state), "Index"), intLiteral(len(tst.Input))),
+			checkNE(attr(ctx.GetState(), "Index"), intLiteral(len(tst.Input))),
 			fmt.Sprintf("Only consumed %%d/%d (deepest %%d) runes", len(tst.Input)),
-			attr(lcl(state), "Index"),
-			attr(lcl(state), "Deepest"),
+			attr(ctx.GetState(), "Index"),
+			attr(ctx.GetState(), "Deepest"),
 		))
 	}
 
 	// Make sure the flow is what we expect.
 	stmts = append(stmts, ctx.makeFatalTest(
-		checkNE(attr(lcl(state), "Flow"), attr(glbl("runtime"), flowName)),
+		checkNE(attr(ctx.GetState(), "Flow"), attr(glbl("runtime"), flowName)),
 		"Expected flow to be %d, but got %d",
-		attr(glbl("runtime"), flowName), attr(lcl(state), "Flow"),
+		attr(glbl("runtime"), flowName), attr(ctx.GetState(), "Flow"),
 	))
 
 	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, ctx, stmts)
@@ -314,7 +329,7 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	return decl
 }
 
-func ExternTestingRuntime() (*dst.Package, *dst.StructDecl) {
+func ExternTestingPackage() (*dst.Package, *dst.StructDecl) {
 	t := &dst.StructDecl{
 		Name: "T",
 	}
@@ -332,13 +347,26 @@ func ExternTestingRuntime() (*dst.Package, *dst.StructDecl) {
 	return pkg, t
 }
 
-func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder, t *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
-	ctx := &TestingContext{gbuilder: gbuilder, link: link, t: t}
-
-	imports := []*dst.Import{
-		// HACK for runtime.MakeState
-		&dst.Import{Path: "evergreen/dub/runtime"},
+func ExternRuntimePackage() (*dst.Package, *dst.StructDecl) {
+	t := &dst.StructDecl{
+		Name: "State",
 	}
+	pkg := &dst.Package{
+		Extern: true,
+		Path:   []string{"evergreen", "dub", "runtime"},
+		Files: []*dst.File{
+			&dst.File{
+				Decls: []dst.Decl{
+					t,
+				},
+			},
+		},
+	}
+	return pkg, t
+}
+
+func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
+	ctx := &TestingContext{gbuilder: gbuilder, link: link, t: t, stateT: stateT}
 
 	decls := []dst.Decl{}
 
@@ -349,7 +377,6 @@ func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder
 	file := &dst.File{
 		Name:    "generated_parser_test.go",
 		Package: "tree",
-		Imports: imports,
 		Decls:   decls,
 	}
 	return file
