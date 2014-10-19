@@ -16,7 +16,8 @@ func DefaultPackageName(pkg *Package) string {
 }
 
 func IsBuiltinPackage(pkg *Package) bool {
-	return len(pkg.Path) == 0
+	// HACK pkg should not be nil
+	return pkg == nil || len(pkg.Path) == 0
 }
 
 func (info *FileInfo) ImportedName(pkg *Package) string {

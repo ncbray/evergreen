@@ -15,6 +15,8 @@ type TestingContext struct {
 	state    int
 	funcDecl *dst.FuncDecl
 	tInfo    int
+	okInfo   int
+	index    *flow.BuiltinIndex
 }
 
 func (ctx *TestingContext) GetState() dst.Expr {
@@ -96,10 +98,45 @@ func checkNE(x dst.Expr, y dst.Expr) dst.Expr {
 	}
 }
 
-func generateDestructure(name string, path string, d tree.Destructure, general tree.ASTType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
+func translateType(ctx *TestingContext, t tree.ASTType) dst.Type {
+	at := ctx.gbuilder.TranslateType(t)
+	return translateTypeInternal(ctx, at)
+}
+
+func translateTypeInternal(ctx *TestingContext, at flow.DubType) dst.Type {
+	switch cat := at.(type) {
+	case *flow.LLStruct:
+		ref := &dst.TypeRef{Name: cat.Name}
+		ctx.link.TypeRef(ref, cat)
+		if cat.Abstract {
+			return ref
+		} else {
+			return &dst.PointerType{Element: ref}
+		}
+	case *flow.ListType:
+		return &dst.SliceType{Element: translateTypeInternal(ctx, cat.Type)}
+	case *flow.IntrinsicType:
+		switch cat.Name {
+		case "string":
+			return &dst.TypeRef{Impl: ctx.index.StringType}
+		case "rune":
+			return &dst.TypeRef{Impl: ctx.index.RuneType}
+		case "int":
+			return &dst.TypeRef{Impl: ctx.index.IntType}
+		case "bool":
+			return &dst.TypeRef{Impl: ctx.index.BoolType}
+		default:
+			panic(cat.Name)
+		}
+	default:
+		panic(at)
+	}
+}
+
+func generateDestructure(value int, nameX string, path string, d tree.Destructure, general tree.ASTType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
 	switch d := d.(type) {
 	case *tree.DestructureStruct:
-		actual_name := name
+		actual_value := value
 
 		t := tree.ResolveType(d.Type)
 		dt, ok := t.(*tree.StructDecl)
@@ -110,69 +147,78 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 		at := ctx.gbuilder.TranslateType(t)
 		gt := ctx.gbuilder.TranslateType(general)
 
-		cat, ok := at.(*flow.LLStruct)
-		if !ok {
-			panic(at)
-		}
+		//cat, ok := at.(*flow.LLStruct)
+		//if !ok {
+		//	panic(at)
+		//}
 
 		if gt != at {
-			actual_name = fmt.Sprintf("typed_%s", name)
-			ref := &dst.TypeRef{Name: cat.Name}
-			ctx.link.TypeRef(ref, cat)
+			actual_name := fmt.Sprintf("typed_%s", nameX)
+
+			lref := translateType(ctx, t)
+			actual_value = ctx.funcDecl.CreateLocalInfo(actual_name, lref)
+
+			ref := translateType(ctx, t)
 			stmts = append(stmts, &dst.Assign{
 				Targets: []dst.Target{
 					// HACK
-					&dst.SetName{Text: actual_name},
-					&dst.SetName{Text: "ok"},
+					ctx.funcDecl.MakeSetLocal(actual_value),
+					ctx.funcDecl.MakeSetLocal(ctx.okInfo),
 				},
-				Op: ":=",
+				Op: "=",
 				Sources: []dst.Expr{
 					// TODO typecast tree.
 					&dst.TypeAssert{
-						Expr: lcl(name),
-						Type: &dst.PointerType{Element: ref},
+						Expr: ctx.funcDecl.MakeGetLocal(value),
+						Type: ref,
 					},
 				},
 			})
 			stmts = append(stmts, ctx.makeFatalTest(
-				&dst.UnaryExpr{Op: "!", Expr: lcl("ok")},
+				&dst.UnaryExpr{Op: "!", Expr: ctx.funcDecl.MakeGetLocal(ctx.okInfo)},
 				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, dt.Name.Text),
-				lcl(name),
+				ctx.funcDecl.MakeGetLocal(value),
 			))
 		}
-		cond := checkEQ(lcl(actual_name), &dst.NilLiteral{})
+		cond := checkEQ(ctx.funcDecl.MakeGetLocal(actual_value), &dst.NilLiteral{})
 		stmts = append(stmts, ctx.makeFatalTest(cond, fmt.Sprintf("%s: nil", path)))
 
 		for _, arg := range d.Args {
 			fn := arg.Name.Text
 			childstmts := []dst.Stmt{}
-			child_name := fmt.Sprintf("%s_%s", name, fn)
+			child_name := fmt.Sprintf("%s_%s", nameX, fn)
 			child_path := fmt.Sprintf("%s.%s", path, fn)
+
+			f := tree.GetField(dt, fn)
+			t := tree.ResolveType(f.Type)
+
+			child_value := ctx.funcDecl.CreateLocalInfo(child_name, translateType(ctx, t))
 			childstmts = append(childstmts, &dst.Assign{
 				Targets: []dst.Target{
 					&dst.SetName{Text: child_name},
 				},
-				Op: ":=",
+				Op: "=",
 				Sources: []dst.Expr{
-					attr(lcl(actual_name), fn),
+					attr(ctx.funcDecl.MakeGetLocal(actual_value), fn),
 				},
 			})
-			f := tree.GetField(dt, fn)
 			childstmts = generateDestructure(
+				child_value,
 				child_name,
 				child_path,
 				arg.Destructure,
-				tree.ResolveType(f.Type),
+				t,
 				ctx,
 				childstmts,
 			)
-			stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
+			//stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
+			stmts = append(stmts, childstmts...)
 		}
 	case *tree.DestructureList:
 		stmts = append(stmts, ctx.makeFatalTest(
-			checkNE(makeLen(lcl(name)), intLiteral(len(d.Args))),
+			checkNE(makeLen(ctx.funcDecl.MakeGetLocal(value)), intLiteral(len(d.Args))),
 			fmt.Sprintf("%s: expected length %d but got %%d", path, len(d.Args)),
-			makeLen(lcl(name)),
+			makeLen(ctx.funcDecl.MakeGetLocal(value)),
 		))
 		t := tree.ResolveType(d.Type)
 		dt, ok := t.(*tree.ListType)
@@ -181,35 +227,37 @@ func generateDestructure(name string, path string, d tree.Destructure, general t
 		}
 		for i, arg := range d.Args {
 			childstmts := []dst.Stmt{}
-			child_name := fmt.Sprintf("%s_%d", name, i)
+			child_name := fmt.Sprintf("%s_%d", nameX, i)
 			child_path := fmt.Sprintf("%s[%d]", path, i)
+			child_value := ctx.funcDecl.CreateLocalInfo(child_name, translateType(ctx, dt.Type))
 			childstmts = append(childstmts, &dst.Assign{
 				Targets: []dst.Target{
-					&dst.SetName{Text: child_name},
+					ctx.funcDecl.MakeSetLocal(child_value),
 				},
-				Op: ":=",
+				Op: "=",
 				Sources: []dst.Expr{
 					&dst.Index{
-						Expr:  lcl(name),
+						Expr:  ctx.funcDecl.MakeGetLocal(value),
 						Index: intLiteral(i),
 					},
 				},
 			})
-			childstmts = generateDestructure(child_name, child_path, arg, dt.Type, ctx, childstmts)
-			stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
+			childstmts = generateDestructure(child_value, child_name, child_path, arg, dt.Type, ctx, childstmts)
+			//stmts = append(stmts, &dst.BlockStmt{Body: childstmts})
+			stmts = append(stmts, childstmts...)
 		}
 	case *tree.DestructureValue:
 		switch expr := d.Expr.(type) {
 		case *tree.StringLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(lcl(name), strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), lcl(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), ctx.funcDecl.MakeGetLocal(value)))
 		case *tree.RuneLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(lcl(name), runeLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(expr.Value), lcl(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), runeLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(expr.Value), ctx.funcDecl.MakeGetLocal(value)))
 		case *tree.IntLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(lcl(name), intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), lcl(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), ctx.funcDecl.MakeGetLocal(value)))
 		case *tree.BoolLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(lcl(name), boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), lcl(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), ctx.funcDecl.MakeGetLocal(value)))
 		case *tree.NilLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(lcl(name), nilLiteral()), fmt.Sprintf("%s: expected nil but got %%#v", path), lcl(name)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), nilLiteral()), fmt.Sprintf("%s: expected nil but got %%#v", path), ctx.funcDecl.MakeGetLocal(value)))
 		default:
 			panic(expr)
 		}
@@ -251,23 +299,26 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	decl := &dst.FuncDecl{
 		Name: fmt.Sprintf("Test_%s", tst.Name.Text),
 	}
-	tInfo := decl.CreateLocalInfo("t", &dst.PointerType{
+
+	// HACK
+	ctx.funcDecl = decl
+	ctx.tInfo = decl.CreateLocalInfo("t", &dst.PointerType{
 		Element: &dst.TypeRef{
 			Impl: ctx.t,
 		},
 	})
-
-	// HACK
-	ctx.funcDecl = decl
-	ctx.tInfo = tInfo
-
-	stmts := []dst.Stmt{}
-
 	ctx.state = decl.CreateLocalInfo("state", &dst.PointerType{
 		Element: &dst.TypeRef{
 			Impl: ctx.stateT,
 		},
 	})
+	ctx.okInfo = decl.CreateLocalInfo("ok", &dst.TypeRef{
+		// HACK should actual reference a type.
+		Name: "bool",
+		Impl: &dst.ExternalType{Name: "bool"},
+	})
+
+	stmts := []dst.Stmt{}
 	stmts = append(stmts, &dst.Assign{
 		Targets: []dst.Target{
 			&dst.SetLocal{
@@ -285,14 +336,15 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 		},
 	})
 
-	root := "o"
+	root_name := "o"
+	root_value := decl.CreateLocalInfo(root_name, translateType(ctx, tst.Type))
 
 	stmts = append(stmts, &dst.Assign{
 		Targets: []dst.Target{
 			// HACK
-			&dst.SetName{Text: root},
+			ctx.funcDecl.MakeSetLocal(root_value),
 		},
-		Op: ":=",
+		Op: "=",
 		Sources: []dst.Expr{
 			generateExpr(ctx, tst.Rule),
 		},
@@ -317,11 +369,11 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 		attr(glbl("runtime"), flowName), attr(ctx.GetState(), "Flow"),
 	))
 
-	stmts = generateDestructure(root, root, tst.Destructure, tst.Type, ctx, stmts)
+	stmts = generateDestructure(root_value, root_name, root_name, tst.Destructure, tst.Type, ctx, stmts)
 
 	decl.Type = &dst.FuncType{
 		Params: []*dst.Param{
-			decl.MakeParam(tInfo),
+			decl.MakeParam(ctx.tInfo),
 		},
 		Results: []*dst.Param{},
 	}
@@ -366,7 +418,8 @@ func ExternRuntimePackage() (*dst.Package, *dst.StructDecl) {
 }
 
 func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
-	ctx := &TestingContext{gbuilder: gbuilder, link: link, t: t, stateT: stateT}
+	_, index := flow.ExternBuiltinRuntime()
+	ctx := &TestingContext{gbuilder: gbuilder, link: link, t: t, stateT: stateT, index: index}
 
 	decls := []dst.Decl{}
 
