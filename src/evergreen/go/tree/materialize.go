@@ -10,9 +10,10 @@ type funcGC struct {
 }
 
 func (rewriter *funcGC) rewriteLocalInfo(index int) int {
-	if index >= 0 {
-		rewriter.live[index] = true
+	if index < 0 {
+		panic(index)
 	}
+	rewriter.live[index] = true
 	return index
 }
 
@@ -22,10 +23,10 @@ type funcRemap struct {
 }
 
 func (rewriter *funcRemap) rewriteLocalInfo(index int) int {
-	if index >= 0 {
-		return rewriter.remap[index]
+	if index < 0 {
+		panic(index)
 	}
-	return index
+	return rewriter.remap[index]
 }
 
 func sweepExprList(exprs []Expr, rewriter refRewriter) {
@@ -220,6 +221,9 @@ func (decl *FuncDecl) CreateLocalInfo(name string, T Type) int {
 }
 
 func (decl *FuncDecl) GetLocalInfo(idx int) *LocalInfo {
+	if idx >= len(decl.Locals) || idx < 0 {
+		panic(idx)
+	}
 	return decl.Locals[idx]
 }
 
@@ -233,7 +237,7 @@ func (decl *FuncDecl) MakeParam(idx int) *Param {
 }
 
 func (decl *FuncDecl) MakeGetLocal(idx int) Expr {
-	if idx >= len(decl.Locals) {
+	if idx >= len(decl.Locals) || idx < 0 {
 		panic(idx)
 	}
 	return &GetLocal{
@@ -242,7 +246,7 @@ func (decl *FuncDecl) MakeGetLocal(idx int) Expr {
 }
 
 func (decl *FuncDecl) MakeSetLocal(idx int) Target {
-	if idx >= len(decl.Locals) {
+	if idx >= len(decl.Locals) || idx < 0 {
 		panic(idx)
 	}
 	return &SetLocal{

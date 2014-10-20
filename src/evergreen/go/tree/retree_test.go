@@ -6,13 +6,24 @@ import (
 	"testing"
 )
 
-func binaryOpExample(swap bool) []Stmt {
-	first := "a"
-	second := "b"
+func binaryOpExample(swap bool) (*FuncDecl, []Stmt) {
+	decl := &FuncDecl{
+		Name: "foo",
+		Type: &FuncType{},
+	}
+
+	intType := &ExternalType{Name: "int"}
+	a := decl.CreateLocalInfo("a", &TypeRef{Impl: intType})
+	b := decl.CreateLocalInfo("b", &TypeRef{Impl: intType})
+	ret := decl.CreateLocalInfo("ret0", &TypeRef{Impl: intType})
+
+	first := a
+	second := b
 	if swap {
 		first, second = second, first
 	}
-	return []Stmt{
+
+	block := []Stmt{
 		&Assign{
 			Sources: []Expr{
 				&IntLiteral{
@@ -21,7 +32,7 @@ func binaryOpExample(swap bool) []Stmt {
 			},
 			Op: ":=",
 			Targets: []Target{
-				&SetName{Text: first},
+				&SetLocal{Info: first},
 			},
 		},
 		&Assign{
@@ -32,75 +43,74 @@ func binaryOpExample(swap bool) []Stmt {
 			},
 			Op: ":=",
 			Targets: []Target{
-				&SetName{Text: second},
+				&SetLocal{Info: second},
 			},
 		},
 		&Assign{
 			Sources: []Expr{
 				&BinaryExpr{
-					Left:  &GetName{Text: "a"},
+					Left:  &GetLocal{Info: a},
 					Op:    "+",
-					Right: &GetName{Text: "b"},
+					Right: &GetLocal{Info: b},
 				},
 			},
 			Op: ":=",
 			Targets: []Target{
-				&SetName{Text: "ret0"},
+				&SetLocal{Info: ret},
 			},
 		},
 	}
+	decl.Body = block
+	return decl, block
 }
 
 func functionExample() *FuncDecl {
-	return &FuncDecl{
-		Name: "foo",
-		Type: &FuncType{},
-		Body: binaryOpExample(false),
-	}
+	decl, _ := binaryOpExample(false)
+	return decl
 }
 
 func TestBinaryExprDefUse(t *testing.T) {
-	block := binaryOpExample(false)
-	du := makeApproxDefUse(&FuncDecl{})
-	approxDefUseBlock(block, du)
+	decl, block := binaryOpExample(false)
+	du := makeApproxDefUse(decl)
+	defUseBlock(block, du)
 
-	info := du.GetInfo("a")
+	info := du.GetLocalInfo(0)
 	assert.IntEquals(t, info.Defs, 1)
 	assert.IntEquals(t, info.Uses, 1)
 
-	info = du.GetInfo("b")
+	info = du.GetLocalInfo(1)
 	assert.IntEquals(t, info.Defs, 1)
 	assert.IntEquals(t, info.Uses, 1)
 
-	info = du.GetInfo("ret0")
+	info = du.GetLocalInfo(2)
 	assert.IntEquals(t, info.Defs, 1)
 	assert.IntEquals(t, info.Uses, 0)
 }
 
 func TestBinaryExprRetree(t *testing.T) {
-	block := binaryOpExample(false)
+	decl, block := binaryOpExample(false)
 
-	du := makeApproxDefUse(&FuncDecl{})
+	du := makeApproxDefUse(decl)
 
-	approxDefUseBlock(block, du)
+	defUseBlock(block, du)
 	block = retreeBlock(block, du)
 
 	b, w := base.BufferedCodeWriter()
-	gen := &textGenerator{}
+	gen := &textGenerator{decl: decl}
 	generateBlock(gen, block, w)
 	checkCode(b.String(), "ret0 := 2 + 3\n", t)
 }
 
 func TestBinaryExprRetreeSwap(t *testing.T) {
-	block := binaryOpExample(true)
+	decl, block := binaryOpExample(true)
 
-	du := makeApproxDefUse(&FuncDecl{})
+	du := makeApproxDefUse(decl)
 
-	approxDefUseBlock(block, du)
+	defUseBlock(block, du)
 	block = retreeBlock(block, du)
 
 	b, w := base.BufferedCodeWriter()
-	gen := &textGenerator{}
+	gen := &textGenerator{decl: decl}
 	generateBlock(gen, block, w)
 	checkCode(b.String(), "b := 2\nret0 := 3 + b\n", t)
 }

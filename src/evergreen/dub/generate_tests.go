@@ -195,7 +195,7 @@ func generateDestructure(value int, nameX string, path string, d tree.Destructur
 			child_value := ctx.funcDecl.CreateLocalInfo(child_name, translateType(ctx, t))
 			childstmts = append(childstmts, &dst.Assign{
 				Targets: []dst.Target{
-					&dst.SetName{Text: child_name},
+					&dst.SetLocal{Info: child_value},
 				},
 				Op: "=",
 				Sources: []dst.Expr{

@@ -1,184 +1,150 @@
 package tree
 
-type approxDefUseInfo struct {
+type defUseInfo struct {
 	Defs int
 	Uses int
 }
 
-type approxDefUse struct {
-	decl         *FuncDecl
-	nameToStruct map[string]*approxDefUseInfo
+type defUse struct {
+	decl          *FuncDecl
+	localToStruct map[int]*defUseInfo
 }
 
-func (du *approxDefUse) GetInfo(name string) *approxDefUseInfo {
-	info, ok := du.nameToStruct[name]
+func (du *defUse) GetLocalInfo(index int) *defUseInfo {
+	info, ok := du.localToStruct[index]
 	if !ok {
-		info = &approxDefUseInfo{}
-		du.nameToStruct[name] = info
+		info = &defUseInfo{}
+		du.localToStruct[index] = info
 	}
 	return info
 }
 
-func makeApproxDefUse(decl *FuncDecl) *approxDefUse {
-	return &approxDefUse{
-		decl:         decl,
-		nameToStruct: map[string]*approxDefUseInfo{},
+func makeApproxDefUse(decl *FuncDecl) *defUse {
+	return &defUse{
+		decl:          decl,
+		localToStruct: map[int]*defUseInfo{},
 	}
 }
 
-func approxDefUseExpr(expr Expr, du *approxDefUse) {
+func defUseExpr(expr Expr, du *defUse) {
 	if expr == nil {
 		return
 	}
 	switch expr := expr.(type) {
 	case *GetLocal:
-		// TODO symbolic
-		info := du.decl.GetLocalInfo(expr.Info)
-		du.GetInfo(info.Name).Uses += 1
-	case *GetName:
-		du.GetInfo(expr.Text).Uses += 1
+		du.GetLocalInfo(expr.Info).Uses += 1
 	case *IntLiteral, *RuneLiteral, *BoolLiteral, *StringLiteral, *NilLiteral, *GetGlobal:
 		// Leaf
 	case *UnaryExpr:
-		approxDefUseExpr(expr.Expr, du)
+		defUseExpr(expr.Expr, du)
 	case *BinaryExpr:
-		approxDefUseExpr(expr.Left, du)
-		approxDefUseExpr(expr.Right, du)
+		defUseExpr(expr.Left, du)
+		defUseExpr(expr.Right, du)
 	case *Call:
-		approxDefUseExpr(expr.Expr, du)
+		defUseExpr(expr.Expr, du)
 		for _, arg := range expr.Args {
-			approxDefUseExpr(arg, du)
+			defUseExpr(arg, du)
 		}
 	case *StructLiteral:
 		for _, arg := range expr.Args {
-			approxDefUseExpr(arg.Expr, du)
+			defUseExpr(arg.Expr, du)
 		}
 	case *ListLiteral:
 		for _, arg := range expr.Args {
-			approxDefUseExpr(arg, du)
+			defUseExpr(arg, du)
 		}
 	case *Selector:
-		approxDefUseExpr(expr.Expr, du)
+		defUseExpr(expr.Expr, du)
 	case *Index:
-		approxDefUseExpr(expr.Expr, du)
-		approxDefUseExpr(expr.Index, du)
+		defUseExpr(expr.Expr, du)
+		defUseExpr(expr.Index, du)
 	case *TypeCoerce:
-		approxDefUseExpr(expr.Expr, du)
+		defUseExpr(expr.Expr, du)
 	case *TypeAssert:
-		approxDefUseExpr(expr.Expr, du)
+		defUseExpr(expr.Expr, du)
 	default:
 		panic(expr)
 	}
 }
 
-func approxDefUseTarget(expr Target, du *approxDefUse) {
+func defUseTarget(expr Target, du *defUse) {
 	switch expr := expr.(type) {
 	case *SetLocal:
-		// TODO symbolic
-		info := du.decl.GetLocalInfo(expr.Info)
-		du.GetInfo(info.Name).Defs += 1
-	case *SetName:
-		du.GetInfo(expr.Text).Defs += 1
+		du.GetLocalInfo(expr.Info).Defs += 1
 	default:
-		panic(expr)
+		panic(du.decl.Name)
 	}
 }
 
-func approxDefUseStmt(stmt Stmt, du *approxDefUse) {
+func defUseStmt(stmt Stmt, du *defUse) {
 	switch stmt := stmt.(type) {
 	case *Goto, *Label:
 		// Leaf
 	case *Assign:
-		approxDefUseExprList(stmt.Sources, du)
+		defUseExprList(stmt.Sources, du)
 		for _, tgt := range stmt.Targets {
-			approxDefUseTarget(tgt, du)
+			defUseTarget(tgt, du)
 		}
 	case *Var:
 		if stmt.Expr != nil {
-			approxDefUseExpr(stmt.Expr, du)
-			du.GetInfo(stmt.Name).Defs += 1
+			defUseExpr(stmt.Expr, du)
+			du.GetLocalInfo(stmt.Info).Defs += 1
 		}
 	case *If:
-		approxDefUseExpr(stmt.Cond, du)
-		approxDefUseBlock(stmt.Body, du)
+		defUseExpr(stmt.Cond, du)
+		defUseBlock(stmt.Body, du)
 		if stmt.Else != nil {
-			approxDefUseStmt(stmt.Else, du)
+			defUseStmt(stmt.Else, du)
 		}
 	case *BlockStmt:
-		approxDefUseBlock(stmt.Body, du)
+		defUseBlock(stmt.Body, du)
 	case *Return:
-		approxDefUseExprList(stmt.Args, du)
+		defUseExprList(stmt.Args, du)
 	default:
 		expr, ok := stmt.(Expr)
 		if ok {
-			approxDefUseExpr(expr, du)
+			defUseExpr(expr, du)
 		} else {
 			panic(stmt)
 		}
 	}
 }
 
-func approxDefUseExprList(exprs []Expr, du *approxDefUse) {
+func defUseExprList(exprs []Expr, du *defUse) {
 	for _, expr := range exprs {
-		approxDefUseExpr(expr, du)
+		defUseExpr(expr, du)
 	}
 }
 
-func approxDefUseBlock(stmts []Stmt, du *approxDefUse) {
+func defUseBlock(stmts []Stmt, du *defUse) {
 	for _, stmt := range stmts {
-		approxDefUseStmt(stmt, du)
+		defUseStmt(stmt, du)
 	}
 }
 
-func approxDefUseParam(param *Param, input bool, du *approxDefUse) {
+func defUseParam(param *Param, input bool, du *defUse) {
 	// Outputs are implicitly zeroed.
-	du.GetInfo(param.Name).Defs += 1
+	du.GetLocalInfo(param.Info).Defs += 1
 	if !input {
-		du.GetInfo(param.Name).Uses += 1
+		du.GetLocalInfo(param.Info).Uses += 1
 	}
 }
 
-func approxDefUseFunc(decl *FuncDecl, du *approxDefUse) {
+func defUseFunc(decl *FuncDecl, du *defUse) {
 	if decl.Recv != nil {
-		approxDefUseParam(decl.Recv, true, du)
+		defUseParam(decl.Recv, true, du)
 	}
 	for _, p := range decl.Type.Params {
-		approxDefUseParam(p, true, du)
+		defUseParam(p, true, du)
 	}
 	for _, p := range decl.Type.Results {
-		approxDefUseParam(p, false, du)
+		defUseParam(p, false, du)
 	}
-	approxDefUseBlock(decl.Body, du)
+	defUseBlock(decl.Body, du)
 }
 
-func pullName(expr *GetName, du *approxDefUse, out []Stmt) (Expr, []Stmt) {
-	info := du.GetInfo(expr.Text)
-	if info.Uses != 1 || info.Defs != 1 {
-		return expr, out
-	}
-
-	n := len(out)
-	if n <= 0 {
-		return expr, out
-	}
-	last := out[n-1]
-	lastAssign, ok := last.(*Assign)
-	if !ok {
-		return expr, out
-	}
-	if len(lastAssign.Targets) != 1 || len(lastAssign.Sources) != 1 {
-		return expr, out
-	}
-	target, ok := lastAssign.Targets[0].(*SetName)
-	if !ok || target.Text != expr.Text {
-		return expr, out
-	}
-	return lastAssign.Sources[0], out[:n-1]
-}
-
-func pullLocal(expr *GetLocal, du *approxDefUse, out []Stmt) (Expr, []Stmt) {
-	lcl := du.decl.GetLocalInfo(expr.Info)
-	info := du.GetInfo(lcl.Name)
+func pullLocal(expr *GetLocal, du *defUse, out []Stmt) (Expr, []Stmt) {
+	info := du.GetLocalInfo(expr.Info)
 	if info.Uses != 1 || info.Defs != 1 {
 		return expr, out
 	}
@@ -202,22 +168,20 @@ func pullLocal(expr *GetLocal, du *approxDefUse, out []Stmt) (Expr, []Stmt) {
 	return lastAssign.Sources[0], out[:n-1]
 }
 
-func retreeExprList(exprs []Expr, du *approxDefUse, out []Stmt) []Stmt {
+func retreeExprList(exprs []Expr, du *defUse, out []Stmt) []Stmt {
 	for i := len(exprs) - 1; i >= 0; i-- {
 		exprs[i], out = retreeExpr(exprs[i], du, out)
 	}
 	return out
 }
 
-func retreeExpr(expr Expr, du *approxDefUse, out []Stmt) (Expr, []Stmt) {
+func retreeExpr(expr Expr, du *defUse, out []Stmt) (Expr, []Stmt) {
 	if expr == nil {
 		return nil, out
 	}
 	switch expr := expr.(type) {
 	case *GetLocal:
 		return pullLocal(expr, du, out)
-	case *GetName:
-		return pullName(expr, du, out)
 	case *IntLiteral, *RuneLiteral, *BoolLiteral, *StringLiteral, *NilLiteral, *GetGlobal:
 		// Leaf
 	case *UnaryExpr:
@@ -249,7 +213,7 @@ func retreeExpr(expr Expr, du *approxDefUse, out []Stmt) (Expr, []Stmt) {
 	return expr, out
 }
 
-func retreeStmt(stmt Stmt, du *approxDefUse, out []Stmt) []Stmt {
+func retreeStmt(stmt Stmt, du *defUse, out []Stmt) []Stmt {
 	switch stmt := stmt.(type) {
 	case *Goto, *Label:
 		// Leaf
@@ -281,7 +245,7 @@ func retreeStmt(stmt Stmt, du *approxDefUse, out []Stmt) []Stmt {
 	return out
 }
 
-func retreeBlock(stmts []Stmt, du *approxDefUse) []Stmt {
+func retreeBlock(stmts []Stmt, du *defUse) []Stmt {
 	out := []Stmt{}
 	for _, stmt := range stmts {
 		out = retreeStmt(stmt, du, out)
@@ -297,7 +261,7 @@ func retreeDecl(decl Decl) {
 	case *FuncDecl:
 		du := makeApproxDefUse(decl)
 		if decl.Body != nil {
-			approxDefUseFunc(decl, du)
+			defUseFunc(decl, du)
 			decl.Body = retreeBlock(decl.Body, du)
 		}
 	default:
