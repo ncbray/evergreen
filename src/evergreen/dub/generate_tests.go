@@ -296,7 +296,8 @@ func generateExpr(ctx *TestingContext, expr tree.ASTExpr) dst.Expr {
 
 func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	decl := &dst.FuncDecl{
-		Name: fmt.Sprintf("Test_%s", tst.Name.Text),
+		Name:            fmt.Sprintf("Test_%s", tst.Name.Text),
+		LocalInfo_Scope: &dst.LocalInfo_Scope{},
 	}
 
 	// HACK

@@ -227,6 +227,7 @@ func TestFuncDecl(t *testing.T) {
 				},
 			},
 		},
+		LocalInfo_Scope: &LocalInfo_Scope{},
 	}
 	b, w := base.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
@@ -281,6 +282,7 @@ func TestFile(t *testing.T) {
 						},
 					},
 				},
+				LocalInfo_Scope: &LocalInfo_Scope{},
 			},
 			&InterfaceDecl{
 				Name: "I",

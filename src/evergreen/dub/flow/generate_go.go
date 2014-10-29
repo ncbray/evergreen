@@ -573,7 +573,8 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 	}
 
 	funcDecl := &ast.FuncDecl{
-		Name: f.Name,
+		Name:            f.Name,
+		LocalInfo_Scope: &ast.LocalInfo_Scope{},
 	}
 
 	// Make local infos
@@ -646,9 +647,10 @@ func addTags(base *LLStruct, parent *LLStruct, ctx *DubToGoContext, decls []ast.
 	if parent != nil {
 		decls = addTags(base, parent.Implements, ctx, decls)
 		decl := &ast.FuncDecl{
-			Name: tagName(parent),
-			Type: &ast.FuncType{},
-			Body: []ast.Stmt{},
+			Name:            tagName(parent),
+			Type:            &ast.FuncType{},
+			Body:            []ast.Stmt{},
+			LocalInfo_Scope: &ast.LocalInfo_Scope{},
 		}
 		recv := decl.CreateLocalInfo("node", goTypeName(base, ctx))
 		decl.Recv = decl.MakeParam(recv)

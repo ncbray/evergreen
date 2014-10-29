@@ -68,7 +68,7 @@ struct ListLiteral implements Expr {
   Args []Expr
 }
 
-struct LocalInfo {
+struct LocalInfo scoped {
   Name string
   T Type
 }
@@ -171,13 +171,12 @@ struct Return implements Stmt {
 struct Decl {
 }
 
-struct FuncDecl implements Decl {
+struct FuncDecl contains(LocalInfo) implements Decl {
   Name string
   Recv Param
   Type FuncType
   Body []Stmt
   Package Package
-  Locals []LocalInfo
 }
 
 struct Field {

@@ -152,20 +152,13 @@ func MakeRemap(live []bool) ([]int, int) {
 }
 
 func CompactFunc(decl *FuncDecl) {
-	sweep := &funcGC{live: make([]bool, len(decl.Locals))}
+	sweep := &funcGC{live: make([]bool, decl.LocalInfo_Scope.Len())}
 	sweepFunc(decl, sweep)
 
 	remap, count := MakeRemap(sweep.live)
 	sweepFunc(decl, &funcRemap{remap: remap})
 
-	locals := make([]*LocalInfo, count)
-	for i, info := range decl.Locals {
-		idx := remap[i]
-		if idx >= 0 {
-			locals[idx] = info
-		}
-	}
-	decl.Locals = locals
+	decl.LocalInfo_Scope.Remap(remap, count)
 }
 
 func isParam(decl *FuncDecl, ref int) bool {
@@ -196,7 +189,10 @@ func InsertVarDecls(decl *FuncDecl) {
 
 	// Declare the variables up front.
 	// It is easier to do this than precisely calculate where they need to be defined.
-	for i, info := range decl.Locals {
+	iter := decl.LocalInfo_Scope.Iter()
+	for iter.Next() {
+		i := iter.Index()
+		info := iter.Value()
 		if isParam(decl, i) {
 			continue
 		}
@@ -211,20 +207,62 @@ func InsertVarDecls(decl *FuncDecl) {
 	decl.Body = append(stmts, decl.Body...)
 }
 
+func (scope *LocalInfo_Scope) Get(ref int) *LocalInfo {
+	return scope.objects[ref]
+}
+
+func (scope *LocalInfo_Scope) Register(info *LocalInfo) int {
+	index := len(scope.objects)
+	scope.objects = append(scope.objects, info)
+	return index
+}
+
+func (scope *LocalInfo_Scope) Len() int {
+	return len(scope.objects)
+}
+
+func (scope *LocalInfo_Scope) Iter() *localInfoIterator {
+	return &localInfoIterator{scope: scope, current: -1}
+}
+
+func (scope *LocalInfo_Scope) Remap(remap []int, count int) {
+	objects := make([]*LocalInfo, count)
+	for i, info := range scope.objects {
+		idx := remap[i]
+		if idx >= 0 {
+			objects[idx] = info
+		}
+	}
+	scope.objects = objects
+}
+
+type localInfoIterator struct {
+	scope   *LocalInfo_Scope
+	current int
+}
+
+func (iter *localInfoIterator) Next() bool {
+	iter.current += 1
+	return iter.current < len(iter.scope.objects)
+}
+
+func (iter *localInfoIterator) Index() int {
+	return iter.current
+}
+
+func (iter *localInfoIterator) Value() *LocalInfo {
+	return iter.scope.objects[iter.current]
+}
+
 func (decl *FuncDecl) CreateLocalInfo(name string, T Type) int {
-	idx := len(decl.Locals)
-	decl.Locals = append(decl.Locals, &LocalInfo{
+	return decl.LocalInfo_Scope.Register(&LocalInfo{
 		Name: name,
 		T:    T,
 	})
-	return idx
 }
 
 func (decl *FuncDecl) GetLocalInfo(idx int) *LocalInfo {
-	if idx >= len(decl.Locals) || idx < 0 {
-		panic(idx)
-	}
-	return decl.Locals[idx]
+	return decl.LocalInfo_Scope.Get(idx)
 }
 
 func (decl *FuncDecl) MakeParam(idx int) *Param {
@@ -237,18 +275,12 @@ func (decl *FuncDecl) MakeParam(idx int) *Param {
 }
 
 func (decl *FuncDecl) MakeGetLocal(idx int) Expr {
-	if idx >= len(decl.Locals) || idx < 0 {
-		panic(idx)
-	}
 	return &GetLocal{
 		Info: idx,
 	}
 }
 
 func (decl *FuncDecl) MakeSetLocal(idx int) Target {
-	if idx >= len(decl.Locals) || idx < 0 {
-		panic(idx)
-	}
 	return &SetLocal{
 		Info: idx,
 	}

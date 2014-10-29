@@ -8,8 +8,9 @@ import (
 
 func binaryOpExample(swap bool) (*FuncDecl, []Stmt) {
 	decl := &FuncDecl{
-		Name: "foo",
-		Type: &FuncType{},
+		Name:            "foo",
+		Type:            &FuncType{},
+		LocalInfo_Scope: &LocalInfo_Scope{},
 	}
 
 	intType := &ExternalType{Name: "int"}

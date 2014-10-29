@@ -179,8 +179,9 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 		nameifyType(decl.Type, info)
 	case *FuncDecl:
 		CompactFunc(decl)
-		for _, lcl := range decl.Locals {
-			nameifyType(lcl.T, info)
+		iter := decl.LocalInfo_Scope.Iter()
+		for iter.Next() {
+			nameifyType(iter.Value().T, info)
 		}
 
 		if decl.Recv != nil {

@@ -128,6 +128,12 @@ func (node *ListLiteral) isStmt() {
 func (node *ListLiteral) isExpr() {
 }
 
+type LocalInfo_Ref uint32
+
+type LocalInfo_Scope struct {
+	objects []*LocalInfo
+}
+
 type LocalInfo struct {
 	Name string
 	T    Type
@@ -322,12 +328,12 @@ type Decl interface {
 }
 
 type FuncDecl struct {
-	Name    string
-	Recv    *Param
-	Type    *FuncType
-	Body    []Stmt
-	Package *Package
-	Locals  []*LocalInfo
+	Name            string
+	Recv            *Param
+	Type            *FuncType
+	Body            []Stmt
+	Package         *Package
+	LocalInfo_Scope *LocalInfo_Scope
 }
 
 func (node *FuncDecl) isDecl() {
