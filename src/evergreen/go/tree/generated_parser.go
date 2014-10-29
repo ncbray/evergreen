@@ -377,6 +377,18 @@ func (node *ExternalType) isDecl() {
 func (node *ExternalType) isTypeImpl() {
 }
 
+type TypeDef struct {
+	Name    string
+	Type    Type
+	Package *Package
+}
+
+func (node *TypeDef) isDecl() {
+}
+
+func (node *TypeDef) isTypeImpl() {
+}
+
 type Import struct {
 	Name string
 	Path string

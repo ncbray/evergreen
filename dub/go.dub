@@ -205,6 +205,12 @@ struct ExternalType implements TypeImpl {
   Package Package
 }
 
+struct TypeDef implements TypeImpl {
+  Name string
+  Type Type
+  Package Package
+}
+
 struct Import {
   Name string
   Path string

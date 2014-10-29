@@ -111,9 +111,7 @@ func semanticTargetPass(decl *FuncDecl, expr ASTExpr, t ASTType, define bool, sc
 				status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
 				return
 			}
-
-			info = len(decl.Locals)
-			decl.Locals = append(decl.Locals, &LocalInfo{Name: name, T: t})
+			info = decl.LocalInfo_Scope.Register(&LocalInfo{Name: name, T: t})
 			scope.locals[expr.Name.Text] = info
 		} else {
 			info, exists = scope.localInfo(name)
@@ -182,7 +180,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			return []ASTType{unresolvedType}
 		}
 		expr.Info = info
-		return []ASTType{decl.Locals[info].T}
+		return []ASTType{decl.LocalInfo_Scope.Get(info).T}
 	case *Assign:
 		var t []ASTType
 		if expr.Expr != nil {
@@ -368,6 +366,9 @@ func semanticFuncBodyPass(decl *FuncDecl, glbls *ModuleScope, status framework.S
 }
 
 func semanticStructPass(decl *StructDecl, glbls *ModuleScope, status framework.Status) {
+	for _, t := range decl.Contains {
+		semanticTypePass(t, glbls, status)
+	}
 	if decl.Implements != nil {
 		semanticTypePass(decl.Implements, glbls, status)
 	}
@@ -585,4 +586,18 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 		semanticTestPass(tst, glbls, status)
 	}
 	return glbls
+}
+
+func (scope *LocalInfo_Scope) Get(ref int) *LocalInfo {
+	return scope.objects[ref]
+}
+
+func (scope *LocalInfo_Scope) Register(info *LocalInfo) int {
+	index := len(scope.objects)
+	scope.objects = append(scope.objects, info)
+	return index
+}
+
+func (scope *LocalInfo_Scope) Len() int {
+	return len(scope.objects)
 }

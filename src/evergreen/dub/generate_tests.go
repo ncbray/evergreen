@@ -106,8 +106,7 @@ func translateType(ctx *TestingContext, t tree.ASTType) dst.Type {
 func translateTypeInternal(ctx *TestingContext, at flow.DubType) dst.Type {
 	switch cat := at.(type) {
 	case *flow.LLStruct:
-		ref := &dst.TypeRef{Name: cat.Name}
-		ctx.link.TypeRef(ref, cat)
+		ref := ctx.link.TypeRef(cat, flow.STRUCT)
 		if cat.Abstract {
 			return ref
 		} else {

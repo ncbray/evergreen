@@ -6,9 +6,15 @@ import (
 	"fmt"
 )
 
+const (
+	STRUCT = iota
+	REF
+	SCOPE
+)
+
 type DubToGoLinker interface {
-	TypeRef(r *ast.TypeRef, s *LLStruct)
-	ForwardType(s *LLStruct, impl ast.TypeImpl)
+	TypeRef(s *LLStruct, subtype int) *ast.TypeRef
+	ForwardType(s *LLStruct, subtype int, impl ast.TypeImpl)
 	Finish()
 }
 
@@ -18,44 +24,67 @@ type linkElement struct {
 }
 
 type linkerImpl struct {
-	types map[*LLStruct]*linkElement
+	types []map[*LLStruct]*linkElement
 }
 
-func (l *linkerImpl) get(s *LLStruct) *linkElement {
-	e, ok := l.types[s]
+func (l *linkerImpl) get(s *LLStruct, subtype int) *linkElement {
+	e, ok := l.types[subtype][s]
 	if !ok {
 		e = &linkElement{}
-		l.types[s] = e
+		l.types[subtype][s] = e
 	}
 	return e
 }
 
-func (l *linkerImpl) TypeRef(r *ast.TypeRef, s *LLStruct) {
-	e := l.get(s)
+func (l *linkerImpl) TypeRef(s *LLStruct, subtype int) *ast.TypeRef {
+	r := &ast.TypeRef{Name: subtypeName(s, subtype)}
+	e := l.get(s, subtype)
 	e.refs = append(e.refs, r)
+	return r
 }
 
-func (l *linkerImpl) ForwardType(s *LLStruct, impl ast.TypeImpl) {
-	e := l.get(s)
+func (l *linkerImpl) ForwardType(s *LLStruct, subtype int, impl ast.TypeImpl) {
+	e := l.get(s, subtype)
 	e.impl = impl
 }
 
 func (l *linkerImpl) Finish() {
-	for s, e := range l.types {
-		if e.impl == nil {
-			panic(s)
+	for subtype, types := range l.types {
+		for s, e := range types {
+			if e.impl == nil {
+				panic(fmt.Sprintf("%s / %d", s.Name, subtype))
+			}
+			for _, r := range e.refs {
+				r.Impl = e.impl
+			}
+			e.refs = nil
 		}
-		for _, r := range e.refs {
-			r.Impl = e.impl
-		}
-		e.refs = nil
 	}
 }
 
 func MakeLinker() DubToGoLinker {
-	return &linkerImpl{
-		types: map[*LLStruct]*linkElement{},
+	types := []map[*LLStruct]*linkElement{}
+	for i := 0; i < 3; i++ {
+		types = append(types, map[*LLStruct]*linkElement{})
 	}
+	return &linkerImpl{
+		types: types,
+	}
+}
+
+func subtypeName(s *LLStruct, subtype int) string {
+	name := s.Name
+	switch subtype {
+	case STRUCT:
+		// Nothing
+	case REF:
+		name += "_Ref"
+	case SCOPE:
+		name += "_Scope"
+	default:
+		panic(subtype)
+	}
+	return name
 }
 
 type regionInfo struct {
@@ -207,6 +236,8 @@ func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
 			return &ast.TypeRef{Impl: ctx.index.BoolType}
 		case "int":
 			return &ast.TypeRef{Impl: ctx.index.IntType}
+		case "uint32":
+			return &ast.TypeRef{Impl: ctx.index.UInt32Type}
 		case "rune":
 			return &ast.TypeRef{Impl: ctx.index.RuneType}
 		case "string":
@@ -217,7 +248,7 @@ func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
 	case *ListType:
 		return &ast.SliceType{Element: goTypeName(t.Type, ctx)}
 	case *LLStruct:
-		out := goStructType(t, ctx)
+		out := ctx.link.TypeRef(t, STRUCT)
 		if t.Abstract {
 			return out
 		} else {
@@ -226,12 +257,6 @@ func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
 	default:
 		panic(t)
 	}
-}
-
-func goStructType(t *LLStruct, ctx *DubToGoContext) *ast.TypeRef {
-	out := &ast.TypeRef{Name: t.Name}
-	ctx.link.TypeRef(out, t)
-	return out
 }
 
 func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []ast.Stmt {
@@ -274,12 +299,25 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 				Expr: info.GetReg(arg.Value),
 			}
 		}
+		for _, c := range op.Type.Contains {
+			elts = append(elts, &ast.KeywordExpr{
+				Name: subtypeName(c, SCOPE),
+				Expr: &ast.UnaryExpr{
+					Op: "&",
+					Expr: &ast.StructLiteral{
+						Type: ctx.link.TypeRef(c, SCOPE),
+						Args: []*ast.KeywordExpr{},
+					},
+				},
+			})
+
+		}
 		block = append(block, opAssign(
 			info,
 			&ast.UnaryExpr{
 				Op: "&",
 				Expr: &ast.StructLiteral{
-					Type: goStructType(op.Type, ctx),
+					Type: ctx.link.TypeRef(op.Type, STRUCT),
 					Args: elts,
 				},
 			},
@@ -619,8 +657,33 @@ func addTags(base *LLStruct, parent *LLStruct, ctx *DubToGoContext, decls []ast.
 	return decls
 }
 
+func GenerateScopeHelpers(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
+	ref := &ast.TypeDef{
+		Name: subtypeName(s, REF),
+		Type: &ast.TypeRef{Impl: ctx.index.UInt32Type},
+	}
+	ctx.link.ForwardType(s, REF, ref)
+
+	scope := &ast.StructDecl{
+		Name: subtypeName(s, SCOPE),
+		Fields: []*ast.Field{
+			&ast.Field{
+				Name: "objects",
+				Type: &ast.SliceType{Element: goTypeName(s, ctx)},
+			},
+		},
+	}
+	ctx.link.ForwardType(s, SCOPE, scope)
+
+	decls = append(decls, ref, scope)
+	return decls
+}
+
 func GenerateGoStruct(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
 	if s.Abstract {
+		if s.Scoped {
+			panic(s.Name)
+		}
 		if len(s.Fields) != 0 {
 			panic(s.Name)
 		}
@@ -635,9 +698,13 @@ func GenerateGoStruct(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.
 			Name:   s.Name,
 			Fields: fields,
 		}
-		ctx.link.ForwardType(s, impl)
+		ctx.link.ForwardType(s, STRUCT, impl)
 		decls = append(decls, impl)
 	} else {
+		if s.Scoped {
+			decls = GenerateScopeHelpers(s, ctx, decls)
+		}
+
 		fields := []*ast.Field{}
 		for _, f := range s.Fields {
 			fields = append(fields, &ast.Field{
@@ -645,11 +712,21 @@ func GenerateGoStruct(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.
 				Type: goTypeName(f.T, ctx),
 			})
 		}
+		for _, c := range s.Contains {
+			if !c.Scoped {
+				panic(c)
+			}
+			fields = append(fields, &ast.Field{
+				Name: subtypeName(c, SCOPE),
+				Type: &ast.PointerType{Element: ctx.link.TypeRef(c, SCOPE)},
+			})
+		}
+
 		impl := &ast.StructDecl{
 			Name:   s.Name,
 			Fields: fields,
 		}
-		ctx.link.ForwardType(s, impl)
+		ctx.link.ForwardType(s, STRUCT, impl)
 		decls = append(decls, impl)
 		decls = addTags(s, s.Implements, ctx, decls)
 	}
@@ -676,6 +753,7 @@ func ExternParserRuntime() (*ast.Package, *ast.StructDecl) {
 
 type BuiltinIndex struct {
 	IntType    ast.TypeImpl
+	UInt32Type ast.TypeImpl
 	BoolType   ast.TypeImpl
 	StringType ast.TypeImpl
 	RuneType   ast.TypeImpl
@@ -683,6 +761,8 @@ type BuiltinIndex struct {
 
 func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
 	intType := &ast.ExternalType{Name: "int"}
+	uInt32Type := &ast.ExternalType{Name: "uint32"}
+
 	boolType := &ast.ExternalType{Name: "bool"}
 	stringType := &ast.ExternalType{Name: "string"}
 	runeType := &ast.ExternalType{Name: "rune"}
@@ -694,6 +774,7 @@ func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
 			&ast.File{
 				Decls: []ast.Decl{
 					intType,
+					uInt32Type,
 					boolType,
 					stringType,
 					runeType,
@@ -703,6 +784,7 @@ func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
 	}
 	index := &BuiltinIndex{
 		IntType:    intType,
+		UInt32Type: uInt32Type,
 		BoolType:   boolType,
 		StringType: stringType,
 		RuneType:   runeType,

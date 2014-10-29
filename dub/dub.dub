@@ -854,21 +854,7 @@ func ParseNamedExprList() []NamedExpr {
 
 func ParseReturnTypeList() []ASTTypeRef {
   choose {
-    /[(]/;
-    S();
-    types := []ASTTypeRef{};
-    question {
-      append(types, ParseTypeRef());
-      S();
-      star {
-        /[,]/;
-        S();
-        append(types, ParseTypeRef());
-        S();
-      }
-    }
-    /[)]/;
-    return types;
+    return ParseParenthTypeList();
   } or {
     return []ASTTypeRef{ParseTypeRef()};
   } or {
@@ -1030,7 +1016,7 @@ func ParseCompoundStatement() ASTExpr {
     EndKeyword();
     S();
     blocks := [][]ASTExpr{ParseCodeBlock()};
-    star {
+    plus {
       S();
       /"or"/;
       EndKeyword();
@@ -1323,8 +1309,27 @@ struct StructDecl implements ASTType {
   Name Id
   Implements ASTTypeRef
   Fields []FieldDecl
+  Scoped bool
+  Contains []ASTTypeRef
 }
 
+func ParseParenthTypeList() []ASTTypeRef {
+  /[(]/;
+  S();
+  types := []ASTTypeRef{};
+  question {
+    append(types, ParseTypeRef());
+    S();
+    star {
+      /[,]/;
+      S();
+      append(types, ParseTypeRef());
+      S();
+    }
+  }
+  /[)]/;
+  return types;
+}
 
 func ParseStructDecl() StructDecl {
   /"struct"/;
@@ -1332,6 +1337,24 @@ func ParseStructDecl() StructDecl {
   S();
   name := Ident();
   S();
+
+  scoped := false;
+  question {
+    /"scoped"/;
+    EndKeyword();
+    S();
+    scoped = true;
+  }
+
+  contains := []ASTTypeRef{};
+  question {
+    /"contains"/;
+    EndKeyword();
+    S();
+    contains = ParseParenthTypeList();
+    S();
+  }
+
   var implements ASTTypeRef;
   question {
     /"implements"/;
@@ -1340,6 +1363,7 @@ func ParseStructDecl() StructDecl {
     implements = ParseTypeRef();
     S();
   }
+
   /[{]/;
   S();
   fields := []FieldDecl{};
@@ -1351,13 +1375,19 @@ func ParseStructDecl() StructDecl {
     append(fields, FieldDecl{Name: fn, Type: ft});
   }
   /[}]/;
-  return StructDecl{Name: name, Implements: implements, Fields: fields};
+  return StructDecl{
+    Name: name,
+    Implements: implements,
+    Fields: fields,
+    Scoped: scoped,
+    Contains: contains
+  };
 }
 
 struct ASTCallable implements ASTDecl {
 }
 
-struct LocalInfo {
+struct LocalInfo scoped {
   Name string
   T ASTType
 }
@@ -1367,12 +1397,11 @@ struct Param {
        Type ASTTypeRef
 }
 
-struct FuncDecl implements ASTCallable {
+struct FuncDecl contains(LocalInfo) implements ASTCallable {
   Name Id
   Params []Param
   ReturnTypes []ASTTypeRef
   Block []ASTExpr
-  Locals []LocalInfo
 }
 
 func ParseParam() Param {

@@ -175,6 +175,8 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 		for _, field := range decl.Fields {
 			nameifyType(field.Type, info)
 		}
+	case *TypeDef:
+		nameifyType(decl.Type, info)
 	case *FuncDecl:
 		CompactFunc(decl)
 		for _, lcl := range decl.Locals {
@@ -239,6 +241,8 @@ func nameifyPrepass(prog *Program) {
 				case *FuncDecl:
 					decl.Package = pkg
 				case *ExternalType:
+					decl.Package = pkg
+				case *TypeDef:
 					decl.Package = pkg
 				default:
 					panic(decl)

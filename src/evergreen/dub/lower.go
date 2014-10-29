@@ -389,7 +389,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		if !used {
 			return flow.NoRegister
 		}
-		dst := builder.CreateRegister(builder.decl.Locals[expr.Info].T)
+		dst := builder.CreateRegister(builder.decl.LocalInfo_Scope.Get(expr.Info).T)
 		body := builder.EmitOp(&flow.CopyOp{Src: builder.localMap[expr.Info], Dst: dst})
 		gr.AttachFlow(flow.NORMAL, body)
 		gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
@@ -654,9 +654,10 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 	f := &flow.LLFunc{Name: decl.Name.Text}
 
 	// Allocate register for locals
-	builder.localMap = make([]flow.DubRegister, len(decl.Locals))
-	for i, info := range decl.Locals {
-		builder.localMap[i] = builder.CreateRegister(info.T)
+	numLocals := decl.LocalInfo_Scope.Len()
+	builder.localMap = make([]flow.DubRegister, numLocals)
+	for i := 0; i < numLocals; i++ {
+		builder.localMap[i] = builder.CreateRegister(decl.LocalInfo_Scope.Get(i).T)
 	}
 
 	// Function parameters
@@ -697,6 +698,17 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 func LowerStruct(decl *tree.StructDecl, s *flow.LLStruct, gbuilder *GlobalDubBuilder) *flow.LLStruct {
 	fields := []*flow.LLField{}
 	var implements *flow.LLStruct
+
+	contains := []*flow.LLStruct{}
+	for _, t := range decl.Contains {
+		tt := gbuilder.TranslateType(tree.ResolveType(t))
+		contained, ok := tt.(*flow.LLStruct)
+		if !ok {
+			panic(tt)
+		}
+		contains = append(contains, contained)
+
+	}
 	if decl.Implements != nil {
 		t := gbuilder.TranslateType(tree.ResolveType(decl.Implements))
 		var ok bool
@@ -715,6 +727,8 @@ func LowerStruct(decl *tree.StructDecl, s *flow.LLStruct, gbuilder *GlobalDubBui
 		Name:       decl.Name.Text,
 		Implements: implements,
 		Fields:     fields,
+		Scoped:     decl.Scoped,
+		Contains:   contains,
 	}
 	return s
 }

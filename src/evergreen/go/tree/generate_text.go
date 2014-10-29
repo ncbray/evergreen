@@ -323,6 +323,8 @@ func GenerateDecl(decl Decl, w *base.CodeWriter) {
 		}
 		w.RestoreMargin()
 		w.Line("}")
+	case *TypeDef:
+		w.Linef("type %s %s", decl.Name, GenerateType(decl.Type))
 	case *FuncDecl:
 		gen := &textGenerator{decl: decl}
 		GenerateFunc(gen, decl, w)

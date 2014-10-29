@@ -43,6 +43,8 @@ type LLStruct struct {
 	Implements *LLStruct
 	Abstract   bool
 	Fields     []*LLField
+	Scoped     bool
+	Contains   []*LLStruct
 }
 
 func (t *LLStruct) isDubType() {
