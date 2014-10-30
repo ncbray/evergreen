@@ -751,7 +751,7 @@ struct Assign implements ASTExpr {
 
 struct NameRef implements ASTExpr {
   Name Id
-  Info int
+  Local LocalInfo
 }
 
 struct NamedExpr {

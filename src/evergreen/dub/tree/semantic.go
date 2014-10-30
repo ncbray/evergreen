@@ -5,12 +5,14 @@ import (
 	"fmt"
 )
 
+var NoLocalInfo LocalInfo_Ref = ^LocalInfo_Ref(0)
+
 type semanticScope struct {
 	parent *semanticScope
-	locals map[string]int
+	locals map[string]LocalInfo_Ref
 }
 
-func (scope *semanticScope) localInfo(name string) (int, bool) {
+func (scope *semanticScope) localInfo(name string) (LocalInfo_Ref, bool) {
 	for scope != nil {
 		info, ok := scope.locals[name]
 		if ok {
@@ -18,11 +20,11 @@ func (scope *semanticScope) localInfo(name string) (int, bool) {
 		}
 		scope = scope.parent
 	}
-	return -1, false
+	return NoLocalInfo, false
 }
 
 func childScope(scope *semanticScope) *semanticScope {
-	return &semanticScope{parent: scope, locals: map[string]int{}}
+	return &semanticScope{parent: scope, locals: map[string]LocalInfo_Ref{}}
 }
 
 var unresolvedType ASTType = nil
@@ -100,10 +102,10 @@ func semanticTargetPass(decl *FuncDecl, expr ASTExpr, t ASTType, define bool, sc
 	case *NameRef:
 		name := expr.Name.Text
 		if IsDiscard(name) {
-			expr.Info = -1
+			expr.Local = NoLocalInfo
 			return
 		}
-		var info int
+		var info LocalInfo_Ref
 		var exists bool
 		if define {
 			_, exists = scope.localInfo(expr.Name.Text)
@@ -121,7 +123,7 @@ func semanticTargetPass(decl *FuncDecl, expr ASTExpr, t ASTType, define bool, sc
 			}
 			// TODO type check
 		}
-		expr.Info = info
+		expr.Local = info
 	default:
 		panic(expr)
 	}
@@ -179,7 +181,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
 			return []ASTType{unresolvedType}
 		}
-		expr.Info = info
+		expr.Local = info
 		return []ASTType{decl.LocalInfo_Scope.Get(info).T}
 	case *Assign:
 		var t []ASTType
@@ -588,12 +590,12 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 	return glbls
 }
 
-func (scope *LocalInfo_Scope) Get(ref int) *LocalInfo {
+func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {
 	return scope.objects[ref]
 }
 
-func (scope *LocalInfo_Scope) Register(info *LocalInfo) int {
-	index := len(scope.objects)
+func (scope *LocalInfo_Scope) Register(info *LocalInfo) LocalInfo_Ref {
+	index := LocalInfo_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
 	return index
 }

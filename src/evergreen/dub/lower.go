@@ -389,8 +389,8 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		if !used {
 			return flow.NoRegister
 		}
-		dst := builder.CreateRegister(builder.decl.LocalInfo_Scope.Get(expr.Info).T)
-		body := builder.EmitOp(&flow.CopyOp{Src: builder.localMap[expr.Info], Dst: dst})
+		dst := builder.CreateRegister(builder.decl.LocalInfo_Scope.Get(expr.Local).T)
+		body := builder.EmitOp(&flow.CopyOp{Src: builder.localMap[expr.Local], Dst: dst})
 		gr.AttachFlow(flow.NORMAL, body)
 		gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
 		return dst
@@ -411,7 +411,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 			if tree.IsDiscard(tgt.Name.Text) {
 				continue
 			}
-			dst := builder.localMap[tgt.Info]
+			dst := builder.localMap[tgt.Local]
 			var op flow.DubOp
 			if srcs != nil {
 				op = &flow.CopyOp{Src: srcs[i], Dst: dst}
@@ -657,13 +657,13 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 	numLocals := decl.LocalInfo_Scope.Len()
 	builder.localMap = make([]flow.DubRegister, numLocals)
 	for i := 0; i < numLocals; i++ {
-		builder.localMap[i] = builder.CreateRegister(decl.LocalInfo_Scope.Get(i).T)
+		builder.localMap[i] = builder.CreateRegister(decl.LocalInfo_Scope.Get(tree.LocalInfo_Ref(i)).T)
 	}
 
 	// Function parameters
 	params := make([]flow.DubRegister, len(decl.Params))
 	for i, p := range decl.Params {
-		params[i] = builder.localMap[p.Name.Info]
+		params[i] = builder.localMap[p.Name.Local]
 	}
 	f.Params = params
 

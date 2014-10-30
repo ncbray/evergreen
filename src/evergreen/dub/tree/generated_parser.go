@@ -227,8 +227,8 @@ func (node *Assign) isASTExpr() {
 }
 
 type NameRef struct {
-	Name *Id
-	Info int
+	Name  *Id
+	Local LocalInfo_Ref
 }
 
 func (node *NameRef) isASTExpr() {

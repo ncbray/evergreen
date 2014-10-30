@@ -48,6 +48,8 @@ func nameifyType(t Type, info *FileInfo) {
 			t.Name = info.QualifyName(impl.Package, impl.Name)
 		case *ExternalType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
+		case *TypeDef:
+			t.Name = info.QualifyName(impl.Package, impl.Name)
 		default:
 			panic(impl)
 		}

@@ -228,6 +228,16 @@ func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []DubRegister) ast.Stmt
 	}
 }
 
+func goFieldType(t DubType, ctx *DubToGoContext) ast.Type {
+	switch t := t.(type) {
+	case *LLStruct:
+		if t.Scoped {
+			return ctx.link.TypeRef(t, REF)
+		}
+	}
+	return goTypeName(t, ctx)
+}
+
 func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
 	switch t := t.(type) {
 	case *IntrinsicType:
@@ -711,7 +721,7 @@ func GenerateGoStruct(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.
 		for _, f := range s.Fields {
 			fields = append(fields, &ast.Field{
 				Name: f.Name,
-				Type: goTypeName(f.T, ctx),
+				Type: goFieldType(f.T, ctx),
 			})
 		}
 		for _, c := range s.Contains {
