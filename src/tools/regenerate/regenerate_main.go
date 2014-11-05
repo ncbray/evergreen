@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -56,9 +57,8 @@ func CreateIOManager() *IOManager {
 	return manager
 }
 
-func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, name string) {
-	fmt.Printf("Processing %s...\n", name)
-	filename := fmt.Sprintf("dub/%s.dub", name)
+func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, language_name string, ir_name string, filename string) {
+	fmt.Printf("Processing %s.%s...\n", language_name, ir_name)
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		status.Error("%s", err)
@@ -110,7 +110,7 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 			if dump {
 				styler := &flow.DotStyler{Decl: f}
 				dot := base.GraphToDot(f.CFG, styler)
-				outfile := filepath.Join("output", name, fmt.Sprintf("%s.svg", f.Name))
+				outfile := filepath.Join("output", language_name, ir_name, fmt.Sprintf("%s.svg", f.Name))
 				manager.Create()
 				go func(dot string, outfile string) {
 					manager.Aquire()
@@ -136,10 +136,10 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 		}
 	}
 
-	GenerateGo(name, file, structs, funcs, gbuilder)
+	GenerateGo(language_name, ir_name, file, structs, funcs, gbuilder)
 }
 
-func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []*flow.LLFunc, gbuilder *dub.GlobalDubBuilder) {
+func GenerateGo(language_name string, ir_name string, file *tree.File, structs []*flow.LLStruct, funcs []*flow.LLFunc, gbuilder *dub.GlobalDubBuilder) {
 	root := "generated"
 	if replace {
 		root = "evergreen"
@@ -156,7 +156,7 @@ func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []
 	packages = append(packages, pkg)
 
 	files := []*gotree.File{}
-	files = append(files, flow.GenerateGo(name, structs, funcs, index, state, link))
+	files = append(files, flow.GenerateGo(ir_name, structs, funcs, index, state, link))
 
 	if !replace && len(file.Tests) != 0 {
 		pkg, t := dub.ExternTestingPackage()
@@ -164,11 +164,11 @@ func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []
 		pkg, stateT := dub.ExternRuntimePackage()
 		packages = append(packages, pkg)
 
-		files = append(files, dub.GenerateTests(name, file.Tests, gbuilder, t, stateT, link))
+		files = append(files, dub.GenerateTests(language_name, file.Tests, gbuilder, t, stateT, link))
 	}
 
 	packages = append(packages, &gotree.Package{
-		Path:  []string{root, name, "tree"},
+		Path:  []string{root, language_name, ir_name},
 		Files: files,
 	})
 
@@ -191,6 +191,23 @@ func GenerateGo(name string, file *tree.File, structs []*flow.LLStruct, funcs []
 var dump bool
 var replace bool
 
+func processLanguage(status framework.Status, p framework.LocationProvider, manager *IOManager, language_name string, dir string) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".dub") {
+			filename := file.Name()
+			fullpath := filepath.Join(dir, filename)
+			ir_name := filename[:len(filename)-4]
+			processDub(status.CreateChild(), p, manager, language_name, ir_name, fullpath)
+		}
+	}
+
+}
+
 func main() {
 	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
 	flag.BoolVar(&replace, "replace", false, "Replace the existing implementation.")
@@ -198,8 +215,18 @@ func main() {
 	p := framework.MakeProvider()
 	status := framework.MakeStatus(p)
 	manager := CreateIOManager()
-	processDub(status.CreateChild(), p, manager, "dub")
-	processDub(status.CreateChild(), p, manager, "go")
+
+	root_dir := "dub"
+	files, err := ioutil.ReadDir(root_dir)
+	if err != nil {
+		status.Error(err.Error())
+		os.Exit(1)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			processLanguage(status.CreateChild(), p, manager, file.Name(), filepath.Join(root_dir, file.Name()))
+		}
+	}
 	manager.Flush()
 	if status.ShouldHalt() {
 		os.Exit(1)

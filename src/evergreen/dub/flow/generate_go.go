@@ -804,7 +804,7 @@ func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
 	return pkg, index
 }
 
-func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc, index *BuiltinIndex, state *ast.StructDecl, link DubToGoLinker) *ast.File {
+func GenerateGo(package_name string, structs []*LLStruct, funcs []*LLFunc, index *BuiltinIndex, state *ast.StructDecl, link DubToGoLinker) *ast.File {
 	ctx := &DubToGoContext{index: index, state: state, link: link}
 
 	imports := []*ast.Import{}
@@ -819,7 +819,7 @@ func GenerateGo(module string, structs []*LLStruct, funcs []*LLFunc, index *Buil
 
 	file := &ast.File{
 		Name:    "generated_parser.go",
-		Package: "tree",
+		Package: package_name,
 		Imports: imports,
 		Decls:   decls,
 	}
