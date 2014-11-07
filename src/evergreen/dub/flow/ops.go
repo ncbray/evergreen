@@ -17,15 +17,6 @@ const (
 
 var NoRegister RegisterInfo_Ref = ^RegisterInfo_Ref(0)
 
-type LLFunc struct {
-	Name               string
-	Params             []RegisterInfo_Ref
-	ReturnTypes        []DubType
-	CFG                *base.Graph
-	Ops                []DubOp
-	RegisterInfo_Scope *RegisterInfo_Scope
-}
-
 func (scope *RegisterInfo_Scope) Get(ref RegisterInfo_Ref) *RegisterInfo {
 	return scope.objects[ref]
 }

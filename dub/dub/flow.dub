@@ -31,7 +31,7 @@ struct LLFunc contains(RegisterInfo) {
   Name string
   Params []RegisterInfo
   ReturnTypes []DubType
-  //CFG *base.Graph
+  CFG graph
   Ops []DubOp
 }
 

@@ -1,5 +1,9 @@
 package flow
 
+import (
+	"evergreen/base"
+)
+
 type DubType interface {
 	isDubType()
 }
@@ -43,6 +47,15 @@ type RegisterInfo_Scope struct {
 
 type RegisterInfo struct {
 	T DubType
+}
+
+type LLFunc struct {
+	Name               string
+	Params             []RegisterInfo_Ref
+	ReturnTypes        []DubType
+	CFG                *base.Graph
+	Ops                []DubOp
+	RegisterInfo_Scope *RegisterInfo_Scope
 }
 
 type DubOp interface {

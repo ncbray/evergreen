@@ -166,6 +166,7 @@ func intLiteral(value int) ast.Expr {
 type DubToGoContext struct {
 	index *BuiltinIndex
 	state *ast.StructDecl
+	graph *ast.StructDecl
 	link  DubToGoLinker
 }
 
@@ -256,6 +257,8 @@ func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
 			return &ast.TypeRef{Impl: ctx.index.RuneType}
 		case "string":
 			return &ast.TypeRef{Impl: ctx.index.StringType}
+		case "graph":
+			return &ast.PointerType{Element: &ast.TypeRef{Impl: ctx.graph}}
 		default:
 			panic(t.Name)
 		}
@@ -770,6 +773,24 @@ func ExternParserRuntime() (*ast.Package, *ast.StructDecl) {
 	return pkg, state
 }
 
+func ExternGraph() (*ast.Package, *ast.StructDecl) {
+	graph := &ast.StructDecl{
+		Name: "Graph",
+	}
+	pkg := &ast.Package{
+		Extern: true,
+		Path:   []string{"evergreen", "base"},
+		Files: []*ast.File{
+			&ast.File{
+				Decls: []ast.Decl{
+					graph,
+				},
+			},
+		},
+	}
+	return pkg, graph
+}
+
 type BuiltinIndex struct {
 	IntType    ast.TypeImpl
 	UInt32Type ast.TypeImpl
@@ -814,8 +835,13 @@ func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
 	return pkg, index
 }
 
-func GenerateGo(package_name string, structs []*LLStruct, funcs []*LLFunc, index *BuiltinIndex, state *ast.StructDecl, link DubToGoLinker) *ast.File {
-	ctx := &DubToGoContext{index: index, state: state, link: link}
+func GenerateGo(package_name string, structs []*LLStruct, funcs []*LLFunc, index *BuiltinIndex, state *ast.StructDecl, graph *ast.StructDecl, link DubToGoLinker) *ast.File {
+	ctx := &DubToGoContext{
+		index: index,
+		state: state,
+		graph: graph,
+		link:  link,
+	}
 
 	imports := []*ast.Import{}
 

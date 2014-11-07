@@ -15,6 +15,7 @@ type GlobalDubBuilder struct {
 	Int    flow.DubType
 	Int64  flow.DubType
 	Bool   flow.DubType
+	Graph  flow.DubType
 }
 
 func (builder *GlobalDubBuilder) TranslateType(t tree.ASTType) flow.DubType {

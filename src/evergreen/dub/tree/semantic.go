@@ -451,6 +451,7 @@ type ModuleScope struct {
 	Int    *BuiltinType
 	Int64  *BuiltinType
 	Bool   *BuiltinType
+	Graph  *BuiltinType
 	Void   *BuiltinType
 	Nil    *NilType
 }
@@ -528,6 +529,9 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 
 	glbls.Bool = &BuiltinType{"bool"}
 	glbls.Builtin["bool"] = glbls.Bool
+
+	glbls.Graph = &BuiltinType{"graph"}
+	glbls.Builtin["graph"] = glbls.Graph
 
 	glbls.Nil = &NilType{}
 

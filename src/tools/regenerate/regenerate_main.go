@@ -91,6 +91,9 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 	gbuilder.Bool = &flow.IntrinsicType{Name: "bool"}
 	gbuilder.Types[glbls.Bool] = gbuilder.Bool
 
+	gbuilder.Graph = &flow.IntrinsicType{Name: "graph"}
+	gbuilder.Types[glbls.Graph] = gbuilder.Graph
+
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
 		case *tree.FuncDecl:
@@ -158,8 +161,11 @@ func GenerateGo(language_name string, ir_name string, file *tree.File, structs [
 	pkg, state := flow.ExternParserRuntime()
 	packages = append(packages, pkg)
 
+	pkg, graph := flow.ExternGraph()
+	packages = append(packages, pkg)
+
 	files := []*gotree.File{}
-	files = append(files, flow.GenerateGo(ir_name, structs, funcs, index, state, link))
+	files = append(files, flow.GenerateGo(ir_name, structs, funcs, index, state, graph, link))
 
 	if !replace && len(file.Tests) != 0 {
 		pkg, t := dub.ExternTestingPackage()
