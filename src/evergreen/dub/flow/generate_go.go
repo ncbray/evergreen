@@ -104,7 +104,7 @@ func (info *regionInfo) FrameAttr(name string) ast.Expr {
 	return attr(info.FrameVar(), name)
 }
 
-func (info *regionInfo) GetLocalInfo(r DubRegister) int {
+func (info *regionInfo) GetLocalInfo(r RegisterInfo_Ref) int {
 	return info.dubToGo[int(r)]
 }
 
@@ -124,17 +124,17 @@ func (info *regionInfo) MakeSetReturn(ret int) ast.Target {
 	return info.MakeSetLocal(info.returnInfo[ret])
 }
 
-func (info *regionInfo) GetReg(r DubRegister) ast.Expr {
+func (info *regionInfo) GetReg(r RegisterInfo_Ref) ast.Expr {
 	idx := info.GetLocalInfo(r)
 	return info.MakeGetLocal(idx)
 }
 
-func (info *regionInfo) SetReg(r DubRegister) ast.Target {
+func (info *regionInfo) SetReg(r RegisterInfo_Ref) ast.Target {
 	idx := info.GetLocalInfo(r)
 	return info.MakeSetLocal(idx)
 }
 
-func (info *regionInfo) Param(r DubRegister) *ast.Param {
+func (info *regionInfo) Param(r RegisterInfo_Ref) *ast.Param {
 	idx := info.GetLocalInfo(r)
 	return info.MakeParam(idx)
 }
@@ -194,7 +194,7 @@ func returnVarName(i int) string {
 	return fmt.Sprintf("ret%d", i)
 }
 
-func opAssign(info *regionInfo, expr ast.Expr, dst DubRegister) ast.Stmt {
+func opAssign(info *regionInfo, expr ast.Expr, dst RegisterInfo_Ref) ast.Stmt {
 	if dst != NoRegister {
 		return &ast.Assign{
 			Targets: []ast.Target{info.SetReg(dst)},
@@ -207,7 +207,7 @@ func opAssign(info *regionInfo, expr ast.Expr, dst DubRegister) ast.Stmt {
 	}
 }
 
-func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []DubRegister) ast.Stmt {
+func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []RegisterInfo_Ref) ast.Stmt {
 	if len(dsts) != 0 {
 		lhs := make([]ast.Target, len(dsts))
 		for i, dst := range dsts {
@@ -234,6 +234,8 @@ func goFieldType(t DubType, ctx *DubToGoContext) ast.Type {
 		if t.Scoped {
 			return ctx.link.TypeRef(t, REF)
 		}
+	case *ListType:
+		return &ast.SliceType{Element: goFieldType(t.Type, ctx)}
 	}
 	return goTypeName(t, ctx)
 }
@@ -248,6 +250,8 @@ func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
 			return &ast.TypeRef{Impl: ctx.index.IntType}
 		case "uint32":
 			return &ast.TypeRef{Impl: ctx.index.UInt32Type}
+		case "int64":
+			return &ast.TypeRef{Impl: ctx.index.Int64Type}
 		case "rune":
 			return &ast.TypeRef{Impl: ctx.index.RuneType}
 		case "string":
@@ -551,7 +555,7 @@ func generateFlowSwitch(info *regionInfo, node base.NodeID, ctx *DubToGoContext,
 	}
 }
 
-func ParamIndex(f *LLFunc, r DubRegister) int {
+func ParamIndex(f *LLFunc, r RegisterInfo_Ref) int {
 	for i, p := range f.Params {
 		if p == r {
 			return i
@@ -560,7 +564,7 @@ func ParamIndex(f *LLFunc, r DubRegister) int {
 	return -1
 }
 
-func IsParam(f *LLFunc, r DubRegister) bool {
+func IsParam(f *LLFunc, r RegisterInfo_Ref) bool {
 	return ParamIndex(f, r) != -1
 }
 
@@ -592,10 +596,13 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 
 	frameInfo := funcDecl.CreateLocalInfo("frame", frameType)
 
-	dubToGo := make([]int, len(f.Registers))
-	for i, info := range f.Registers {
+	numRegisters := f.RegisterInfo_Scope.Len()
+	dubToGo := make([]int, numRegisters)
+	for i := 0; i < numRegisters; i++ {
+		ref := RegisterInfo_Ref(i)
+		info := f.RegisterInfo_Scope.Get(ref)
 		dubToGo[i] = funcDecl.CreateLocalInfo(
-			RegisterName(DubRegister(i)),
+			RegisterName(ref),
 			goTypeName(info.T, ctx),
 		)
 	}
@@ -766,6 +773,7 @@ func ExternParserRuntime() (*ast.Package, *ast.StructDecl) {
 type BuiltinIndex struct {
 	IntType    ast.TypeImpl
 	UInt32Type ast.TypeImpl
+	Int64Type  ast.TypeImpl
 	BoolType   ast.TypeImpl
 	StringType ast.TypeImpl
 	RuneType   ast.TypeImpl
@@ -774,6 +782,7 @@ type BuiltinIndex struct {
 func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
 	intType := &ast.ExternalType{Name: "int"}
 	uInt32Type := &ast.ExternalType{Name: "uint32"}
+	int64Type := &ast.ExternalType{Name: "int64"}
 
 	boolType := &ast.ExternalType{Name: "bool"}
 	stringType := &ast.ExternalType{Name: "string"}
@@ -797,6 +806,7 @@ func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
 	index := &BuiltinIndex{
 		IntType:    intType,
 		UInt32Type: uInt32Type,
+		Int64Type:  int64Type,
 		BoolType:   boolType,
 		StringType: stringType,
 		RuneType:   runeType,

@@ -4,13 +4,13 @@ import (
 	"evergreen/base"
 )
 
-func AddDef(reg DubRegister, node base.NodeID, defuse *base.DefUseCollector) {
+func AddDef(reg RegisterInfo_Ref, node base.NodeID, defuse *base.DefUseCollector) {
 	if reg != NoRegister {
 		defuse.AddDef(node, int(reg))
 	}
 }
 
-func AddUse(reg DubRegister, node base.NodeID, defuse *base.DefUseCollector) {
+func AddUse(reg RegisterInfo_Ref, node base.NodeID, defuse *base.DefUseCollector) {
 	defuse.AddUse(node, int(reg))
 }
 
@@ -124,27 +124,28 @@ func CreateNameMap(numNodes int, idoms []base.NodeID) *NameMap {
 
 type RegisterReallocator struct {
 	decl *LLFunc
-	info []RegisterInfo
+	info []*RegisterInfo
 	nm   *NameMap
 }
 
 func (r *RegisterReallocator) Allocate(v int) int {
 	name := len(r.info)
-	r.info = append(r.info, r.decl.Registers[v])
+	ref := RegisterInfo_Ref(v)
+	r.info = append(r.info, r.decl.RegisterInfo_Scope.Get(ref))
 	return name
 }
 
-func (r *RegisterReallocator) MakeOutput(n base.NodeID, reg DubRegister) DubRegister {
+func (r *RegisterReallocator) MakeOutput(n base.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
 	if reg != NoRegister {
 		v := int(reg)
 		name := r.Allocate(v)
 		r.nm.SetName(n, v, name)
-		return DubRegister(name)
+		return RegisterInfo_Ref(name)
 	}
 	return NoRegister
 }
 
-func (r *RegisterReallocator) Transfer(dst base.NodeID, reg DubRegister) DubRegister {
+func (r *RegisterReallocator) Transfer(dst base.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
 	v := int(reg)
 	name, ok := r.nm.transfers[dst][v]
 	if !ok {
@@ -152,14 +153,14 @@ func (r *RegisterReallocator) Transfer(dst base.NodeID, reg DubRegister) DubRegi
 		r.nm.transfers[dst][v] = name
 		r.nm.SetName(dst, v, name)
 	}
-	return DubRegister(name)
+	return RegisterInfo_Ref(name)
 }
 
-func (r *RegisterReallocator) Get(n base.NodeID, reg DubRegister) DubRegister {
-	return DubRegister(r.nm.GetName(n, int(reg)))
+func (r *RegisterReallocator) Get(n base.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
+	return RegisterInfo_Ref(r.nm.GetName(n, int(reg)))
 }
 
-func (r *RegisterReallocator) Set(n base.NodeID, reg DubRegister, name DubRegister) {
+func (r *RegisterReallocator) Set(n base.NodeID, reg RegisterInfo_Ref, name RegisterInfo_Ref) {
 	r.nm.SetName(n, int(reg), int(name))
 }
 
@@ -266,8 +267,7 @@ func rename(decl *LLFunc) {
 			decl.CFG.Remove(n)
 		}
 	}
-	//fmt.Println(decl.Name, len(decl.Registers), len(ra.info))
-	decl.Registers = ra.info
+	decl.RegisterInfo_Scope.Replace(ra.info)
 }
 
 func killUnusedOutputs(n base.NodeID, op DubOp, live base.LivenessOracle) {
@@ -316,7 +316,7 @@ func killUnusedOutputs(n base.NodeID, op DubOp, live base.LivenessOracle) {
 			}
 		}
 		if !anyLive {
-			op.Dsts = []DubRegister{}
+			op.Dsts = []RegisterInfo_Ref{}
 		}
 	case *Slice:
 		if !live.LiveAtExit(n, int(op.Dst)) {
@@ -362,8 +362,8 @@ func CreateTransfer(decl *LLFunc, size int) (base.NodeID, *TransferOp) {
 	}
 
 	op := &TransferOp{
-		Srcs: make([]DubRegister, size),
-		Dsts: make([]DubRegister, size),
+		Srcs: make([]RegisterInfo_Ref, size),
+		Dsts: make([]RegisterInfo_Ref, size),
 	}
 	decl.Ops = append(decl.Ops, op)
 
@@ -373,7 +373,7 @@ func CreateTransfer(decl *LLFunc, size int) (base.NodeID, *TransferOp) {
 func SSI(decl *LLFunc) {
 	g := decl.CFG
 
-	defuse := base.CreateDefUse(len(decl.Ops), len(decl.Registers))
+	defuse := base.CreateDefUse(len(decl.Ops), decl.RegisterInfo_Scope.Len())
 	nit := base.NodeIterator(g)
 	for nit.Next() {
 		n := nit.Value()
@@ -383,7 +383,7 @@ func SSI(decl *LLFunc) {
 	live := base.FindLiveVars(g, defuse)
 
 	builder := base.CreateSSIBuilder(g, live)
-	for i := 0; i < len(decl.Registers); i++ {
+	for i := 0; i < decl.RegisterInfo_Scope.Len(); i++ {
 		base.SSI(builder, i, defuse.VarDefAt[i])
 	}
 
@@ -407,8 +407,8 @@ func SSI(decl *LLFunc) {
 			}
 			t, op := CreateTransfer(decl, len(phiFuncs))
 			for j, v := range phiFuncs {
-				op.Srcs[j] = DubRegister(v)
-				op.Dsts[j] = DubRegister(v)
+				op.Srcs[j] = RegisterInfo_Ref(v)
+				op.Dsts[j] = RegisterInfo_Ref(v)
 			}
 			g.InsertAt(t, 0, eit.Edge())
 		}

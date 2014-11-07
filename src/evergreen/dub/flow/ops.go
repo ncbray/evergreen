@@ -15,56 +15,44 @@ const (
 	RETURN
 )
 
-type DubType interface {
-	isDubType()
-}
-
-type IntrinsicType struct {
-	Name string
-}
-
-func (t *IntrinsicType) isDubType() {
-}
-
-type ListType struct {
-	Type DubType
-}
-
-func (t *ListType) isDubType() {
-}
-
-type LLField struct {
-	Name string
-	T    DubType
-}
-
-type LLStruct struct {
-	Name       string
-	Implements *LLStruct
-	Abstract   bool
-	Fields     []*LLField
-	Scoped     bool
-	Contains   []*LLStruct
-}
-
-func (t *LLStruct) isDubType() {
-}
-
-type DubRegister uint32
-
-var NoRegister DubRegister = ^DubRegister(0)
-
-type RegisterInfo struct {
-	T DubType
-}
+var NoRegister RegisterInfo_Ref = ^RegisterInfo_Ref(0)
 
 type LLFunc struct {
-	Name        string
-	Params      []DubRegister
-	ReturnTypes []DubType
-	Registers   []RegisterInfo
-	CFG         *base.Graph
-	Ops         []DubOp
+	Name               string
+	Params             []RegisterInfo_Ref
+	ReturnTypes        []DubType
+	CFG                *base.Graph
+	Ops                []DubOp
+	RegisterInfo_Scope *RegisterInfo_Scope
+}
+
+func (scope *RegisterInfo_Scope) Get(ref RegisterInfo_Ref) *RegisterInfo {
+	return scope.objects[ref]
+}
+
+func (scope *RegisterInfo_Scope) Register(info *RegisterInfo) RegisterInfo_Ref {
+	index := RegisterInfo_Ref(len(scope.objects))
+	scope.objects = append(scope.objects, info)
+	return index
+}
+
+func (scope *RegisterInfo_Scope) Len() int {
+	return len(scope.objects)
+}
+
+func (scope *RegisterInfo_Scope) Remap(remap []int, count int) {
+	objects := make([]*RegisterInfo, count)
+	for i, info := range scope.objects {
+		idx := remap[i]
+		if idx >= 0 {
+			objects[idx] = info
+		}
+	}
+	scope.objects = objects
+}
+
+func (scope *RegisterInfo_Scope) Replace(replacement []*RegisterInfo) {
+	scope.objects = replacement
 }
 
 func TypeName(t DubType) string {
@@ -80,7 +68,7 @@ func TypeName(t DubType) string {
 	}
 }
 
-func RegisterName(reg DubRegister) string {
+func RegisterName(reg RegisterInfo_Ref) string {
 	if reg != NoRegister {
 		return fmt.Sprintf("r%d", reg)
 	} else {
@@ -88,7 +76,7 @@ func RegisterName(reg DubRegister) string {
 	}
 }
 
-func RegisterList(regs []DubRegister) string {
+func RegisterList(regs []RegisterInfo_Ref) string {
 	names := make([]string, len(regs))
 	for i, reg := range regs {
 		names[i] = RegisterName(reg)
@@ -104,230 +92,19 @@ func KeyValueList(args []*KeyValue) string {
 	return strings.Join(names, ", ")
 }
 
-func formatAssignment(op string, dst DubRegister) string {
+func formatAssignment(op string, dst RegisterInfo_Ref) string {
 	if dst == NoRegister {
 		return op
 	}
 	return fmt.Sprintf("%s := %s", RegisterName(dst), op)
 }
 
-func formatMultiAssignment(op string, dsts []DubRegister) string {
+func formatMultiAssignment(op string, dsts []RegisterInfo_Ref) string {
 	if len(dsts) > 0 {
 		return fmt.Sprintf("%s := %s", RegisterList(dsts), op)
 	} else {
 		return op
 	}
-}
-
-type DubOp interface {
-	isDubOp()
-}
-
-type CoerceOp struct {
-	Src DubRegister
-	T   DubType
-	Dst DubRegister
-}
-
-func (n *CoerceOp) isDubOp() {
-}
-
-type CopyOp struct {
-	Src DubRegister
-	Dst DubRegister
-}
-
-func (n *CopyOp) isDubOp() {
-}
-
-type ConstantNilOp struct {
-	Dst DubRegister
-}
-
-func (n *ConstantNilOp) isDubOp() {
-}
-
-type ConstantIntOp struct {
-	Value int64
-	Dst   DubRegister
-}
-
-func (n *ConstantIntOp) isDubOp() {
-}
-
-type ConstantBoolOp struct {
-	Value bool
-	Dst   DubRegister
-}
-
-func (n *ConstantBoolOp) isDubOp() {
-}
-
-type ConstantRuneOp struct {
-	Value rune
-	Dst   DubRegister
-}
-
-func (n *ConstantRuneOp) isDubOp() {
-}
-
-type ConstantStringOp struct {
-	Value string
-	Dst   DubRegister
-}
-
-func (n *ConstantStringOp) isDubOp() {
-}
-
-type BinaryOp struct {
-	Left  DubRegister
-	Op    string
-	Right DubRegister
-	Dst   DubRegister
-}
-
-func (n *BinaryOp) isDubOp() {
-}
-
-type CallOp struct {
-	Name   string
-	Target *LLFunc
-	Args   []DubRegister
-	Dsts   []DubRegister
-}
-
-func (n *CallOp) isDubOp() {
-}
-
-type KeyValue struct {
-	Key   string
-	Value DubRegister
-}
-
-type ConstructOp struct {
-	Type *LLStruct
-	Args []*KeyValue
-	Dst  DubRegister
-}
-
-func (n *ConstructOp) isDubOp() {
-}
-
-type ConstructListOp struct {
-	Type *ListType
-	Args []DubRegister
-	Dst  DubRegister
-}
-
-func (n *ConstructListOp) isDubOp() {
-}
-
-type Checkpoint struct {
-	Dst DubRegister
-}
-
-func (n *Checkpoint) isDubOp() {
-}
-
-type Recover struct {
-	Src DubRegister
-}
-
-func (n *Recover) isDubOp() {
-}
-
-type LookaheadBegin struct {
-	Dst DubRegister
-}
-
-func (n *LookaheadBegin) isDubOp() {
-}
-
-type LookaheadEnd struct {
-	Failed bool
-	Src    DubRegister
-}
-
-func (n *LookaheadEnd) isDubOp() {
-}
-
-type Slice struct {
-	Src DubRegister
-	Dst DubRegister
-}
-
-func (n *Slice) isDubOp() {
-}
-
-type AppendOp struct {
-	List  DubRegister
-	Value DubRegister
-	Dst   DubRegister
-}
-
-func (n *AppendOp) isDubOp() {
-}
-
-type ReturnOp struct {
-	Exprs []DubRegister
-}
-
-func (n *ReturnOp) isDubOp() {
-}
-
-type Fail struct {
-}
-
-func (n *Fail) isDubOp() {
-}
-
-type Peek struct {
-	Dst DubRegister
-}
-
-func (n *Peek) isDubOp() {
-}
-
-type Consume struct {
-}
-
-func (n *Consume) isDubOp() {
-}
-
-type TransferOp struct {
-	Srcs []DubRegister
-	Dsts []DubRegister
-}
-
-func (n *TransferOp) isDubOp() {
-}
-
-// Flow blocks
-
-type EntryOp struct {
-}
-
-func (n *EntryOp) isDubOp() {
-}
-
-type SwitchOp struct {
-	Cond DubRegister
-}
-
-func (n *SwitchOp) isDubOp() {
-}
-
-type FlowExitOp struct {
-	Flow int
-}
-
-func (n *FlowExitOp) isDubOp() {
-}
-
-type ExitOp struct {
-}
-
-func (n *ExitOp) isDubOp() {
 }
 
 type DotStyler struct {

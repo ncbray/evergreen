@@ -449,6 +449,7 @@ type ModuleScope struct {
 	String *BuiltinType
 	Rune   *BuiltinType
 	Int    *BuiltinType
+	Int64  *BuiltinType
 	Bool   *BuiltinType
 	Void   *BuiltinType
 	Nil    *NilType
@@ -521,6 +522,9 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 
 	glbls.Int = &BuiltinType{"int"}
 	glbls.Builtin["int"] = glbls.Int
+
+	glbls.Int64 = &BuiltinType{"int64"}
+	glbls.Builtin["int64"] = glbls.Int64
 
 	glbls.Bool = &BuiltinType{"bool"}
 	glbls.Builtin["bool"] = glbls.Bool

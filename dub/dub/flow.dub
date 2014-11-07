@@ -1,0 +1,168 @@
+struct DubType {
+}
+
+struct IntrinsicType implements DubType {
+  Name string
+}
+
+struct ListType implements DubType {
+  Type DubType
+}
+
+struct LLField {
+  Name string
+  T DubType
+}
+
+struct LLStruct implements DubType {
+  Name string
+  Implements LLStruct
+  Abstract bool
+  Fields []LLField
+  Scoped bool
+  Contains []LLStruct
+}
+
+struct RegisterInfo scoped {
+  T DubType
+}
+
+struct LLFunc contains(RegisterInfo) {
+  Name string
+  Params []RegisterInfo
+  ReturnTypes []DubType
+  //CFG *base.Graph
+  Ops []DubOp
+}
+
+struct DubOp {
+}
+
+struct CoerceOp implements DubOp {
+  Src RegisterInfo
+  T DubType
+  Dst RegisterInfo
+}
+
+struct CopyOp implements DubOp {
+  Src RegisterInfo
+  Dst RegisterInfo
+}
+
+struct ConstantNilOp implements DubOp {
+  Dst RegisterInfo
+}
+
+struct ConstantIntOp implements DubOp {
+  Value int64
+  Dst RegisterInfo
+}
+
+struct ConstantBoolOp implements DubOp {
+  Value bool
+  Dst RegisterInfo
+}
+
+struct ConstantRuneOp implements DubOp {
+  Value rune
+  Dst RegisterInfo
+}
+
+struct ConstantStringOp implements DubOp {
+  Value string
+  Dst RegisterInfo
+}
+
+struct BinaryOp implements DubOp {
+  Left RegisterInfo
+  Op string
+  Right RegisterInfo
+  Dst RegisterInfo
+}
+
+struct CallOp implements DubOp {
+  Name string
+  Target LLFunc
+  Args []RegisterInfo
+  Dsts []RegisterInfo
+}
+
+struct KeyValue {
+  Key string
+  Value RegisterInfo
+}
+
+struct ConstructOp implements DubOp {
+  Type LLStruct
+  Args []KeyValue
+  Dst RegisterInfo
+}
+
+struct ConstructListOp implements DubOp {
+  Type ListType
+  Args []RegisterInfo
+  Dst RegisterInfo
+}
+
+struct Checkpoint implements DubOp {
+  Dst RegisterInfo
+}
+
+struct Recover implements DubOp {
+  Src RegisterInfo
+}
+
+struct LookaheadBegin implements DubOp {
+  Dst RegisterInfo
+}
+
+struct LookaheadEnd implements DubOp {
+  Failed bool
+  Src RegisterInfo
+}
+
+struct Slice implements DubOp {
+  Src RegisterInfo
+  Dst RegisterInfo
+}
+
+struct AppendOp implements DubOp {
+  List RegisterInfo
+  Value RegisterInfo
+  Dst RegisterInfo
+}
+
+struct ReturnOp implements DubOp {
+  Exprs []RegisterInfo
+}
+
+struct Fail implements DubOp {
+}
+
+struct Peek implements DubOp {
+  Dst RegisterInfo
+}
+
+struct Consume implements DubOp {
+}
+
+struct TransferOp implements DubOp {
+  Srcs []RegisterInfo
+  Dsts []RegisterInfo
+}
+
+// Flow blocks
+
+struct EntryOp implements DubOp {
+}
+
+struct SwitchOp implements DubOp {
+  Cond RegisterInfo
+}
+
+struct FlowExitOp implements DubOp {
+  Flow int
+}
+
+struct ExitOp implements DubOp {
+}

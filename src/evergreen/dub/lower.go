@@ -13,6 +13,7 @@ type GlobalDubBuilder struct {
 	String flow.DubType
 	Rune   flow.DubType
 	Int    flow.DubType
+	Int64  flow.DubType
 	Bool   flow.DubType
 }
 
@@ -40,12 +41,12 @@ func (builder *GlobalDubBuilder) TranslateType(t tree.ASTType) flow.DubType {
 }
 
 type DubBuilder struct {
-	decl      *tree.FuncDecl
-	registers []flow.RegisterInfo
-	localMap  []flow.DubRegister
-	glbl      *GlobalDubBuilder
-	graph     *base.Graph
-	ops       []flow.DubOp
+	decl     *tree.FuncDecl
+	flow     *flow.LLFunc
+	localMap []flow.RegisterInfo_Ref
+	glbl     *GlobalDubBuilder
+	graph    *base.Graph
+	ops      []flow.DubOp
 }
 
 func (builder *DubBuilder) EmitOp(op flow.DubOp) base.NodeID {
@@ -57,17 +58,17 @@ func (builder *DubBuilder) EmitOp(op flow.DubOp) base.NodeID {
 	return id
 }
 
-func (builder *DubBuilder) CreateRegister(t tree.ASTType) flow.DubRegister {
+func (builder *DubBuilder) CreateRegister(t tree.ASTType) flow.RegisterInfo_Ref {
 	return builder.CreateLLRegister(builder.glbl.TranslateType(t))
 }
 
-func (builder *DubBuilder) CreateLLRegister(t flow.DubType) flow.DubRegister {
-	builder.registers = append(builder.registers, flow.RegisterInfo{T: t})
-	return flow.DubRegister(len(builder.registers) - 1)
+func (builder *DubBuilder) CreateLLRegister(t flow.DubType) flow.RegisterInfo_Ref {
+	info := &flow.RegisterInfo{T: t}
+	return builder.flow.RegisterInfo_Scope.Register(info)
 }
 
-func (builder *DubBuilder) ZeroRegister(dst flow.DubRegister) flow.DubOp {
-	info := builder.registers[dst]
+func (builder *DubBuilder) ZeroRegister(dst flow.RegisterInfo_Ref) flow.DubOp {
+	info := builder.flow.RegisterInfo_Scope.Get(dst)
 	switch t := info.T.(type) {
 	case *flow.LLStruct:
 		return &flow.ConstantNilOp{Dst: dst}
@@ -90,7 +91,7 @@ func (builder *DubBuilder) ZeroRegister(dst flow.DubRegister) flow.DubOp {
 	}
 }
 
-func makeRuneSwitch(cond flow.DubRegister, op string, value rune, builder *DubBuilder) (base.NodeID, base.NodeID) {
+func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *DubBuilder) (base.NodeID, base.NodeID) {
 	vreg := builder.CreateLLRegister(builder.glbl.Rune)
 	make_value := builder.EmitOp(&flow.ConstantRuneOp{Value: value, Dst: vreg})
 
@@ -112,7 +113,7 @@ func makeRuneSwitch(cond flow.DubRegister, op string, value rune, builder *DubBu
 	return make_value, decide
 }
 
-func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *DubBuilder, gr *base.GraphRegion) flow.DubRegister {
+func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *DubBuilder, gr *base.GraphRegion) flow.RegisterInfo_Ref {
 	// Read
 	cond := flow.NoRegister
 	if len(match.Filters) > 0 || used {
@@ -273,17 +274,17 @@ func lowerMatch(match tree.TextMatch, builder *DubBuilder, gr *base.GraphRegion)
 	}
 }
 
-func lowerMultiValueExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.GraphRegion) []flow.DubRegister {
+func lowerMultiValueExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.GraphRegion) []flow.RegisterInfo_Ref {
 	switch expr := expr.(type) {
 
 	case *tree.Call:
-		args := make([]flow.DubRegister, len(expr.Args))
+		args := make([]flow.RegisterInfo_Ref, len(expr.Args))
 		for i, arg := range expr.Args {
 			args[i] = lowerExpr(arg, builder, true, gr)
 		}
-		var dsts []flow.DubRegister
+		var dsts []flow.RegisterInfo_Ref
 		if used {
-			dsts = make([]flow.DubRegister, len(expr.T))
+			dsts = make([]flow.RegisterInfo_Ref, len(expr.T))
 			for i, t := range expr.T {
 				dsts[i] = builder.CreateRegister(t)
 			}
@@ -295,11 +296,11 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *
 
 		return dsts
 	default:
-		return []flow.DubRegister{lowerExpr(expr, builder, used, gr)}
+		return []flow.RegisterInfo_Ref{lowerExpr(expr, builder, used, gr)}
 	}
 }
 
-func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.GraphRegion) flow.DubRegister {
+func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.GraphRegion) flow.RegisterInfo_Ref {
 	switch expr := expr.(type) {
 	case *tree.If:
 		cond := lowerExpr(expr.Expr, builder, true, gr)
@@ -396,7 +397,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		return dst
 
 	case *tree.Assign:
-		var srcs []flow.DubRegister
+		var srcs []flow.RegisterInfo_Ref
 		if expr.Expr != nil {
 			srcs = lowerMultiValueExpr(expr.Expr, builder, true, gr)
 			if len(expr.Targets) != len(srcs) {
@@ -466,7 +467,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		return dst
 
 	case *tree.Return:
-		exprs := make([]flow.DubRegister, len(expr.Exprs))
+		exprs := make([]flow.RegisterInfo_Ref, len(expr.Exprs))
 		for i, e := range expr.Exprs {
 			exprs[i] = lowerExpr(e, builder, true, gr)
 		}
@@ -550,7 +551,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		return dst
 
 	case *tree.ConstructList:
-		args := make([]flow.DubRegister, len(expr.Args))
+		args := make([]flow.RegisterInfo_Ref, len(expr.Args))
 		for i, arg := range expr.Args {
 			args[i] = lowerExpr(arg, builder, true, gr)
 		}
@@ -649,19 +650,29 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 		&flow.EntryOp{},
 		&flow.ExitOp{},
 	}
-	builder := &DubBuilder{decl: decl, glbl: glbl, graph: g, ops: ops}
 
-	f := &flow.LLFunc{Name: decl.Name.Text}
+	f := &flow.LLFunc{
+		Name:               decl.Name.Text,
+		RegisterInfo_Scope: &flow.RegisterInfo_Scope{},
+	}
+
+	builder := &DubBuilder{
+		decl:  decl,
+		flow:  f,
+		glbl:  glbl,
+		graph: g,
+		ops:   ops,
+	}
 
 	// Allocate register for locals
 	numLocals := decl.LocalInfo_Scope.Len()
-	builder.localMap = make([]flow.DubRegister, numLocals)
+	builder.localMap = make([]flow.RegisterInfo_Ref, numLocals)
 	for i := 0; i < numLocals; i++ {
 		builder.localMap[i] = builder.CreateRegister(decl.LocalInfo_Scope.Get(tree.LocalInfo_Ref(i)).T)
 	}
 
 	// Function parameters
-	params := make([]flow.DubRegister, len(decl.Params))
+	params := make([]flow.RegisterInfo_Ref, len(decl.Params))
 	for i, p := range decl.Params {
 		params[i] = builder.localMap[p.Name.Local]
 	}
@@ -691,7 +702,6 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 
 	f.CFG = g
 	f.Ops = builder.ops
-	f.Registers = builder.registers
 	return f
 }
 

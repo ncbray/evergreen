@@ -85,6 +85,9 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 	gbuilder.Int = &flow.IntrinsicType{Name: "int"}
 	gbuilder.Types[glbls.Int] = gbuilder.Int
 
+	gbuilder.Int64 = &flow.IntrinsicType{Name: "int64"}
+	gbuilder.Types[glbls.Int64] = gbuilder.Int64
+
 	gbuilder.Bool = &flow.IntrinsicType{Name: "bool"}
 	gbuilder.Types[glbls.Bool] = gbuilder.Bool
 
