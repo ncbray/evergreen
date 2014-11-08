@@ -57,19 +57,42 @@ func CreateIOManager() *IOManager {
 	return manager
 }
 
+func parsePackage(status framework.Status, p framework.LocationProvider, path []string, filenames []string) (*tree.Package, *tree.ModuleScope) {
+	fmt.Printf("Processing %s...\n", strings.Join(path, "."))
+
+	glbls := tree.MakeDubGlobals()
+
+	files := make([]*tree.File, len(filenames))
+	for i, filename := range filenames {
+		data, err := ioutil.ReadFile(filename)
+		if err != nil {
+			status.Error("%s", err)
+			return nil, nil
+		}
+		p.AddFile(filename, []rune(string(data)))
+		files[i] = tree.ParseDub(data, status)
+
+		if status.ShouldHalt() {
+			return nil, nil
+		}
+		tree.SemanticPass(files[i], glbls, status)
+		if status.ShouldHalt() {
+			return nil, nil
+		}
+
+	}
+
+	pkg := &tree.Package{
+		Path:  path,
+		Files: files,
+	}
+
+	return pkg, glbls
+}
+
 func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, language_name string, ir_name string, filename string) {
-	fmt.Printf("Processing %s.%s...\n", language_name, ir_name)
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		status.Error("%s", err)
-		return
-	}
-	p.AddFile(filename, []rune(string(data)))
-	file := tree.ParseDub(data, status)
-	if status.ShouldHalt() {
-		return
-	}
-	glbls := tree.SemanticPass(file, status)
+
+	pkg, glbls := parsePackage(status, p, []string{language_name, ir_name}, []string{filename})
 	if status.ShouldHalt() {
 		return
 	}
@@ -94,45 +117,53 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 	gbuilder.Graph = &flow.IntrinsicType{Name: "graph"}
 	gbuilder.Types[glbls.Graph] = gbuilder.Graph
 
-	for _, decl := range file.Decls {
-		switch decl := decl.(type) {
-		case *tree.FuncDecl:
-		case *tree.StructDecl:
-			gbuilder.Types[decl] = &flow.LLStruct{}
-		default:
-			panic(decl)
+	// Preallocate the translated structures.
+	for _, file := range pkg.Files {
+		for _, decl := range file.Decls {
+			switch decl := decl.(type) {
+			case *tree.FuncDecl:
+			case *tree.StructDecl:
+				gbuilder.Types[decl] = &flow.LLStruct{}
+			default:
+				panic(decl)
+			}
 		}
 	}
 
 	structs := []*flow.LLStruct{}
 	funcs := []*flow.LLFunc{}
-	for _, decl := range file.Decls {
-		switch decl := decl.(type) {
-		case *tree.FuncDecl:
-			f := dub.LowerAST(decl, gbuilder)
-			flow.SSI(f)
-			funcs = append(funcs, f)
+	tests := []*tree.Test{}
 
-			if dump {
-				styler := &flow.DotStyler{Decl: f}
-				dot := base.GraphToDot(f.CFG, styler)
-				outfile := filepath.Join("output", language_name, ir_name, fmt.Sprintf("%s.svg", f.Name))
-				manager.Create()
-				go func(dot string, outfile string) {
-					manager.Aquire()
-					defer manager.Release()
+	for _, file := range pkg.Files {
+		for _, decl := range file.Decls {
+			switch decl := decl.(type) {
+			case *tree.FuncDecl:
+				f := dub.LowerAST(decl, gbuilder)
+				flow.SSI(f)
+				funcs = append(funcs, f)
 
-					// Dump flowgraph
-					io.WriteDot(dot, outfile)
-				}(dot, outfile)
+				if dump {
+					styler := &flow.DotStyler{Decl: f}
+					dot := base.GraphToDot(f.CFG, styler)
+					outfile := filepath.Join("output", language_name, ir_name, fmt.Sprintf("%s.svg", f.Name))
+					manager.Create()
+					go func(dot string, outfile string) {
+						manager.Aquire()
+						defer manager.Release()
+
+						// Dump flowgraph
+						io.WriteDot(dot, outfile)
+					}(dot, outfile)
+				}
+			case *tree.StructDecl:
+				t, _ := gbuilder.Types[decl]
+				s, _ := t.(*flow.LLStruct)
+				structs = append(structs, dub.LowerStruct(decl, s, gbuilder))
+			default:
+				panic(decl)
 			}
-		case *tree.StructDecl:
-			t, _ := gbuilder.Types[decl]
-			s, _ := t.(*flow.LLStruct)
-			structs = append(structs, dub.LowerStruct(decl, s, gbuilder))
-		default:
-			panic(decl)
 		}
+		tests = append(tests, file.Tests...)
 	}
 
 	// Analysis
@@ -142,10 +173,10 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 		}
 	}
 
-	GenerateGo(language_name, ir_name, file, structs, funcs, gbuilder)
+	GenerateGo(language_name, ir_name, structs, funcs, tests, gbuilder)
 }
 
-func GenerateGo(language_name string, ir_name string, file *tree.File, structs []*flow.LLStruct, funcs []*flow.LLFunc, gbuilder *dub.GlobalDubBuilder) {
+func GenerateGo(language_name string, ir_name string, structs []*flow.LLStruct, funcs []*flow.LLFunc, tests []*tree.Test, gbuilder *dub.GlobalDubBuilder) {
 	root := "generated"
 	if replace {
 		root = "evergreen"
@@ -167,13 +198,13 @@ func GenerateGo(language_name string, ir_name string, file *tree.File, structs [
 	files := []*gotree.File{}
 	files = append(files, flow.GenerateGo(ir_name, structs, funcs, index, state, graph, link))
 
-	if !replace && len(file.Tests) != 0 {
+	if !replace && len(tests) != 0 {
 		pkg, t := dub.ExternTestingPackage()
 		packages = append(packages, pkg)
 		pkg, stateT := dub.ExternRuntimePackage()
 		packages = append(packages, pkg)
 
-		files = append(files, dub.GenerateTests(language_name, file.Tests, gbuilder, t, stateT, link))
+		files = append(files, dub.GenerateTests(language_name, tests, gbuilder, t, stateT, link))
 	}
 
 	packages = append(packages, &gotree.Package{
@@ -207,11 +238,15 @@ func processLanguage(status framework.Status, p framework.LocationProvider, mana
 		os.Exit(1)
 	}
 	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".dub") {
-			filename := file.Name()
-			fullpath := filepath.Join(dir, filename)
-			ir_name := filename[:len(filename)-4]
-			processDub(status.CreateChild(), p, manager, language_name, ir_name, fullpath)
+		if file.IsDir() {
+			continue
+		} else {
+			if strings.HasSuffix(file.Name(), ".dub") {
+				filename := file.Name()
+				fullpath := filepath.Join(dir, filename)
+				ir_name := filename[:len(filename)-4]
+				processDub(status.CreateChild(), p, manager, language_name, ir_name, fullpath)
+			}
 		}
 	}
 

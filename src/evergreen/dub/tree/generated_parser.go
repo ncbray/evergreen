@@ -409,6 +409,11 @@ type File struct {
 	Tests []*Test
 }
 
+type Package struct {
+	Path  []string
+	Files []*File
+}
+
 func LineTerminator(frame *runtime.State) {
 	var r0 int
 	var r1 rune

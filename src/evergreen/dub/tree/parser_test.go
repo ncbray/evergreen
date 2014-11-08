@@ -33,6 +33,7 @@ func BenchmarkSemantic(b *testing.B) {
 	file := ParseDub(data, status)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		SemanticPass(file, status.CreateChild())
+		glbls := MakeDubGlobals()
+		SemanticPass(file, glbls, status.CreateChild())
 	}
 }

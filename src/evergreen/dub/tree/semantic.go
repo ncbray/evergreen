@@ -507,7 +507,7 @@ func ReturnTypes(node ASTCallable) []ASTType {
 	}
 }
 
-func SemanticPass(file *File, status framework.Status) *ModuleScope {
+func MakeDubGlobals() *ModuleScope {
 	glbls := &ModuleScope{
 		Builtin:   map[string]ASTDecl{},
 		Module:    map[string]ASTDecl{},
@@ -544,6 +544,10 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 	glbls.BinaryOps["int==int"] = glbls.Bool
 	glbls.BinaryOps["int!=int"] = glbls.Bool
 
+	return glbls
+}
+
+func SemanticPass(file *File, glbls *ModuleScope, status framework.Status) {
 	// Index the module namespace.
 	for _, decl := range file.Decls {
 		switch decl := decl.(type) {
@@ -593,7 +597,6 @@ func SemanticPass(file *File, status framework.Status) *ModuleScope {
 	for _, tst := range file.Tests {
 		semanticTestPass(tst, glbls, status)
 	}
-	return glbls
 }
 
 func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {

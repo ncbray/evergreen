@@ -1500,3 +1500,8 @@ func ParseFile() File {
   /![^]/;
   return File{Decls: decls, Tests: tests};
 }
+
+struct Package {
+  Path []string
+  Files []File
+}
