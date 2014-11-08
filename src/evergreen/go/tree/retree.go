@@ -256,7 +256,7 @@ func retreeBlock(stmts []Stmt, du *defUse) []Stmt {
 
 func retreeDecl(decl Decl) {
 	switch decl := decl.(type) {
-	case *InterfaceDecl, *StructDecl, *TypeDef:
+	case *InterfaceDecl, *StructDecl, *TypeDef, *VarDecl:
 		// Leaf
 	case *FuncDecl:
 		du := makeApproxDefUse(decl)

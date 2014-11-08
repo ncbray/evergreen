@@ -5,8 +5,6 @@ import (
 	"fmt"
 )
 
-var NoLocalInfo LocalInfo_Ref = ^LocalInfo_Ref(0)
-
 type semanticScope struct {
 	parent *semanticScope
 	locals map[string]LocalInfo_Ref

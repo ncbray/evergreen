@@ -15,8 +15,6 @@ const (
 	RETURN
 )
 
-var NoRegister RegisterInfo_Ref = ^RegisterInfo_Ref(0)
-
 func (scope *RegisterInfo_Scope) Get(ref RegisterInfo_Ref) *RegisterInfo {
 	return scope.objects[ref]
 }
@@ -60,7 +58,7 @@ func TypeName(t DubType) string {
 }
 
 func RegisterName(reg RegisterInfo_Ref) string {
-	if reg != NoRegister {
+	if reg != NoRegisterInfo {
 		return fmt.Sprintf("r%d", reg)
 	} else {
 		return "_"
@@ -84,7 +82,7 @@ func KeyValueList(args []*KeyValue) string {
 }
 
 func formatAssignment(op string, dst RegisterInfo_Ref) string {
-	if dst == NoRegister {
+	if dst == NoRegisterInfo {
 		return op
 	}
 	return fmt.Sprintf("%s := %s", RegisterName(dst), op)
@@ -214,33 +212,33 @@ func IsNop(op DubOp) bool {
 	case *Fail:
 		return false
 	case *Checkpoint:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *Peek:
 		return false
 	case *LookaheadBegin:
 		return false
 	case *ConstantRuneOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *ConstantStringOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *ConstantIntOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *ConstantBoolOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *ConstantNilOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *CallOp:
 		return false
 	case *Slice:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *BinaryOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *AppendOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *CopyOp:
-		return op.Dst == NoRegister || op.Dst == op.Src
+		return op.Dst == NoRegisterInfo || op.Dst == op.Src
 	case *CoerceOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *Recover:
 		return false
 	case *LookaheadEnd:
@@ -248,9 +246,9 @@ func IsNop(op DubOp) bool {
 	case *ReturnOp:
 		return false
 	case *ConstructOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *ConstructListOp:
-		return op.Dst == NoRegister
+		return op.Dst == NoRegisterInfo
 	case *TransferOp:
 		return len(op.Dsts) == 0
 	case *EntryOp:

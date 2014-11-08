@@ -5,7 +5,7 @@ import (
 )
 
 func AddDef(reg RegisterInfo_Ref, node base.NodeID, defuse *base.DefUseCollector) {
-	if reg != NoRegister {
+	if reg != NoRegisterInfo {
 		defuse.AddDef(node, int(reg))
 	}
 }
@@ -136,13 +136,13 @@ func (r *RegisterReallocator) Allocate(v int) int {
 }
 
 func (r *RegisterReallocator) MakeOutput(n base.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
-	if reg != NoRegister {
+	if reg != NoRegisterInfo {
 		v := int(reg)
 		name := r.Allocate(v)
 		r.nm.SetName(n, v, name)
 		return RegisterInfo_Ref(name)
 	}
-	return NoRegister
+	return NoRegisterInfo
 }
 
 func (r *RegisterReallocator) Transfer(dst base.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
@@ -276,41 +276,41 @@ func killUnusedOutputs(n base.NodeID, op DubOp, live base.LivenessOracle) {
 	case *Consume, *Fail:
 	case *Checkpoint:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *Peek:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *LookaheadBegin:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *ConstantRuneOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *ConstantStringOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *ConstantIntOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *ConstantBoolOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *ConstantNilOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *CallOp:
 		anyLive := false
 		for i, dst := range op.Dsts {
 			if !live.LiveAtExit(n, int(dst)) {
-				op.Dsts[i] = NoRegister
+				op.Dsts[i] = NoRegisterInfo
 			} else {
 				anyLive = true
 			}
@@ -320,23 +320,23 @@ func killUnusedOutputs(n base.NodeID, op DubOp, live base.LivenessOracle) {
 		}
 	case *Slice:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *BinaryOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *AppendOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *CopyOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *CoerceOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *Recover:
 	case *LookaheadEnd:
@@ -344,11 +344,11 @@ func killUnusedOutputs(n base.NodeID, op DubOp, live base.LivenessOracle) {
 	case *ReturnOp:
 	case *ConstructOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	case *ConstructListOp:
 		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegister
+			op.Dst = NoRegisterInfo
 		}
 	default:
 		panic(op)

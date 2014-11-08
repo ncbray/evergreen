@@ -171,6 +171,13 @@ struct Return implements Stmt {
 struct Decl {
 }
 
+struct VarDecl implements Decl {
+  Name string
+  Type Type
+  Expr Expr
+  Const bool
+}
+
 struct FuncDecl contains(LocalInfo) implements Decl {
   Name string
   Recv Param

@@ -116,7 +116,7 @@ func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *
 
 func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *DubBuilder, gr *base.GraphRegion) flow.RegisterInfo_Ref {
 	// Read
-	cond := flow.NoRegister
+	cond := flow.NoRegisterInfo
 	if len(match.Filters) > 0 || used {
 		cond = builder.CreateLLRegister(builder.glbl.Rune)
 	}
@@ -313,7 +313,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 		gr.SpliceToEdge(decide, 0, block)
 		gr.RegisterExit(decide, 1, flow.NORMAL)
-		return flow.NoRegister
+		return flow.NoRegisterInfo
 
 	case *tree.Repeat:
 		// HACK unroll
@@ -343,9 +343,9 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		}
 
 		gr.Splice(flow.NORMAL, block)
-		return flow.NoRegister
+		return flow.NoRegisterInfo
 	case *tree.Choice:
-		checkpoint := flow.NoRegister
+		checkpoint := flow.NoRegisterInfo
 		if len(expr.Blocks) > 1 {
 			checkpoint = builder.CreateLLRegister(builder.glbl.Int)
 		}
@@ -366,7 +366,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 				gr.SpliceToEdge(head, flow.NORMAL, block)
 			}
 		}
-		return flow.NoRegister
+		return flow.NoRegisterInfo
 
 	case *tree.Optional:
 		// Checkpoint
@@ -385,11 +385,11 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 		gr.Splice(flow.NORMAL, block)
 
-		return flow.NoRegister
+		return flow.NoRegisterInfo
 
 	case *tree.NameRef:
 		if !used {
-			return flow.NoRegister
+			return flow.NoRegisterInfo
 		}
 		dst := builder.CreateRegister(builder.decl.LocalInfo_Scope.Get(expr.Local).T)
 		body := builder.EmitOp(&flow.CopyOp{Src: builder.localMap[expr.Local], Dst: dst})
@@ -425,11 +425,11 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 			gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
 		}
 		// HACK should actuall return a multivalue
-		return flow.NoRegister
+		return flow.NoRegisterInfo
 
 	case *tree.RuneLiteral:
 		if !used {
-			return flow.NoRegister
+			return flow.NoRegisterInfo
 		}
 		dst := builder.CreateLLRegister(builder.glbl.Rune)
 		body := builder.EmitOp(&flow.ConstantRuneOp{Value: expr.Value, Dst: dst})
@@ -439,7 +439,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 	case *tree.StringLiteral:
 		if !used {
-			return flow.NoRegister
+			return flow.NoRegisterInfo
 		}
 		dst := builder.CreateLLRegister(builder.glbl.String)
 		body := builder.EmitOp(&flow.ConstantStringOp{Value: expr.Value, Dst: dst})
@@ -449,7 +449,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 	case *tree.IntLiteral:
 		if !used {
-			return flow.NoRegister
+			return flow.NoRegisterInfo
 		}
 		dst := builder.CreateLLRegister(builder.glbl.Int)
 		body := builder.EmitOp(&flow.ConstantIntOp{Value: int64(expr.Value), Dst: dst})
@@ -459,7 +459,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 	case *tree.BoolLiteral:
 		if !used {
-			return flow.NoRegister
+			return flow.NoRegisterInfo
 		}
 		dst := builder.CreateLLRegister(builder.glbl.Bool)
 		body := builder.EmitOp(&flow.ConstantBoolOp{Value: expr.Value, Dst: dst})
@@ -475,18 +475,18 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		body := builder.EmitOp(&flow.ReturnOp{Exprs: exprs})
 		gr.AttachFlow(flow.NORMAL, body)
 		gr.RegisterExit(body, flow.NORMAL, flow.RETURN)
-		return flow.NoRegister
+		return flow.NoRegisterInfo
 
 	case *tree.Fail:
 		body := builder.EmitOp(&flow.Fail{})
 		gr.AttachFlow(flow.NORMAL, body)
 		gr.RegisterExit(body, flow.FAIL, flow.FAIL)
 
-		return flow.NoRegister
+		return flow.NoRegisterInfo
 
 	case *tree.Position:
 		if !used {
-			return flow.NoRegister
+			return flow.NoRegisterInfo
 		}
 		pos := builder.CreateLLRegister(builder.glbl.Int)
 		// HACK assume checkpoint is just the index
@@ -497,7 +497,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 	case *tree.BinaryOp:
 		left := lowerExpr(expr.Left, builder, true, gr)
 		right := lowerExpr(expr.Right, builder, true, gr)
-		dst := flow.NoRegister
+		dst := flow.NoRegisterInfo
 		if used {
 			dst = builder.CreateRegister(expr.T)
 		}
@@ -508,7 +508,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 	case *tree.Append:
 		l := lowerExpr(expr.List, builder, true, gr)
 		v := lowerExpr(expr.Expr, builder, true, gr)
-		dst := flow.NoRegister
+		dst := flow.NoRegisterInfo
 		if used {
 			dst = builder.CreateRegister(expr.T)
 		}
@@ -520,7 +520,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 	case *tree.Call:
 		dsts := lowerMultiValueExpr(expr, builder, true, gr)
-		dst := flow.NoRegister
+		dst := flow.NoRegisterInfo
 		if used {
 			if len(dsts) != 1 {
 				panic(expr)
@@ -542,7 +542,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		if !ok {
 			panic(t)
 		}
-		dst := flow.NoRegister
+		dst := flow.NoRegisterInfo
 		if used {
 			dst = builder.CreateLLRegister(t)
 		}
@@ -561,7 +561,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		if !ok {
 			panic(t)
 		}
-		dst := flow.NoRegister
+		dst := flow.NoRegisterInfo
 		if used {
 			dst = builder.CreateLLRegister(t)
 		}
@@ -573,7 +573,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 	case *tree.Coerce:
 		t := builder.glbl.TranslateType(tree.ResolveType(expr.Type))
 		src := lowerExpr(expr.Expr, builder, true, gr)
-		dst := flow.NoRegister
+		dst := flow.NoRegisterInfo
 		if used {
 			dst = builder.CreateLLRegister(t)
 		}
@@ -594,7 +594,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		lowerBlock(expr.Block, builder, gr)
 
 		// Create a slice
-		dst := flow.NoRegister
+		dst := flow.NoRegisterInfo
 		if used {
 			dst = builder.CreateLLRegister(builder.glbl.String)
 		}
@@ -606,8 +606,8 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		return dst
 
 	case *tree.StringMatch:
-		dst := flow.NoRegister
-		start := flow.NoRegister
+		dst := flow.NoRegisterInfo
+		start := flow.NoRegisterInfo
 
 		// Checkpoint
 		if used {

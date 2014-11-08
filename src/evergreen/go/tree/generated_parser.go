@@ -130,6 +130,8 @@ func (node *ListLiteral) isExpr() {
 
 type LocalInfo_Ref uint32
 
+const NoLocalInfo = ^LocalInfo_Ref(0)
+
 type LocalInfo_Scope struct {
 	objects []*LocalInfo
 }
@@ -325,6 +327,16 @@ func (node *Return) isStmt() {
 
 type Decl interface {
 	isDecl()
+}
+
+type VarDecl struct {
+	Name  string
+	Type  Type
+	Expr  Expr
+	Const bool
+}
+
+func (node *VarDecl) isDecl() {
 }
 
 type FuncDecl struct {

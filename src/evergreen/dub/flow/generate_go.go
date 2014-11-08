@@ -196,7 +196,7 @@ func returnVarName(i int) string {
 }
 
 func opAssign(info *regionInfo, expr ast.Expr, dst RegisterInfo_Ref) ast.Stmt {
-	if dst != NoRegister {
+	if dst != NoRegisterInfo {
 		return &ast.Assign{
 			Targets: []ast.Target{info.SetReg(dst)},
 			Op:      "=",
@@ -212,7 +212,7 @@ func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []RegisterInfo_Ref) ast
 	if len(dsts) != 0 {
 		lhs := make([]ast.Target, len(dsts))
 		for i, dst := range dsts {
-			if dst != NoRegister {
+			if dst != NoRegisterInfo {
 				lhs[i] = info.SetReg(dst)
 			} else {
 				lhs[i] = discard()
@@ -686,6 +686,19 @@ func GenerateScopeHelpers(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []
 	}
 	ctx.link.ForwardType(s, REF, ref)
 
+	noRef := &ast.VarDecl{
+		Name: "No" + s.Name,
+		Type: &ast.TypeRef{Impl: ref},
+		Expr: &ast.UnaryExpr{
+			Op: "^",
+			Expr: &ast.TypeCoerce{
+				Type: &ast.TypeRef{Impl: ref},
+				Expr: &ast.IntLiteral{Value: 0},
+			},
+		},
+		Const: true,
+	}
+
 	scope := &ast.StructDecl{
 		Name: subtypeName(s, SCOPE),
 		Fields: []*ast.Field{
@@ -697,7 +710,7 @@ func GenerateScopeHelpers(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []
 	}
 	ctx.link.ForwardType(s, SCOPE, scope)
 
-	decls = append(decls, ref, scope)
+	decls = append(decls, ref, noRef, scope)
 	return decls
 }
 

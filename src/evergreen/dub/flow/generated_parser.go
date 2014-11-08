@@ -41,6 +41,8 @@ func (node *LLStruct) isDubType() {
 
 type RegisterInfo_Ref uint32
 
+const NoRegisterInfo = ^RegisterInfo_Ref(0)
+
 type RegisterInfo_Scope struct {
 	objects []*RegisterInfo
 }

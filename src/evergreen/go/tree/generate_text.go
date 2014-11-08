@@ -328,6 +328,13 @@ func GenerateDecl(decl Decl, w *base.CodeWriter) {
 	case *FuncDecl:
 		gen := &textGenerator{decl: decl}
 		GenerateFunc(gen, decl, w)
+	case *VarDecl:
+		gen := &textGenerator{decl: nil} // HACK
+		keyword := "var"
+		if decl.Const {
+			keyword = "const"
+		}
+		w.Linef("%s %s = %s", keyword, decl.Name, GenerateExpr(gen, decl.Expr))
 	default:
 		panic(decl)
 	}

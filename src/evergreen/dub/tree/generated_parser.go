@@ -365,6 +365,8 @@ type ASTCallable interface {
 
 type LocalInfo_Ref uint32
 
+const NoLocalInfo = ^LocalInfo_Ref(0)
+
 type LocalInfo_Scope struct {
 	objects []*LocalInfo
 }

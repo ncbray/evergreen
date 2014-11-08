@@ -192,6 +192,9 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 		nameifyType(decl.Type, info)
 		nameifyBody(decl.Body, info)
 		InsertVarDecls(decl)
+	case *VarDecl:
+		nameifyType(decl.Type, info)
+		nameifyExpr(decl.Expr, info)
 	default:
 		panic(decl)
 	}
@@ -247,6 +250,8 @@ func nameifyPrepass(prog *Program) {
 					decl.Package = pkg
 				case *TypeDef:
 					decl.Package = pkg
+				case *VarDecl:
+					// Leaf
 				default:
 					panic(decl)
 				}
