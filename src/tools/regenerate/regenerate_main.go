@@ -90,9 +90,9 @@ func parsePackage(status framework.Status, p framework.LocationProvider, path []
 	return pkg, glbls
 }
 
-func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, language_name string, ir_name string, filename string) {
+func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, path []string, filenames []string) {
 
-	pkg, glbls := parsePackage(status, p, []string{language_name, ir_name}, []string{filename})
+	pkg, glbls := parsePackage(status, p, path, filenames)
 	if status.ShouldHalt() {
 		return
 	}
@@ -145,7 +145,10 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 				if dump {
 					styler := &flow.DotStyler{Decl: f}
 					dot := base.GraphToDot(f.CFG, styler)
-					outfile := filepath.Join("output", language_name, ir_name, fmt.Sprintf("%s.svg", f.Name))
+					parts := []string{"output"}
+					parts = append(parts, path...)
+					parts = append(parts, fmt.Sprintf("%s.svg", f.Name))
+					outfile := filepath.Join(parts...)
 					manager.Create()
 					go func(dot string, outfile string) {
 						manager.Aquire()
@@ -173,14 +176,18 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 		}
 	}
 
-	GenerateGo(language_name, ir_name, structs, funcs, tests, gbuilder)
+	GenerateGo(path, structs, funcs, tests, gbuilder)
 }
 
-func GenerateGo(language_name string, ir_name string, structs []*flow.LLStruct, funcs []*flow.LLFunc, tests []*tree.Test, gbuilder *dub.GlobalDubBuilder) {
+func GenerateGo(original_path []string, structs []*flow.LLStruct, funcs []*flow.LLFunc, tests []*tree.Test, gbuilder *dub.GlobalDubBuilder) {
 	root := "generated"
 	if replace {
 		root = "evergreen"
 	}
+
+	path := []string{root}
+	path = append(path, original_path...)
+	leaf := path[len(path)-1]
 
 	link := flow.MakeLinker()
 
@@ -196,7 +203,7 @@ func GenerateGo(language_name string, ir_name string, structs []*flow.LLStruct, 
 	packages = append(packages, pkg)
 
 	files := []*gotree.File{}
-	files = append(files, flow.GenerateGo(ir_name, structs, funcs, index, state, graph, link))
+	files = append(files, flow.GenerateGo(leaf, structs, funcs, index, state, graph, link))
 
 	if !replace && len(tests) != 0 {
 		pkg, t := dub.ExternTestingPackage()
@@ -204,11 +211,11 @@ func GenerateGo(language_name string, ir_name string, structs []*flow.LLStruct, 
 		pkg, stateT := dub.ExternRuntimePackage()
 		packages = append(packages, pkg)
 
-		files = append(files, dub.GenerateTests(language_name, tests, gbuilder, t, stateT, link))
+		files = append(files, dub.GenerateTests(leaf, tests, gbuilder, t, stateT, link))
 	}
 
 	packages = append(packages, &gotree.Package{
-		Path:  []string{root, language_name, ir_name},
+		Path:  path,
 		Files: files,
 	})
 
@@ -231,25 +238,40 @@ func GenerateGo(language_name string, ir_name string, structs []*flow.LLStruct, 
 var dump bool
 var replace bool
 
-func processLanguage(status framework.Status, p framework.LocationProvider, manager *IOManager, language_name string, dir string) {
+func extendPath(path []string, next string) []string {
+	newPath := make([]string, len(path)+1)
+	copy(newPath, path)
+	newPath[len(path)] = next
+	return newPath
+}
+
+func processPackage(status framework.Status, p framework.LocationProvider, manager *IOManager, root string, path []string) {
+	dir := filepath.Join(root, strings.Join(path, string(filepath.Separator)))
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	dubfiles := []string{}
 	for _, file := range files {
-		if file.IsDir() {
+		name := file.Name()
+		if strings.HasPrefix(name, ".") {
 			continue
+		}
+		if file.IsDir() {
+			newPath := extendPath(path, name)
+			processPackage(status, p, manager, root, newPath)
 		} else {
-			if strings.HasSuffix(file.Name(), ".dub") {
+			if strings.HasSuffix(name, ".dub") {
 				filename := file.Name()
 				fullpath := filepath.Join(dir, filename)
-				ir_name := filename[:len(filename)-4]
-				processDub(status.CreateChild(), p, manager, language_name, ir_name, fullpath)
+				dubfiles = append(dubfiles, fullpath)
 			}
 		}
 	}
-
+	if len(dubfiles) > 0 {
+		processDub(status.CreateChild(), p, manager, path, dubfiles)
+	}
 }
 
 func main() {
@@ -261,16 +283,7 @@ func main() {
 	manager := CreateIOManager()
 
 	root_dir := "dub"
-	files, err := ioutil.ReadDir(root_dir)
-	if err != nil {
-		status.Error(err.Error())
-		os.Exit(1)
-	}
-	for _, file := range files {
-		if file.IsDir() {
-			processLanguage(status.CreateChild(), p, manager, file.Name(), filepath.Join(root_dir, file.Name()))
-		}
-	}
+	processPackage(status.CreateChild(), p, manager, root_dir, []string{})
 	manager.Flush()
 	if status.ShouldHalt() {
 		os.Exit(1)

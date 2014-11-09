@@ -417,7 +417,7 @@ func ExternRuntimePackage() (*dst.Package, *dst.StructDecl) {
 	return pkg, t
 }
 
-func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
+func GenerateTests(leaf string, tests []*tree.Test, gbuilder *GlobalDubBuilder, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
 	_, index := flow.ExternBuiltinRuntime()
 	ctx := &TestingContext{gbuilder: gbuilder, link: link, t: t, stateT: stateT, index: index}
 
@@ -429,7 +429,7 @@ func GenerateTests(module string, tests []*tree.Test, gbuilder *GlobalDubBuilder
 
 	file := &dst.File{
 		Name:    "generated_parser_test.go",
-		Package: "tree",
+		Package: leaf,
 		Decls:   decls,
 	}
 	return file
