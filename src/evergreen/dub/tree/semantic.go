@@ -157,6 +157,9 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 	case *BinaryOp:
 		l := scalarSemanticExprPass(decl, expr.Left, scope, glbls, status)
 		r := scalarSemanticExprPass(decl, expr.Right, scope, glbls, status)
+		if l == nil || r == nil {
+			return nil
+		}
 		lt, ok := l.(*BuiltinType)
 		if !ok {
 			panic(l)
@@ -547,55 +550,61 @@ func MakeDubGlobals() *ModuleScope {
 	return glbls
 }
 
-func SemanticPass(file *File, glbls *ModuleScope, status framework.Status) {
-	// Index the module namespace.
-	for _, decl := range file.Decls {
-		switch decl := decl.(type) {
-		case *FuncDecl:
-			name := decl.Name.Text
-			_, exists := glbls.Module[name]
-			if exists {
-				status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
-			} else {
-				glbls.Module[name] = decl
+func SemanticPass(pkg *Package, glbls *ModuleScope, status framework.Status) {
+	// Index the package namespace.
+	for _, file := range pkg.Files {
+		for _, decl := range file.Decls {
+			switch decl := decl.(type) {
+			case *FuncDecl:
+				name := decl.Name.Text
+				_, exists := glbls.Module[name]
+				if exists {
+					status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
+				} else {
+					glbls.Module[name] = decl
+				}
+			case *StructDecl:
+				name := decl.Name.Text
+				_, exists := glbls.Module[name]
+				if exists {
+					status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
+				} else {
+					glbls.Module[name] = decl
+				}
+			default:
+				panic(decl)
 			}
-		case *StructDecl:
-			name := decl.Name.Text
-			_, exists := glbls.Module[name]
-			if exists {
-				status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
-			} else {
-				glbls.Module[name] = decl
-			}
-		default:
-			panic(decl)
 		}
 	}
-	for _, decl := range file.Decls {
-		switch decl := decl.(type) {
-		case *FuncDecl:
-			// Needed for resolving calls in the next step.
-			semanticFuncSignaturePass(decl, glbls, status)
-		case *StructDecl:
-			// Needed for resolving field types.
-			semanticStructPass(decl, glbls, status)
-		default:
-			panic(decl)
+	for _, file := range pkg.Files {
+		for _, decl := range file.Decls {
+			switch decl := decl.(type) {
+			case *FuncDecl:
+				// Needed for resolving calls in the next step.
+				semanticFuncSignaturePass(decl, glbls, status)
+			case *StructDecl:
+				// Needed for resolving field types.
+				semanticStructPass(decl, glbls, status)
+			default:
+				panic(decl)
+			}
 		}
 	}
 
 	// Resolve the declaration contents.
-	for _, decl := range file.Decls {
-		switch decl := decl.(type) {
-		case *FuncDecl:
-			semanticFuncBodyPass(decl, glbls, status)
-		case *StructDecl:
-		default:
-			panic(decl)
+	for _, file := range pkg.Files {
+		for _, decl := range file.Decls {
+			switch decl := decl.(type) {
+			case *FuncDecl:
+				semanticFuncBodyPass(decl, glbls, status)
+			case *StructDecl:
+			default:
+				panic(decl)
+			}
 		}
-	}
-	for _, tst := range file.Tests {
-		semanticTestPass(tst, glbls, status)
+		for _, tst := range file.Tests {
+			semanticTestPass(tst, glbls, status)
+		}
 	}
 }
 

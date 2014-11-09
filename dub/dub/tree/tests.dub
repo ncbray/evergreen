@@ -1,0 +1,459 @@
+test Alpha Ident() "a_B_c"
+  Id{Text: "a_B_c"}
+
+test AlphaNum Ident() "a_1_7"
+  Id{Text: "a_1_7"}
+
+test Num Literal() "1234567890"
+  IntLiteral{
+    Text: "1234567890"
+    Value: 1234567890
+ }
+
+test Str Literal() "\"hello, world\\n\""
+  StringLiteral{
+    Text: "\"hello, world\\n\""
+    Value: "hello, world\n"
+  }
+
+test Rune Literal() "'a'"
+  RuneLiteral{
+    Text: "'a'"
+    Value: 'a'
+  }
+
+test EscapedRune Literal() "'\\n'"
+  RuneLiteral{
+    Text: "'\\n'"
+    Value: '\n'
+  }
+
+test True Literal() "true"
+  BoolLiteral{
+    Text: "true"
+    Value: true
+  }
+
+test False Literal() "false"
+  BoolLiteral{
+    Text: "false"
+    Value: false
+  }
+
+test Nil Literal() "nil"
+  NilLiteral{}
+
+test ListOfList ParseTypeRef() "[][]Foo"
+  ListTypeRef{
+    Type: ListTypeRef{
+      Type: TypeRef{
+        Name: Id{Text: "Foo"}
+      }
+    }
+  }
+
+test Compound ParseDestructure() "[]Foo { Bar { Baz: 1 Biz : 'x'} }"
+  DestructureList {
+    Type: ListTypeRef {
+      Type: TypeRef {
+        Name: Id{Text: "Foo"}
+      }
+    }
+    Args: []Destructure {
+      DestructureStruct {
+        Type: TypeRef {
+          Name: Id{Text: "Bar"}
+        }
+        Args: []DestructureField {
+          DestructureField {
+            Name: Id{Text: "Baz"}
+            Destructure: DestructureValue {
+              Expr: IntLiteral {
+                Value: 1
+              }
+            }
+          }
+          DestructureField {
+            Name: Id{Text: "Biz"}
+            Destructure: DestructureValue {
+              Expr: RuneLiteral {
+                Value: 'x'
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+test One ParseMatchChoice() "[pq]"
+  RuneRangeMatch {
+    Invert: false
+    Filters: []RuneFilter {
+      RuneFilter {
+        Min: 'p'
+        Max: 'p'
+      }
+      RuneFilter {
+        Min: 'q'
+        Max: 'q'
+      }
+    }
+  }
+
+test Invert ParseMatchChoice() "[^.]"
+  RuneRangeMatch {
+    Invert: true
+    Filters: []RuneFilter {
+      RuneFilter {
+        Min: '.'
+        Max: '.'
+      }
+    }
+  }
+
+test Escape ParseMatchChoice() "[\\]\\n]"
+  RuneRangeMatch {
+    Filters: []RuneFilter {
+      RuneFilter {
+        Min: ']'
+        Max: ']'
+      }
+      RuneFilter {
+        Min: '\n'
+        Max: '\n'
+      }
+    }
+  }
+
+
+test Three ParseMatchChoice() "[a][b][c]"
+  MatchSequence {
+    Matches: []TextMatch {
+      RuneRangeMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: 'a'
+            Max: 'a'
+          }
+        }
+      }
+      RuneRangeMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: 'b'
+            Max: 'b'
+          }
+        }
+      }
+      RuneRangeMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: 'c'
+            Max: 'c'
+          }
+        }
+      }
+    }
+  }
+
+test Repeat ParseMatchChoice() "[0-9] +"
+  MatchRepeat {
+    Match: RuneRangeMatch {
+      Filters: []RuneFilter {
+        RuneFilter {
+          Min: '0'
+          Max: '9'
+        }
+      }
+    }
+    Min: 1
+  }
+
+test Question ParseMatchChoice() "[*]?"
+  MatchChoice {
+    Matches: []TextMatch {
+      RuneRangeMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: '*'
+            Max: '*'
+          }
+        }
+      }
+      MatchSequence {
+        Matches: []TextMatch{}
+      }
+    }
+  }
+
+test Complex ParseMatchChoice() "[a] ( [b]|[c] ) | [d]"
+  MatchChoice {
+    Matches: []TextMatch {
+      MatchSequence {
+        Matches: []TextMatch{
+          RuneRangeMatch {
+            Filters: []RuneFilter {
+              RuneFilter {
+                Min: 'a'
+                Max: 'a'
+               }
+            }
+          }
+          MatchChoice {
+            Matches: []TextMatch {
+              RuneRangeMatch {
+                Filters: []RuneFilter {
+                  RuneFilter {
+                    Min: 'b'
+                    Max: 'b'
+                  }
+                }
+              }
+              RuneRangeMatch {
+                Filters: []RuneFilter {
+                  RuneFilter {
+                    Min: 'c'
+                    Max: 'c'
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      RuneRangeMatch {
+        Filters: []RuneFilter {
+          RuneFilter {
+            Min: 'd'
+            Max: 'd'
+          }
+        }
+      }
+    }
+  }
+
+test PositiveLookahead ParseMatchChoice() "&[.]"
+  MatchLookahead {
+    Invert: false
+    Match: RuneRangeMatch {
+      Invert: false
+      Filters: []RuneFilter {
+        RuneFilter {
+          Min: '.'
+          Max: '.'
+        }
+      }
+    }
+  }
+
+test NegativeLookahead ParseMatchChoice() "![.]"
+  MatchLookahead {
+    Invert: true
+    Match: RuneRangeMatch {
+      Invert: false
+      Filters: []RuneFilter {
+        RuneFilter {
+          Min: '.'
+          Max: '.'
+        }
+      }
+    }
+  }
+
+test SimpleName ParseNameRef() "foobar"
+  NameRef {
+    Name: Id {
+      Text: "foobar"
+    }
+  }
+
+test PartKeyword ParseNameRef() "trueish"
+  NameRef {
+    Name: Id {
+      Text: "trueish"
+    }
+  }
+
+test RejectKeyword ParseNameRef() "true"
+  FAIL
+  nil
+
+test BinaryOpLeft ParseExpr() "12 + 34 - 56"
+  BinaryOp {
+    Left: BinaryOp {
+      Left: IntLiteral {
+        Value: 12
+      }
+      Op: "+"
+      Right: IntLiteral {
+        Value: 34
+      }
+    }
+    Op: "-"
+    Right: IntLiteral {
+      Value: 56
+    }
+  }
+
+test BinaryOpRight ParseExpr() "12 + (34 - 56)"
+  BinaryOp {
+    Left: IntLiteral {
+      Value: 12
+    }
+    Op: "+"
+    Right: BinaryOp {
+      Left: IntLiteral {
+        Value: 34
+      }
+      Op: "-"
+      Right: IntLiteral {
+        Value: 56
+      }
+    }
+  }
+
+test BinaryOpPrecLeft ParseExpr() "12 * 34 + 56"
+  BinaryOp {
+    Left: BinaryOp {
+      Left: IntLiteral {
+        Value: 12
+      }
+      Op: "*"
+      Right: IntLiteral {
+        Value: 34
+      }
+    }
+    Op: "+"
+    Right: IntLiteral {
+      Value: 56
+    }
+  }
+
+test BinaryOpPrecRight ParseExpr() "12 + 34 * 56"
+  BinaryOp {
+    Left: IntLiteral {
+      Value: 12
+    }
+    Op: "+"
+    Right: BinaryOp {
+      Left: IntLiteral {
+        Value: 34
+      }
+      Op: "*"
+      Right: IntLiteral {
+        Value: 56
+      }
+    }
+  }
+
+test Assign ParseStatement() "foo = 1;"
+  Assign {
+    Expr: IntLiteral {
+      Value: 1
+    }
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "foo"}}}
+    Type: nil
+    Define: false
+  }
+
+test Lookahead ParseStatement() "returnType = 1;"
+  Assign {
+    Expr: IntLiteral {
+      Value: 1
+    }
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "returnType"}}}
+    Type: nil
+    Define: false
+  }
+
+test Define ParseStatement() "foo := 1;"
+  Assign {
+    Expr: IntLiteral {
+      Value: 1
+    }
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "foo"}}}
+    Type: nil
+    Define: true
+  }
+
+test VarDecl ParseStatement() "var foo int = 1;"
+  Assign {
+    Expr: IntLiteral {
+      Value: 1
+    }
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "foo"}}}
+    Type: TypeRef {
+      Name: Id {
+        Text: "int"
+      }
+    }
+    Define: true
+  }
+
+
+test MultiAssign ParseStatement() "a, b, c = foo();"
+  Assign {
+    Expr: Call {
+      Name: Id{Text: "foo"}
+    }
+    Targets: []ASTExpr{
+      NameRef{Name: Id{Text: "a"}}
+      NameRef{Name: Id{Text: "b"}}
+      NameRef{Name: Id{Text: "c"}}
+    }
+    Define: false
+  }
+
+test MultiCall ParseStatement() "foo(a, b, c);"
+  Call {
+    Name: Id{Text: "foo"}
+    Args: []ASTExpr{
+      NameRef{Name: Id{Text: "a"}}
+      NameRef{Name: Id{Text: "b"}}
+      NameRef{Name: Id{Text: "c"}}
+    }
+  }
+
+
+test Construct ParseExpr() "Foo{ Bar: 1}"
+  Construct {
+    Type: TypeRef {
+      Name: Id{Text: "Foo"}
+    }
+    Args: []NamedExpr {
+      NamedExpr{
+        Name: Id{Text: "Bar"}
+        Expr: IntLiteral {
+          Value: 1
+        }
+      }
+    }
+  }
+
+test ConstructList ParseExpr() "[]Foo{ 1 }"
+  ConstructList {
+    Type: ListTypeRef{
+      Type: TypeRef {
+        Name: Id{Text: "Foo"}
+      }
+    }
+    Args: []ASTExpr {
+      IntLiteral {
+        Value: 1
+      }
+    }
+  }
+
+test Slice ParseStatement() "a := slice { 1; } ;"
+  Assign {
+    Expr: Slice{
+      Block: []ASTExpr{
+        IntLiteral {
+          Value: 1
+        }
+      }
+    }
+    Targets: []ASTExpr{NameRef{Name: Id{Text: "a"}}}
+    Define: true
+  }

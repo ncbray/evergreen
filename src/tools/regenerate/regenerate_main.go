@@ -60,8 +60,6 @@ func CreateIOManager() *IOManager {
 func parsePackage(status framework.Status, p framework.LocationProvider, path []string, filenames []string) (*tree.Package, *tree.ModuleScope) {
 	fmt.Printf("Processing %s...\n", strings.Join(path, "."))
 
-	glbls := tree.MakeDubGlobals()
-
 	files := make([]*tree.File, len(filenames))
 	for i, filename := range filenames {
 		data, err := ioutil.ReadFile(filename)
@@ -75,16 +73,17 @@ func parsePackage(status framework.Status, p framework.LocationProvider, path []
 		if status.ShouldHalt() {
 			return nil, nil
 		}
-		tree.SemanticPass(files[i], glbls, status)
-		if status.ShouldHalt() {
-			return nil, nil
-		}
-
 	}
 
 	pkg := &tree.Package{
 		Path:  path,
 		Files: files,
+	}
+
+	glbls := tree.MakeDubGlobals()
+	tree.SemanticPass(pkg, glbls, status)
+	if status.ShouldHalt() {
+		return nil, nil
 	}
 
 	return pkg, glbls
@@ -286,6 +285,7 @@ func main() {
 	processPackage(status.CreateChild(), p, manager, root_dir, []string{})
 	manager.Flush()
 	if status.ShouldHalt() {
+		fmt.Printf("%d errors\n", status.ErrorCount())
 		os.Exit(1)
 	}
 }

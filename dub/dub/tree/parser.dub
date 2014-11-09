@@ -1,0 +1,780 @@
+func LineTerminator() {
+  /"\n"|"\r\n"|"\r"/;
+}
+
+func S() {
+  star {
+    choose {
+      /[ \t]/;
+    } or {
+      LineTerminator();
+    } or {
+      /"//" [^\n\r]*/;
+    }
+  }
+}
+
+func EndKeyword() {
+  /![a-zA-Z_0-9]/;
+}
+
+func Ident() Id {
+  p := position;
+  // Don't allow keywords as identifiers.
+  /!(("func"|"test"|"struct"|"star"|"plus"|"choose"|"or"|"question"|"if"|"else"|"true"|"false"|"nil") ![a-zA-Z_0-9])/;
+  text := /[a-zA-Z_][a-zA-Z_0-9]*/;
+  return Id{Pos: p, Text: text};
+}
+
+func DecodeInt() (int, string) {
+    var value int;
+    text := slice {
+      plus {
+        digit := coerce(int, $[0-9]) - coerce(int, '0');
+        value = value * 10 + digit;
+      }
+    };
+    return value, text;
+}
+
+func EscapedChar() rune {
+  choose {
+    /[a]/;
+    return '\a';
+  } or {
+    /[b]/;
+    return '\b';
+  } or {
+    /[f]/;
+    return '\f';
+  } or {
+    /[n]/;
+    return '\n';
+  } or {
+    /[r]/;
+    return '\r';
+  } or {
+    /[t]/;
+    return '\t';
+  } or {
+    /[v]/;
+    return '\v';
+  } or {
+    /[\\]/;
+    return '\\';
+  } or {
+    /[']/;
+    return '\'';
+  } or {
+    /["]/;
+    return '"';
+  }
+}
+
+func DecodeString() string {
+  /["]/;
+  contents := []rune{};
+  star {
+    choose {
+      append(contents, $[^"\\]);
+    } or {
+      /[\\]/;
+      append(contents, EscapedChar());
+    }
+  }
+  /["]/;
+  return coerce(string, contents);
+}
+
+func DecodeRune() (rune, string) {
+  var value rune;
+  text := slice {
+    /[']/;
+    choose {
+      value = $[^\\'];
+    } or {
+      /[\\]/;
+      value = EscapedChar();
+    }
+    /[']/;
+  };
+  return value, text;
+}
+
+func DecodeBool() (bool, string) {
+  var value bool;
+  text := slice {
+    choose {
+      /"true"/;
+      value = true;
+    } or {
+      /"false"/;
+      value = false;
+    }
+    EndKeyword();
+  };
+  return value, text;
+}
+
+func Literal() ASTExpr {
+  choose {
+    value, text := DecodeRune();
+    return RuneLiteral{Text: text, Value: value};
+  } or {
+    var value string;
+    text := slice {
+      value = DecodeString();
+    };
+    return StringLiteral{Text: text, Value: value};
+  } or {
+    value, text := DecodeInt();
+    return IntLiteral{Text: text, Value: value};
+  } or {
+    value, text := DecodeBool();
+    return BoolLiteral{Text: text, Value: value};
+  } or {
+    /"nil"/;
+    return NilLiteral{};
+  }
+}
+
+func BinaryOperator() (string, int) {
+  var op string;
+  var prec int;
+  choose {
+    return /[*/%]/, 5;
+  } or {
+    return /[+\-]/, 4;
+  } or {
+    return /([<>][=]?)|([!=][=])/, 3;
+  }
+}
+
+func StringMatchExpr() StringMatch {
+  /[/]/;
+  S();
+  e := ParseMatchChoice();
+  S();
+  /[/]/;
+  return StringMatch{Match: e};
+}
+
+func RuneMatchExpr() RuneMatch {
+  /[$]/;
+  S();
+  e := MatchRune();
+  return RuneMatch{Match: e};
+}
+
+func ParseStructTypeRef() TypeRef {
+    return TypeRef{Name: Ident()};
+}
+
+func ParseListTypeRef() ListTypeRef {
+    /[\[][\]]/;
+    return ListTypeRef{Type: ParseTypeRef()};
+}
+
+func ParseTypeRef() ASTTypeRef {
+  choose {
+    return ParseStructTypeRef();
+  } or {
+    return ParseListTypeRef();
+  }
+}
+
+func ParseDestructure() Destructure {
+  choose {
+    t := ParseStructTypeRef();
+    S();
+    /[{]/;
+    S();
+    fields := []DestructureField{};
+    star {
+      name := Ident();
+      S();
+      /[:]/;
+      S();
+      d := ParseDestructure();
+      S();
+      append(fields, DestructureField{Name: name, Destructure: d});
+    }
+    /[}]/;
+    return DestructureStruct{Type: t, Args: fields};
+  } or {
+    t := ParseListTypeRef();
+    S();
+    /[{]/;
+    S();
+    fields := []Destructure{};
+    star {
+      append(fields, ParseDestructure());
+      S();
+    }
+    /[}]/;
+    return DestructureList{Type: t, Args: fields};
+  } or {
+    return DestructureValue{Expr: Literal()};
+  }
+}
+
+func ParseRuneFilterRune() rune {
+  choose {
+    return $[^\]\-\\];
+  } or {
+    /[\\]/;
+    choose {
+      return EscapedChar();
+    } or {
+      return $[^];
+    }
+  }
+}
+
+func ParseRuneFilter() RuneFilter {
+  min := ParseRuneFilterRune();
+  max := min;
+  question {
+    /[\-]/;
+    max = ParseRuneFilterRune();
+  }
+  return RuneFilter{Min: min, Max: max};
+}
+
+func MatchRune() RuneRangeMatch {
+  /[\[]/;
+  invert := false;
+  filters := []RuneFilter{};
+  question {
+    /[\^]/;
+    invert = true;
+  }
+  star {
+    append(filters, ParseRuneFilter());
+  }
+  /[\]]/;
+  return RuneRangeMatch{Invert: invert, Filters: filters};
+}
+
+func Atom() TextMatch {
+  choose {
+    return MatchRune();
+  } or {
+    value := DecodeString();
+    return StringLiteralMatch{Value: value};
+  } or {
+    /[(]/;
+    S();
+    e := ParseMatchChoice();
+    S();
+    /[)]/;
+    return e;
+  }
+}
+
+func MatchPostfix() TextMatch {
+  e := Atom();
+  choose {
+    S();
+    /[*]/;
+    return MatchRepeat{Match: e, Min: 0};
+  } or {
+    S();
+    /[+]/;
+    return MatchRepeat{Match: e, Min: 1};
+  } or {
+    S();
+    /[?]/;
+    return MatchChoice{Matches: []TextMatch{e, MatchSequence{Matches: []TextMatch{}}}};
+  } or {
+    return e;
+  }
+}
+
+func MatchPrefix() TextMatch {
+  choose {
+    var invert bool;
+    choose {
+      /[!]/;
+      invert = true;
+    } or {
+      /[&]/;
+    }
+    S();
+    return MatchLookahead{Invert: invert, Match: MatchPostfix()};
+  } or {
+    return MatchPostfix();
+  }
+}
+
+func Sequence() TextMatch {
+  e := MatchPrefix();
+  choose {
+    l := []TextMatch{e};
+    plus {
+      S();
+      append(l, MatchPrefix());
+    }
+    return MatchSequence{Matches: l};
+  } or {
+    return e;
+  }
+}
+
+func ParseMatchChoice() TextMatch {
+  e := Sequence();
+  choose {
+    l := []TextMatch{e};
+    plus {
+      S();
+      /[|]/;
+      S();
+      append(l, Sequence());
+    }
+    return MatchChoice{Matches: l};
+  } or {
+    return e;
+  }
+}
+
+func ParseExprList() []ASTExpr {
+  exprs := []ASTExpr{};
+  question {
+    append(exprs, ParseExpr());
+    star {
+      S();
+      /[,]/;
+      S();
+      append(exprs, ParseExpr());
+    }
+  }
+  return exprs;
+}
+
+func ParseTargetList() []ASTExpr {
+  exprs := []ASTExpr{ParseNameRef()};
+  star {
+    S();
+    /[,]/;
+    S();
+    append(exprs, ParseNameRef());
+  }
+  return exprs;
+}
+
+func ParseNamedExpr() NamedExpr {
+  name := Ident();
+  S();
+  /[:]/;
+  S();
+  return NamedExpr{Name: name, Expr: ParseExpr()};
+}
+
+func ParseNamedExprList() []NamedExpr {
+  exprs := []NamedExpr{};
+  question {
+    append(exprs, ParseNamedExpr());
+    star {
+      S();
+      /[,]/;
+      S();
+      append(exprs, ParseNamedExpr());
+    }
+  }
+  return exprs;
+}
+
+
+func ParseReturnTypeList() []ASTTypeRef {
+  choose {
+    return ParseParenthTypeList();
+  } or {
+    return []ASTTypeRef{ParseTypeRef()};
+  } or {
+    return []ASTTypeRef{};
+  }
+}
+
+func PrimaryExpr() ASTExpr {
+  choose {
+    return Literal();
+  } or {
+    // Slice is currently the only expression containing a code block.
+    /"slice"/;
+    EndKeyword();
+    S();
+    block := ParseCodeBlock();
+    return Slice{Block: block};
+  } or {
+    /"position"/;
+    EndKeyword();
+    return Position{};
+  } or {
+    /"coerce"/;
+    EndKeyword();
+    S();
+    /[(]/;
+    S();
+    t := ParseTypeRef();
+    S();
+    /[,]/;
+    S();
+    e := ParseExpr();
+    S();
+    /[)]/;
+    return Coerce{Type: t, Expr: e};
+  } or {
+    /"append"/;
+    EndKeyword();
+    S();
+    /[(]/;
+    S();
+    name := Ident();
+    S();
+    /[,]/;
+    S();
+    expr := ParseExpr();
+    S();
+    /[)]/;
+    // TODO make the copy of the name node explicit?
+    return Assign{
+      Expr: Append{
+        List: NameRef{Name: name},
+        Expr: expr
+      },
+      Targets: []ASTExpr{NameRef{Name: name}}
+    };
+  } or {
+    name := Ident();
+    S();
+    /[(]/;
+    S();
+    args := ParseExprList();
+    S();
+    /[)]/;
+    return Call{Name: name, Args: args};
+  } or {
+    t := ParseStructTypeRef();
+    S();
+    /[{]/;
+    S();
+    args := ParseNamedExprList();
+    S();
+    /[}]/;
+    return Construct{Type: t, Args: args};
+  } or {
+    t := ParseListTypeRef();
+    S();
+    /[{]/;
+    S();
+    args := ParseExprList();
+    S();
+    /[}]/;
+    return ConstructList{Type: t, Args: args};
+  } or {
+    return StringMatchExpr();
+  } or {
+    return RuneMatchExpr();
+  } or {
+    /[(]/;
+    S();
+    e := ParseExpr();
+    S();
+    /[)]/;
+    return e;
+  } or {
+    return ParseNameRef();
+  }
+}
+
+func ParseNameRef() NameRef {
+    // TODO supress keywords.
+    return NameRef{Name: Ident()};
+}
+
+// Uses precedence climbing.
+func ParseBinaryOp(min_prec int) ASTExpr {
+  e := PrimaryExpr();
+  star {
+    S();
+    // TODO associativity
+    op, prec := BinaryOperator();
+    if prec < min_prec {
+      fail;
+    }
+    S();
+    r := ParseBinaryOp(prec + 1);
+    e = BinaryOp{Left: e, Op: op, Right: r};
+  }
+  return e;
+}
+
+func ParseExpr() ASTExpr {
+     return ParseBinaryOp(1);
+}
+
+func ParseCompoundStatement() ASTExpr {
+  choose {
+    /"star"/;
+    EndKeyword();
+    S();
+    block := ParseCodeBlock();
+    return Repeat{Block: block, Min: 0};
+  } or {
+    /"plus"/;
+    EndKeyword();
+    S();
+    block := ParseCodeBlock();
+    return Repeat{Block: block, Min: 1};
+  } or {
+    /"choose"/;
+    EndKeyword();
+    S();
+    blocks := [][]ASTExpr{ParseCodeBlock()};
+    plus {
+      S();
+      /"or"/;
+      EndKeyword();
+      S();
+      append(blocks, ParseCodeBlock());
+    }
+    return Choice{Blocks: blocks};
+  } or {
+    /"question"/;
+    EndKeyword();
+    S();
+    block := ParseCodeBlock();
+    return Optional{Block: block};
+  } or {
+    /"if"/;
+    EndKeyword();
+    S();
+    expr := ParseExpr();
+    S();
+    block := ParseCodeBlock();
+    return If{Expr: expr, Block: block};
+  }
+}
+
+func EOS() {
+  S();
+  /[;]/;
+}
+
+func ParseStatement() ASTExpr {
+  choose {
+    return ParseCompoundStatement();
+  } or {
+    /"var"/;
+    EndKeyword();
+    S();
+    name := ParseNameRef();
+    S();
+    t := ParseTypeRef();
+    var expr ASTExpr;
+    question {
+      S();
+      /[=]/;
+      S();
+      expr = ParseExpr(); 
+    }
+    EOS();
+    return Assign{Expr: expr, Targets: []ASTExpr{name}, Type: t, Define: true};
+  } or {
+    /"fail"/;
+    EndKeyword();
+    EOS();
+    return Fail{};
+  } or {
+    /"return"/;
+    EndKeyword();
+    S();
+    exprs := ParseExprList();
+    EOS();
+    return Return{Exprs: exprs};
+  } or {
+    names := ParseTargetList();
+    S();
+    var defined bool;
+    choose {
+      /":="/;
+      defined = true;
+    } or {
+      /"="/;
+    }
+    S();
+    expr := ParseExpr();
+    EOS();
+    return Assign{Expr: expr, Targets: names, Define: defined};
+  } or {
+    e := ParseExpr();
+    EOS();
+    return e;
+  }
+}
+
+func ParseCodeBlock() []ASTExpr {
+  /[{]/;
+  S();
+  exprs := []ASTExpr{};
+  star {
+    append(exprs, ParseStatement());
+    S();
+  }
+  /[}]/;
+  return exprs;
+}
+
+func ParseParenthTypeList() []ASTTypeRef {
+  /[(]/;
+  S();
+  types := []ASTTypeRef{};
+  question {
+    append(types, ParseTypeRef());
+    S();
+    star {
+      /[,]/;
+      S();
+      append(types, ParseTypeRef());
+      S();
+    }
+  }
+  /[)]/;
+  return types;
+}
+
+func ParseStructDecl() StructDecl {
+  /"struct"/;
+  EndKeyword();
+  S();
+  name := Ident();
+  S();
+
+  scoped := false;
+  question {
+    /"scoped"/;
+    EndKeyword();
+    S();
+    scoped = true;
+  }
+
+  contains := []ASTTypeRef{};
+  question {
+    /"contains"/;
+    EndKeyword();
+    S();
+    contains = ParseParenthTypeList();
+    S();
+  }
+
+  var implements ASTTypeRef;
+  question {
+    /"implements"/;
+    EndKeyword();
+    S();
+    implements = ParseTypeRef();
+    S();
+  }
+
+  /[{]/;
+  S();
+  fields := []FieldDecl{};
+  star {
+    fn := Ident();
+    S();
+    ft := ParseTypeRef();
+    S();
+    append(fields, FieldDecl{Name: fn, Type: ft});
+  }
+  /[}]/;
+  return StructDecl{
+    Name: name,
+    Implements: implements,
+    Fields: fields,
+    Scoped: scoped,
+    Contains: contains
+  };
+}
+
+func ParseParam() Param {
+     name := ParseNameRef();
+     S();
+     type := ParseTypeRef();
+     return Param{Name: name, Type: type};
+}
+
+func ParseParamList() []Param {
+  params := []Param{};
+  question {
+    append(params, ParseParam());
+    star {
+      S();
+      /[,]/;
+      S();
+      append(params, ParseParam());
+    }
+  }
+  return params;
+}
+
+func ParseFuncDecl() FuncDecl {
+  /"func"/;
+  EndKeyword();
+  S();
+  name := Ident();
+  S();
+  /"("/;
+  S();
+  params := ParseParamList();
+  S();
+  /")"/;
+  S();
+  retTypes := ParseReturnTypeList();
+  S();
+  block := ParseCodeBlock();
+  return FuncDecl{Name: name, Params: params, ReturnTypes: retTypes, Block: block};
+}
+
+func ParseMatchState() string {
+  choose {
+    text := /"NORMAL"|"FAIL"/;
+    EndKeyword();
+    return text;
+  } or {
+    return "NORMAL";
+  }
+}
+
+func ParseTest() Test {
+  /"test"/;
+  EndKeyword();
+  S();
+  name := Ident();
+  S();
+  rule := ParseExpr();
+  S();
+  input := DecodeString();
+  S();
+  flow := ParseMatchState();
+  S();
+  d := ParseDestructure();
+  return Test{Name: name, Rule: rule, Input: input, Flow: flow, Destructure: d};
+}
+
+func ParseFile() File {
+  decls := []ASTDecl{};
+  tests := []Test{};
+  S();
+  star {
+    choose {
+      append(decls, ParseFuncDecl());
+    } or {
+      append(decls, ParseStructDecl());
+    } or {
+      append(tests, ParseTest());
+    }
+    S();
+  }
+  /![^]/;
+  return File{Decls: decls, Tests: tests};
+}
