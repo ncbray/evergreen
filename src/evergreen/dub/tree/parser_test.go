@@ -36,9 +36,11 @@ func BenchmarkSemantic(b *testing.B) {
 			file,
 		},
 	}
+	index := MakeBuiltinTypeIndex()
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		glbls := MakeDubGlobals()
+		glbls := MakeDubGlobals(index)
 		SemanticPass(pkg, glbls, status.CreateChild())
 	}
 }

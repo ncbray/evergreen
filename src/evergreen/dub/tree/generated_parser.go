@@ -414,7 +414,18 @@ type Package struct {
 	Files []*File
 }
 
+type BuiltinTypeIndex struct {
+	String *BuiltinType
+	Rune   *BuiltinType
+	Int    *BuiltinType
+	Int64  *BuiltinType
+	Bool   *BuiltinType
+	Graph  *BuiltinType
+	Nil    *NilType
+}
+
 type Program struct {
+	Builtins *BuiltinTypeIndex
 	Packages []*Package
 }
 

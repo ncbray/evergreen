@@ -169,7 +169,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 			panic(r)
 		}
 		sig := fmt.Sprintf("%s%s%s", lt.Name, expr.Op, rt.Name)
-		t, ok := glbls.BinaryOps[sig]
+		t, ok := glbls.BinaryOps[sig].(ASTType)
 		if !ok {
 			panic(sig)
 		}
@@ -205,21 +205,21 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		return t
 	case *Slice:
 		semanticBlockPass(decl, expr.Block, scope, glbls, status)
-		return []ASTType{glbls.String}
+		return []ASTType{glbls.Index.String}
 	case *StringMatch:
-		return []ASTType{glbls.String}
+		return []ASTType{glbls.Index.String}
 	case *RuneMatch:
-		return []ASTType{glbls.Rune}
+		return []ASTType{glbls.Index.Rune}
 	case *RuneLiteral:
-		return []ASTType{glbls.Rune}
+		return []ASTType{glbls.Index.Rune}
 	case *StringLiteral:
-		return []ASTType{glbls.String}
+		return []ASTType{glbls.Index.String}
 	case *IntLiteral:
-		return []ASTType{glbls.Int}
+		return []ASTType{glbls.Index.Int}
 	case *BoolLiteral:
-		return []ASTType{glbls.Bool}
+		return []ASTType{glbls.Index.Bool}
 	case *NilLiteral:
-		return []ASTType{glbls.Nil}
+		return []ASTType{glbls.Index.Nil}
 	case *Return:
 		if len(decl.ReturnTypes) != len(expr.Exprs) {
 			status.Error("wrong number of return types: %d vs. %d", len(expr.Exprs), len(decl.ReturnTypes))
@@ -236,7 +236,7 @@ func semanticExprPass(decl *FuncDecl, expr ASTExpr, scope *semanticScope, glbls 
 		}
 		return nil
 	case *Position:
-		return []ASTType{glbls.Int}
+		return []ASTType{glbls.Index.Int}
 	case *Fail:
 		return nil
 	case *Call:
@@ -442,19 +442,11 @@ func semanticTestPass(tst *Test, glbls *ModuleScope, status framework.Status) {
 }
 
 type ModuleScope struct {
-	Builtin map[string]ASTDecl
-	Module  map[string]ASTDecl
+	Builtin   map[string]ASTDecl
+	Module    map[string]ASTDecl
+	BinaryOps map[string]ASTDecl
 
-	BinaryOps map[string]*BuiltinType
-
-	String *BuiltinType
-	Rune   *BuiltinType
-	Int    *BuiltinType
-	Int64  *BuiltinType
-	Bool   *BuiltinType
-	Graph  *BuiltinType
-	Void   *BuiltinType
-	Nil    *NilType
+	Index *BuiltinTypeIndex
 }
 
 func AsType(node ASTDecl) (ASTType, bool) {
@@ -510,42 +502,42 @@ func ReturnTypes(node ASTCallable) []ASTType {
 	}
 }
 
-func MakeDubGlobals() *ModuleScope {
+func MakeBuiltinTypeIndex() *BuiltinTypeIndex {
+	return &BuiltinTypeIndex{
+		String: &BuiltinType{"string"},
+		Rune:   &BuiltinType{"rune"},
+		Int:    &BuiltinType{"int"},
+		Int64:  &BuiltinType{"int64"},
+		Bool:   &BuiltinType{"bool"},
+		Graph:  &BuiltinType{"graph"},
+		Nil:    &NilType{},
+	}
+}
+
+func MakeDubGlobals(index *BuiltinTypeIndex) *ModuleScope {
 	glbls := &ModuleScope{
 		Builtin:   map[string]ASTDecl{},
 		Module:    map[string]ASTDecl{},
-		BinaryOps: map[string]*BuiltinType{},
+		BinaryOps: map[string]ASTDecl{},
+		Index:     index,
 	}
-	glbls.String = &BuiltinType{"string"}
-	glbls.Builtin["string"] = glbls.String
+	glbls.Builtin["string"] = glbls.Index.String
+	glbls.Builtin["rune"] = glbls.Index.Rune
+	glbls.Builtin["int"] = glbls.Index.Int
+	glbls.Builtin["int64"] = glbls.Index.Int64
+	glbls.Builtin["bool"] = glbls.Index.Bool
+	glbls.Builtin["graph"] = glbls.Index.Graph
 
-	glbls.Rune = &BuiltinType{"rune"}
-	glbls.Builtin["rune"] = glbls.Rune
-
-	glbls.Int = &BuiltinType{"int"}
-	glbls.Builtin["int"] = glbls.Int
-
-	glbls.Int64 = &BuiltinType{"int64"}
-	glbls.Builtin["int64"] = glbls.Int64
-
-	glbls.Bool = &BuiltinType{"bool"}
-	glbls.Builtin["bool"] = glbls.Bool
-
-	glbls.Graph = &BuiltinType{"graph"}
-	glbls.Builtin["graph"] = glbls.Graph
-
-	glbls.Nil = &NilType{}
-
-	glbls.BinaryOps["int+int"] = glbls.Int
-	glbls.BinaryOps["int-int"] = glbls.Int
-	glbls.BinaryOps["int*int"] = glbls.Int
-	glbls.BinaryOps["int/int"] = glbls.Int
-	glbls.BinaryOps["int<int"] = glbls.Bool
-	glbls.BinaryOps["int<=int"] = glbls.Bool
-	glbls.BinaryOps["int>int"] = glbls.Bool
-	glbls.BinaryOps["int>=int"] = glbls.Bool
-	glbls.BinaryOps["int==int"] = glbls.Bool
-	glbls.BinaryOps["int!=int"] = glbls.Bool
+	glbls.BinaryOps["int+int"] = glbls.Builtin["int"]
+	glbls.BinaryOps["int-int"] = glbls.Builtin["int"]
+	glbls.BinaryOps["int*int"] = glbls.Builtin["int"]
+	glbls.BinaryOps["int/int"] = glbls.Builtin["int"]
+	glbls.BinaryOps["int<int"] = glbls.Builtin["bool"]
+	glbls.BinaryOps["int<=int"] = glbls.Builtin["bool"]
+	glbls.BinaryOps["int>int"] = glbls.Builtin["bool"]
+	glbls.BinaryOps["int>=int"] = glbls.Builtin["bool"]
+	glbls.BinaryOps["int==int"] = glbls.Builtin["bool"]
+	glbls.BinaryOps["int!=int"] = glbls.Builtin["bool"]
 
 	return glbls
 }

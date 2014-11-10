@@ -83,40 +83,34 @@ func parsePackage(status framework.Status, p framework.LocationProvider, path []
 	return pkg
 }
 
-func makeBuilder(glbls *tree.ModuleScope) *dub.GlobalDubBuilder {
+func makeBuilder(index *tree.BuiltinTypeIndex) *dub.GlobalDubBuilder {
 	gbuilder := &dub.GlobalDubBuilder{Types: map[tree.ASTType]flow.DubType{}}
 
 	gbuilder.String = &flow.IntrinsicType{Name: "string"}
-	gbuilder.Types[glbls.String] = gbuilder.String
+	gbuilder.Types[index.String] = gbuilder.String
 
 	gbuilder.Rune = &flow.IntrinsicType{Name: "rune"}
-	gbuilder.Types[glbls.Rune] = gbuilder.Rune
+	gbuilder.Types[index.Rune] = gbuilder.Rune
 
 	gbuilder.Int = &flow.IntrinsicType{Name: "int"}
-	gbuilder.Types[glbls.Int] = gbuilder.Int
+	gbuilder.Types[index.Int] = gbuilder.Int
 
 	gbuilder.Int64 = &flow.IntrinsicType{Name: "int64"}
-	gbuilder.Types[glbls.Int64] = gbuilder.Int64
+	gbuilder.Types[index.Int64] = gbuilder.Int64
 
 	gbuilder.Bool = &flow.IntrinsicType{Name: "bool"}
-	gbuilder.Types[glbls.Bool] = gbuilder.Bool
+	gbuilder.Types[index.Bool] = gbuilder.Bool
 
 	gbuilder.Graph = &flow.IntrinsicType{Name: "graph"}
-	gbuilder.Types[glbls.Graph] = gbuilder.Graph
+	gbuilder.Types[index.Graph] = gbuilder.Graph
 
 	return gbuilder
 }
 
-func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, pkg *tree.Package) {
+func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, program *tree.Program, pkg *tree.Package) {
 	fmt.Printf("Processing %s\n", strings.Join(pkg.Path, "."))
 
-	glbls := tree.MakeDubGlobals()
-	tree.SemanticPass(pkg, glbls, status)
-	if status.ShouldHalt() {
-		return
-	}
-
-	gbuilder := makeBuilder(glbls)
+	gbuilder := makeBuilder(program.Builtins)
 
 	// Preallocate the translated structures.
 	for _, file := range pkg.Files {
@@ -286,9 +280,19 @@ func processProgram(status framework.Status, p framework.LocationProvider, manag
 	}
 	program := &tree.Program{
 		Packages: packages,
+		Builtins: tree.MakeBuiltinTypeIndex(),
+	}
+
+	// Semantic pass.
+	for _, pkg := range program.Packages {
+		glbls := tree.MakeDubGlobals(program.Builtins)
+		tree.SemanticPass(pkg, glbls, status.CreateChild())
+	}
+	if status.ShouldHalt() {
+		return
 	}
 	for _, pkg := range program.Packages {
-		processDub(status, p, manager, pkg)
+		processDub(status, p, manager, program, pkg)
 	}
 }
 

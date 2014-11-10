@@ -260,6 +260,17 @@ struct Package {
   Files []File
 }
 
+struct BuiltinTypeIndex {
+  String BuiltinType
+  Rune BuiltinType
+  Int BuiltinType
+  Int64 BuiltinType
+  Bool BuiltinType
+  Graph BuiltinType
+  Nil NilType
+}
+
 struct Program {
+  Builtins BuiltinTypeIndex
   Packages []Package
 }
