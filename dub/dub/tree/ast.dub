@@ -259,3 +259,7 @@ struct Package {
   Path []string
   Files []File
 }
+
+struct Program {
+  Packages []Package
+}

@@ -414,6 +414,10 @@ type Package struct {
 	Files []*File
 }
 
+type Program struct {
+	Packages []*Package
+}
+
 func LineTerminator(frame *runtime.State) {
 	var r0 int
 	var r1 rune

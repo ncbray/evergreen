@@ -41,25 +41,52 @@ func GetLocation(stream []rune, lines []int, pos int) (int, int, string) {
 }
 
 type LocationProvider interface {
-	AddFile(filename string, stream []rune)
+	AddFile(filename string, stream []rune) int
 	GetLocationInfo(pos int) (filename string, line int, col int, text string)
 }
 
-type simpleProvider struct {
-	filename string
-	stream   []rune
-	lines    []int
+type fileInfo struct {
+	Offset   int
+	Filename string
+	Stream   []rune
+	Lines    []int
 }
 
-func (p *simpleProvider) AddFile(filename string, stream []rune) {
-	p.filename = filename
-	p.stream = stream
-	p.lines = FindLines(stream)
+func (info *fileInfo) Contains(pos int) bool {
+	pos -= info.Offset
+	return pos >= 0 && pos < len(info.Stream)
+}
+
+func (info *fileInfo) GetLocationInfo(pos int) (string, int, int, string) {
+	line, col, text := GetLocation(info.Stream, info.Lines, pos-info.Offset)
+	return info.Filename, line, col, text
+}
+
+type simpleProvider struct {
+	files     []*fileInfo
+	maxOffset int
+}
+
+func (p *simpleProvider) AddFile(filename string, stream []rune) int {
+	info := &fileInfo{
+		Offset:   p.maxOffset,
+		Filename: filename,
+		Stream:   stream,
+		Lines:    FindLines(stream),
+	}
+	p.maxOffset += len(stream)
+	p.files = append(p.files, info)
+	return info.Offset
 }
 
 func (p *simpleProvider) GetLocationInfo(pos int) (string, int, int, string) {
-	line, col, text := GetLocation(p.stream, p.lines, pos)
-	return p.filename, line, col, text
+	// TODO binary search
+	for _, info := range p.files {
+		if info.Contains(pos) {
+			return info.GetLocationInfo(pos)
+		}
+	}
+	panic(pos)
 }
 
 type Status interface {

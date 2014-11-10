@@ -16,9 +16,9 @@ func BenchmarkParser(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		p := framework.MakeProvider()
-		p.AddFile(filename, []rune(string(data)))
+		offset := p.AddFile(filename, []rune(string(data)))
 		status := framework.MakeStatus(p)
-		ParseDub(data, status)
+		ParseDub(data, offset, status)
 	}
 }
 
@@ -28,9 +28,9 @@ func BenchmarkSemantic(b *testing.B) {
 		b.Fatal(err)
 	}
 	p := framework.MakeProvider()
-	p.AddFile(filename, []rune(string(data)))
+	offset := p.AddFile(filename, []rune(string(data)))
 	status := framework.MakeStatus(p)
-	file := ParseDub(data, status)
+	file := ParseDub(data, offset, status)
 	pkg := &Package{
 		Files: []*File{
 			file,

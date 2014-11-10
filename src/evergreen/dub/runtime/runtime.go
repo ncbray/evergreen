@@ -14,14 +14,15 @@ type State struct {
 	Flow           int
 	LookaheadLevel int
 	Deepest        int
+	Offset         int
 }
 
 func (state *State) Checkpoint() int {
-	return state.Index
+	return state.Index + state.Offset
 }
 
 func (state *State) Recover(index int) {
-	state.Index = index
+	state.Index = index - state.Offset
 	state.Flow = NORMAL
 }
 
@@ -49,7 +50,7 @@ func (state *State) Consume() {
 }
 
 func (state *State) Slice(start int) string {
-	return string(state.Stream[start:state.Index])
+	return string(state.Stream[start-state.Offset : state.Index])
 }
 
 func (state *State) Fail() {

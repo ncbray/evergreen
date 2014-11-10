@@ -15,9 +15,9 @@ func GetRuneName(stream []rune, pos int) string {
 	}
 }
 
-func ParseDub(data []byte, status framework.Status) *File {
+func ParseDub(data []byte, offset int, status framework.Status) *File {
 	stream := []rune(string(data))
-	state := &runtime.State{Stream: stream}
+	state := &runtime.State{Stream: stream, Offset: offset}
 	f := ParseFile(state)
 	if state.Flow == 0 {
 		return f
