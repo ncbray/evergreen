@@ -10,7 +10,6 @@ import (
 	"evergreen/io"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,32 +54,6 @@ func CreateIOManager() *IOManager {
 		manager.limit <- true
 	}
 	return manager
-}
-
-func parsePackage(status framework.Status, p framework.LocationProvider, path []string, filenames []string) *tree.Package {
-	fmt.Printf("Parsing %s\n", strings.Join(path, "."))
-
-	files := make([]*tree.File, len(filenames))
-	for i, filename := range filenames {
-		data, err := ioutil.ReadFile(filename)
-		if err != nil {
-			status.Error("%s", err)
-			return nil
-		}
-		offset := p.AddFile(filename, []rune(string(data)))
-		files[i] = tree.ParseDub(data, offset, status)
-
-		if status.ShouldHalt() {
-			return nil
-		}
-	}
-
-	pkg := &tree.Package{
-		Path:  path,
-		Files: files,
-	}
-
-	return pkg
 }
 
 func makeBuilder(index *tree.BuiltinTypeIndex) *dub.GlobalDubBuilder {
@@ -233,61 +206,8 @@ func GenerateGo(original_path []string, structs []*flow.LLStruct, funcs []*flow.
 var dump bool
 var replace bool
 
-func extendPath(path []string, next string) []string {
-	newPath := make([]string, len(path)+1)
-	copy(newPath, path)
-	newPath[len(path)] = next
-	return newPath
-}
-
-func parsePackageTree(status framework.Status, p framework.LocationProvider, manager *IOManager, root string, path []string, packages []*tree.Package) []*tree.Package {
-	dir := filepath.Join(root, strings.Join(path, string(filepath.Separator)))
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	dubfiles := []string{}
-	for _, file := range files {
-		name := file.Name()
-		if strings.HasPrefix(name, ".") {
-			continue
-		}
-		if file.IsDir() {
-			newPath := extendPath(path, name)
-			packages = parsePackageTree(status, p, manager, root, newPath, packages)
-		} else {
-			if strings.HasSuffix(name, ".dub") {
-				filename := file.Name()
-				fullpath := filepath.Join(dir, filename)
-				dubfiles = append(dubfiles, fullpath)
-			}
-		}
-	}
-	if len(dubfiles) > 0 {
-		pkg := parsePackage(status.CreateChild(), p, path, dubfiles)
-		if pkg != nil {
-			packages = append(packages, pkg)
-		}
-	}
-	return packages
-}
-
 func processProgram(status framework.Status, p framework.LocationProvider, manager *IOManager, root string) {
-	packages := parsePackageTree(status.CreateChild(), p, manager, root, []string{}, []*tree.Package{})
-	if status.ShouldHalt() {
-		return
-	}
-	program := &tree.Program{
-		Packages: packages,
-		Builtins: tree.MakeBuiltinTypeIndex(),
-	}
-
-	// Semantic pass.
-	for _, pkg := range program.Packages {
-		glbls := tree.MakeDubGlobals(program.Builtins)
-		tree.SemanticPass(pkg, glbls, status.CreateChild())
-	}
+	program := tree.ParseProgram(status.CreateChild(), p, root)
 	if status.ShouldHalt() {
 		return
 	}
