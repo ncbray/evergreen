@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"sync"
 )
@@ -203,9 +204,6 @@ func GenerateGo(original_path []string, structs []*flow.LLStruct, funcs []*flow.
 	gotree.OutputProgram(prog, "src")
 }
 
-var dump bool
-var replace bool
-
 func processProgram(status framework.Status, p framework.LocationProvider, manager *IOManager, root string) {
 	program := tree.ParseProgram(status.CreateChild(), p, root)
 	if status.ShouldHalt() {
@@ -216,17 +214,53 @@ func processProgram(status framework.Status, p framework.LocationProvider, manag
 	}
 }
 
-func main() {
-	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
-	flag.BoolVar(&replace, "replace", false, "Replace the existing implementation.")
-	flag.Parse()
-	p := framework.MakeProvider()
-	status := framework.MakeStatus(p)
+func entryPoint(p framework.LocationProvider, status framework.Status) {
 	manager := CreateIOManager()
 
 	root_dir := "dub"
 	processProgram(status, p, manager, root_dir)
 	manager.Flush()
+}
+
+var dump bool
+var replace bool
+var cpuprofile string
+var memprofile string
+
+func main() {
+	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
+	flag.BoolVar(&replace, "replace", false, "Replace the existing implementation.")
+	flag.StringVar(&cpuprofile, "cpuprofile", "", "write cpu profile to file")
+	flag.StringVar(&memprofile, "memprofile", "", "write memory profile to this file")
+	flag.Parse()
+
+	p := framework.MakeProvider()
+	status := framework.MakeStatus(p)
+
+	if cpuprofile != "" {
+		f, err := os.Create(cpuprofile)
+		if err != nil {
+			status.Error(err.Error())
+			return
+		} else {
+			pprof.StartCPUProfile(f)
+			defer pprof.StopCPUProfile()
+		}
+	}
+
+	entryPoint(p, status)
+
+	if memprofile != "" {
+		f, err := os.Create(memprofile)
+		if err != nil {
+			status.Error(err.Error())
+			return
+		} else {
+			pprof.WriteHeapProfile(f)
+			f.Close()
+		}
+	}
+
 	if status.ShouldHalt() {
 		fmt.Printf("%d errors\n", status.ErrorCount())
 		os.Exit(1)
