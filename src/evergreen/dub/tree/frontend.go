@@ -85,9 +85,9 @@ func ParseProgram(status framework.Status, p framework.LocationProvider, root st
 	}
 
 	// Semantic pass.
+	glbls := MakeProgramScope(program.Builtins)
 	for _, pkg := range program.Packages {
-		glbls := MakeDubGlobals(program.Builtins)
-		SemanticPass(pkg, glbls, status.CreateChild())
+		SemanticPass(glbls, pkg, status.CreateChild())
 	}
 	return program
 }

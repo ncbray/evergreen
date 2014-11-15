@@ -40,7 +40,7 @@ func BenchmarkSemantic(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		glbls := MakeDubGlobals(index)
-		SemanticPass(pkg, glbls, status.CreateChild())
+		program := MakeProgramScope(index)
+		SemanticPass(program, pkg, status.CreateChild())
 	}
 }
