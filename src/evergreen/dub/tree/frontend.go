@@ -2,15 +2,12 @@ package tree
 
 import (
 	"evergreen/framework"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
 )
 
 func parsePackage(status framework.Status, p framework.LocationProvider, path []string, filenames []string) *Package {
-	fmt.Printf("Parsing %s\n", strings.Join(path, "."))
-
 	files := make([]*File, len(filenames))
 	for i, filename := range filenames {
 		data, err := ioutil.ReadFile(filename)

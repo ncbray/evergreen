@@ -2,26 +2,20 @@ package tree
 
 import (
 	"evergreen/framework"
-	"io/ioutil"
 	"testing"
 )
 
-var filename = "../../../../dub/dub.dub"
+var root = "../../../../dub"
 
 func BenchmarkParser(b *testing.B) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		p := framework.MakeProvider()
-		offset := p.AddFile(filename, []rune(string(data)))
 		status := framework.MakeStatus(p)
-		ParseDub(data, offset, status)
+		ParseProgram(status, p, root)
 	}
 }
 
+/*
 func BenchmarkSemantic(b *testing.B) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -44,3 +38,4 @@ func BenchmarkSemantic(b *testing.B) {
 		SemanticPass(program, pkg, status.CreateChild())
 	}
 }
+*/
