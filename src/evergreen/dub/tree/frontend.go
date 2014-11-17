@@ -80,11 +80,6 @@ func ParseProgram(status framework.Status, p framework.LocationProvider, root st
 		Packages: packages,
 		Builtins: MakeBuiltinTypeIndex(),
 	}
-
-	// Semantic pass.
-	glbls := MakeProgramScope(program.Builtins)
-	for _, pkg := range program.Packages {
-		SemanticPass(glbls, pkg, status.CreateChild())
-	}
+	SemanticPass(program, status.CreateChild())
 	return program
 }

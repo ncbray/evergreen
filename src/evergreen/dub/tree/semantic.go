@@ -556,10 +556,10 @@ var binaryOps = []string{
 	"int!=int:bool",
 }
 
-func MakeProgramScope(index *BuiltinTypeIndex) *ProgramScope {
-	glbls := &ProgramScope{
+func MakeProgramScope(program *Program) *ProgramScope {
+	programScope := &ProgramScope{
 		BinaryOps: map[string]ASTDecl{},
-		Index:     index,
+		Index:     program.Builtins,
 	}
 
 	for _, desc := range binaryOps {
@@ -567,35 +567,26 @@ func MakeProgramScope(index *BuiltinTypeIndex) *ProgramScope {
 			if desc[i] == ':' {
 				expr := desc[:i]
 				out := desc[i+1:]
-				outT, ok := GetBuiltinType(index, out)
+				outT, ok := GetBuiltinType(program.Builtins, out)
 				if !ok {
 					panic(desc)
 				}
-				glbls.BinaryOps[expr] = outT
+				programScope.BinaryOps[expr] = outT
 			}
 		}
 	}
 
-	return glbls
+	return programScope
 }
 
 type semanticPassContext struct {
-	Program *ProgramScope
-	Module  *ModuleScope
-	Status  framework.Status
+	Program        *ProgramScope
+	Module         *ModuleScope
+	ModuleContexts []*semanticPassContext
+	Status         framework.Status
 }
 
-func SemanticPass(program *ProgramScope, pkg *Package, status framework.Status) {
-	module := &ModuleScope{
-		Module: map[string]ASTDecl{},
-	}
-	ctx := &semanticPassContext{
-		Program: program,
-		Module:  module,
-		Status:  status,
-	}
-
-	// Index the package namespace.
+func indexModule(ctx *semanticPassContext, pkg *Package) {
 	for _, file := range pkg.Files {
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
@@ -620,6 +611,9 @@ func SemanticPass(program *ProgramScope, pkg *Package, status framework.Status) 
 			}
 		}
 	}
+}
+
+func resolveSignatures(ctx *semanticPassContext, pkg *Package) {
 	for _, file := range pkg.Files {
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
@@ -634,7 +628,9 @@ func SemanticPass(program *ProgramScope, pkg *Package, status framework.Status) 
 			}
 		}
 	}
+}
 
+func semanticModulePass(ctx *semanticPassContext, pkg *Package) {
 	// Resolve the declaration contents.
 	for _, file := range pkg.Files {
 		for _, decl := range file.Decls {
@@ -649,6 +645,38 @@ func SemanticPass(program *ProgramScope, pkg *Package, status framework.Status) 
 		for _, tst := range file.Tests {
 			semanticTestPass(ctx, tst)
 		}
+	}
+}
+
+func SemanticPass(program *Program, status framework.Status) {
+	programScope := MakeProgramScope(program)
+	ctxs := make([]*semanticPassContext, len(program.Packages))
+	for i := 0; i < len(program.Packages); i++ {
+		moduleScope := &ModuleScope{
+			Module: map[string]ASTDecl{},
+		}
+		ctxs[i] = &semanticPassContext{
+			Program:        programScope,
+			Module:         moduleScope,
+			ModuleContexts: ctxs,
+			Status:         status.CreateChild(),
+		}
+	}
+
+	for i, pkg := range program.Packages {
+		indexModule(ctxs[i], pkg)
+	}
+	if status.ShouldHalt() {
+		return
+	}
+	for i, pkg := range program.Packages {
+		resolveSignatures(ctxs[i], pkg)
+	}
+	if status.ShouldHalt() {
+		return
+	}
+	for i, pkg := range program.Packages {
+		semanticModulePass(ctxs[i], pkg)
 	}
 }
 
