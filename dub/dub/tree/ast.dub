@@ -75,20 +75,17 @@ struct RuneMatch implements ASTExpr {
 struct ASTDecl {
 }
 
-struct ASTType implements ASTDecl {
-}
-
 struct ASTTypeRef {
 }
 
 struct TypeRef implements ASTTypeRef {
   Name Id
-  T ASTType
+  T DubType
 }
 
 struct ListTypeRef implements ASTTypeRef {
   Type ASTTypeRef
-  T ASTType
+  T DubType
 }
 
 struct Destructure {
@@ -171,7 +168,7 @@ struct Call implements ASTExpr {
   Name Id
   Args []ASTExpr
   Target ASTCallable
-  T []ASTType
+  T []DubType
 }
 
 struct Position implements ASTExpr {
@@ -183,7 +180,7 @@ struct Fail implements ASTExpr {
 struct Append implements ASTExpr {
   List ASTExpr
   Expr ASTExpr
-  T ASTType
+  T DubType
 }
 
 struct Return implements ASTExpr {
@@ -194,18 +191,7 @@ struct BinaryOp implements ASTExpr {
   Left ASTExpr
   Op string
   Right ASTExpr
-  T ASTType
-}
-
-struct BuiltinType implements ASTType {
-  Name string
-}
-
-struct NilType implements ASTType {
-}
-
-struct ListType implements ASTType {
-  Type ASTType
+  T DubType
 }
 
 struct FieldDecl {
@@ -213,12 +199,13 @@ struct FieldDecl {
   Type ASTTypeRef
 }
 
-struct StructDecl implements ASTType {
+struct StructDecl implements ASTDecl {
   Name Id
   Implements ASTTypeRef
   Fields []FieldDecl
   Scoped bool
   Contains []ASTTypeRef
+  T StructType
 }
 
 struct ASTCallable implements ASTDecl {
@@ -226,12 +213,12 @@ struct ASTCallable implements ASTDecl {
 
 struct LocalInfo scoped {
   Name string
-  T ASTType
+  T DubType
 }
 
 struct Param {
-       Name NameRef
-       Type ASTTypeRef
+  Name NameRef
+  Type ASTTypeRef
 }
 
 struct FuncDecl contains(LocalInfo) implements ASTCallable {
@@ -244,7 +231,7 @@ struct FuncDecl contains(LocalInfo) implements ASTCallable {
 struct Test {
   Name Id
   Rule ASTExpr
-  Type ASTType
+  Type DubType
   Input string
   Flow string // TODO enum
   Destructure Destructure

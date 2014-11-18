@@ -25,16 +25,16 @@ func childScope(scope *semanticScope) *semanticScope {
 	return &semanticScope{parent: scope, locals: map[string]LocalInfo_Ref{}}
 }
 
-var unresolvedType ASTType = nil
+var unresolvedType DubType = nil
 
-func TypeMatches(actual ASTType, expected ASTType, exact bool) bool {
+func TypeMatches(actual DubType, expected DubType, exact bool) bool {
 	if actual == unresolvedType || expected == unresolvedType {
 		return true
 	}
 
 	switch actual := actual.(type) {
-	case *StructDecl:
-		other, ok := expected.(*StructDecl)
+	case *StructType:
+		other, ok := expected.(*StructType)
 		if !ok {
 			return false
 		}
@@ -46,20 +46,11 @@ func TypeMatches(actual ASTType, expected ASTType, exact bool) bool {
 			if current == other {
 				return true
 			}
-			if current.Implements != nil {
-				t := ResolveType(current.Implements)
-				var ok bool
-				current, ok = t.(*StructDecl)
-				if !ok {
-					panic(t)
-				}
-			} else {
-				current = nil
-			}
+			current = current.Implements
 		}
 		return false
 	case *NilType:
-		_, ok := expected.(*StructDecl)
+		_, ok := expected.(*StructType)
 		return ok
 	case *BuiltinType:
 		other, ok := expected.(*BuiltinType)
@@ -78,9 +69,9 @@ func TypeMatches(actual ASTType, expected ASTType, exact bool) bool {
 	}
 }
 
-func TypeName(t ASTType) string {
+func TypeName(t DubType) string {
 	switch t := t.(type) {
-	case *StructDecl:
+	case *StructType:
 		return t.Name.Text
 	case *BuiltinType:
 		return t.Name
@@ -95,7 +86,7 @@ func IsDiscard(name string) bool {
 	return name == "_"
 }
 
-func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, t ASTType, define bool, scope *semanticScope) {
+func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, t DubType, define bool, scope *semanticScope) {
 	switch expr := expr.(type) {
 	case *NameRef:
 		name := expr.Name.Text
@@ -127,7 +118,7 @@ func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, 
 	}
 }
 
-func scalarSemanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) ASTType {
+func scalarSemanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) DubType {
 	types := semanticExprPass(ctx, decl, expr, scope)
 	if len(types) != 1 {
 		ctx.Status.Error("expected a single value, got %d instead", len(types))
@@ -136,7 +127,7 @@ func scalarSemanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTEx
 	return types[0]
 }
 
-func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) []ASTType {
+func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) []DubType {
 	switch expr := expr.(type) {
 	case *Repeat:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
@@ -169,32 +160,32 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			panic(r)
 		}
 		sig := fmt.Sprintf("%s%s%s", lt.Name, expr.Op, rt.Name)
-		t, ok := ctx.Program.BinaryOps[sig].(ASTType)
+		t, ok := ctx.Program.BinaryOps[sig].(DubType)
 		if !ok {
 			panic(sig)
 		}
 		expr.T = t
-		return []ASTType{t}
+		return []DubType{t}
 	case *NameRef:
 		name := expr.Name.Text
 		info, found := scope.localInfo(name)
 		if !found {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return []ASTType{unresolvedType}
+			return []DubType{unresolvedType}
 		}
 		expr.Local = info
-		return []ASTType{decl.LocalInfo_Scope.Get(info).T}
+		return []DubType{decl.LocalInfo_Scope.Get(info).T}
 	case *Assign:
-		var t []ASTType
+		var t []DubType
 		if expr.Expr != nil {
 			t = semanticExprPass(ctx, decl, expr.Expr, scope)
 		}
 		if expr.Type != nil {
-			t = []ASTType{semanticTypePass(ctx, expr.Type)}
+			t = []DubType{semanticTypePass(ctx, expr.Type)}
 		}
 		if len(expr.Targets) != len(t) {
 			ctx.Status.Error("Expected %d values but got %d", len(expr.Targets), len(t))
-			t = make([]ASTType, len(expr.Targets))
+			t = make([]DubType, len(expr.Targets))
 			for i, _ := range expr.Targets {
 				t[i] = unresolvedType
 			}
@@ -205,21 +196,21 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		return t
 	case *Slice:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
-		return []ASTType{ctx.Program.Index.String}
+		return []DubType{ctx.Program.Index.String}
 	case *StringMatch:
-		return []ASTType{ctx.Program.Index.String}
+		return []DubType{ctx.Program.Index.String}
 	case *RuneMatch:
-		return []ASTType{ctx.Program.Index.Rune}
+		return []DubType{ctx.Program.Index.Rune}
 	case *RuneLiteral:
-		return []ASTType{ctx.Program.Index.Rune}
+		return []DubType{ctx.Program.Index.Rune}
 	case *StringLiteral:
-		return []ASTType{ctx.Program.Index.String}
+		return []DubType{ctx.Program.Index.String}
 	case *IntLiteral:
-		return []ASTType{ctx.Program.Index.Int}
+		return []DubType{ctx.Program.Index.Int}
 	case *BoolLiteral:
-		return []ASTType{ctx.Program.Index.Bool}
+		return []DubType{ctx.Program.Index.Bool}
 	case *NilLiteral:
-		return []ASTType{ctx.Program.Index.Nil}
+		return []DubType{ctx.Program.Index.Nil}
 	case *Return:
 		if len(decl.ReturnTypes) != len(expr.Exprs) {
 			ctx.Status.Error("wrong number of return types: %d vs. %d", len(expr.Exprs), len(decl.ReturnTypes))
@@ -236,22 +227,22 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		}
 		return nil
 	case *Position:
-		return []ASTType{ctx.Program.Index.Int}
+		return []DubType{ctx.Program.Index.Int}
 	case *Fail:
 		return nil
 	case *Call:
 
 		name := expr.Name.Text
 		// HACK resolve other scopes?
-		fd, ok := ctx.Module.Module[name]
+		fd, ok := ctx.Module.Namespace[name]
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return []ASTType{unresolvedType}
+			return []DubType{unresolvedType}
 		}
 		f, ok := AsFunc(fd)
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("%#v is not callable", name))
-			return []ASTType{unresolvedType}
+			return []DubType{unresolvedType}
 		}
 		for _, e := range expr.Args {
 			// TODO check argument types
@@ -266,10 +257,10 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		scalarSemanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO type check arguments
 		expr.T = t
-		return []ASTType{t}
+		return []DubType{t}
 	case *Construct:
 		t := semanticTypePass(ctx, expr.Type)
-		st, ok := t.(*StructDecl)
+		st, ok := t.(*StructType)
 		if t != nil && !ok {
 			panic(t)
 		}
@@ -279,7 +270,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				fn := arg.Name.Text
 				f := GetField(st, fn)
 				if f != nil {
-					eft := ResolveType(f.Type)
+					eft := f.Type
 					if !TypeMatches(aft, eft, false) {
 						ctx.Status.LocationError(arg.Name.Pos, fmt.Sprintf("Expected type %s, but got %s", TypeName(eft), TypeName(aft)))
 					}
@@ -288,7 +279,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				}
 			}
 		}
-		return []ASTType{t}
+		return []DubType{t}
 	case *ConstructList:
 		t := semanticTypePass(ctx, expr.Type)
 		lt, ok := t.(*ListType)
@@ -303,35 +294,37 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				}
 			}
 		}
-		return []ASTType{t}
+		return []DubType{t}
 	case *Coerce:
 		t := semanticTypePass(ctx, expr.Type)
 		scalarSemanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO type check
-		return []ASTType{t}
+		return []DubType{t}
 	default:
 		panic(expr)
 	}
 }
 
-func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) ASTType {
+func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) DubType {
 	switch node := node.(type) {
 	case *TypeRef:
+		var t DubType
 		name := node.Name.Text
-		d, ok := ctx.Module.Module[name]
-		if !ok {
-			d, ok = GetBuiltinType(ctx.Program.Index, name)
-		}
-		if !ok {
-			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			node.T = unresolvedType
-			return unresolvedType
-		}
-		t, ok := AsType(d)
-		if !ok {
-			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
-			node.T = unresolvedType
-			return unresolvedType
+		d, ok := ctx.Module.Namespace[name]
+		if ok {
+			t, ok = AsType(d)
+			if !ok {
+				ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
+				node.T = unresolvedType
+				return unresolvedType
+			}
+		} else {
+			t, ok = GetBuiltinType(ctx.Program.Index, name)
+			if !ok {
+				ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
+				node.T = unresolvedType
+				return unresolvedType
+			}
 		}
 		node.T = t
 		return t
@@ -343,6 +336,31 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) ASTType {
 	default:
 		panic(node)
 	}
+}
+
+func refLocation(node ASTTypeRef) int {
+	switch node := node.(type) {
+	case *TypeRef:
+		return node.Name.Pos
+	case *ListTypeRef:
+		// TODO more precise location
+		return refLocation(node.Type)
+	default:
+		panic(node)
+	}
+}
+
+func semanticStructTypePass(ctx *semanticPassContext, node ASTTypeRef) *StructType {
+	t := semanticTypePass(ctx, node)
+	if t == unresolvedType {
+		return nil
+	}
+	st, ok := t.(*StructType)
+	if !ok {
+		ctx.Status.LocationError(refLocation(node), "Not a structure type.")
+		return nil
+	}
+	return st
 }
 
 func semanticBlockPass(ctx *semanticPassContext, decl *FuncDecl, block []ASTExpr, scope *semanticScope) {
@@ -369,22 +387,30 @@ func semanticFuncBodyPass(ctx *semanticPassContext, decl *FuncDecl) {
 }
 
 func semanticStructPass(ctx *semanticPassContext, decl *StructDecl) {
-	for _, t := range decl.Contains {
-		semanticTypePass(ctx, t)
+	t := decl.T
+	t.Name = decl.Name
+	t.Scoped = decl.Scoped
+	t.Contains = make([]*StructType, len(decl.Contains))
+	for i, c := range decl.Contains {
+		t.Contains[i] = semanticStructTypePass(ctx, c)
 	}
 	if decl.Implements != nil {
-		semanticTypePass(ctx, decl.Implements)
+		t.Implements = semanticStructTypePass(ctx, decl.Implements)
 	}
-	for _, f := range decl.Fields {
-		semanticTypePass(ctx, f.Type)
+	t.Fields = make([]*FieldType, len(decl.Fields))
+	for i, f := range decl.Fields {
+		t.Fields[i] = &FieldType{
+			Name: f.Name,
+			Type: semanticTypePass(ctx, f.Type),
+		}
 	}
 }
 
-func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destructure, scope *semanticScope) ASTType {
+func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destructure, scope *semanticScope) DubType {
 	switch d := d.(type) {
 	case *DestructureStruct:
 		t := semanticTypePass(ctx, d.Type)
-		st, ok := t.(*StructDecl)
+		st, ok := t.(*StructType)
 		if t != nil && !ok {
 			panic(t)
 		}
@@ -394,7 +420,7 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 				fn := arg.Name.Text
 				f := GetField(st, fn)
 				if f != nil {
-					eft := ResolveType(f.Type)
+					eft := f.Type
 					if !TypeMatches(aft, eft, false) {
 						ctx.Status.Error("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft))
 					}
@@ -443,34 +469,50 @@ func semanticTestPass(ctx *semanticPassContext, tst *Test) {
 
 type ProgramScope struct {
 	Index     *BuiltinTypeIndex
-	BinaryOps map[string]ASTDecl
+	BinaryOps map[string]DubType
+}
+
+type namedElement interface {
+	isNamedElement()
+}
+
+type NamedType struct {
+	T DubType
+}
+
+func (element *NamedType) isNamedElement() {
+}
+
+type NamedCallable struct {
+	Func ASTCallable
+}
+
+func (element *NamedCallable) isNamedElement() {
 }
 
 type ModuleScope struct {
-	Module map[string]ASTDecl
+	Namespace map[string]namedElement
 }
 
-func AsType(node ASTDecl) (ASTType, bool) {
+func AsType(node namedElement) (DubType, bool) {
 	switch node := node.(type) {
-	case *StructDecl:
-		return node, true
-	case *BuiltinType:
-		return node, true
+	case *NamedType:
+		return node.T, true
 	default:
 		return nil, false
 	}
 }
 
-func AsFunc(node ASTDecl) (ASTCallable, bool) {
+func AsFunc(node namedElement) (ASTCallable, bool) {
 	switch node := node.(type) {
-	case *FuncDecl:
-		return node, true
+	case *NamedCallable:
+		return node.Func, true
 	default:
 		return nil, false
 	}
 }
 
-func GetField(node *StructDecl, name string) *FieldDecl {
+func GetField(node *StructType, name string) *FieldType {
 	for _, decl := range node.Fields {
 		if decl.Name.Text == name {
 			return decl
@@ -479,7 +521,7 @@ func GetField(node *StructDecl, name string) *FieldDecl {
 	return nil
 }
 
-func ResolveType(ref ASTTypeRef) ASTType {
+func ResolveType(ref ASTTypeRef) DubType {
 	switch ref := ref.(type) {
 	case *TypeRef:
 		return ref.T
@@ -490,10 +532,10 @@ func ResolveType(ref ASTTypeRef) ASTType {
 	}
 }
 
-func ReturnTypes(node ASTCallable) []ASTType {
+func ReturnTypes(node ASTCallable) []DubType {
 	switch node := node.(type) {
 	case *FuncDecl:
-		types := make([]ASTType, len(node.ReturnTypes))
+		types := make([]DubType, len(node.ReturnTypes))
 		for i, t := range node.ReturnTypes {
 			types[i] = ResolveType(t)
 		}
@@ -524,7 +566,7 @@ var BuiltinTypeNames = []string{
 	"graph",
 }
 
-func GetBuiltinType(index *BuiltinTypeIndex, name string) (ASTDecl, bool) {
+func GetBuiltinType(index *BuiltinTypeIndex, name string) (DubType, bool) {
 	switch name {
 	case "string":
 		return index.String, true
@@ -558,7 +600,7 @@ var binaryOps = []string{
 
 func MakeProgramScope(program *Program) *ProgramScope {
 	programScope := &ProgramScope{
-		BinaryOps: map[string]ASTDecl{},
+		BinaryOps: map[string]DubType{},
 		Index:     program.Builtins,
 	}
 
@@ -592,19 +634,20 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 			switch decl := decl.(type) {
 			case *FuncDecl:
 				name := decl.Name.Text
-				_, exists := ctx.Module.Module[name]
+				_, exists := ctx.Module.Namespace[name]
 				if exists {
 					ctx.Status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
 				} else {
-					ctx.Module.Module[name] = decl
+					ctx.Module.Namespace[name] = &NamedCallable{Func: decl}
 				}
 			case *StructDecl:
 				name := decl.Name.Text
-				_, exists := ctx.Module.Module[name]
+				_, exists := ctx.Module.Namespace[name]
 				if exists {
 					ctx.Status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
 				} else {
-					ctx.Module.Module[name] = decl
+					decl.T = &StructType{}
+					ctx.Module.Namespace[name] = &NamedType{T: decl.T}
 				}
 			default:
 				panic(decl)
@@ -621,7 +664,7 @@ func resolveSignatures(ctx *semanticPassContext, pkg *Package) {
 				// Needed for resolving calls in the next step.
 				semanticFuncSignaturePass(ctx, decl)
 			case *StructDecl:
-				// Needed for resolving field types.
+				// Needed for resolving field reference types.
 				semanticStructPass(ctx, decl)
 			default:
 				panic(decl)
@@ -653,7 +696,7 @@ func SemanticPass(program *Program, status framework.Status) {
 	ctxs := make([]*semanticPassContext, len(program.Packages))
 	for i := 0; i < len(program.Packages); i++ {
 		moduleScope := &ModuleScope{
-			Module: map[string]ASTDecl{},
+			Namespace: map[string]namedElement{},
 		}
 		ctxs[i] = &semanticPassContext{
 			Program:        programScope,

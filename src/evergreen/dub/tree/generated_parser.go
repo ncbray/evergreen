@@ -123,17 +123,13 @@ type ASTDecl interface {
 	isASTDecl()
 }
 
-type ASTType interface {
-	isASTType()
-}
-
 type ASTTypeRef interface {
 	isASTTypeRef()
 }
 
 type TypeRef struct {
 	Name *Id
-	T    ASTType
+	T    DubType
 }
 
 func (node *TypeRef) isASTTypeRef() {
@@ -141,7 +137,7 @@ func (node *TypeRef) isASTTypeRef() {
 
 type ListTypeRef struct {
 	Type ASTTypeRef
-	T    ASTType
+	T    DubType
 }
 
 func (node *ListTypeRef) isASTTypeRef() {
@@ -267,7 +263,7 @@ type Call struct {
 	Name   *Id
 	Args   []ASTExpr
 	Target ASTCallable
-	T      []ASTType
+	T      []DubType
 }
 
 func (node *Call) isASTExpr() {
@@ -288,7 +284,7 @@ func (node *Fail) isASTExpr() {
 type Append struct {
 	List ASTExpr
 	Expr ASTExpr
-	T    ASTType
+	T    DubType
 }
 
 func (node *Append) isASTExpr() {
@@ -305,39 +301,10 @@ type BinaryOp struct {
 	Left  ASTExpr
 	Op    string
 	Right ASTExpr
-	T     ASTType
+	T     DubType
 }
 
 func (node *BinaryOp) isASTExpr() {
-}
-
-type BuiltinType struct {
-	Name string
-}
-
-func (node *BuiltinType) isASTDecl() {
-}
-
-func (node *BuiltinType) isASTType() {
-}
-
-type NilType struct {
-}
-
-func (node *NilType) isASTDecl() {
-}
-
-func (node *NilType) isASTType() {
-}
-
-type ListType struct {
-	Type ASTType
-}
-
-func (node *ListType) isASTDecl() {
-}
-
-func (node *ListType) isASTType() {
 }
 
 type FieldDecl struct {
@@ -351,12 +318,10 @@ type StructDecl struct {
 	Fields     []*FieldDecl
 	Scoped     bool
 	Contains   []ASTTypeRef
+	T          *StructType
 }
 
 func (node *StructDecl) isASTDecl() {
-}
-
-func (node *StructDecl) isASTType() {
 }
 
 type ASTCallable interface {
@@ -373,7 +338,7 @@ type LocalInfo_Scope struct {
 
 type LocalInfo struct {
 	Name string
-	T    ASTType
+	T    DubType
 }
 
 type Param struct {
@@ -398,7 +363,7 @@ func (node *FuncDecl) isASTCallable() {
 type Test struct {
 	Name        *Id
 	Rule        ASTExpr
-	Type        ASTType
+	Type        DubType
 	Input       string
 	Flow        string
 	Destructure Destructure
@@ -427,6 +392,46 @@ type BuiltinTypeIndex struct {
 type Program struct {
 	Builtins *BuiltinTypeIndex
 	Packages []*Package
+}
+
+type DubType interface {
+	isDubType()
+}
+
+type BuiltinType struct {
+	Name string
+}
+
+func (node *BuiltinType) isDubType() {
+}
+
+type NilType struct {
+}
+
+func (node *NilType) isDubType() {
+}
+
+type ListType struct {
+	Type DubType
+}
+
+func (node *ListType) isDubType() {
+}
+
+type FieldType struct {
+	Name *Id
+	Type DubType
+}
+
+type StructType struct {
+	Name       *Id
+	Implements *StructType
+	Fields     []*FieldType
+	Scoped     bool
+	Contains   []*StructType
+}
+
+func (node *StructType) isDubType() {
 }
 
 func LineTerminator(frame *runtime.State) {

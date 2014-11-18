@@ -1,0 +1,26 @@
+struct DubType {
+}
+
+struct BuiltinType implements DubType {
+  Name string
+}
+
+struct NilType implements DubType {
+}
+
+struct ListType implements DubType {
+  Type DubType
+}
+
+struct FieldType {
+  Name Id
+  Type DubType
+}
+
+struct StructType implements DubType {
+  Name Id
+  Implements StructType
+  Fields []FieldType
+  Scoped bool
+  Contains []StructType
+}

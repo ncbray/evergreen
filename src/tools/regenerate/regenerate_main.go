@@ -58,7 +58,7 @@ func CreateIOManager() *IOManager {
 }
 
 func makeBuilder(index *tree.BuiltinTypeIndex) *dub.GlobalDubBuilder {
-	gbuilder := &dub.GlobalDubBuilder{Types: map[tree.ASTType]flow.DubType{}}
+	gbuilder := &dub.GlobalDubBuilder{Types: map[tree.DubType]flow.DubType{}}
 
 	gbuilder.String = &flow.IntrinsicType{Name: "string"}
 	gbuilder.Types[index.String] = gbuilder.String
@@ -92,7 +92,7 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 			switch decl := decl.(type) {
 			case *tree.FuncDecl:
 			case *tree.StructDecl:
-				gbuilder.Types[decl] = &flow.LLStruct{}
+				gbuilder.Types[decl.T] = &flow.LLStruct{}
 			default:
 				panic(decl)
 			}
@@ -128,7 +128,7 @@ func processDub(status framework.Status, p framework.LocationProvider, manager *
 					}(dot, outfile)
 				}
 			case *tree.StructDecl:
-				t, _ := gbuilder.Types[decl]
+				t, _ := gbuilder.Types[decl.T]
 				s, _ := t.(*flow.LLStruct)
 				structs = append(structs, dub.LowerStruct(decl, s, gbuilder))
 			default:

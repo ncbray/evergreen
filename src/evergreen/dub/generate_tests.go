@@ -98,7 +98,7 @@ func checkNE(x dst.Expr, y dst.Expr) dst.Expr {
 	}
 }
 
-func translateType(ctx *TestingContext, t tree.ASTType) dst.Type {
+func translateType(ctx *TestingContext, t tree.DubType) dst.Type {
 	at := ctx.gbuilder.TranslateType(t)
 	return translateTypeInternal(ctx, at)
 }
@@ -132,13 +132,13 @@ func translateTypeInternal(ctx *TestingContext, at flow.DubType) dst.Type {
 	}
 }
 
-func generateDestructure(value int, nameX string, path string, d tree.Destructure, general tree.ASTType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
+func generateDestructure(value int, nameX string, path string, d tree.Destructure, general tree.DubType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
 	switch d := d.(type) {
 	case *tree.DestructureStruct:
 		actual_value := value
 
 		t := tree.ResolveType(d.Type)
-		dt, ok := t.(*tree.StructDecl)
+		dt, ok := t.(*tree.StructType)
 		if !ok {
 			panic(t)
 		}
@@ -189,7 +189,7 @@ func generateDestructure(value int, nameX string, path string, d tree.Destructur
 			child_path := fmt.Sprintf("%s.%s", path, fn)
 
 			f := tree.GetField(dt, fn)
-			t := tree.ResolveType(f.Type)
+			t := f.Type
 
 			child_value := ctx.funcDecl.CreateLocalInfo(child_name, translateType(ctx, t))
 			childstmts = append(childstmts, &dst.Assign{

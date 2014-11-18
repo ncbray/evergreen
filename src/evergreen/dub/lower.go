@@ -9,7 +9,7 @@ import (
 const REGION_EXITS = 4
 
 type GlobalDubBuilder struct {
-	Types  map[tree.ASTType]flow.DubType
+	Types  map[tree.DubType]flow.DubType
 	String flow.DubType
 	Rune   flow.DubType
 	Int    flow.DubType
@@ -18,9 +18,9 @@ type GlobalDubBuilder struct {
 	Graph  flow.DubType
 }
 
-func (builder *GlobalDubBuilder) TranslateType(t tree.ASTType) flow.DubType {
+func (builder *GlobalDubBuilder) TranslateType(t tree.DubType) flow.DubType {
 	switch t := t.(type) {
-	case *tree.StructDecl:
+	case *tree.StructType:
 		dt, ok := builder.Types[t]
 		if !ok {
 			panic(t)
@@ -59,7 +59,7 @@ func (builder *DubBuilder) EmitOp(op flow.DubOp) base.NodeID {
 	return id
 }
 
-func (builder *DubBuilder) CreateRegister(t tree.ASTType) flow.RegisterInfo_Ref {
+func (builder *DubBuilder) CreateRegister(t tree.DubType) flow.RegisterInfo_Ref {
 	return builder.CreateLLRegister(builder.glbl.TranslateType(t))
 }
 
