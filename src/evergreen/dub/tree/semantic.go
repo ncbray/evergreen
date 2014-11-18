@@ -127,6 +127,10 @@ func scalarSemanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTEx
 	return types[0]
 }
 
+func scalarReturn(t DubType) []DubType {
+	return []DubType{t}
+}
+
 func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) []DubType {
 	switch expr := expr.(type) {
 	case *Repeat:
@@ -165,23 +169,23 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			panic(sig)
 		}
 		expr.T = t
-		return []DubType{t}
+		return scalarReturn(t)
 	case *NameRef:
 		name := expr.Name.Text
 		info, found := scope.localInfo(name)
 		if !found {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return []DubType{unresolvedType}
+			return scalarReturn(unresolvedType)
 		}
 		expr.Local = info
-		return []DubType{decl.LocalInfo_Scope.Get(info).T}
+		return scalarReturn(decl.LocalInfo_Scope.Get(info).T)
 	case *Assign:
 		var t []DubType
 		if expr.Expr != nil {
 			t = semanticExprPass(ctx, decl, expr.Expr, scope)
 		}
 		if expr.Type != nil {
-			t = []DubType{semanticTypePass(ctx, expr.Type)}
+			t = scalarReturn(semanticTypePass(ctx, expr.Type))
 		}
 		if len(expr.Targets) != len(t) {
 			ctx.Status.Error("Expected %d values but got %d", len(expr.Targets), len(t))
@@ -196,21 +200,21 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		return t
 	case *Slice:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
-		return []DubType{ctx.Program.Index.String}
+		return scalarReturn(ctx.Program.Index.String)
 	case *StringMatch:
-		return []DubType{ctx.Program.Index.String}
+		return scalarReturn(ctx.Program.Index.String)
 	case *RuneMatch:
-		return []DubType{ctx.Program.Index.Rune}
+		return scalarReturn(ctx.Program.Index.Rune)
 	case *RuneLiteral:
-		return []DubType{ctx.Program.Index.Rune}
+		return scalarReturn(ctx.Program.Index.Rune)
 	case *StringLiteral:
-		return []DubType{ctx.Program.Index.String}
+		return scalarReturn(ctx.Program.Index.String)
 	case *IntLiteral:
-		return []DubType{ctx.Program.Index.Int}
+		return scalarReturn(ctx.Program.Index.Int)
 	case *BoolLiteral:
-		return []DubType{ctx.Program.Index.Bool}
+		return scalarReturn(ctx.Program.Index.Bool)
 	case *NilLiteral:
-		return []DubType{ctx.Program.Index.Nil}
+		return scalarReturn(ctx.Program.Index.Nil)
 	case *Return:
 		if len(decl.ReturnTypes) != len(expr.Exprs) {
 			ctx.Status.Error("wrong number of return types: %d vs. %d", len(expr.Exprs), len(decl.ReturnTypes))
@@ -227,7 +231,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		}
 		return nil
 	case *Position:
-		return []DubType{ctx.Program.Index.Int}
+		return scalarReturn(ctx.Program.Index.Int)
 	case *Fail:
 		return nil
 	case *Call:
@@ -237,12 +241,12 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		fd, ok := ctx.Module.Namespace[name]
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return []DubType{unresolvedType}
+			return scalarReturn(unresolvedType)
 		}
 		f, ok := AsFunc(fd)
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("%#v is not callable", name))
-			return []DubType{unresolvedType}
+			return scalarReturn(unresolvedType)
 		}
 		for _, e := range expr.Args {
 			// TODO check argument types
@@ -257,7 +261,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		scalarSemanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO type check arguments
 		expr.T = t
-		return []DubType{t}
+		return scalarReturn(t)
 	case *Construct:
 		t := semanticTypePass(ctx, expr.Type)
 		st, ok := t.(*StructType)
@@ -279,7 +283,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				}
 			}
 		}
-		return []DubType{t}
+		return scalarReturn(t)
 	case *ConstructList:
 		t := semanticTypePass(ctx, expr.Type)
 		lt, ok := t.(*ListType)
@@ -294,12 +298,12 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				}
 			}
 		}
-		return []DubType{t}
+		return scalarReturn(t)
 	case *Coerce:
 		t := semanticTypePass(ctx, expr.Type)
 		scalarSemanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO type check
-		return []DubType{t}
+		return scalarReturn(t)
 	default:
 		panic(expr)
 	}
