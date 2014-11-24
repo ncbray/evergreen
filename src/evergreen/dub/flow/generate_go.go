@@ -463,13 +463,18 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 		))
 
 	case *TransferOp:
-		lhs := make([]ast.Target, len(op.Dsts))
-		for i, dst := range op.Dsts {
-			lhs[i] = info.SetReg(dst)
+		if len(op.Dsts) != len(op.Srcs) {
+			panic(op)
 		}
-		rhs := make([]ast.Expr, len(op.Srcs))
-		for i, src := range op.Srcs {
-			rhs[i] = info.GetReg(src)
+		lhs := []ast.Target{}
+		rhs := []ast.Expr{}
+		for i := 0; i < len(op.Dsts); i++ {
+			dst := op.Dsts[i]
+			src := op.Srcs[i]
+			if dst != src {
+				lhs = append(lhs, info.SetReg(dst))
+				rhs = append(rhs, info.GetReg(src))
+			}
 		}
 		block = append(block, &ast.Assign{
 			Targets: lhs,

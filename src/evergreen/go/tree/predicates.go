@@ -14,5 +14,4 @@ func NormalFlowMightExit(stmts []Stmt) bool {
 	default:
 		panic(last)
 	}
-	return true
 }

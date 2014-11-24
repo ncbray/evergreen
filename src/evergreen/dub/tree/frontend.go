@@ -12,7 +12,7 @@ func parsePackage(status framework.Status, p framework.LocationProvider, path []
 	for i, filename := range filenames {
 		data, err := ioutil.ReadFile(filename)
 		if err != nil {
-			status.Error("%s", err)
+			status.Error("%s", err.Error())
 			return nil
 		}
 		offset := p.AddFile(filename, []rune(string(data)))

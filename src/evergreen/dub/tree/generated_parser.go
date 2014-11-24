@@ -2437,7 +2437,7 @@ block2:
 	r12 = frame.Checkpoint()
 	r13 = ParseRuneFilter(frame)
 	if frame.Flow == 0 {
-		r10, r11 = r10, append(r11, r13)
+		r11 = append(r11, r13)
 		goto block2
 	}
 	frame.Recover(r12)

@@ -7,6 +7,9 @@
 *~
 \#*\#
 
+# OS
+.DS_Store
+
 # project
 /output/
 /src/generated/
