@@ -891,7 +891,7 @@ func GenerateGo(package_name string, structs []*core.StructType, funcs []*LLFunc
 	}
 
 	file := &ast.File{
-		Name:    "generated_parser.go",
+		Name:    "generated_dub.go",
 		Package: package_name,
 		Imports: imports,
 		Decls:   decls,

@@ -380,7 +380,7 @@ func GenerateTests(leaf string, tests []*tree.Test, gbuilder *GlobalDubBuilder, 
 	}
 
 	file := &dst.File{
-		Name:    "generated_parser_test.go",
+		Name:    "generated_dub_test.go",
 		Package: leaf,
 		Decls:   decls,
 	}
