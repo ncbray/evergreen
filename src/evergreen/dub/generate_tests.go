@@ -9,7 +9,6 @@ import (
 )
 
 type TestingContext struct {
-	gbuilder *GlobalDubBuilder
 	link     flow.DubToGoLinker
 	t        *dst.StructDecl
 	stateT   *dst.StructDecl
@@ -369,9 +368,9 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	return decl
 }
 
-func GenerateTests(leaf string, tests []*tree.Test, gbuilder *GlobalDubBuilder, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
+func GenerateTests(leaf string, tests []*tree.Test, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
 	_, index := flow.ExternBuiltinRuntime()
-	ctx := &TestingContext{gbuilder: gbuilder, link: link, t: t, stateT: stateT, index: index}
+	ctx := &TestingContext{link: link, t: t, stateT: stateT, index: index}
 
 	decls := []dst.Decl{}
 

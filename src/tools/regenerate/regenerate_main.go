@@ -57,21 +57,6 @@ func CreateIOManager() *IOManager {
 	return manager
 }
 
-func makeBuilder(program *tree.Program) *dub.GlobalDubBuilder {
-	gbuilder := &dub.GlobalDubBuilder{}
-
-	index := program.Builtins
-
-	gbuilder.String = index.String
-	gbuilder.Rune = index.Rune
-	gbuilder.Int = index.Int
-	gbuilder.Int64 = index.Int64
-	gbuilder.Bool = index.Bool
-	gbuilder.Graph = index.Graph
-
-	return gbuilder
-}
-
 type DubPackage struct {
 	Path    []string
 	Structs []*core.StructType
@@ -79,7 +64,7 @@ type DubPackage struct {
 	Tests   []*tree.Test
 }
 
-func lowerPackage(gbuilder *dub.GlobalDubBuilder, pkg *tree.Package) *DubPackage {
+func lowerPackage(program *tree.Program, pkg *tree.Package) *DubPackage {
 	dubPkg := &DubPackage{
 		Path:    pkg.Path,
 		Structs: []*core.StructType{},
@@ -92,7 +77,7 @@ func lowerPackage(gbuilder *dub.GlobalDubBuilder, pkg *tree.Package) *DubPackage
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
 			case *tree.FuncDecl:
-				f := dub.LowerAST(decl, gbuilder)
+				f := dub.LowerAST(program, decl)
 				flow.SSI(f)
 				dubPkg.Funcs = append(dubPkg.Funcs, f)
 			case *tree.StructDecl:
@@ -107,10 +92,10 @@ func lowerPackage(gbuilder *dub.GlobalDubBuilder, pkg *tree.Package) *DubPackage
 	return dubPkg
 }
 
-func lowerProgram(gbuilder *dub.GlobalDubBuilder, program *tree.Program) []*DubPackage {
+func lowerProgram(program *tree.Program) []*DubPackage {
 	dubPackages := []*DubPackage{}
 	for _, pkg := range program.Packages {
-		dubPackages = append(dubPackages, lowerPackage(gbuilder, pkg))
+		dubPackages = append(dubPackages, lowerPackage(program, pkg))
 	}
 	return dubPackages
 }
@@ -146,7 +131,7 @@ func analyizeProgram(program []*DubPackage) {
 	}
 }
 
-func GenerateGo(program []*DubPackage, gbuilder *dub.GlobalDubBuilder) {
+func GenerateGo(program []*DubPackage) {
 	root := "generated"
 	if replace {
 		root = "evergreen"
@@ -177,7 +162,7 @@ func GenerateGo(program []*DubPackage, gbuilder *dub.GlobalDubBuilder) {
 		files = append(files, flow.GenerateGo(leaf, dubPkg.Structs, dubPkg.Funcs, index, state, graph, link))
 
 		if !replace && len(dubPkg.Tests) != 0 {
-			files = append(files, dub.GenerateTests(leaf, dubPkg.Tests, gbuilder, t, state, link))
+			files = append(files, dub.GenerateTests(leaf, dubPkg.Tests, t, state, link))
 		}
 		packages = append(packages, &gotree.Package{
 			Path:  path,
@@ -206,16 +191,14 @@ func processProgram(status framework.Status, p framework.LocationProvider, manag
 	if status.ShouldHalt() {
 		return
 	}
-	gbuilder := makeBuilder(program)
-
-	flowProgram := lowerProgram(gbuilder, program)
+	flowProgram := lowerProgram(program)
 
 	if dump {
 		dumpProgram(manager, flowProgram)
 	}
 
 	analyizeProgram(flowProgram)
-	GenerateGo(flowProgram, gbuilder)
+	GenerateGo(flowProgram)
 }
 
 func entryPoint(p framework.LocationProvider, status framework.Status) {
