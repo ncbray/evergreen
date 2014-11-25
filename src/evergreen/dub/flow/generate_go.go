@@ -791,6 +791,24 @@ func ExternParserRuntime() (*ast.Package, *ast.StructDecl) {
 	return pkg, state
 }
 
+func ExternTestingPackage() (*ast.Package, *ast.StructDecl) {
+	t := &ast.StructDecl{
+		Name: "T",
+	}
+	pkg := &ast.Package{
+		Extern: true,
+		Path:   []string{"testing"},
+		Files: []*ast.File{
+			&ast.File{
+				Decls: []ast.Decl{
+					t,
+				},
+			},
+		},
+	}
+	return pkg, t
+}
+
 func ExternGraph() (*ast.Package, *ast.StructDecl) {
 	graph := &ast.StructDecl{
 		Name: "Graph",

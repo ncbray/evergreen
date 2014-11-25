@@ -116,16 +116,20 @@ func DecodeBool() (bool, string) {
   return value, text;
 }
 
+func ParseStringLiteral() StringLiteral {
+  var value string;
+  text := slice {
+    value = DecodeString();
+  };
+  return StringLiteral{Text: text, Value: value};
+}
+
 func Literal() ASTExpr {
   choose {
     value, text := DecodeRune();
     return RuneLiteral{Text: text, Value: value};
   } or {
-    var value string;
-    text := slice {
-      value = DecodeString();
-    };
-    return StringLiteral{Text: text, Value: value};
+    return ParseStringLiteral();
   } or {
     value, text := DecodeInt();
     return IntLiteral{Text: text, Value: value};
@@ -166,8 +170,19 @@ func RuneMatchExpr() RuneMatch {
   return RuneMatch{Match: e};
 }
 
-func ParseStructTypeRef() TypeRef {
+func ParseStructTypeRef() ASTTypeRef {
+  choose {
+    pkg := Ident();
+    S();
+    /[.]/;
+    S();
+    return QualifiedTypeRef{
+      Package: pkg,
+      Name: Ident()
+    };
+  } or {
     return TypeRef{Name: Ident()};
+  }
 }
 
 func ParseListTypeRef() ListTypeRef {
@@ -761,10 +776,35 @@ func ParseTest() Test {
   return Test{Name: name, Rule: rule, Input: input, Flow: flow, Destructure: d};
 }
 
+func ParseImports() []ImportDecl {
+  imports := []ImportDecl{};
+  question {
+    /"import"/;
+    EndKeyword();
+    S();
+    /"("/;
+    S();
+    star {
+      append(imports, ImportDecl{
+        Path: ParseStringLiteral()
+      });
+      S();
+    }
+    /")"/;
+  }
+  return imports;
+}
+
 func ParseFile() File {
   decls := []ASTDecl{};
   tests := []Test{};
+
+  // Leading whitespace
   S();
+
+  imports := ParseImports();
+  S();
+
   star {
     choose {
       append(decls, ParseFuncDecl());
@@ -776,5 +816,5 @@ func ParseFile() File {
     S();
   }
   /![^]/;
-  return File{Decls: decls, Tests: tests};
+  return File{Imports: imports, Decls: decls, Tests: tests};
 }

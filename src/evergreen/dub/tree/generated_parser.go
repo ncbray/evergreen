@@ -143,6 +143,15 @@ type ListTypeRef struct {
 func (node *ListTypeRef) isASTTypeRef() {
 }
 
+type QualifiedTypeRef struct {
+	Package *Id
+	Name    *Id
+	T       DubType
+}
+
+func (node *QualifiedTypeRef) isASTTypeRef() {
+}
+
 type Destructure interface {
 	isDestructure()
 }
@@ -160,7 +169,7 @@ type DestructureField struct {
 }
 
 type DestructureStruct struct {
-	Type *TypeRef
+	Type ASTTypeRef
 	Args []*DestructureField
 }
 
@@ -236,7 +245,7 @@ type NamedExpr struct {
 }
 
 type Construct struct {
-	Type *TypeRef
+	Type ASTTypeRef
 	Args []*NamedExpr
 }
 
@@ -369,9 +378,14 @@ type Test struct {
 	Destructure Destructure
 }
 
+type ImportDecl struct {
+	Path *StringLiteral
+}
+
 type File struct {
-	Decls []ASTDecl
-	Tests []*Test
+	Imports []*ImportDecl
+	Decls   []ASTDecl
+	Tests   []*Test
 }
 
 type Package struct {
@@ -1810,19 +1824,30 @@ block3:
 	return
 }
 
+func ParseStringLiteral(frame *runtime.State) (ret0 *StringLiteral) {
+	var r0 int
+	var r1 string
+	r0 = frame.Checkpoint()
+	r1 = DecodeString(frame)
+	if frame.Flow == 0 {
+		ret0 = &StringLiteral{Text: frame.Slice(r0), Value: r1}
+		return
+	}
+	return
+}
+
 func Literal(frame *runtime.State) (ret0 ASTExpr) {
 	var r0 int
 	var r1 rune
 	var r2 string
-	var r4 int
-	var r5 string
-	var r8 int
+	var r4 *StringLiteral
+	var r5 int
+	var r6 string
+	var r8 bool
 	var r9 string
-	var r11 bool
-	var r12 string
+	var r11 rune
 	var r14 rune
 	var r17 rune
-	var r20 rune
 	r0 = frame.Checkpoint()
 	r1, r2 = DecodeRune(frame)
 	if frame.Flow == 0 {
@@ -1830,36 +1855,35 @@ func Literal(frame *runtime.State) (ret0 ASTExpr) {
 		goto block1
 	}
 	frame.Recover(r0)
-	r4 = frame.Checkpoint()
-	r5 = DecodeString(frame)
+	r4 = ParseStringLiteral(frame)
 	if frame.Flow == 0 {
-		ret0 = &StringLiteral{Text: frame.Slice(r4), Value: r5}
+		ret0 = r4
 		goto block1
 	}
 	frame.Recover(r0)
-	r8, r9 = DecodeInt(frame)
+	r5, r6 = DecodeInt(frame)
 	if frame.Flow == 0 {
-		ret0 = &IntLiteral{Text: r9, Value: r8}
+		ret0 = &IntLiteral{Text: r6, Value: r5}
 		goto block1
 	}
 	frame.Recover(r0)
-	r11, r12 = DecodeBool(frame)
+	r8, r9 = DecodeBool(frame)
 	if frame.Flow == 0 {
-		ret0 = &BoolLiteral{Text: r12, Value: r11}
+		ret0 = &BoolLiteral{Text: r9, Value: r8}
 		goto block1
 	}
 	frame.Recover(r0)
-	r14 = frame.Peek()
+	r11 = frame.Peek()
 	if frame.Flow == 0 {
-		if r14 == 'n' {
+		if r11 == 'n' {
 			frame.Consume()
-			r17 = frame.Peek()
+			r14 = frame.Peek()
 			if frame.Flow == 0 {
-				if r17 == 'i' {
+				if r14 == 'i' {
 					frame.Consume()
-					r20 = frame.Peek()
+					r17 = frame.Peek()
 					if frame.Flow == 0 {
-						if r20 == 'l' {
+						if r17 == 'l' {
 							frame.Consume()
 							ret0 = &NilLiteral{}
 							goto block1
@@ -2085,13 +2109,49 @@ block1:
 	return
 }
 
-func ParseStructTypeRef(frame *runtime.State) (ret0 *TypeRef) {
-	var r0 *Id
-	r0 = Ident(frame)
+func ParseStructTypeRef(frame *runtime.State) (ret0 ASTTypeRef) {
+	var r0 int
+	var r1 *Id
+	var r2 rune
+	var r5 *Id
+	var r7 *Id
+	r0 = frame.Checkpoint()
+	r1 = Ident(frame)
 	if frame.Flow == 0 {
-		ret0 = &TypeRef{Name: r0}
-		return
+		S(frame)
+		if frame.Flow == 0 {
+			r2 = frame.Peek()
+			if frame.Flow == 0 {
+				if r2 == '.' {
+					frame.Consume()
+					S(frame)
+					if frame.Flow == 0 {
+						r5 = Ident(frame)
+						if frame.Flow == 0 {
+							ret0 = &QualifiedTypeRef{Package: r1, Name: r5}
+							goto block2
+						}
+						goto block1
+					}
+					goto block1
+				}
+				frame.Fail()
+				goto block1
+			}
+			goto block1
+		}
+		goto block1
 	}
+	goto block1
+block1:
+	frame.Recover(r0)
+	r7 = Ident(frame)
+	if frame.Flow == 0 {
+		ret0 = &TypeRef{Name: r7}
+		goto block2
+	}
+	return
+block2:
 	return
 }
 
@@ -2129,7 +2189,7 @@ block1:
 
 func ParseTypeRef(frame *runtime.State) (ret0 ASTTypeRef) {
 	var r0 int
-	var r1 *TypeRef
+	var r1 ASTTypeRef
 	var r2 *ListTypeRef
 	r0 = frame.Checkpoint()
 	r1 = ParseStructTypeRef(frame)
@@ -2150,7 +2210,7 @@ block1:
 
 func ParseDestructure(frame *runtime.State) (ret0 Destructure) {
 	var r0 int
-	var r1 *TypeRef
+	var r1 ASTTypeRef
 	var r2 rune
 	var r6 []*DestructureField
 	var r7 int
@@ -3015,7 +3075,7 @@ func PrimaryExpr(frame *runtime.State) (ret0 ASTExpr) {
 	var r109 rune
 	var r112 []ASTExpr
 	var r113 rune
-	var r117 *TypeRef
+	var r117 ASTTypeRef
 	var r118 rune
 	var r121 []*NamedExpr
 	var r122 rune
@@ -5492,70 +5552,232 @@ block1:
 	return
 }
 
+func ParseImports(frame *runtime.State) (ret0 []*ImportDecl) {
+	var r0 []*ImportDecl
+	var r1 int
+	var r2 rune
+	var r5 rune
+	var r8 rune
+	var r11 rune
+	var r14 rune
+	var r17 rune
+	var r20 rune
+	var r23 []*ImportDecl
+	var r24 int
+	var r25 *StringLiteral
+	var r27 []*ImportDecl
+	var r28 []*ImportDecl
+	var r29 rune
+	var r32 []*ImportDecl
+	var r33 []*ImportDecl
+	r0 = []*ImportDecl{}
+	r1 = frame.Checkpoint()
+	r2 = frame.Peek()
+	if frame.Flow == 0 {
+		if r2 == 'i' {
+			frame.Consume()
+			r5 = frame.Peek()
+			if frame.Flow == 0 {
+				if r5 == 'm' {
+					frame.Consume()
+					r8 = frame.Peek()
+					if frame.Flow == 0 {
+						if r8 == 'p' {
+							frame.Consume()
+							r11 = frame.Peek()
+							if frame.Flow == 0 {
+								if r11 == 'o' {
+									frame.Consume()
+									r14 = frame.Peek()
+									if frame.Flow == 0 {
+										if r14 == 'r' {
+											frame.Consume()
+											r17 = frame.Peek()
+											if frame.Flow == 0 {
+												if r17 == 't' {
+													frame.Consume()
+													EndKeyword(frame)
+													if frame.Flow == 0 {
+														S(frame)
+														if frame.Flow == 0 {
+															r20 = frame.Peek()
+															if frame.Flow == 0 {
+																if r20 == '(' {
+																	frame.Consume()
+																	S(frame)
+																	if frame.Flow == 0 {
+																		r23 = r0
+																		goto block1
+																	}
+																	r33 = r0
+																	goto block3
+																}
+																frame.Fail()
+																r33 = r0
+																goto block3
+															}
+															r33 = r0
+															goto block3
+														}
+														r33 = r0
+														goto block3
+													}
+													r33 = r0
+													goto block3
+												}
+												frame.Fail()
+												r33 = r0
+												goto block3
+											}
+											r33 = r0
+											goto block3
+										}
+										frame.Fail()
+										r33 = r0
+										goto block3
+									}
+									r33 = r0
+									goto block3
+								}
+								frame.Fail()
+								r33 = r0
+								goto block3
+							}
+							r33 = r0
+							goto block3
+						}
+						frame.Fail()
+						r33 = r0
+						goto block3
+					}
+					r33 = r0
+					goto block3
+				}
+				frame.Fail()
+				r33 = r0
+				goto block3
+			}
+			r33 = r0
+			goto block3
+		}
+		frame.Fail()
+		r33 = r0
+		goto block3
+	}
+	r33 = r0
+	goto block3
+block1:
+	r24 = frame.Checkpoint()
+	r25 = ParseStringLiteral(frame)
+	if frame.Flow == 0 {
+		r27 = append(r23, &ImportDecl{Path: r25})
+		S(frame)
+		if frame.Flow == 0 {
+			r23 = r27
+			goto block1
+		}
+		r28 = r27
+		goto block2
+	}
+	r28 = r23
+	goto block2
+block2:
+	frame.Recover(r24)
+	r29 = frame.Peek()
+	if frame.Flow == 0 {
+		if r29 == ')' {
+			frame.Consume()
+			r32 = r28
+			goto block4
+		}
+		frame.Fail()
+		r33 = r28
+		goto block3
+	}
+	r33 = r28
+	goto block3
+block3:
+	frame.Recover(r1)
+	r32 = r33
+	goto block4
+block4:
+	ret0 = r32
+	return
+}
+
 func ParseFile(frame *runtime.State) (ret0 *File) {
 	var r0 []ASTDecl
 	var r1 []*Test
-	var r2 []ASTDecl
-	var r3 []*Test
-	var r4 int
+	var r2 []*ImportDecl
+	var r3 []ASTDecl
+	var r4 []*Test
 	var r5 int
-	var r6 *FuncDecl
-	var r8 []ASTDecl
-	var r9 []*Test
-	var r10 *StructDecl
-	var r12 *Test
-	var r14 []ASTDecl
-	var r15 []*Test
-	var r16 int
+	var r6 int
+	var r7 *FuncDecl
+	var r9 []ASTDecl
+	var r10 []*Test
+	var r11 *StructDecl
+	var r13 *Test
+	var r15 []ASTDecl
+	var r16 []*Test
+	var r17 int
 	r0 = []ASTDecl{}
 	r1 = []*Test{}
 	S(frame)
 	if frame.Flow == 0 {
-		r2, r3 = r0, r1
-		goto block1
+		r2 = ParseImports(frame)
+		if frame.Flow == 0 {
+			S(frame)
+			if frame.Flow == 0 {
+				r3, r4 = r0, r1
+				goto block1
+			}
+			goto block4
+		}
+		goto block4
 	}
 	goto block4
 block1:
-	r4 = frame.Checkpoint()
 	r5 = frame.Checkpoint()
-	r6 = ParseFuncDecl(frame)
+	r6 = frame.Checkpoint()
+	r7 = ParseFuncDecl(frame)
 	if frame.Flow == 0 {
-		r8, r9 = append(r2, r6), r3
+		r9, r10 = append(r3, r7), r4
 		goto block2
 	}
-	frame.Recover(r5)
-	r10 = ParseStructDecl(frame)
+	frame.Recover(r6)
+	r11 = ParseStructDecl(frame)
 	if frame.Flow == 0 {
-		r8, r9 = append(r2, r10), r3
+		r9, r10 = append(r3, r11), r4
 		goto block2
 	}
-	frame.Recover(r5)
-	r12 = ParseTest(frame)
+	frame.Recover(r6)
+	r13 = ParseTest(frame)
 	if frame.Flow == 0 {
-		r8, r9 = r2, append(r3, r12)
+		r9, r10 = r3, append(r4, r13)
 		goto block2
 	}
-	r14, r15 = r2, r3
+	r15, r16 = r3, r4
 	goto block3
 block2:
 	S(frame)
 	if frame.Flow == 0 {
-		r2, r3 = r8, r9
+		r3, r4 = r9, r10
 		goto block1
 	}
-	r14, r15 = r8, r9
+	r15, r16 = r9, r10
 	goto block3
 block3:
-	frame.Recover(r4)
-	r16 = frame.LookaheadBegin()
+	frame.Recover(r5)
+	r17 = frame.LookaheadBegin()
 	frame.Peek()
 	if frame.Flow == 0 {
 		frame.Consume()
-		frame.LookaheadFail(r16)
+		frame.LookaheadFail(r17)
 		goto block4
 	}
-	frame.LookaheadNormal(r16)
-	ret0 = &File{Decls: r14, Tests: r15}
+	frame.LookaheadNormal(r17)
+	ret0 = &File{Imports: r2, Decls: r15, Tests: r16}
 	return
 block4:
 	return

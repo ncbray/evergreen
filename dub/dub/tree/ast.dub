@@ -88,6 +88,12 @@ struct ListTypeRef implements ASTTypeRef {
   T DubType
 }
 
+struct QualifiedTypeRef implements ASTTypeRef {
+  Package Id
+  Name Id
+  T DubType
+}
+
 struct Destructure {
 }
 
@@ -101,7 +107,7 @@ struct DestructureField {
 }
 
 struct DestructureStruct implements Destructure {
-  Type TypeRef
+  Type ASTTypeRef
   Args []DestructureField
 }
 
@@ -150,7 +156,7 @@ struct NamedExpr {
 }
 
 struct Construct implements ASTExpr {
-  Type TypeRef
+  Type ASTTypeRef
   Args []NamedExpr
 }
 
@@ -237,7 +243,12 @@ struct Test {
   Destructure Destructure
 }
 
+struct ImportDecl {
+  Path StringLiteral
+}
+
 struct File {
+  Imports []ImportDecl
   Decls []ASTDecl
   Tests []Test
 }

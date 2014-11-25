@@ -3,6 +3,7 @@ package tree
 import (
 	"evergreen/framework"
 	"fmt"
+	"strings"
 )
 
 type semanticScope struct {
@@ -332,6 +333,33 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) DubType {
 		}
 		node.T = t
 		return t
+	case *QualifiedTypeRef:
+		node.T = unresolvedType
+
+		mname := node.Package.Text
+		pkg, ok := ctx.Module.Namespace[mname]
+		if !ok {
+			ctx.Status.LocationError(node.Package.Pos, fmt.Sprintf("Could not resolve name %#v", mname))
+			return unresolvedType
+		}
+		scope, ok := AsPackage(pkg)
+		if !ok {
+			ctx.Status.LocationError(node.Package.Pos, fmt.Sprintf("%#v is not a package", mname))
+			return unresolvedType
+		}
+		name := node.Name.Text
+		d, ok := scope.Namespace[name]
+		if !ok {
+			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
+			return unresolvedType
+		}
+		t, ok := AsType(d)
+		if !ok {
+			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
+			return unresolvedType
+		}
+		node.T = t
+		return t
 	case *ListTypeRef:
 		t := semanticTypePass(ctx, node.Type)
 		// TODO memoize list types
@@ -487,17 +515,6 @@ type NamedType struct {
 func (element *NamedType) isNamedElement() {
 }
 
-type NamedCallable struct {
-	Func ASTCallable
-}
-
-func (element *NamedCallable) isNamedElement() {
-}
-
-type ModuleScope struct {
-	Namespace map[string]namedElement
-}
-
 func AsType(node namedElement) (DubType, bool) {
 	switch node := node.(type) {
 	case *NamedType:
@@ -507,6 +524,13 @@ func AsType(node namedElement) (DubType, bool) {
 	}
 }
 
+type NamedCallable struct {
+	Func ASTCallable
+}
+
+func (element *NamedCallable) isNamedElement() {
+}
+
 func AsFunc(node namedElement) (ASTCallable, bool) {
 	switch node := node.(type) {
 	case *NamedCallable:
@@ -514,6 +538,27 @@ func AsFunc(node namedElement) (ASTCallable, bool) {
 	default:
 		return nil, false
 	}
+}
+
+type NamedPackage struct {
+	Scope *ModuleScope
+}
+
+func (element *NamedPackage) isNamedElement() {
+}
+
+func AsPackage(node namedElement) (*ModuleScope, bool) {
+	switch node := node.(type) {
+	case *NamedPackage:
+		return node.Scope, true
+	default:
+		return nil, false
+	}
+}
+
+type ModuleScope struct {
+	Path      []string
+	Namespace map[string]namedElement
 }
 
 func GetField(node *StructType, name string) *FieldType {
@@ -528,6 +573,8 @@ func GetField(node *StructType, name string) *FieldType {
 func ResolveType(ref ASTTypeRef) DubType {
 	switch ref := ref.(type) {
 	case *TypeRef:
+		return ref.T
+	case *QualifiedTypeRef:
 		return ref.T
 	case *ListTypeRef:
 		return ref.T
@@ -632,8 +679,35 @@ type semanticPassContext struct {
 	Status         framework.Status
 }
 
+func resolveImport(ctx *semanticPassContext, imp *ImportDecl) {
+	path := imp.Path.Value
+	parts := strings.Split(path, "/")
+
+	// HACK O(n^2)
+	for _, other := range ctx.ModuleContexts {
+		otherPath := other.Module.Path
+		found := strings.Join(otherPath, "/") == path
+		if found {
+			name := parts[len(parts)-1]
+			// HACK should use file-local namespace.
+			_, exists := ctx.Module.Namespace[name]
+			if exists {
+				ctx.Status.Error(fmt.Sprintf("Tried to redefine %s", name))
+			} else {
+				ctx.Module.Namespace[name] = &NamedPackage{Scope: other.Module}
+			}
+			return
+		}
+	}
+	ctx.Status.Error(fmt.Sprintf("cannot find module %s", path))
+}
+
 func indexModule(ctx *semanticPassContext, pkg *Package) {
 	for _, file := range pkg.Files {
+		for _, imp := range file.Imports {
+			resolveImport(ctx, imp)
+		}
+
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
 			case *FuncDecl:
@@ -698,8 +772,9 @@ func semanticModulePass(ctx *semanticPassContext, pkg *Package) {
 func SemanticPass(program *Program, status framework.Status) {
 	programScope := MakeProgramScope(program)
 	ctxs := make([]*semanticPassContext, len(program.Packages))
-	for i := 0; i < len(program.Packages); i++ {
+	for i, pkg := range program.Packages {
 		moduleScope := &ModuleScope{
+			Path:      pkg.Path,
 			Namespace: map[string]namedElement{},
 		}
 		ctxs[i] = &semanticPassContext{

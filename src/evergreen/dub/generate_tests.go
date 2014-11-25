@@ -381,42 +381,6 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	return decl
 }
 
-func ExternTestingPackage() (*dst.Package, *dst.StructDecl) {
-	t := &dst.StructDecl{
-		Name: "T",
-	}
-	pkg := &dst.Package{
-		Extern: true,
-		Path:   []string{"testing"},
-		Files: []*dst.File{
-			&dst.File{
-				Decls: []dst.Decl{
-					t,
-				},
-			},
-		},
-	}
-	return pkg, t
-}
-
-func ExternRuntimePackage() (*dst.Package, *dst.StructDecl) {
-	t := &dst.StructDecl{
-		Name: "State",
-	}
-	pkg := &dst.Package{
-		Extern: true,
-		Path:   []string{"evergreen", "dub", "runtime"},
-		Files: []*dst.File{
-			&dst.File{
-				Decls: []dst.Decl{
-					t,
-				},
-			},
-		},
-	}
-	return pkg, t
-}
-
 func GenerateTests(leaf string, tests []*tree.Test, gbuilder *GlobalDubBuilder, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
 	_, index := flow.ExternBuiltinRuntime()
 	ctx := &TestingContext{gbuilder: gbuilder, link: link, t: t, stateT: stateT, index: index}

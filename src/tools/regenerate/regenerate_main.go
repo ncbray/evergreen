@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
-	"strings"
 	"sync"
 )
 
@@ -57,8 +56,10 @@ func CreateIOManager() *IOManager {
 	return manager
 }
 
-func makeBuilder(index *tree.BuiltinTypeIndex) *dub.GlobalDubBuilder {
+func makeBuilder(program *tree.Program) *dub.GlobalDubBuilder {
 	gbuilder := &dub.GlobalDubBuilder{Types: map[tree.DubType]flow.DubType{}}
+
+	index := program.Builtins
 
 	gbuilder.String = &flow.IntrinsicType{Name: "string"}
 	gbuilder.Types[index.String] = gbuilder.String
@@ -78,85 +79,104 @@ func makeBuilder(index *tree.BuiltinTypeIndex) *dub.GlobalDubBuilder {
 	gbuilder.Graph = &flow.IntrinsicType{Name: "graph"}
 	gbuilder.Types[index.Graph] = gbuilder.Graph
 
-	return gbuilder
-}
-
-func processDub(status framework.Status, p framework.LocationProvider, manager *IOManager, program *tree.Program, pkg *tree.Package) {
-	fmt.Printf("Processing %s\n", strings.Join(pkg.Path, "."))
-
-	gbuilder := makeBuilder(program.Builtins)
-
 	// Preallocate the translated structures.
-	for _, file := range pkg.Files {
-		for _, decl := range file.Decls {
-			switch decl := decl.(type) {
-			case *tree.FuncDecl:
-			case *tree.StructDecl:
-				gbuilder.Types[decl.T] = &flow.LLStruct{}
-			default:
-				panic(decl)
+	for _, pkg := range program.Packages {
+		for _, file := range pkg.Files {
+			for _, decl := range file.Decls {
+				switch decl := decl.(type) {
+				case *tree.FuncDecl:
+				case *tree.StructDecl:
+					gbuilder.Types[decl.T] = &flow.LLStruct{}
+				default:
+					panic(decl)
+				}
 			}
 		}
 	}
+	return gbuilder
+}
 
-	structs := []*flow.LLStruct{}
-	funcs := []*flow.LLFunc{}
-	tests := []*tree.Test{}
+type DubPackage struct {
+	Path    []string
+	Structs []*flow.LLStruct
+	Funcs   []*flow.LLFunc
+	Tests   []*tree.Test
+}
 
+func lowerPackage(gbuilder *dub.GlobalDubBuilder, pkg *tree.Package) *DubPackage {
+	dubPkg := &DubPackage{
+		Path:    pkg.Path,
+		Structs: []*flow.LLStruct{},
+		Funcs:   []*flow.LLFunc{},
+		Tests:   []*tree.Test{},
+	}
+
+	// Lower to flow IR
 	for _, file := range pkg.Files {
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
 			case *tree.FuncDecl:
 				f := dub.LowerAST(decl, gbuilder)
 				flow.SSI(f)
-				funcs = append(funcs, f)
-
-				if dump {
-					styler := &flow.DotStyler{Decl: f}
-					dot := base.GraphToDot(f.CFG, styler)
-					parts := []string{"output"}
-					parts = append(parts, pkg.Path...)
-					parts = append(parts, fmt.Sprintf("%s.svg", f.Name))
-					outfile := filepath.Join(parts...)
-					manager.Create()
-					go func(dot string, outfile string) {
-						manager.Aquire()
-						defer manager.Release()
-
-						// Dump flowgraph
-						io.WriteDot(dot, outfile)
-					}(dot, outfile)
-				}
+				dubPkg.Funcs = append(dubPkg.Funcs, f)
 			case *tree.StructDecl:
 				t, _ := gbuilder.Types[decl.T]
 				s, _ := t.(*flow.LLStruct)
-				structs = append(structs, dub.LowerStruct(decl, s, gbuilder))
+				dubPkg.Structs = append(dubPkg.Structs, dub.LowerStruct(decl, s, gbuilder))
 			default:
 				panic(decl)
 			}
 		}
-		tests = append(tests, file.Tests...)
+		dubPkg.Tests = append(dubPkg.Tests, file.Tests...)
 	}
 
-	// Analysis
-	for _, s := range structs {
-		if s.Implements != nil {
-			s.Implements.Abstract = true
-		}
-	}
-
-	GenerateGo(pkg.Path, structs, funcs, tests, gbuilder)
+	return dubPkg
 }
 
-func GenerateGo(original_path []string, structs []*flow.LLStruct, funcs []*flow.LLFunc, tests []*tree.Test, gbuilder *dub.GlobalDubBuilder) {
+func lowerProgram(gbuilder *dub.GlobalDubBuilder, program *tree.Program) []*DubPackage {
+	dubPackages := []*DubPackage{}
+	for _, pkg := range program.Packages {
+		dubPackages = append(dubPackages, lowerPackage(gbuilder, pkg))
+	}
+	return dubPackages
+}
+
+func dumpProgram(manager *IOManager, program []*DubPackage) {
+	for _, dubPkg := range program {
+		for _, f := range dubPkg.Funcs {
+			styler := &flow.DotStyler{Decl: f}
+			dot := base.GraphToDot(f.CFG, styler)
+			parts := []string{"output"}
+			parts = append(parts, dubPkg.Path...)
+			parts = append(parts, fmt.Sprintf("%s.svg", f.Name))
+			outfile := filepath.Join(parts...)
+			manager.Create()
+			go func(dot string, outfile string) {
+				manager.Aquire()
+				defer manager.Release()
+
+				// Dump flowgraph
+				io.WriteDot(dot, outfile)
+			}(dot, outfile)
+		}
+	}
+}
+
+func analyizeProgram(program []*DubPackage) {
+	for _, dubPkg := range program {
+		for _, s := range dubPkg.Structs {
+			if s.Implements != nil {
+				s.Implements.Abstract = true
+			}
+		}
+	}
+}
+
+func GenerateGo(program []*DubPackage, gbuilder *dub.GlobalDubBuilder) {
 	root := "generated"
 	if replace {
 		root = "evergreen"
 	}
-
-	path := []string{root}
-	path = append(path, original_path...)
-	leaf := path[len(path)-1]
 
 	link := flow.MakeLinker()
 
@@ -171,22 +191,25 @@ func GenerateGo(original_path []string, structs []*flow.LLStruct, funcs []*flow.
 	pkg, graph := flow.ExternGraph()
 	packages = append(packages, pkg)
 
-	files := []*gotree.File{}
-	files = append(files, flow.GenerateGo(leaf, structs, funcs, index, state, graph, link))
+	pkg, t := flow.ExternTestingPackage()
+	packages = append(packages, pkg)
 
-	if !replace && len(tests) != 0 {
-		pkg, t := dub.ExternTestingPackage()
-		packages = append(packages, pkg)
-		pkg, stateT := dub.ExternRuntimePackage()
-		packages = append(packages, pkg)
+	for _, dubPkg := range program {
+		path := []string{root}
+		path = append(path, dubPkg.Path...)
+		leaf := path[len(path)-1]
 
-		files = append(files, dub.GenerateTests(leaf, tests, gbuilder, t, stateT, link))
+		files := []*gotree.File{}
+		files = append(files, flow.GenerateGo(leaf, dubPkg.Structs, dubPkg.Funcs, index, state, graph, link))
+
+		if !replace && len(dubPkg.Tests) != 0 {
+			files = append(files, dub.GenerateTests(leaf, dubPkg.Tests, gbuilder, t, state, link))
+		}
+		packages = append(packages, &gotree.Package{
+			Path:  path,
+			Files: files,
+		})
 	}
-
-	packages = append(packages, &gotree.Package{
-		Path:  path,
-		Files: files,
-	})
 
 	prog := &gotree.Program{
 		Packages: packages,
@@ -209,9 +232,16 @@ func processProgram(status framework.Status, p framework.LocationProvider, manag
 	if status.ShouldHalt() {
 		return
 	}
-	for _, pkg := range program.Packages {
-		processDub(status, p, manager, program, pkg)
+	gbuilder := makeBuilder(program)
+
+	flowProgram := lowerProgram(gbuilder, program)
+
+	if dump {
+		dumpProgram(manager, flowProgram)
 	}
+
+	analyizeProgram(flowProgram)
+	GenerateGo(flowProgram, gbuilder)
 }
 
 func entryPoint(p framework.LocationProvider, status framework.Status) {

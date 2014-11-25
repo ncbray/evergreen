@@ -23,13 +23,13 @@ func (builder *GlobalDubBuilder) TranslateType(t tree.DubType) flow.DubType {
 	case *tree.StructType:
 		dt, ok := builder.Types[t]
 		if !ok {
-			panic(t)
+			panic(t.Name.Text)
 		}
 		return dt
 	case *tree.BuiltinType:
 		dt, ok := builder.Types[t]
 		if !ok {
-			panic(t)
+			panic(t.Name)
 		}
 		return dt
 	case *tree.ListType:
