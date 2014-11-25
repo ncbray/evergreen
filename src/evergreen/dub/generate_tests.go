@@ -16,7 +16,7 @@ type TestingContext struct {
 	funcDecl *dst.FuncDecl
 	tInfo    int
 	okInfo   int
-	index    *flow.BuiltinIndex
+	index    *dst.BuiltinTypeIndex
 }
 
 func (ctx *TestingContext) GetState() dst.Expr {
@@ -112,13 +112,13 @@ func translateType(ctx *TestingContext, at core.DubType) dst.Type {
 	case *core.BuiltinType:
 		switch cat.Name {
 		case "string":
-			return &dst.TypeRef{Impl: ctx.index.StringType}
+			return &dst.TypeRef{Impl: ctx.index.String}
 		case "rune":
-			return &dst.TypeRef{Impl: ctx.index.RuneType}
+			return &dst.TypeRef{Impl: ctx.index.Rune}
 		case "int":
-			return &dst.TypeRef{Impl: ctx.index.IntType}
+			return &dst.TypeRef{Impl: ctx.index.Int}
 		case "bool":
-			return &dst.TypeRef{Impl: ctx.index.BoolType}
+			return &dst.TypeRef{Impl: ctx.index.Bool}
 		default:
 			panic(cat.Name)
 		}
@@ -368,8 +368,7 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	return decl
 }
 
-func GenerateTests(leaf string, tests []*tree.Test, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
-	_, index := flow.ExternBuiltinRuntime()
+func GenerateTests(leaf string, tests []*tree.Test, index *dst.BuiltinTypeIndex, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
 	ctx := &TestingContext{link: link, t: t, stateT: stateT, index: index}
 
 	decls := []dst.Decl{}

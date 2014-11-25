@@ -425,6 +425,16 @@ type Package struct {
 	Extern bool
 }
 
+type BuiltinTypeIndex struct {
+	Int    *ExternalType
+	UInt32 *ExternalType
+	Int64  *ExternalType
+	Bool   *ExternalType
+	String *ExternalType
+	Rune   *ExternalType
+}
+
 type Program struct {
+	Builtins *BuiltinTypeIndex
 	Packages []*Package
 }

@@ -235,6 +235,16 @@ struct Package {
   Extern bool
 }
 
+struct BuiltinTypeIndex {
+  Int ExternalType
+  UInt32 ExternalType
+  Int64 ExternalType
+  Bool ExternalType
+  String ExternalType
+  Rune ExternalType
+}
+
 struct Program {
+  Builtins BuiltinTypeIndex
   Packages []Package
 }

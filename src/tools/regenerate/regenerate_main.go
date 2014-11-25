@@ -141,8 +141,7 @@ func GenerateGo(program []*DubPackage) {
 
 	packages := []*gotree.Package{}
 
-	pkg, index := flow.ExternBuiltinRuntime()
-	packages = append(packages, pkg)
+	index := flow.MakeBuiltinTypes()
 
 	pkg, state := flow.ExternParserRuntime()
 	packages = append(packages, pkg)
@@ -162,7 +161,7 @@ func GenerateGo(program []*DubPackage) {
 		files = append(files, flow.GenerateGo(leaf, dubPkg.Structs, dubPkg.Funcs, index, state, graph, link))
 
 		if !replace && len(dubPkg.Tests) != 0 {
-			files = append(files, dub.GenerateTests(leaf, dubPkg.Tests, t, state, link))
+			files = append(files, dub.GenerateTests(leaf, dubPkg.Tests, index, t, state, link))
 		}
 		packages = append(packages, &gotree.Package{
 			Path:  path,
@@ -171,6 +170,7 @@ func GenerateGo(program []*DubPackage) {
 	}
 
 	prog := &gotree.Program{
+		Builtins: index,
 		Packages: packages,
 	}
 

@@ -165,7 +165,7 @@ func intLiteral(value int) ast.Expr {
 // End AST construction wrappers
 
 type DubToGoContext struct {
-	index *BuiltinIndex
+	index *ast.BuiltinTypeIndex
 	state *ast.StructDecl
 	graph *ast.StructDecl
 	link  DubToGoLinker
@@ -247,17 +247,17 @@ func goTypeName(t core.DubType, ctx *DubToGoContext) ast.Type {
 	case *core.BuiltinType:
 		switch t.Name {
 		case "bool":
-			return &ast.TypeRef{Impl: ctx.index.BoolType}
+			return &ast.TypeRef{Impl: ctx.index.Bool}
 		case "int":
-			return &ast.TypeRef{Impl: ctx.index.IntType}
+			return &ast.TypeRef{Impl: ctx.index.Int}
 		case "uint32":
-			return &ast.TypeRef{Impl: ctx.index.UInt32Type}
+			return &ast.TypeRef{Impl: ctx.index.UInt32}
 		case "int64":
-			return &ast.TypeRef{Impl: ctx.index.Int64Type}
+			return &ast.TypeRef{Impl: ctx.index.Int64}
 		case "rune":
-			return &ast.TypeRef{Impl: ctx.index.RuneType}
+			return &ast.TypeRef{Impl: ctx.index.Rune}
 		case "string":
-			return &ast.TypeRef{Impl: ctx.index.StringType}
+			return &ast.TypeRef{Impl: ctx.index.String}
 		case "graph":
 			return &ast.PointerType{Element: &ast.TypeRef{Impl: ctx.graph}}
 		default:
@@ -688,7 +688,7 @@ func addTags(base *core.StructType, parent *core.StructType, ctx *DubToGoContext
 func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
 	ref := &ast.TypeDef{
 		Name: subtypeName(s, REF),
-		Type: &ast.TypeRef{Impl: ctx.index.UInt32Type},
+		Type: &ast.TypeRef{Impl: ctx.index.UInt32},
 	}
 	ctx.link.ForwardType(s, REF, ref)
 
@@ -828,51 +828,18 @@ func ExternGraph() (*ast.Package, *ast.StructDecl) {
 	return pkg, graph
 }
 
-type BuiltinIndex struct {
-	IntType    ast.TypeImpl
-	UInt32Type ast.TypeImpl
-	Int64Type  ast.TypeImpl
-	BoolType   ast.TypeImpl
-	StringType ast.TypeImpl
-	RuneType   ast.TypeImpl
+func MakeBuiltinTypes() *ast.BuiltinTypeIndex {
+	return &ast.BuiltinTypeIndex{
+		Int:    &ast.ExternalType{Name: "int"},
+		UInt32: &ast.ExternalType{Name: "uint32"},
+		Int64:  &ast.ExternalType{Name: "int64"},
+		Bool:   &ast.ExternalType{Name: "bool"},
+		String: &ast.ExternalType{Name: "string"},
+		Rune:   &ast.ExternalType{Name: "rune"},
+	}
 }
 
-func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
-	intType := &ast.ExternalType{Name: "int"}
-	uInt32Type := &ast.ExternalType{Name: "uint32"}
-	int64Type := &ast.ExternalType{Name: "int64"}
-
-	boolType := &ast.ExternalType{Name: "bool"}
-	stringType := &ast.ExternalType{Name: "string"}
-	runeType := &ast.ExternalType{Name: "rune"}
-
-	pkg := &ast.Package{
-		Extern: true,
-		Path:   []string{},
-		Files: []*ast.File{
-			&ast.File{
-				Decls: []ast.Decl{
-					intType,
-					uInt32Type,
-					boolType,
-					stringType,
-					runeType,
-				},
-			},
-		},
-	}
-	index := &BuiltinIndex{
-		IntType:    intType,
-		UInt32Type: uInt32Type,
-		Int64Type:  int64Type,
-		BoolType:   boolType,
-		StringType: stringType,
-		RuneType:   runeType,
-	}
-	return pkg, index
-}
-
-func GenerateGo(package_name string, structs []*core.StructType, funcs []*LLFunc, index *BuiltinIndex, state *ast.StructDecl, graph *ast.StructDecl, link DubToGoLinker) *ast.File {
+func GenerateGo(package_name string, structs []*core.StructType, funcs []*LLFunc, index *ast.BuiltinTypeIndex, state *ast.StructDecl, graph *ast.StructDecl, link DubToGoLinker) *ast.File {
 	ctx := &DubToGoContext{
 		index: index,
 		state: state,
