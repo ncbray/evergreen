@@ -2,6 +2,7 @@ package flow
 
 import (
 	"evergreen/base"
+	core "evergreen/dub/tree"
 	ast "evergreen/go/tree"
 	"fmt"
 )
@@ -13,8 +14,8 @@ const (
 )
 
 type DubToGoLinker interface {
-	TypeRef(s *LLStruct, subtype int) *ast.TypeRef
-	ForwardType(s *LLStruct, subtype int, impl ast.TypeImpl)
+	TypeRef(s *core.StructType, subtype int) *ast.TypeRef
+	ForwardType(s *core.StructType, subtype int, impl ast.TypeImpl)
 	Finish()
 }
 
@@ -24,10 +25,10 @@ type linkElement struct {
 }
 
 type linkerImpl struct {
-	types []map[*LLStruct]*linkElement
+	types []map[*core.StructType]*linkElement
 }
 
-func (l *linkerImpl) get(s *LLStruct, subtype int) *linkElement {
+func (l *linkerImpl) get(s *core.StructType, subtype int) *linkElement {
 	e, ok := l.types[subtype][s]
 	if !ok {
 		e = &linkElement{}
@@ -36,14 +37,14 @@ func (l *linkerImpl) get(s *LLStruct, subtype int) *linkElement {
 	return e
 }
 
-func (l *linkerImpl) TypeRef(s *LLStruct, subtype int) *ast.TypeRef {
+func (l *linkerImpl) TypeRef(s *core.StructType, subtype int) *ast.TypeRef {
 	r := &ast.TypeRef{Name: subtypeName(s, subtype)}
 	e := l.get(s, subtype)
 	e.refs = append(e.refs, r)
 	return r
 }
 
-func (l *linkerImpl) ForwardType(s *LLStruct, subtype int, impl ast.TypeImpl) {
+func (l *linkerImpl) ForwardType(s *core.StructType, subtype int, impl ast.TypeImpl) {
 	e := l.get(s, subtype)
 	e.impl = impl
 }
@@ -63,17 +64,17 @@ func (l *linkerImpl) Finish() {
 }
 
 func MakeLinker() DubToGoLinker {
-	types := []map[*LLStruct]*linkElement{}
+	types := []map[*core.StructType]*linkElement{}
 	for i := 0; i < 3; i++ {
-		types = append(types, map[*LLStruct]*linkElement{})
+		types = append(types, map[*core.StructType]*linkElement{})
 	}
 	return &linkerImpl{
 		types: types,
 	}
 }
 
-func subtypeName(s *LLStruct, subtype int) string {
-	name := s.Name
+func subtypeName(s *core.StructType, subtype int) string {
+	name := s.Name.Text
 	switch subtype {
 	case STRUCT:
 		// Nothing
@@ -229,21 +230,21 @@ func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []RegisterInfo_Ref) ast
 	}
 }
 
-func goFieldType(t DubType, ctx *DubToGoContext) ast.Type {
+func goFieldType(t core.DubType, ctx *DubToGoContext) ast.Type {
 	switch t := t.(type) {
-	case *LLStruct:
+	case *core.StructType:
 		if t.Scoped {
 			return ctx.link.TypeRef(t, REF)
 		}
-	case *ListType:
+	case *core.ListType:
 		return &ast.SliceType{Element: goFieldType(t.Type, ctx)}
 	}
 	return goTypeName(t, ctx)
 }
 
-func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
+func goTypeName(t core.DubType, ctx *DubToGoContext) ast.Type {
 	switch t := t.(type) {
-	case *IntrinsicType:
+	case *core.BuiltinType:
 		switch t.Name {
 		case "bool":
 			return &ast.TypeRef{Impl: ctx.index.BoolType}
@@ -262,11 +263,11 @@ func goTypeName(t DubType, ctx *DubToGoContext) ast.Type {
 		default:
 			panic(t.Name)
 		}
-	case *ListType:
+	case *core.ListType:
 		return &ast.SliceType{Element: goTypeName(t.Type, ctx)}
-	case *LLStruct:
+	case *core.StructType:
 		out := ctx.link.TypeRef(t, STRUCT)
-		if t.Abstract {
+		if t.IsParent {
 			return out
 		} else {
 			return &ast.PointerType{Element: out}
@@ -664,11 +665,11 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 	return funcDecl
 }
 
-func tagName(s *LLStruct) string {
-	return fmt.Sprintf("is%s", s.Name)
+func tagName(s *core.StructType) string {
+	return fmt.Sprintf("is%s", s.Name.Text)
 }
 
-func addTags(base *LLStruct, parent *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
+func addTags(base *core.StructType, parent *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
 	if parent != nil {
 		decls = addTags(base, parent.Implements, ctx, decls)
 		decl := &ast.FuncDecl{
@@ -684,7 +685,7 @@ func addTags(base *LLStruct, parent *LLStruct, ctx *DubToGoContext, decls []ast.
 	return decls
 }
 
-func GenerateScopeHelpers(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
+func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
 	ref := &ast.TypeDef{
 		Name: subtypeName(s, REF),
 		Type: &ast.TypeRef{Impl: ctx.index.UInt32Type},
@@ -692,7 +693,7 @@ func GenerateScopeHelpers(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []
 	ctx.link.ForwardType(s, REF, ref)
 
 	noRef := &ast.VarDecl{
-		Name: "No" + s.Name,
+		Name: "No" + s.Name.Text,
 		Type: &ast.TypeRef{Impl: ref},
 		Expr: &ast.UnaryExpr{
 			Op: "^",
@@ -719,8 +720,8 @@ func GenerateScopeHelpers(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []
 	return decls
 }
 
-func GenerateGoStruct(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
-	if s.Abstract {
+func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
+	if s.IsParent {
 		if s.Scoped {
 			panic(s.Name)
 		}
@@ -735,7 +736,7 @@ func GenerateGoStruct(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.
 		}
 
 		impl := &ast.InterfaceDecl{
-			Name:   s.Name,
+			Name:   s.Name.Text,
 			Fields: fields,
 		}
 		ctx.link.ForwardType(s, STRUCT, impl)
@@ -748,8 +749,8 @@ func GenerateGoStruct(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.
 		fields := []*ast.Field{}
 		for _, f := range s.Fields {
 			fields = append(fields, &ast.Field{
-				Name: f.Name,
-				Type: goFieldType(f.T, ctx),
+				Name: f.Name.Text,
+				Type: goFieldType(f.Type, ctx),
 			})
 		}
 		for _, c := range s.Contains {
@@ -763,7 +764,7 @@ func GenerateGoStruct(s *LLStruct, ctx *DubToGoContext, decls []ast.Decl) []ast.
 		}
 
 		impl := &ast.StructDecl{
-			Name:   s.Name,
+			Name:   s.Name.Text,
 			Fields: fields,
 		}
 		ctx.link.ForwardType(s, STRUCT, impl)
@@ -871,7 +872,7 @@ func ExternBuiltinRuntime() (*ast.Package, *BuiltinIndex) {
 	return pkg, index
 }
 
-func GenerateGo(package_name string, structs []*LLStruct, funcs []*LLFunc, index *BuiltinIndex, state *ast.StructDecl, graph *ast.StructDecl, link DubToGoLinker) *ast.File {
+func GenerateGo(package_name string, structs []*core.StructType, funcs []*LLFunc, index *BuiltinIndex, state *ast.StructDecl, graph *ast.StructDecl, link DubToGoLinker) *ast.File {
 	ctx := &DubToGoContext{
 		index: index,
 		state: state,

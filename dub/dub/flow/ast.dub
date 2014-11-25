@@ -2,39 +2,14 @@ import (
   "dub/tree"
 )
 
-struct DubType {
-}
-
-struct IntrinsicType implements DubType {
-  Name string
-}
-
-struct ListType implements DubType {
-  Type DubType
-}
-
-struct LLField {
-  Name string
-  T DubType
-}
-
-struct LLStruct implements DubType {
-  Name string
-  Implements LLStruct
-  Abstract bool
-  Fields []LLField
-  Scoped bool
-  Contains []LLStruct
-}
-
 struct RegisterInfo scoped {
-  T DubType
+  T tree.DubType
 }
 
 struct LLFunc contains(RegisterInfo) {
   Name string
   Params []RegisterInfo
-  ReturnTypes []DubType
+  ReturnTypes []tree.DubType
   CFG graph
   Ops []DubOp
 }
@@ -44,7 +19,7 @@ struct DubOp {
 
 struct CoerceOp implements DubOp {
   Src RegisterInfo
-  T DubType
+  T tree.DubType
   Dst RegisterInfo
 }
 
@@ -97,13 +72,13 @@ struct KeyValue {
 }
 
 struct ConstructOp implements DubOp {
-  Type LLStruct
+  Type tree.StructType
   Args []KeyValue
   Dst RegisterInfo
 }
 
 struct ConstructListOp implements DubOp {
-  Type ListType
+  Type tree.ListType
   Args []RegisterInfo
   Dst RegisterInfo
 }

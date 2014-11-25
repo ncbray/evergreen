@@ -4,41 +4,18 @@ import (
 	"evergreen/base"
 	"evergreen/dub/flow"
 	"evergreen/dub/tree"
+	core "evergreen/dub/tree"
 )
 
 const REGION_EXITS = 4
 
 type GlobalDubBuilder struct {
-	Types  map[tree.DubType]flow.DubType
-	String flow.DubType
-	Rune   flow.DubType
-	Int    flow.DubType
-	Int64  flow.DubType
-	Bool   flow.DubType
-	Graph  flow.DubType
-}
-
-func (builder *GlobalDubBuilder) TranslateType(t tree.DubType) flow.DubType {
-	switch t := t.(type) {
-	case *tree.StructType:
-		dt, ok := builder.Types[t]
-		if !ok {
-			panic(t.Name.Text)
-		}
-		return dt
-	case *tree.BuiltinType:
-		dt, ok := builder.Types[t]
-		if !ok {
-			panic(t.Name)
-		}
-		return dt
-	case *tree.ListType:
-		parent := builder.TranslateType(t.Type)
-		// TODO memoize
-		return &flow.ListType{Type: parent}
-	default:
-		panic(t)
-	}
+	String core.DubType
+	Rune   core.DubType
+	Int    core.DubType
+	Int64  core.DubType
+	Bool   core.DubType
+	Graph  core.DubType
 }
 
 type DubBuilder struct {
@@ -59,11 +36,11 @@ func (builder *DubBuilder) EmitOp(op flow.DubOp) base.NodeID {
 	return id
 }
 
-func (builder *DubBuilder) CreateRegister(t tree.DubType) flow.RegisterInfo_Ref {
-	return builder.CreateLLRegister(builder.glbl.TranslateType(t))
+func (builder *DubBuilder) CreateRegister(t core.DubType) flow.RegisterInfo_Ref {
+	return builder.CreateLLRegister(t)
 }
 
-func (builder *DubBuilder) CreateLLRegister(t flow.DubType) flow.RegisterInfo_Ref {
+func (builder *DubBuilder) CreateLLRegister(t core.DubType) flow.RegisterInfo_Ref {
 	info := &flow.RegisterInfo{T: t}
 	return builder.flow.RegisterInfo_Scope.Register(info)
 }
@@ -71,9 +48,9 @@ func (builder *DubBuilder) CreateLLRegister(t flow.DubType) flow.RegisterInfo_Re
 func (builder *DubBuilder) ZeroRegister(dst flow.RegisterInfo_Ref) flow.DubOp {
 	info := builder.flow.RegisterInfo_Scope.Get(dst)
 	switch t := info.T.(type) {
-	case *flow.LLStruct:
+	case *core.StructType:
 		return &flow.ConstantNilOp{Dst: dst}
-	case *flow.IntrinsicType:
+	case *core.BuiltinType:
 		// TODO switch on object identity
 		switch t.Name {
 		case "rune":
@@ -537,8 +514,8 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 				Value: lowerExpr(arg.Expr, builder, true, gr),
 			}
 		}
-		t := builder.glbl.TranslateType(tree.ResolveType(expr.Type))
-		s, ok := t.(*flow.LLStruct)
+		t := tree.ResolveType(expr.Type)
+		s, ok := t.(*core.StructType)
 		if !ok {
 			panic(t)
 		}
@@ -556,8 +533,8 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		for i, arg := range expr.Args {
 			args[i] = lowerExpr(arg, builder, true, gr)
 		}
-		t := builder.glbl.TranslateType(tree.ResolveType(expr.Type))
-		l, ok := t.(*flow.ListType)
+		t := tree.ResolveType(expr.Type)
+		l, ok := t.(*core.ListType)
 		if !ok {
 			panic(t)
 		}
@@ -571,7 +548,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		return dst
 
 	case *tree.Coerce:
-		t := builder.glbl.TranslateType(tree.ResolveType(expr.Type))
+		t := tree.ResolveType(expr.Type)
 		src := lowerExpr(expr.Expr, builder, true, gr)
 		dst := flow.NoRegisterInfo
 		if used {
@@ -680,9 +657,9 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 	f.Params = params
 
 	// Function returns
-	types := make([]flow.DubType, len(decl.ReturnTypes))
+	types := make([]core.DubType, len(decl.ReturnTypes))
 	for i, node := range decl.ReturnTypes {
-		types[i] = builder.glbl.TranslateType(tree.ResolveType(node))
+		types[i] = tree.ResolveType(node)
 	}
 	f.ReturnTypes = types
 
@@ -704,42 +681,4 @@ func LowerAST(decl *tree.FuncDecl, glbl *GlobalDubBuilder) *flow.LLFunc {
 	f.CFG = g
 	f.Ops = builder.ops
 	return f
-}
-
-func LowerStruct(decl *tree.StructDecl, s *flow.LLStruct, gbuilder *GlobalDubBuilder) *flow.LLStruct {
-	fields := []*flow.LLField{}
-	var implements *flow.LLStruct
-
-	contains := []*flow.LLStruct{}
-	for _, t := range decl.Contains {
-		tt := gbuilder.TranslateType(tree.ResolveType(t))
-		contained, ok := tt.(*flow.LLStruct)
-		if !ok {
-			panic(tt)
-		}
-		contains = append(contains, contained)
-
-	}
-	if decl.Implements != nil {
-		t := gbuilder.TranslateType(tree.ResolveType(decl.Implements))
-		var ok bool
-		implements, ok = t.(*flow.LLStruct)
-		if !ok {
-			panic(t)
-		}
-	}
-	for _, field := range decl.Fields {
-		fields = append(fields, &flow.LLField{
-			Name: field.Name.Text,
-			T:    gbuilder.TranslateType(tree.ResolveType(field.Type)),
-		})
-	}
-	*s = flow.LLStruct{
-		Name:       decl.Name.Text,
-		Implements: implements,
-		Fields:     fields,
-		Scoped:     decl.Scoped,
-		Contains:   contains,
-	}
-	return s
 }

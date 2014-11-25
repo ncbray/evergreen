@@ -5,6 +5,7 @@ import (
 	"evergreen/dub"
 	"evergreen/dub/flow"
 	"evergreen/dub/tree"
+	core "evergreen/dub/tree"
 	"evergreen/framework"
 	gotree "evergreen/go/tree"
 	"evergreen/io"
@@ -57,48 +58,23 @@ func CreateIOManager() *IOManager {
 }
 
 func makeBuilder(program *tree.Program) *dub.GlobalDubBuilder {
-	gbuilder := &dub.GlobalDubBuilder{Types: map[tree.DubType]flow.DubType{}}
+	gbuilder := &dub.GlobalDubBuilder{}
 
 	index := program.Builtins
 
-	gbuilder.String = &flow.IntrinsicType{Name: "string"}
-	gbuilder.Types[index.String] = gbuilder.String
+	gbuilder.String = index.String
+	gbuilder.Rune = index.Rune
+	gbuilder.Int = index.Int
+	gbuilder.Int64 = index.Int64
+	gbuilder.Bool = index.Bool
+	gbuilder.Graph = index.Graph
 
-	gbuilder.Rune = &flow.IntrinsicType{Name: "rune"}
-	gbuilder.Types[index.Rune] = gbuilder.Rune
-
-	gbuilder.Int = &flow.IntrinsicType{Name: "int"}
-	gbuilder.Types[index.Int] = gbuilder.Int
-
-	gbuilder.Int64 = &flow.IntrinsicType{Name: "int64"}
-	gbuilder.Types[index.Int64] = gbuilder.Int64
-
-	gbuilder.Bool = &flow.IntrinsicType{Name: "bool"}
-	gbuilder.Types[index.Bool] = gbuilder.Bool
-
-	gbuilder.Graph = &flow.IntrinsicType{Name: "graph"}
-	gbuilder.Types[index.Graph] = gbuilder.Graph
-
-	// Preallocate the translated structures.
-	for _, pkg := range program.Packages {
-		for _, file := range pkg.Files {
-			for _, decl := range file.Decls {
-				switch decl := decl.(type) {
-				case *tree.FuncDecl:
-				case *tree.StructDecl:
-					gbuilder.Types[decl.T] = &flow.LLStruct{}
-				default:
-					panic(decl)
-				}
-			}
-		}
-	}
 	return gbuilder
 }
 
 type DubPackage struct {
 	Path    []string
-	Structs []*flow.LLStruct
+	Structs []*core.StructType
 	Funcs   []*flow.LLFunc
 	Tests   []*tree.Test
 }
@@ -106,7 +82,7 @@ type DubPackage struct {
 func lowerPackage(gbuilder *dub.GlobalDubBuilder, pkg *tree.Package) *DubPackage {
 	dubPkg := &DubPackage{
 		Path:    pkg.Path,
-		Structs: []*flow.LLStruct{},
+		Structs: []*core.StructType{},
 		Funcs:   []*flow.LLFunc{},
 		Tests:   []*tree.Test{},
 	}
@@ -120,9 +96,7 @@ func lowerPackage(gbuilder *dub.GlobalDubBuilder, pkg *tree.Package) *DubPackage
 				flow.SSI(f)
 				dubPkg.Funcs = append(dubPkg.Funcs, f)
 			case *tree.StructDecl:
-				t, _ := gbuilder.Types[decl.T]
-				s, _ := t.(*flow.LLStruct)
-				dubPkg.Structs = append(dubPkg.Structs, dub.LowerStruct(decl, s, gbuilder))
+				dubPkg.Structs = append(dubPkg.Structs, decl.T)
 			default:
 				panic(decl)
 			}
@@ -166,7 +140,7 @@ func analyizeProgram(program []*DubPackage) {
 	for _, dubPkg := range program {
 		for _, s := range dubPkg.Structs {
 			if s.Implements != nil {
-				s.Implements.Abstract = true
+				s.Implements.IsParent = true
 			}
 		}
 	}

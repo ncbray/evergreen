@@ -23,4 +23,5 @@ struct StructType implements DubType {
   Fields []FieldType
   Scoped bool
   Contains []StructType
+  IsParent bool
 }

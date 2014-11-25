@@ -3,6 +3,7 @@ package dub
 import (
 	"evergreen/dub/flow"
 	"evergreen/dub/tree"
+	core "evergreen/dub/tree"
 	dst "evergreen/go/tree"
 	"fmt"
 )
@@ -98,23 +99,18 @@ func checkNE(x dst.Expr, y dst.Expr) dst.Expr {
 	}
 }
 
-func translateType(ctx *TestingContext, t tree.DubType) dst.Type {
-	at := ctx.gbuilder.TranslateType(t)
-	return translateTypeInternal(ctx, at)
-}
-
-func translateTypeInternal(ctx *TestingContext, at flow.DubType) dst.Type {
+func translateType(ctx *TestingContext, at core.DubType) dst.Type {
 	switch cat := at.(type) {
-	case *flow.LLStruct:
+	case *core.StructType:
 		ref := ctx.link.TypeRef(cat, flow.STRUCT)
-		if cat.Abstract {
+		if cat.IsParent {
 			return ref
 		} else {
 			return &dst.PointerType{Element: ref}
 		}
-	case *flow.ListType:
-		return &dst.SliceType{Element: translateTypeInternal(ctx, cat.Type)}
-	case *flow.IntrinsicType:
+	case *core.ListType:
+		return &dst.SliceType{Element: translateType(ctx, cat.Type)}
+	case *core.BuiltinType:
 		switch cat.Name {
 		case "string":
 			return &dst.TypeRef{Impl: ctx.index.StringType}
@@ -132,32 +128,24 @@ func translateTypeInternal(ctx *TestingContext, at flow.DubType) dst.Type {
 	}
 }
 
-func generateDestructure(value int, nameX string, path string, d tree.Destructure, general tree.DubType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
+func generateDestructure(value int, nameX string, path string, d tree.Destructure, generalType core.DubType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
 	switch d := d.(type) {
 	case *tree.DestructureStruct:
 		actual_value := value
 
-		t := tree.ResolveType(d.Type)
-		dt, ok := t.(*tree.StructType)
+		actualType := tree.ResolveType(d.Type)
+		structType, ok := actualType.(*core.StructType)
 		if !ok {
-			panic(t)
+			panic(actualType)
 		}
 
-		at := ctx.gbuilder.TranslateType(t)
-		gt := ctx.gbuilder.TranslateType(general)
-
-		//cat, ok := at.(*flow.LLStruct)
-		//if !ok {
-		//	panic(at)
-		//}
-
-		if gt != at {
+		if generalType != actualType {
 			actual_name := fmt.Sprintf("typed_%s", nameX)
 
-			lref := translateType(ctx, t)
+			lref := translateType(ctx, actualType)
 			actual_value = ctx.funcDecl.CreateLocalInfo(actual_name, lref)
 
-			ref := translateType(ctx, t)
+			ref := translateType(ctx, actualType)
 			stmts = append(stmts, &dst.Assign{
 				Targets: []dst.Target{
 					// HACK
@@ -175,7 +163,7 @@ func generateDestructure(value int, nameX string, path string, d tree.Destructur
 			})
 			stmts = append(stmts, ctx.makeFatalTest(
 				&dst.UnaryExpr{Op: "!", Expr: ctx.funcDecl.MakeGetLocal(ctx.okInfo)},
-				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, dt.Name.Text),
+				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, structType.Name.Text),
 				ctx.funcDecl.MakeGetLocal(value),
 			))
 		}
@@ -188,7 +176,7 @@ func generateDestructure(value int, nameX string, path string, d tree.Destructur
 			child_name := fmt.Sprintf("%s_%s", nameX, fn)
 			child_path := fmt.Sprintf("%s.%s", path, fn)
 
-			f := tree.GetField(dt, fn)
+			f := tree.GetField(structType, fn)
 			t := f.Type
 
 			child_value := ctx.funcDecl.CreateLocalInfo(child_name, translateType(ctx, t))

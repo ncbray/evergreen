@@ -2,42 +2,8 @@ package flow
 
 import (
 	"evergreen/base"
+	"evergreen/dub/tree"
 )
-
-type DubType interface {
-	isDubType()
-}
-
-type IntrinsicType struct {
-	Name string
-}
-
-func (node *IntrinsicType) isDubType() {
-}
-
-type ListType struct {
-	Type DubType
-}
-
-func (node *ListType) isDubType() {
-}
-
-type LLField struct {
-	Name string
-	T    DubType
-}
-
-type LLStruct struct {
-	Name       string
-	Implements *LLStruct
-	Abstract   bool
-	Fields     []*LLField
-	Scoped     bool
-	Contains   []*LLStruct
-}
-
-func (node *LLStruct) isDubType() {
-}
 
 type RegisterInfo_Ref uint32
 
@@ -48,13 +14,13 @@ type RegisterInfo_Scope struct {
 }
 
 type RegisterInfo struct {
-	T DubType
+	T tree.DubType
 }
 
 type LLFunc struct {
 	Name               string
 	Params             []RegisterInfo_Ref
-	ReturnTypes        []DubType
+	ReturnTypes        []tree.DubType
 	CFG                *base.Graph
 	Ops                []DubOp
 	RegisterInfo_Scope *RegisterInfo_Scope
@@ -66,7 +32,7 @@ type DubOp interface {
 
 type CoerceOp struct {
 	Src RegisterInfo_Ref
-	T   DubType
+	T   tree.DubType
 	Dst RegisterInfo_Ref
 }
 
@@ -146,7 +112,7 @@ type KeyValue struct {
 }
 
 type ConstructOp struct {
-	Type *LLStruct
+	Type *tree.StructType
 	Args []*KeyValue
 	Dst  RegisterInfo_Ref
 }
@@ -155,7 +121,7 @@ func (node *ConstructOp) isDubOp() {
 }
 
 type ConstructListOp struct {
-	Type *ListType
+	Type *tree.ListType
 	Args []RegisterInfo_Ref
 	Dst  RegisterInfo_Ref
 }

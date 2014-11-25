@@ -443,6 +443,7 @@ type StructType struct {
 	Fields     []*FieldType
 	Scoped     bool
 	Contains   []*StructType
+	IsParent   bool
 }
 
 func (node *StructType) isDubType() {
