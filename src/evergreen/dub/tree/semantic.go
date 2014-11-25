@@ -236,7 +236,6 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 	case *Fail:
 		return nil
 	case *Call:
-
 		name := expr.Name.Text
 		// HACK resolve other scopes?
 		fd, ok := ctx.Module.Namespace[name]

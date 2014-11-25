@@ -11,6 +11,9 @@ func AddDef(reg RegisterInfo_Ref, node base.NodeID, defuse *base.DefUseCollector
 }
 
 func AddUse(reg RegisterInfo_Ref, node base.NodeID, defuse *base.DefUseCollector) {
+	if reg == NoRegisterInfo {
+		panic("Tried to use non-existant register.")
+	}
 	defuse.AddUse(node, int(reg))
 }
 

@@ -382,6 +382,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 				panic(expr.Targets)
 			}
 		}
+		dsts := make([]flow.RegisterInfo_Ref, len(expr.Targets))
 		for i, etgt := range expr.Targets {
 			tgt, ok := etgt.(*tree.NameRef)
 			if !ok {
@@ -391,9 +392,14 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 				continue
 			}
 			dst := builder.localMap[tgt.Local]
+			dsts[i] = dst
 			var op flow.DubOp
 			if srcs != nil {
-				op = &flow.CopyOp{Src: srcs[i], Dst: dst}
+				src := srcs[i]
+				if src == flow.NoRegisterInfo {
+					panic(expr)
+				}
+				op = &flow.CopyOp{Src: src, Dst: dst}
 			} else {
 				op = builder.ZeroRegister(dst)
 			}
@@ -401,7 +407,10 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 			gr.AttachFlow(flow.NORMAL, body)
 			gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
 		}
-		// HACK should actuall return a multivalue
+		// HACK should actually return a multivalue
+		if len(dsts) == 1 {
+			return dsts[0]
+		}
 		return flow.NoRegisterInfo
 
 	case *tree.RuneLiteral:
