@@ -356,9 +356,11 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 		lowerBlock(expr.Block, builder, block)
 
-		restore := builder.EmitOp(&flow.Recover{Src: checkpoint})
-		block.AttachFlow(flow.FAIL, restore)
-		block.RegisterExit(restore, flow.NORMAL, flow.NORMAL)
+		if block.HasFlow(flow.FAIL) {
+			restore := builder.EmitOp(&flow.Recover{Src: checkpoint})
+			block.AttachFlow(flow.FAIL, restore)
+			block.RegisterExit(restore, flow.NORMAL, flow.NORMAL)
+		}
 
 		gr.Splice(flow.NORMAL, block)
 
