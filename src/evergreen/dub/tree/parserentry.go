@@ -4,16 +4,7 @@ import (
 	"evergreen/dub/runtime"
 	"evergreen/framework"
 	"fmt"
-	"strconv"
 )
-
-func GetRuneName(stream []rune, pos int) string {
-	if pos < len(stream) {
-		return strconv.QuoteRune(stream[pos])
-	} else {
-		return "EOF"
-	}
-}
 
 func ParseDub(data []byte, offset int, status framework.Status) *File {
 	stream := []rune(string(data))
@@ -22,8 +13,8 @@ func ParseDub(data []byte, offset int, status framework.Status) *File {
 	if state.Flow == 0 {
 		return f
 	} else {
-		pos := state.Deepest
-		status.LocationError(pos, fmt.Sprintf("Unexpected %s", GetRuneName(stream, pos)))
+		pos, name := state.Deepest()
+		status.LocationError(pos, fmt.Sprintf("Unexpected %s", name))
 		return nil
 	}
 }

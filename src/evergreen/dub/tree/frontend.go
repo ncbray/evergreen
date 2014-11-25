@@ -15,7 +15,8 @@ func parsePackage(status framework.Status, p framework.LocationProvider, path []
 			status.Error("%s", err.Error())
 			return nil
 		}
-		offset := p.AddFile(filename, []rune(string(data)))
+		stream := []rune(string(data))
+		offset := p.AddFile(filename, stream)
 		files[i] = ParseDub(data, offset, status)
 
 		if status.ShouldHalt() {

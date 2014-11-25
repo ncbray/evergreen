@@ -1,5 +1,9 @@
 package runtime
 
+import (
+	"strconv"
+)
+
 // TODO flow type?
 
 const (
@@ -13,7 +17,7 @@ type State struct {
 	Index          int
 	Flow           int
 	LookaheadLevel int
-	Deepest        int
+	deepest        int
 	Offset         int
 }
 
@@ -54,8 +58,8 @@ func (state *State) Slice(start int) string {
 }
 
 func (state *State) Fail() {
-	if state.Index > state.Deepest && state.LookaheadLevel == 0 {
-		state.Deepest = state.Index
+	if state.Index > state.deepest && state.LookaheadLevel == 0 {
+		state.deepest = state.Index
 	}
 	state.Flow = FAIL
 }
@@ -75,6 +79,17 @@ func (state *State) LookaheadFail(index int) {
 	state.LookaheadLevel -= 1
 	state.Index = index
 	state.Fail()
+}
+
+func (state *State) Deepest() (int, string) {
+	pos := state.deepest
+	var name string
+	if pos < len(state.Stream) {
+		name = strconv.QuoteRune(state.Stream[pos])
+	} else {
+		name = "EOF"
+	}
+	return pos + state.Offset, name
 }
 
 // Utility function for generated tests
