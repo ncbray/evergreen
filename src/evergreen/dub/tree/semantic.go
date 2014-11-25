@@ -680,6 +680,7 @@ type semanticPassContext struct {
 }
 
 func resolveImport(ctx *semanticPassContext, imp *ImportDecl) {
+	pos := imp.Path.Pos
 	path := imp.Path.Value
 	parts := strings.Split(path, "/")
 
@@ -692,14 +693,14 @@ func resolveImport(ctx *semanticPassContext, imp *ImportDecl) {
 			// HACK should use file-local namespace.
 			_, exists := ctx.Module.Namespace[name]
 			if exists {
-				ctx.Status.Error(fmt.Sprintf("Tried to redefine %s", name))
+				ctx.Status.LocationError(pos, fmt.Sprintf("Tried to redefine %#v", name))
 			} else {
 				ctx.Module.Namespace[name] = &NamedPackage{Scope: other.Module}
 			}
 			return
 		}
 	}
-	ctx.Status.Error(fmt.Sprintf("cannot find module %s", path))
+	ctx.Status.LocationError(pos, fmt.Sprintf("cannot find module %#v", path))
 }
 
 func indexModule(ctx *semanticPassContext, pkg *Package) {

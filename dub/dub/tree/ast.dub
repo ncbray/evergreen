@@ -34,8 +34,8 @@ struct MatchLookahead implements TextMatch {
 }
 
 struct Id {
-       Pos int
-       Text string
+  Pos int
+  Text string
 }
 
 struct ASTExpr {
@@ -47,6 +47,7 @@ struct RuneLiteral implements ASTExpr {
 }
 
 struct StringLiteral implements ASTExpr {
+  Pos int
   Text string
   Value string
 }

@@ -76,6 +76,7 @@ func (node *RuneLiteral) isASTExpr() {
 }
 
 type StringLiteral struct {
+	Pos   int
 	Text  string
 	Value string
 }
@@ -1827,11 +1828,13 @@ block3:
 
 func ParseStringLiteral(frame *runtime.State) (ret0 *StringLiteral) {
 	var r0 int
-	var r1 string
+	var r1 int
+	var r2 string
 	r0 = frame.Checkpoint()
-	r1 = DecodeString(frame)
+	r1 = frame.Checkpoint()
+	r2 = DecodeString(frame)
 	if frame.Flow == 0 {
-		ret0 = &StringLiteral{Text: frame.Slice(r0), Value: r1}
+		ret0 = &StringLiteral{Pos: r0, Text: frame.Slice(r1), Value: r2}
 		return
 	}
 	return

@@ -117,11 +117,12 @@ func DecodeBool() (bool, string) {
 }
 
 func ParseStringLiteral() StringLiteral {
+  p := position;
   var value string;
   text := slice {
     value = DecodeString();
   };
-  return StringLiteral{Text: text, Value: value};
+  return StringLiteral{Pos: p, Text: text, Value: value};
 }
 
 func Literal() ASTExpr {
