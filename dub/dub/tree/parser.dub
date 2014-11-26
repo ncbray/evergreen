@@ -20,8 +20,8 @@ func EndKeyword() {
 
 func Ident() Id {
   p := position;
-  // Don't allow keywords as identifiers.
-  /!(("func"|"test"|"struct"|"star"|"plus"|"choose"|"or"|"question"|"if"|"else"|"true"|"false"|"nil") ![a-zA-Z_0-9])/;
+  // Don't al*low keywords as identifiers.
+  /!(("func"|"test"|"struct"|"implements"|"star"|"plus"|"choose"|"or"|"question"|"if"|"else"|"return"|"var"|"true"|"false"|"nil") ![a-zA-Z_0-9])/;
   text := /[a-zA-Z_][a-zA-Z_0-9]*/;
   return Id{Pos: p, Text: text};
 }
@@ -66,23 +66,23 @@ func EscapedChar() rune {
     /[']/;
     return '\'';
   } or {
-    /["]/;
-    return '"';
+    /[\"]/;
+    return '\"';
   }
 }
 
 func DecodeString() string {
-  /["]/;
+  /[\"]/;
   contents := []rune{};
   star {
     choose {
-      append(contents, $[^"\\]);
+      append(contents, $[^\"\\]);
     } or {
       /[\\]/;
       append(contents, EscapedChar());
     }
   }
-  /["]/;
+  /[\"]/;
   return coerce(string, contents);
 }
 
@@ -683,12 +683,12 @@ func ParseStructDecl() StructDecl {
     S();
   }
 
-  var implements ASTTypeRef;
+  var impl ASTTypeRef;
   question {
     /"implements"/;
     EndKeyword();
     S();
-    implements = ParseTypeRef();
+    impl = ParseTypeRef();
     S();
   }
 
@@ -705,7 +705,7 @@ func ParseStructDecl() StructDecl {
   /[}]/;
   return StructDecl{
     Name: name,
-    Implements: implements,
+    Implements: impl,
     Fields: fields,
     Scoped: scoped,
     Contains: contains
