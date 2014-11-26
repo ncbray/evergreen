@@ -1,26 +1,26 @@
-struct Type {
+struct TypeRef {
 }
 
-struct TypeRef implements Type {
+struct NameRef implements TypeRef {
   Name string
   Impl TypeImpl
 }
 
-struct PointerType implements Type {
-  Element Type
+struct PointerRef implements TypeRef {
+  Element TypeRef
 }
 
-struct SliceType implements Type {
-  Element Type
+struct SliceRef implements TypeRef {
+  Element TypeRef
 }
 
 struct Param {
   Name string
-  Type Type
+  Type TypeRef
   Info int
 }
 
-struct FuncType implements Type {
+struct FuncTypeRef implements TypeRef {
   Params []Param
   Results []Param
 }
@@ -64,13 +64,13 @@ struct StructLiteral implements Expr {
 }
 
 struct ListLiteral implements Expr {
-  Type SliceType
+  Type SliceRef
   Args []Expr
 }
 
 struct LocalInfo scoped {
   Name string
-  T Type
+  T TypeRef
 }
 
 struct GetName implements Expr {
@@ -124,11 +124,11 @@ struct Call implements Expr {
 
 struct TypeAssert implements Expr {
   Expr Expr
-  Type Type
+  Type TypeRef
 }
 
 struct TypeCoerce implements Expr {
-  Type Type
+  Type TypeRef
   Expr Expr
 }
 
@@ -141,7 +141,7 @@ struct Assign implements Stmt {
 
 struct Var implements Stmt {
   Name string
-  Type Type
+  Type TypeRef
   Expr Expr
   Info int
 }
@@ -173,7 +173,7 @@ struct Decl {
 
 struct VarDecl implements Decl {
   Name string
-  Type Type
+  Type TypeRef
   Expr Expr
   Const bool
 }
@@ -181,40 +181,32 @@ struct VarDecl implements Decl {
 struct FuncDecl contains(LocalInfo) implements Decl {
   Name string
   Recv Param
-  Type FuncType
+  Type FuncTypeRef
   Body []Stmt
-  Package Package
+  Package PackageAST
 }
 
-struct Field {
+struct FieldDecl {
   Name string
-  Type Type
-}
-
-struct TypeImpl implements Decl {
+  Type TypeRef
 }
 
 struct StructDecl implements TypeImpl {
   Name string
-  Fields []Field
-  Package Package
+  Fields []FieldDecl
+  Package PackageAST
 }
 
 struct InterfaceDecl implements TypeImpl {
   Name string
-  Fields []Field
-  Package Package
+  Fields []FieldDecl
+  Package PackageAST
 }
 
-struct ExternalType implements TypeImpl {
+struct TypeDefDecl implements TypeImpl {
   Name string
-  Package Package
-}
-
-struct TypeDef implements TypeImpl {
-  Name string
-  Type Type
-  Package Package
+  Type TypeRef
+  Package PackageAST
 }
 
 struct Import {
@@ -222,16 +214,16 @@ struct Import {
   Path string
 }
 
-struct File {
+struct FileAST {
   Name string
   Package string
   Imports []Import
   Decls []Decl
 }
 
-struct Package {
+struct PackageAST {
   Path []string
-  Files []File
+  Files []FileAST
   Extern bool
 }
 
@@ -244,7 +236,7 @@ struct BuiltinTypeIndex {
   Rune ExternalType
 }
 
-struct Program {
+struct ProgramAST {
   Builtins BuiltinTypeIndex
-  Packages []Package
+  Packages []PackageAST
 }

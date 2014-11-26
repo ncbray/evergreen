@@ -1,0 +1,7 @@
+struct TypeImpl implements Decl {
+}
+
+struct ExternalType implements TypeImpl {
+  Name string
+  Package PackageAST
+}

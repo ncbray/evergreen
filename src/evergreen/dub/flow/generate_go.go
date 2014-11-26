@@ -14,14 +14,14 @@ const (
 )
 
 type DubToGoLinker interface {
-	TypeRef(s *core.StructType, subtype int) *ast.TypeRef
+	TypeRef(s *core.StructType, subtype int) *ast.NameRef
 	ForwardType(s *core.StructType, subtype int, impl ast.TypeImpl)
 	Finish()
 }
 
 type linkElement struct {
 	impl ast.TypeImpl
-	refs []*ast.TypeRef
+	refs []*ast.NameRef
 }
 
 type linkerImpl struct {
@@ -37,8 +37,8 @@ func (l *linkerImpl) get(s *core.StructType, subtype int) *linkElement {
 	return e
 }
 
-func (l *linkerImpl) TypeRef(s *core.StructType, subtype int) *ast.TypeRef {
-	r := &ast.TypeRef{Name: subtypeName(s, subtype)}
+func (l *linkerImpl) TypeRef(s *core.StructType, subtype int) *ast.NameRef {
+	r := &ast.NameRef{Name: subtypeName(s, subtype)}
 	e := l.get(s, subtype)
 	e.refs = append(e.refs, r)
 	return r
@@ -230,47 +230,47 @@ func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []RegisterInfo_Ref) ast
 	}
 }
 
-func goFieldType(t core.DubType, ctx *DubToGoContext) ast.Type {
+func goFieldType(t core.DubType, ctx *DubToGoContext) ast.TypeRef {
 	switch t := t.(type) {
 	case *core.StructType:
 		if t.Scoped {
 			return ctx.link.TypeRef(t, REF)
 		}
 	case *core.ListType:
-		return &ast.SliceType{Element: goFieldType(t.Type, ctx)}
+		return &ast.SliceRef{Element: goFieldType(t.Type, ctx)}
 	}
 	return goTypeName(t, ctx)
 }
 
-func goTypeName(t core.DubType, ctx *DubToGoContext) ast.Type {
+func goTypeName(t core.DubType, ctx *DubToGoContext) ast.TypeRef {
 	switch t := t.(type) {
 	case *core.BuiltinType:
 		switch t.Name {
 		case "bool":
-			return &ast.TypeRef{Impl: ctx.index.Bool}
+			return &ast.NameRef{Impl: ctx.index.Bool}
 		case "int":
-			return &ast.TypeRef{Impl: ctx.index.Int}
+			return &ast.NameRef{Impl: ctx.index.Int}
 		case "uint32":
-			return &ast.TypeRef{Impl: ctx.index.UInt32}
+			return &ast.NameRef{Impl: ctx.index.UInt32}
 		case "int64":
-			return &ast.TypeRef{Impl: ctx.index.Int64}
+			return &ast.NameRef{Impl: ctx.index.Int64}
 		case "rune":
-			return &ast.TypeRef{Impl: ctx.index.Rune}
+			return &ast.NameRef{Impl: ctx.index.Rune}
 		case "string":
-			return &ast.TypeRef{Impl: ctx.index.String}
+			return &ast.NameRef{Impl: ctx.index.String}
 		case "graph":
-			return &ast.PointerType{Element: &ast.TypeRef{Impl: ctx.graph}}
+			return &ast.PointerRef{Element: &ast.NameRef{Impl: ctx.graph}}
 		default:
 			panic(t.Name)
 		}
 	case *core.ListType:
-		return &ast.SliceType{Element: goTypeName(t.Type, ctx)}
+		return &ast.SliceRef{Element: goTypeName(t.Type, ctx)}
 	case *core.StructType:
 		out := ctx.link.TypeRef(t, STRUCT)
 		if t.IsParent {
 			return out
 		} else {
-			return &ast.PointerType{Element: out}
+			return &ast.PointerRef{Element: out}
 		}
 	default:
 		panic(t)
@@ -350,7 +350,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			info,
 			&ast.ListLiteral{
 				// TODO unhack
-				Type: goTypeName(op.Type, ctx).(*ast.SliceType),
+				Type: goTypeName(op.Type, ctx).(*ast.SliceRef),
 				Args: elts,
 			},
 			op.Dst,
@@ -601,7 +601,7 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 	}
 
 	// Make local infos
-	frameType := &ast.PointerType{Element: &ast.TypeRef{Impl: ctx.state}}
+	frameType := &ast.PointerRef{Element: &ast.NameRef{Impl: ctx.state}}
 
 	frameInfo := funcDecl.CreateLocalInfo("frame", frameType)
 
@@ -656,7 +656,7 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 		stmts = append(stmts, block...)
 	}
 
-	funcDecl.Type = &ast.FuncType{
+	funcDecl.Type = &ast.FuncTypeRef{
 		Params:  params,
 		Results: results,
 	}
@@ -674,7 +674,7 @@ func addTags(base *core.StructType, parent *core.StructType, ctx *DubToGoContext
 		decls = addTags(base, parent.Implements, ctx, decls)
 		decl := &ast.FuncDecl{
 			Name:            tagName(parent),
-			Type:            &ast.FuncType{},
+			Type:            &ast.FuncTypeRef{},
 			Body:            []ast.Stmt{},
 			LocalInfo_Scope: &ast.LocalInfo_Scope{},
 		}
@@ -686,19 +686,19 @@ func addTags(base *core.StructType, parent *core.StructType, ctx *DubToGoContext
 }
 
 func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
-	ref := &ast.TypeDef{
+	ref := &ast.TypeDefDecl{
 		Name: subtypeName(s, REF),
-		Type: &ast.TypeRef{Impl: ctx.index.UInt32},
+		Type: &ast.NameRef{Impl: ctx.index.UInt32},
 	}
 	ctx.link.ForwardType(s, REF, ref)
 
 	noRef := &ast.VarDecl{
 		Name: "No" + s.Name.Text,
-		Type: &ast.TypeRef{Impl: ref},
+		Type: &ast.NameRef{Impl: ref},
 		Expr: &ast.UnaryExpr{
 			Op: "^",
 			Expr: &ast.TypeCoerce{
-				Type: &ast.TypeRef{Impl: ref},
+				Type: &ast.NameRef{Impl: ref},
 				Expr: &ast.IntLiteral{Value: 0},
 			},
 		},
@@ -707,10 +707,10 @@ func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.D
 
 	scope := &ast.StructDecl{
 		Name: subtypeName(s, SCOPE),
-		Fields: []*ast.Field{
-			&ast.Field{
+		Fields: []*ast.FieldDecl{
+			&ast.FieldDecl{
 				Name: "objects",
-				Type: &ast.SliceType{Element: goTypeName(s, ctx)},
+				Type: &ast.SliceRef{Element: goTypeName(s, ctx)},
 			},
 		},
 	}
@@ -728,10 +728,10 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 		if len(s.Fields) != 0 {
 			panic(s.Name)
 		}
-		fields := []*ast.Field{
-			&ast.Field{
+		fields := []*ast.FieldDecl{
+			&ast.FieldDecl{
 				Name: tagName(s),
-				Type: &ast.FuncType{},
+				Type: &ast.FuncTypeRef{},
 			},
 		}
 
@@ -746,9 +746,9 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 			decls = GenerateScopeHelpers(s, ctx, decls)
 		}
 
-		fields := []*ast.Field{}
+		fields := []*ast.FieldDecl{}
 		for _, f := range s.Fields {
-			fields = append(fields, &ast.Field{
+			fields = append(fields, &ast.FieldDecl{
 				Name: f.Name.Text,
 				Type: goFieldType(f.Type, ctx),
 			})
@@ -757,9 +757,9 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 			if !c.Scoped {
 				panic(c)
 			}
-			fields = append(fields, &ast.Field{
+			fields = append(fields, &ast.FieldDecl{
 				Name: subtypeName(c, SCOPE),
-				Type: &ast.PointerType{Element: ctx.link.TypeRef(c, SCOPE)},
+				Type: &ast.PointerRef{Element: ctx.link.TypeRef(c, SCOPE)},
 			})
 		}
 
@@ -774,15 +774,15 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 	return decls
 }
 
-func ExternParserRuntime() (*ast.Package, *ast.StructDecl) {
+func ExternParserRuntime() (*ast.PackageAST, *ast.StructDecl) {
 	state := &ast.StructDecl{
 		Name: "State",
 	}
-	pkg := &ast.Package{
+	pkg := &ast.PackageAST{
 		Extern: true,
 		Path:   []string{"evergreen", "dub", "runtime"},
-		Files: []*ast.File{
-			&ast.File{
+		Files: []*ast.FileAST{
+			&ast.FileAST{
 				Decls: []ast.Decl{
 					state,
 				},
@@ -792,15 +792,15 @@ func ExternParserRuntime() (*ast.Package, *ast.StructDecl) {
 	return pkg, state
 }
 
-func ExternTestingPackage() (*ast.Package, *ast.StructDecl) {
+func ExternTestingPackage() (*ast.PackageAST, *ast.StructDecl) {
 	t := &ast.StructDecl{
 		Name: "T",
 	}
-	pkg := &ast.Package{
+	pkg := &ast.PackageAST{
 		Extern: true,
 		Path:   []string{"testing"},
-		Files: []*ast.File{
-			&ast.File{
+		Files: []*ast.FileAST{
+			&ast.FileAST{
 				Decls: []ast.Decl{
 					t,
 				},
@@ -810,15 +810,15 @@ func ExternTestingPackage() (*ast.Package, *ast.StructDecl) {
 	return pkg, t
 }
 
-func ExternGraph() (*ast.Package, *ast.StructDecl) {
+func ExternGraph() (*ast.PackageAST, *ast.StructDecl) {
 	graph := &ast.StructDecl{
 		Name: "Graph",
 	}
-	pkg := &ast.Package{
+	pkg := &ast.PackageAST{
 		Extern: true,
 		Path:   []string{"evergreen", "base"},
-		Files: []*ast.File{
-			&ast.File{
+		Files: []*ast.FileAST{
+			&ast.FileAST{
 				Decls: []ast.Decl{
 					graph,
 				},
@@ -839,7 +839,7 @@ func MakeBuiltinTypes() *ast.BuiltinTypeIndex {
 	}
 }
 
-func GenerateGo(package_name string, structs []*core.StructType, funcs []*LLFunc, index *ast.BuiltinTypeIndex, state *ast.StructDecl, graph *ast.StructDecl, link DubToGoLinker) *ast.File {
+func GenerateGo(package_name string, structs []*core.StructType, funcs []*LLFunc, index *ast.BuiltinTypeIndex, state *ast.StructDecl, graph *ast.StructDecl, link DubToGoLinker) *ast.FileAST {
 	ctx := &DubToGoContext{
 		index: index,
 		state: state,
@@ -857,7 +857,7 @@ func GenerateGo(package_name string, structs []*core.StructType, funcs []*LLFunc
 		decls = append(decls, GenerateGoFunc(f, ctx))
 	}
 
-	file := &ast.File{
+	file := &ast.FileAST{
 		Name:    "generated_dub.go",
 		Package: package_name,
 		Imports: imports,

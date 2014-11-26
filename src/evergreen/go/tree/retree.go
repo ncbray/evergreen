@@ -256,7 +256,7 @@ func retreeBlock(stmts []Stmt, du *defUse) []Stmt {
 
 func retreeDecl(decl Decl) {
 	switch decl := decl.(type) {
-	case *InterfaceDecl, *StructDecl, *TypeDef, *VarDecl:
+	case *InterfaceDecl, *StructDecl, *TypeDefDecl, *VarDecl:
 		// Leaf
 	case *FuncDecl:
 		du := makeApproxDefUse(decl)
@@ -269,19 +269,15 @@ func retreeDecl(decl Decl) {
 	}
 }
 
-func retreeFile(file *File) {
-	for _, decl := range file.Decls {
-		retreeDecl(decl)
-	}
-}
-
-func Retree(prog *Program) {
+func Retree(prog *ProgramAST) {
 	for _, pkg := range prog.Packages {
 		if pkg.Extern {
 			continue
 		}
 		for _, file := range pkg.Files {
-			retreeFile(file)
+			for _, decl := range file.Decls {
+				retreeDecl(decl)
+			}
 		}
 	}
 

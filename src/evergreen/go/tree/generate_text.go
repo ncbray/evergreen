@@ -226,15 +226,15 @@ func GenerateStmt(gen *textGenerator, stmt Stmt, w *base.CodeWriter) {
 	}
 }
 
-func GenerateType(t Type) string {
+func GenerateType(t TypeRef) string {
 	switch t := t.(type) {
-	case *TypeRef:
+	case *NameRef:
 		return t.Name
-	case *PointerType:
+	case *PointerRef:
 		return fmt.Sprintf("*%s", GenerateType(t.Element))
-	case *SliceType:
+	case *SliceRef:
 		return fmt.Sprintf("[]%s", GenerateType(t.Element))
-	case *FuncType:
+	case *FuncTypeRef:
 		return GenerateFuncType(t)
 	default:
 		panic(t)
@@ -276,7 +276,7 @@ func GenerateReturns(returns []*Param) string {
 	}
 }
 
-func GenerateFuncType(t *FuncType) string {
+func GenerateFuncType(t *FuncTypeRef) string {
 	params := make([]string, len(t.Params))
 	for i, p := range t.Params {
 		params[i] = GenerateParam(p)
@@ -323,7 +323,7 @@ func GenerateDecl(decl Decl, w *base.CodeWriter) {
 		}
 		w.RestoreMargin()
 		w.Line("}")
-	case *TypeDef:
+	case *TypeDefDecl:
 		w.Linef("type %s %s", decl.Name, GenerateType(decl.Type))
 	case *FuncDecl:
 		gen := &textGenerator{decl: decl}
@@ -363,7 +363,7 @@ func NeedsName(imp *Import) bool {
 	return false
 }
 
-func GenerateFile(file *File, w *base.CodeWriter) {
+func GenerateFile(file *FileAST, w *base.CodeWriter) {
 	w.Linef("package %s", file.Package)
 	w.EmptyLines(1)
 	if len(file.Imports) > 0 {

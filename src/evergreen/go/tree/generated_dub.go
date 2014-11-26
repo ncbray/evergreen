@@ -1,43 +1,43 @@
 package tree
 
-type Type interface {
-	isType()
+type TypeRef interface {
+	isTypeRef()
 }
 
-type TypeRef struct {
+type NameRef struct {
 	Name string
 	Impl TypeImpl
 }
 
-func (node *TypeRef) isType() {
+func (node *NameRef) isTypeRef() {
 }
 
-type PointerType struct {
-	Element Type
+type PointerRef struct {
+	Element TypeRef
 }
 
-func (node *PointerType) isType() {
+func (node *PointerRef) isTypeRef() {
 }
 
-type SliceType struct {
-	Element Type
+type SliceRef struct {
+	Element TypeRef
 }
 
-func (node *SliceType) isType() {
+func (node *SliceRef) isTypeRef() {
 }
 
 type Param struct {
 	Name string
-	Type Type
+	Type TypeRef
 	Info int
 }
 
-type FuncType struct {
+type FuncTypeRef struct {
 	Params  []*Param
 	Results []*Param
 }
 
-func (node *FuncType) isType() {
+func (node *FuncTypeRef) isTypeRef() {
 }
 
 type Stmt interface {
@@ -107,7 +107,7 @@ type KeywordExpr struct {
 }
 
 type StructLiteral struct {
-	Type *TypeRef
+	Type TypeRef
 	Args []*KeywordExpr
 }
 
@@ -118,7 +118,7 @@ func (node *StructLiteral) isExpr() {
 }
 
 type ListLiteral struct {
-	Type *SliceType
+	Type *SliceRef
 	Args []Expr
 }
 
@@ -138,7 +138,7 @@ type LocalInfo_Scope struct {
 
 type LocalInfo struct {
 	Name string
-	T    Type
+	T    TypeRef
 }
 
 type GetName struct {
@@ -249,7 +249,7 @@ func (node *Call) isExpr() {
 
 type TypeAssert struct {
 	Expr Expr
-	Type Type
+	Type TypeRef
 }
 
 func (node *TypeAssert) isStmt() {
@@ -259,7 +259,7 @@ func (node *TypeAssert) isExpr() {
 }
 
 type TypeCoerce struct {
-	Type Type
+	Type TypeRef
 	Expr Expr
 }
 
@@ -280,7 +280,7 @@ func (node *Assign) isStmt() {
 
 type Var struct {
 	Name string
-	Type Type
+	Type TypeRef
 	Expr Expr
 	Info int
 }
@@ -331,7 +331,7 @@ type Decl interface {
 
 type VarDecl struct {
 	Name  string
-	Type  Type
+	Type  TypeRef
 	Expr  Expr
 	Const bool
 }
@@ -342,28 +342,24 @@ func (node *VarDecl) isDecl() {
 type FuncDecl struct {
 	Name            string
 	Recv            *Param
-	Type            *FuncType
+	Type            *FuncTypeRef
 	Body            []Stmt
-	Package         *Package
+	Package         *PackageAST
 	LocalInfo_Scope *LocalInfo_Scope
 }
 
 func (node *FuncDecl) isDecl() {
 }
 
-type Field struct {
+type FieldDecl struct {
 	Name string
-	Type Type
-}
-
-type TypeImpl interface {
-	isTypeImpl()
+	Type TypeRef
 }
 
 type StructDecl struct {
 	Name    string
-	Fields  []*Field
-	Package *Package
+	Fields  []*FieldDecl
+	Package *PackageAST
 }
 
 func (node *StructDecl) isDecl() {
@@ -374,8 +370,8 @@ func (node *StructDecl) isTypeImpl() {
 
 type InterfaceDecl struct {
 	Name    string
-	Fields  []*Field
-	Package *Package
+	Fields  []*FieldDecl
+	Package *PackageAST
 }
 
 func (node *InterfaceDecl) isDecl() {
@@ -384,27 +380,16 @@ func (node *InterfaceDecl) isDecl() {
 func (node *InterfaceDecl) isTypeImpl() {
 }
 
-type ExternalType struct {
+type TypeDefDecl struct {
 	Name    string
-	Package *Package
+	Type    TypeRef
+	Package *PackageAST
 }
 
-func (node *ExternalType) isDecl() {
+func (node *TypeDefDecl) isDecl() {
 }
 
-func (node *ExternalType) isTypeImpl() {
-}
-
-type TypeDef struct {
-	Name    string
-	Type    Type
-	Package *Package
-}
-
-func (node *TypeDef) isDecl() {
-}
-
-func (node *TypeDef) isTypeImpl() {
+func (node *TypeDefDecl) isTypeImpl() {
 }
 
 type Import struct {
@@ -412,16 +397,16 @@ type Import struct {
 	Path string
 }
 
-type File struct {
+type FileAST struct {
 	Name    string
 	Package string
 	Imports []*Import
 	Decls   []Decl
 }
 
-type Package struct {
+type PackageAST struct {
 	Path   []string
-	Files  []*File
+	Files  []*FileAST
 	Extern bool
 }
 
@@ -434,7 +419,22 @@ type BuiltinTypeIndex struct {
 	Rune   *ExternalType
 }
 
-type Program struct {
+type ProgramAST struct {
 	Builtins *BuiltinTypeIndex
-	Packages []*Package
+	Packages []*PackageAST
+}
+
+type TypeImpl interface {
+	isTypeImpl()
+}
+
+type ExternalType struct {
+	Name    string
+	Package *PackageAST
+}
+
+func (node *ExternalType) isDecl() {
+}
+
+func (node *ExternalType) isTypeImpl() {
 }

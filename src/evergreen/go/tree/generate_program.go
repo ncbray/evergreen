@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-func OutputFile(file *File, dirname string) {
+func OutputFile(file *FileAST, dirname string) {
 	if file.Name == "" {
 		panic(file)
 	}
@@ -18,7 +18,7 @@ func OutputFile(file *File, dirname string) {
 	io.WriteFile(filename, []byte(b.String()))
 }
 
-func OutputPackage(pkg *Package, dirname string) {
+func OutputPackage(pkg *PackageAST, dirname string) {
 	path := []string{dirname}
 	path = append(path, pkg.Path...)
 	pkgdir := filepath.Join(path...)
@@ -27,7 +27,7 @@ func OutputPackage(pkg *Package, dirname string) {
 	}
 }
 
-func OutputProgram(prog *Program, dirname string) {
+func OutputProgram(prog *ProgramAST, dirname string) {
 	for _, pkg := range prog.Packages {
 		if !pkg.Extern {
 			OutputPackage(pkg, dirname)

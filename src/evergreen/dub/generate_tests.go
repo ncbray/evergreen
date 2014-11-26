@@ -98,27 +98,27 @@ func checkNE(x dst.Expr, y dst.Expr) dst.Expr {
 	}
 }
 
-func translateType(ctx *TestingContext, at core.DubType) dst.Type {
+func translateType(ctx *TestingContext, at core.DubType) dst.TypeRef {
 	switch cat := at.(type) {
 	case *core.StructType:
 		ref := ctx.link.TypeRef(cat, flow.STRUCT)
 		if cat.IsParent {
 			return ref
 		} else {
-			return &dst.PointerType{Element: ref}
+			return &dst.PointerRef{Element: ref}
 		}
 	case *core.ListType:
-		return &dst.SliceType{Element: translateType(ctx, cat.Type)}
+		return &dst.SliceRef{Element: translateType(ctx, cat.Type)}
 	case *core.BuiltinType:
 		switch cat.Name {
 		case "string":
-			return &dst.TypeRef{Impl: ctx.index.String}
+			return &dst.NameRef{Impl: ctx.index.String}
 		case "rune":
-			return &dst.TypeRef{Impl: ctx.index.Rune}
+			return &dst.NameRef{Impl: ctx.index.Rune}
 		case "int":
-			return &dst.TypeRef{Impl: ctx.index.Int}
+			return &dst.NameRef{Impl: ctx.index.Int}
 		case "bool":
-			return &dst.TypeRef{Impl: ctx.index.Bool}
+			return &dst.NameRef{Impl: ctx.index.Bool}
 		default:
 			panic(cat.Name)
 		}
@@ -289,17 +289,17 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 
 	// HACK
 	ctx.funcDecl = decl
-	ctx.tInfo = decl.CreateLocalInfo("t", &dst.PointerType{
-		Element: &dst.TypeRef{
+	ctx.tInfo = decl.CreateLocalInfo("t", &dst.PointerRef{
+		Element: &dst.NameRef{
 			Impl: ctx.t,
 		},
 	})
-	ctx.state = decl.CreateLocalInfo("state", &dst.PointerType{
-		Element: &dst.TypeRef{
+	ctx.state = decl.CreateLocalInfo("state", &dst.PointerRef{
+		Element: &dst.NameRef{
 			Impl: ctx.stateT,
 		},
 	})
-	ctx.okInfo = decl.CreateLocalInfo("ok", &dst.TypeRef{
+	ctx.okInfo = decl.CreateLocalInfo("ok", &dst.NameRef{
 		// HACK should actual reference a type.
 		Name: "bool",
 		Impl: &dst.ExternalType{Name: "bool"},
@@ -358,7 +358,7 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 
 	stmts = generateDestructure(root_value, root_name, root_name, tst.Destructure, tst.Type, ctx, stmts)
 
-	decl.Type = &dst.FuncType{
+	decl.Type = &dst.FuncTypeRef{
 		Params: []*dst.Param{
 			decl.MakeParam(ctx.tInfo),
 		},
@@ -368,7 +368,7 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	return decl
 }
 
-func GenerateTests(leaf string, tests []*tree.Test, index *dst.BuiltinTypeIndex, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.File {
+func GenerateTests(leaf string, tests []*tree.Test, index *dst.BuiltinTypeIndex, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.FileAST {
 	ctx := &TestingContext{link: link, t: t, stateT: stateT, index: index}
 
 	decls := []dst.Decl{}
@@ -377,7 +377,7 @@ func GenerateTests(leaf string, tests []*tree.Test, index *dst.BuiltinTypeIndex,
 		decls = append(decls, generateGoTest(tst, ctx))
 	}
 
-	file := &dst.File{
+	file := &dst.FileAST{
 		Name:    "generated_dub_test.go",
 		Package: leaf,
 		Decls:   decls,

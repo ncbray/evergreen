@@ -254,7 +254,7 @@ func (iter *localInfoIterator) Value() *LocalInfo {
 	return iter.scope.objects[iter.current]
 }
 
-func (decl *FuncDecl) CreateLocalInfo(name string, T Type) int {
+func (decl *FuncDecl) CreateLocalInfo(name string, T TypeRef) int {
 	return decl.LocalInfo_Scope.Register(&LocalInfo{
 		Name: name,
 		T:    T,

@@ -143,7 +143,7 @@ func TestIndex(t *testing.T) {
 
 func TestTypeCoerce(t *testing.T) {
 	expr := &TypeCoerce{
-		Type: &SliceType{Element: &TypeRef{Name: "rune"}},
+		Type: &SliceRef{Element: &NameRef{Name: "rune"}},
 		Expr: &GetName{Text: "s"},
 	}
 	result := genExpr(expr)
@@ -152,7 +152,7 @@ func TestTypeCoerce(t *testing.T) {
 
 func TestStructLiteral(t *testing.T) {
 	expr := &StructLiteral{
-		Type: &TypeRef{Name: "Foo"},
+		Type: &NameRef{Name: "Foo"},
 		Args: []*KeywordExpr{
 			&KeywordExpr{
 				Name: "Bar",
@@ -170,7 +170,7 @@ func TestStructLiteral(t *testing.T) {
 
 func TestListLiteral(t *testing.T) {
 	expr := &ListLiteral{
-		Type: &SliceType{Element: &TypeRef{Name: "int"}},
+		Type: &SliceRef{Element: &NameRef{Name: "int"}},
 		Args: []Expr{
 			&IntLiteral{Value: 12},
 			&IntLiteral{Value: 34},
@@ -183,15 +183,15 @@ func TestListLiteral(t *testing.T) {
 func TestFuncDecl(t *testing.T) {
 	decl := &FuncDecl{
 		Name: "foo",
-		Recv: &Param{Name: "o", Type: &PointerType{Element: &TypeRef{Name: "Obj"}}},
-		Type: &FuncType{
+		Recv: &Param{Name: "o", Type: &PointerRef{Element: &NameRef{Name: "Obj"}}},
+		Type: &FuncTypeRef{
 			Params: []*Param{
-				&Param{Name: "cond", Type: &TypeRef{Name: "bool"}},
-				&Param{Name: "names", Type: &SliceType{Element: &TypeRef{Name: "string"}}},
+				&Param{Name: "cond", Type: &NameRef{Name: "bool"}},
+				&Param{Name: "names", Type: &SliceRef{Element: &NameRef{Name: "string"}}},
 			},
 			Results: []*Param{
-				&Param{Name: "biz", Type: &TypeRef{Name: "int"}},
-				&Param{Name: "baz", Type: &PointerType{Element: &TypeRef{Name: "int"}}},
+				&Param{Name: "biz", Type: &NameRef{Name: "int"}},
+				&Param{Name: "baz", Type: &PointerRef{Element: &NameRef{Name: "int"}}},
 			},
 		},
 		Body: []Stmt{
@@ -236,7 +236,7 @@ func TestFuncDecl(t *testing.T) {
 }
 
 func TestFile(t *testing.T) {
-	file := &File{
+	file := &FileAST{
 		Package: "foo",
 		Imports: []*Import{
 			&Import{
@@ -254,16 +254,16 @@ func TestFile(t *testing.T) {
 		Decls: []Decl{
 			&StructDecl{
 				Name: "Bar",
-				Fields: []*Field{
-					&Field{
+				Fields: []*FieldDecl{
+					&FieldDecl{
 						Name: "Baz",
-						Type: &TypeRef{
+						Type: &NameRef{
 							Name: "other.Biz",
 						},
 					},
-					&Field{
+					&FieldDecl{
 						Name: "BazXYZ",
-						Type: &TypeRef{
+						Type: &NameRef{
 							Name: "more.Biz",
 						},
 					},
@@ -271,11 +271,11 @@ func TestFile(t *testing.T) {
 			},
 			&FuncDecl{
 				Name: "F",
-				Type: &FuncType{},
+				Type: &FuncTypeRef{},
 				Body: []Stmt{
 					&BlockStmt{
 						Body: []Stmt{
-							&Var{Name: "foo", Type: &TypeRef{Name: "int"}, Expr: &IntLiteral{Value: 7}},
+							&Var{Name: "foo", Type: &NameRef{Name: "int"}, Expr: &IntLiteral{Value: 7}},
 							&Goto{Text: "block"},
 							&Label{Text: "block"},
 							&Return{},
@@ -286,19 +286,19 @@ func TestFile(t *testing.T) {
 			},
 			&InterfaceDecl{
 				Name: "I",
-				Fields: []*Field{
-					&Field{
+				Fields: []*FieldDecl{
+					&FieldDecl{
 						Name: "Touch",
-						Type: &FuncType{},
+						Type: &FuncTypeRef{},
 					},
-					&Field{
+					&FieldDecl{
 						Name: "Process",
-						Type: &FuncType{
+						Type: &FuncTypeRef{
 							Params: []*Param{
-								&Param{Name: "inp", Type: &TypeRef{Name: "int"}},
+								&Param{Name: "inp", Type: &NameRef{Name: "int"}},
 							},
 							Results: []*Param{
-								&Param{Name: "outp", Type: &TypeRef{Name: "string"}},
+								&Param{Name: "outp", Type: &NameRef{Name: "string"}},
 							},
 						},
 					},
