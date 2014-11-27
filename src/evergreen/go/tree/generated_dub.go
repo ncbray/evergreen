@@ -46,6 +46,7 @@ type Stmt interface {
 
 type Expr interface {
 	isExpr()
+	isStmt()
 }
 
 type Target interface {
@@ -426,6 +427,7 @@ type ProgramAST struct {
 
 type TypeImpl interface {
 	isTypeImpl()
+	isDecl()
 }
 
 type ExternalType struct {

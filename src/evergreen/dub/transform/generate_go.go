@@ -15,59 +15,42 @@ const (
 )
 
 type DubToGoLinker interface {
+	SetType(s *core.StructType, subtype int, impl ast.TypeImpl)
+	GetType(s *core.StructType, subtype int) ast.TypeImpl
 	TypeRef(s *core.StructType, subtype int) *ast.NameRef
-	ForwardType(s *core.StructType, subtype int, impl ast.TypeImpl)
-	Finish()
-}
-
-type linkElement struct {
-	impl ast.TypeImpl
-	refs []*ast.NameRef
 }
 
 type linkerImpl struct {
-	types []map[*core.StructType]*linkElement
+	types []map[*core.StructType]ast.TypeImpl
 }
 
-func (l *linkerImpl) get(s *core.StructType, subtype int) *linkElement {
+func (l *linkerImpl) SetType(s *core.StructType, subtype int, impl ast.TypeImpl) {
+	_, ok := l.types[subtype][s]
+	if ok {
+		panic(s)
+	}
+	l.types[subtype][s] = impl
+}
+
+func (l *linkerImpl) GetType(s *core.StructType, subtype int) ast.TypeImpl {
 	e, ok := l.types[subtype][s]
 	if !ok {
-		e = &linkElement{}
-		l.types[subtype][s] = e
+		panic(s)
 	}
 	return e
 }
 
 func (l *linkerImpl) TypeRef(s *core.StructType, subtype int) *ast.NameRef {
-	r := &ast.NameRef{Name: subtypeName(s, subtype)}
-	e := l.get(s, subtype)
-	e.refs = append(e.refs, r)
-	return r
-}
-
-func (l *linkerImpl) ForwardType(s *core.StructType, subtype int, impl ast.TypeImpl) {
-	e := l.get(s, subtype)
-	e.impl = impl
-}
-
-func (l *linkerImpl) Finish() {
-	for subtype, types := range l.types {
-		for s, e := range types {
-			if e.impl == nil {
-				panic(fmt.Sprintf("%s / %d", s.Name, subtype))
-			}
-			for _, r := range e.refs {
-				r.Impl = e.impl
-			}
-			e.refs = nil
-		}
+	return &ast.NameRef{
+		Name: subtypeName(s, subtype),
+		Impl: l.GetType(s, subtype),
 	}
 }
 
 func makeLinker() DubToGoLinker {
-	types := []map[*core.StructType]*linkElement{}
+	types := []map[*core.StructType]ast.TypeImpl{}
 	for i := 0; i < 3; i++ {
-		types = append(types, map[*core.StructType]*linkElement{})
+		types = append(types, map[*core.StructType]ast.TypeImpl{})
 	}
 	return &linkerImpl{
 		types: types,
@@ -688,35 +671,36 @@ func addTags(base *core.StructType, parent *core.StructType, ctx *DubToGoContext
 }
 
 func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
-	ref := &ast.TypeDefDecl{
-		Name: subtypeName(s, REF),
-		Type: &ast.NameRef{Impl: ctx.index.UInt32},
-	}
-	ctx.link.ForwardType(s, REF, ref)
+	ref := ctx.link.GetType(s, REF)
+	cRef, _ := ref.(*ast.TypeDefDecl)
+	cRef.Name = subtypeName(s, REF)
+	cRef.Type = &ast.NameRef{Impl: ctx.index.UInt32}
 
 	noRef := &ast.VarDecl{
 		Name: "No" + s.Name.Text,
-		Type: &ast.NameRef{Impl: ref},
+		Type: ctx.link.TypeRef(s, REF),
 		Expr: &ast.UnaryExpr{
 			Op: "^",
 			Expr: &ast.TypeCoerce{
-				Type: &ast.NameRef{Impl: ref},
+				Type: ctx.link.TypeRef(s, REF),
 				Expr: &ast.IntLiteral{Value: 0},
 			},
 		},
 		Const: true,
 	}
 
-	scope := &ast.StructDecl{
-		Name: subtypeName(s, SCOPE),
-		Fields: []*ast.FieldDecl{
-			&ast.FieldDecl{
-				Name: "objects",
-				Type: &ast.SliceRef{Element: goTypeName(s, ctx)},
-			},
+	scope := ctx.link.GetType(s, SCOPE)
+	cScope, ok := scope.(*ast.StructDecl)
+	if !ok {
+		panic(scope)
+	}
+	cScope.Name = subtypeName(s, SCOPE)
+	cScope.Fields = []*ast.FieldDecl{
+		&ast.FieldDecl{
+			Name: "objects",
+			Type: &ast.SliceRef{Element: goTypeName(s, ctx)},
 		},
 	}
-	ctx.link.ForwardType(s, SCOPE, scope)
 
 	decls = append(decls, ref, noRef, scope)
 	return decls
@@ -730,23 +714,25 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 		if len(s.Fields) != 0 {
 			panic(s.Name)
 		}
-		fields := []*ast.FieldDecl{
-			&ast.FieldDecl{
-				Name: tagName(s),
-				Type: &ast.FuncTypeRef{},
-			},
-		}
+		impl := ctx.link.GetType(s, STRUCT)
+		cImpl, _ := impl.(*ast.InterfaceDecl)
+		cImpl.Name = s.Name.Text
+		cImpl.Fields = []*ast.FieldDecl{}
 
-		impl := &ast.InterfaceDecl{
-			Name:   s.Name.Text,
-			Fields: fields,
+		for tag := s; tag != nil; tag = tag.Implements {
+			cImpl.Fields = append(cImpl.Fields, &ast.FieldDecl{
+				Name: tagName(tag),
+				Type: &ast.FuncTypeRef{},
+			})
 		}
-		ctx.link.ForwardType(s, STRUCT, impl)
 		decls = append(decls, impl)
 	} else {
 		if s.Scoped {
 			decls = GenerateScopeHelpers(s, ctx, decls)
 		}
+
+		impl := ctx.link.GetType(s, STRUCT)
+		cImpl, _ := impl.(*ast.StructDecl)
 
 		fields := []*ast.FieldDecl{}
 		for _, f := range s.Fields {
@@ -765,11 +751,9 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 			})
 		}
 
-		impl := &ast.StructDecl{
-			Name:   s.Name.Text,
-			Fields: fields,
-		}
-		ctx.link.ForwardType(s, STRUCT, impl)
+		cImpl.Name = s.Name.Text
+		cImpl.Fields = fields
+
 		decls = append(decls, impl)
 		decls = addTags(s, s.Implements, ctx, decls)
 	}
@@ -845,8 +829,8 @@ func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoCo
 	imports := []*ast.Import{}
 
 	decls := []ast.Decl{}
-	for _, f := range dubPkg.Structs {
-		decls = GenerateGoStruct(f, ctx, decls)
+	for _, t := range dubPkg.Structs {
+		decls = GenerateGoStruct(t, ctx, decls)
 	}
 	for _, f := range dubPkg.Funcs {
 		decls = append(decls, GenerateGoFunc(f, ctx))
@@ -859,6 +843,39 @@ func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoCo
 		Decls:   decls,
 	}
 	return file
+}
+
+func createMapping(program []*flow.DubPackage, ctx *DubToGoContext) {
+	for _, dubPkg := range program {
+		for _, s := range dubPkg.Structs {
+			if s.IsParent {
+				impl := &ast.InterfaceDecl{
+					Name: s.Name.Text,
+				}
+				ctx.link.SetType(s, STRUCT, impl)
+			} else {
+				if s.Scoped {
+					ref := &ast.TypeDefDecl{
+						Name: subtypeName(s, REF),
+					}
+					ctx.link.SetType(s, REF, ref)
+
+					scope := &ast.StructDecl{
+						Name: subtypeName(s, SCOPE),
+					}
+					ctx.link.SetType(s, SCOPE, scope)
+				}
+
+				impl := &ast.StructDecl{
+					Name:   s.Name.Text,
+					Fields: []*ast.FieldDecl{},
+				}
+				ctx.link.SetType(s, STRUCT, impl)
+			}
+
+		}
+		// TODO funcs
+	}
 }
 
 func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *ast.ProgramAST {
@@ -885,6 +902,8 @@ func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *a
 		link:  link,
 	}
 
+	createMapping(program, ctx)
+
 	for _, dubPkg := range program {
 		path := []string{root}
 		path = append(path, dubPkg.Path...)
@@ -902,12 +921,8 @@ func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *a
 		})
 	}
 
-	prog := &ast.ProgramAST{
+	return &ast.ProgramAST{
 		Builtins: index,
 		Packages: packages,
 	}
-
-	link.Finish()
-
-	return prog
 }

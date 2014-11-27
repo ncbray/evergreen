@@ -336,6 +336,7 @@ func (node *StructDecl) isASTDecl() {
 
 type ASTCallable interface {
 	isASTCallable()
+	isASTDecl()
 }
 
 type LocalInfo_Ref uint32
