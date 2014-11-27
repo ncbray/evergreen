@@ -234,3 +234,10 @@ type ExitOp struct {
 
 func (node *ExitOp) isDubOp() {
 }
+
+type DubPackage struct {
+	Path    []string
+	Structs []*tree.StructType
+	Funcs   []*LLFunc
+	Tests   []*tree.Test
+}

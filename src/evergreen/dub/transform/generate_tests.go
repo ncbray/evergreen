@@ -1,7 +1,6 @@
-package dub
+package transform
 
 import (
-	"evergreen/dub/flow"
 	"evergreen/dub/tree"
 	core "evergreen/dub/tree"
 	dst "evergreen/go/tree"
@@ -9,14 +8,11 @@ import (
 )
 
 type TestingContext struct {
-	link     flow.DubToGoLinker
-	t        *dst.StructDecl
-	stateT   *dst.StructDecl
-	state    int
+	glbl     *DubToGoContext
 	funcDecl *dst.FuncDecl
+	state    int
 	tInfo    int
 	okInfo   int
-	index    *dst.BuiltinTypeIndex
 }
 
 func (ctx *TestingContext) GetState() dst.Expr {
@@ -35,20 +31,8 @@ func glbl(name string) dst.Expr {
 	}
 }
 
-func attr(expr dst.Expr, name string) dst.Expr {
-	return &dst.Selector{Expr: expr, Text: name}
-}
-
-func strLiteral(value string) dst.Expr {
-	return &dst.StringLiteral{Value: value}
-}
-
 func runeLiteral(value rune) dst.Expr {
 	return &dst.RuneLiteral{Value: value}
-}
-
-func intLiteral(value int) dst.Expr {
-	return &dst.IntLiteral{Value: value}
 }
 
 func boolLiteral(value bool) dst.Expr {
@@ -101,7 +85,7 @@ func checkNE(x dst.Expr, y dst.Expr) dst.Expr {
 func translateType(ctx *TestingContext, at core.DubType) dst.TypeRef {
 	switch cat := at.(type) {
 	case *core.StructType:
-		ref := ctx.link.TypeRef(cat, flow.STRUCT)
+		ref := ctx.glbl.link.TypeRef(cat, STRUCT)
 		if cat.IsParent {
 			return ref
 		} else {
@@ -112,13 +96,13 @@ func translateType(ctx *TestingContext, at core.DubType) dst.TypeRef {
 	case *core.BuiltinType:
 		switch cat.Name {
 		case "string":
-			return &dst.NameRef{Impl: ctx.index.String}
+			return &dst.NameRef{Impl: ctx.glbl.index.String}
 		case "rune":
-			return &dst.NameRef{Impl: ctx.index.Rune}
+			return &dst.NameRef{Impl: ctx.glbl.index.Rune}
 		case "int":
-			return &dst.NameRef{Impl: ctx.index.Int}
+			return &dst.NameRef{Impl: ctx.glbl.index.Int}
 		case "bool":
-			return &dst.NameRef{Impl: ctx.index.Bool}
+			return &dst.NameRef{Impl: ctx.glbl.index.Bool}
 		default:
 			panic(cat.Name)
 		}
@@ -281,22 +265,24 @@ func generateExpr(ctx *TestingContext, expr tree.ASTExpr) dst.Expr {
 
 }
 
-func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
+func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 	decl := &dst.FuncDecl{
 		Name:            fmt.Sprintf("Test_%s", tst.Name.Text),
 		LocalInfo_Scope: &dst.LocalInfo_Scope{},
 	}
 
-	// HACK
-	ctx.funcDecl = decl
+	ctx := &TestingContext{
+		glbl:     gctx,
+		funcDecl: decl,
+	}
 	ctx.tInfo = decl.CreateLocalInfo("t", &dst.PointerRef{
 		Element: &dst.NameRef{
-			Impl: ctx.t,
+			Impl: ctx.glbl.t,
 		},
 	})
 	ctx.state = decl.CreateLocalInfo("state", &dst.PointerRef{
 		Element: &dst.NameRef{
-			Impl: ctx.stateT,
+			Impl: ctx.glbl.state,
 		},
 	})
 	ctx.okInfo = decl.CreateLocalInfo("ok", &dst.NameRef{
@@ -368,13 +354,11 @@ func generateGoTest(tst *tree.Test, ctx *TestingContext) *dst.FuncDecl {
 	return decl
 }
 
-func GenerateTests(leaf string, tests []*tree.Test, index *dst.BuiltinTypeIndex, t *dst.StructDecl, stateT *dst.StructDecl, link flow.DubToGoLinker) *dst.FileAST {
-	ctx := &TestingContext{link: link, t: t, stateT: stateT, index: index}
-
+func GenerateTests(leaf string, tests []*tree.Test, gctx *DubToGoContext) *dst.FileAST {
 	decls := []dst.Decl{}
 
 	for _, tst := range tests {
-		decls = append(decls, generateGoTest(tst, ctx))
+		decls = append(decls, generateGoTest(tst, gctx))
 	}
 
 	file := &dst.FileAST{

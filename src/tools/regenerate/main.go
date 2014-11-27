@@ -2,8 +2,8 @@ package main
 
 import (
 	"evergreen/base"
-	"evergreen/dub"
 	"evergreen/dub/flow"
+	"evergreen/dub/transform"
 	"evergreen/dub/tree"
 	core "evergreen/dub/tree"
 	"evergreen/framework"
@@ -57,15 +57,8 @@ func CreateIOManager() *IOManager {
 	return manager
 }
 
-type DubPackage struct {
-	Path    []string
-	Structs []*core.StructType
-	Funcs   []*flow.LLFunc
-	Tests   []*tree.Test
-}
-
-func lowerPackage(program *tree.Program, pkg *tree.Package) *DubPackage {
-	dubPkg := &DubPackage{
+func lowerPackage(program *tree.Program, pkg *tree.Package) *flow.DubPackage {
+	dubPkg := &flow.DubPackage{
 		Path:    pkg.Path,
 		Structs: []*core.StructType{},
 		Funcs:   []*flow.LLFunc{},
@@ -77,7 +70,7 @@ func lowerPackage(program *tree.Program, pkg *tree.Package) *DubPackage {
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
 			case *tree.FuncDecl:
-				f := dub.LowerAST(program, decl)
+				f := transform.LowerAST(program, decl)
 				flow.SSI(f)
 				dubPkg.Funcs = append(dubPkg.Funcs, f)
 			case *tree.StructDecl:
@@ -92,15 +85,15 @@ func lowerPackage(program *tree.Program, pkg *tree.Package) *DubPackage {
 	return dubPkg
 }
 
-func lowerProgram(program *tree.Program) []*DubPackage {
-	dubPackages := []*DubPackage{}
+func lowerProgram(program *tree.Program) []*flow.DubPackage {
+	dubPackages := []*flow.DubPackage{}
 	for _, pkg := range program.Packages {
 		dubPackages = append(dubPackages, lowerPackage(program, pkg))
 	}
 	return dubPackages
 }
 
-func dumpProgram(manager *IOManager, program []*DubPackage) {
+func dumpProgram(manager *IOManager, program []*flow.DubPackage) {
 	for _, dubPkg := range program {
 		for _, f := range dubPkg.Funcs {
 			styler := &flow.DotStyler{Decl: f}
@@ -121,7 +114,7 @@ func dumpProgram(manager *IOManager, program []*DubPackage) {
 	}
 }
 
-func analyizeProgram(program []*DubPackage) {
+func analyizeProgram(program []*flow.DubPackage) {
 	for _, dubPkg := range program {
 		for _, s := range dubPkg.Structs {
 			if s.Implements != nil {
@@ -131,50 +124,12 @@ func analyizeProgram(program []*DubPackage) {
 	}
 }
 
-func GenerateGo(program []*DubPackage) {
+func GenerateGo(program []*flow.DubPackage) {
 	root := "generated"
 	if replace {
 		root = "evergreen"
 	}
-
-	link := flow.MakeLinker()
-
-	packages := []*gotree.PackageAST{}
-
-	index := flow.MakeBuiltinTypes()
-
-	pkg, state := flow.ExternParserRuntime()
-	packages = append(packages, pkg)
-
-	pkg, graph := flow.ExternGraph()
-	packages = append(packages, pkg)
-
-	pkg, t := flow.ExternTestingPackage()
-	packages = append(packages, pkg)
-
-	for _, dubPkg := range program {
-		path := []string{root}
-		path = append(path, dubPkg.Path...)
-		leaf := path[len(path)-1]
-
-		files := []*gotree.FileAST{}
-		files = append(files, flow.GenerateGo(leaf, dubPkg.Structs, dubPkg.Funcs, index, state, graph, link))
-
-		if !replace && len(dubPkg.Tests) != 0 {
-			files = append(files, dub.GenerateTests(leaf, dubPkg.Tests, index, t, state, link))
-		}
-		packages = append(packages, &gotree.PackageAST{
-			Path:  path,
-			Files: files,
-		})
-	}
-
-	prog := &gotree.ProgramAST{
-		Builtins: index,
-		Packages: packages,
-	}
-
-	link.Finish()
+	prog := transform.GenerateGo(program, root, !replace)
 
 	// Compact simple expressions back into tree form.
 	gotree.Retree(prog)

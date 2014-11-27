@@ -145,3 +145,10 @@ struct FlowExitOp implements DubOp {
 
 struct ExitOp implements DubOp {
 }
+
+struct DubPackage {
+  Path []string
+  Structs []tree.StructType
+  Funcs []LLFunc
+  Tests []tree.Test
+}

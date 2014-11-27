@@ -1,7 +1,8 @@
-package flow
+package transform
 
 import (
 	"evergreen/base"
+	"evergreen/dub/flow"
 	core "evergreen/dub/tree"
 	ast "evergreen/go/tree"
 	"fmt"
@@ -63,7 +64,7 @@ func (l *linkerImpl) Finish() {
 	}
 }
 
-func MakeLinker() DubToGoLinker {
+func makeLinker() DubToGoLinker {
 	types := []map[*core.StructType]*linkElement{}
 	for i := 0; i < 3; i++ {
 		types = append(types, map[*core.StructType]*linkElement{})
@@ -89,7 +90,7 @@ func subtypeName(s *core.StructType, subtype int) string {
 }
 
 type regionInfo struct {
-	decl       *LLFunc
+	decl       *flow.LLFunc
 	funcDecl   *ast.FuncDecl
 	labels     map[base.NodeID]int
 	frameInfo  int
@@ -105,7 +106,7 @@ func (info *regionInfo) FrameAttr(name string) ast.Expr {
 	return attr(info.FrameVar(), name)
 }
 
-func (info *regionInfo) GetLocalInfo(r RegisterInfo_Ref) int {
+func (info *regionInfo) GetLocalInfo(r flow.RegisterInfo_Ref) int {
 	return info.dubToGo[int(r)]
 }
 
@@ -125,17 +126,17 @@ func (info *regionInfo) MakeSetReturn(ret int) ast.Target {
 	return info.MakeSetLocal(info.returnInfo[ret])
 }
 
-func (info *regionInfo) GetReg(r RegisterInfo_Ref) ast.Expr {
+func (info *regionInfo) GetReg(r flow.RegisterInfo_Ref) ast.Expr {
 	idx := info.GetLocalInfo(r)
 	return info.MakeGetLocal(idx)
 }
 
-func (info *regionInfo) SetReg(r RegisterInfo_Ref) ast.Target {
+func (info *regionInfo) SetReg(r flow.RegisterInfo_Ref) ast.Target {
 	idx := info.GetLocalInfo(r)
 	return info.MakeSetLocal(idx)
 }
 
-func (info *regionInfo) Param(r RegisterInfo_Ref) *ast.Param {
+func (info *regionInfo) Param(r flow.RegisterInfo_Ref) *ast.Param {
 	idx := info.GetLocalInfo(r)
 	return info.MakeParam(idx)
 }
@@ -168,6 +169,7 @@ type DubToGoContext struct {
 	index *ast.BuiltinTypeIndex
 	state *ast.StructDecl
 	graph *ast.StructDecl
+	t     *ast.StructDecl
 	link  DubToGoLinker
 }
 
@@ -196,8 +198,8 @@ func returnVarName(i int) string {
 	return fmt.Sprintf("ret%d", i)
 }
 
-func opAssign(info *regionInfo, expr ast.Expr, dst RegisterInfo_Ref) ast.Stmt {
-	if dst != NoRegisterInfo {
+func opAssign(info *regionInfo, expr ast.Expr, dst flow.RegisterInfo_Ref) ast.Stmt {
+	if dst != flow.NoRegisterInfo {
 		return &ast.Assign{
 			Targets: []ast.Target{info.SetReg(dst)},
 			Op:      "=",
@@ -209,11 +211,11 @@ func opAssign(info *regionInfo, expr ast.Expr, dst RegisterInfo_Ref) ast.Stmt {
 	}
 }
 
-func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []RegisterInfo_Ref) ast.Stmt {
+func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []flow.RegisterInfo_Ref) ast.Stmt {
 	if len(dsts) != 0 {
 		lhs := make([]ast.Target, len(dsts))
 		for i, dst := range dsts {
-			if dst != NoRegisterInfo {
+			if dst != flow.NoRegisterInfo {
 				lhs[i] = info.SetReg(dst)
 			} else {
 				lhs[i] = discard()
@@ -277,13 +279,13 @@ func goTypeName(t core.DubType, ctx *DubToGoContext) ast.TypeRef {
 	}
 }
 
-func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, block []ast.Stmt) []ast.Stmt {
-	if IsNop(op) {
+func GenerateOp(info *regionInfo, f *flow.LLFunc, op flow.DubOp, ctx *DubToGoContext, block []ast.Stmt) []ast.Stmt {
+	if flow.IsNop(op) {
 		return block
 	}
 
 	switch op := op.(type) {
-	case *BinaryOp:
+	case *flow.BinaryOp:
 		// TODO validate Op?
 		block = append(block, opAssign(
 			info,
@@ -294,7 +296,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			},
 			op.Dst,
 		))
-	case *CallOp:
+	case *flow.CallOp:
 		args := []ast.Expr{
 			info.FrameVar(),
 		}
@@ -309,7 +311,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			},
 			op.Dsts,
 		))
-	case *ConstructOp:
+	case *flow.ConstructOp:
 		elts := make([]*ast.KeywordExpr, len(op.Args))
 		for i, arg := range op.Args {
 			elts[i] = &ast.KeywordExpr{
@@ -341,7 +343,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			},
 			op.Dst,
 		))
-	case *ConstructListOp:
+	case *flow.ConstructListOp:
 		elts := make([]ast.Expr, len(op.Args))
 		for i, arg := range op.Args {
 			elts[i] = info.GetReg(arg)
@@ -355,7 +357,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			},
 			op.Dst,
 		))
-	case *CoerceOp:
+	case *flow.CoerceOp:
 		block = append(block, opAssign(
 			info,
 			&ast.TypeCoerce{
@@ -364,48 +366,48 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			},
 			op.Dst,
 		))
-	case *ConstantNilOp:
+	case *flow.ConstantNilOp:
 		block = append(block, opAssign(
 			info,
 			&ast.NilLiteral{},
 			op.Dst,
 		))
-	case *ConstantBoolOp:
+	case *flow.ConstantBoolOp:
 		block = append(block, opAssign(
 			info,
 			&ast.BoolLiteral{Value: op.Value},
 			op.Dst,
 		))
-	case *ConstantIntOp:
+	case *flow.ConstantIntOp:
 		block = append(block, opAssign(
 			info,
 			// TODO unhack
 			&ast.IntLiteral{Value: int(op.Value)},
 			op.Dst,
 		))
-	case *ConstantRuneOp:
+	case *flow.ConstantRuneOp:
 		block = append(block, opAssign(
 			info,
 			&ast.RuneLiteral{Value: op.Value},
 			op.Dst,
 		))
-	case *ConstantStringOp:
+	case *flow.ConstantStringOp:
 		block = append(block, opAssign(
 			info,
 			&ast.StringLiteral{Value: op.Value},
 			op.Dst,
 		))
-	case *Peek:
+	case *flow.Peek:
 		block = append(block, opAssign(
 			info,
 			builtinExpr(info, "Peek"),
 			op.Dst,
 		))
-	case *Consume:
+	case *flow.Consume:
 		block = append(block,
 			builtinStmt(info, "Consume"),
 		)
-	case *AppendOp:
+	case *flow.AppendOp:
 		block = append(block, opAssign(
 			info,
 			&ast.Call{
@@ -417,7 +419,7 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 			},
 			op.Dst,
 		))
-	case *ReturnOp:
+	case *flow.ReturnOp:
 		if len(op.Exprs) != len(f.ReturnTypes) {
 			panic(fmt.Sprintf("Wrong number of return values.  Expected %d, got %d.", len(f.ReturnTypes), len(op.Exprs)))
 		}
@@ -428,42 +430,42 @@ func GenerateOp(info *regionInfo, f *LLFunc, op DubOp, ctx *DubToGoContext, bloc
 				Sources: []ast.Expr{info.GetReg(e)},
 			})
 		}
-	case *Fail:
+	case *flow.Fail:
 		block = append(block, builtinStmt(info, "Fail"))
-	case *Checkpoint:
+	case *flow.Checkpoint:
 		block = append(block, opAssign(
 			info,
 			builtinExpr(info, "Checkpoint"),
 			op.Dst,
 		))
-	case *Recover:
+	case *flow.Recover:
 		block = append(block, builtinStmt(info, "Recover", info.GetReg(op.Src)))
-	case *LookaheadBegin:
+	case *flow.LookaheadBegin:
 		block = append(block, opAssign(
 			info,
 			builtinExpr(info, "LookaheadBegin"),
 			op.Dst,
 		))
-	case *LookaheadEnd:
+	case *flow.LookaheadEnd:
 		if op.Failed {
 			block = append(block, builtinStmt(info, "LookaheadFail", info.GetReg(op.Src)))
 		} else {
 			block = append(block, builtinStmt(info, "LookaheadNormal", info.GetReg(op.Src)))
 		}
-	case *Slice:
+	case *flow.Slice:
 		block = append(block, opAssign(
 			info,
 			builtinExpr(info, "Slice", info.GetReg(op.Src)),
 			op.Dst,
 		))
-	case *CopyOp:
+	case *flow.CopyOp:
 		block = append(block, opAssign(
 			info,
 			info.GetReg(op.Src),
 			op.Dst,
 		))
 
-	case *TransferOp:
+	case *flow.TransferOp:
 		if len(op.Dsts) != len(op.Srcs) {
 			panic(op)
 		}
@@ -492,14 +494,14 @@ func generateNode(info *regionInfo, node base.NodeID, ctx *DubToGoContext, block
 	g := info.decl.CFG
 	op := info.decl.Ops[node]
 	switch data := op.(type) {
-	case *EntryOp:
+	case *flow.EntryOp:
 		block = gotoNode(info, g.GetExit(node, 0), ctx, block)
-	case *FlowExitOp:
+	case *flow.FlowExitOp:
 		block = append(block, &ast.Return{})
-	case *ExitOp:
-	case *SwitchOp:
+	case *flow.ExitOp:
+	case *flow.SwitchOp:
 		block = emitSwitch(info, info.GetReg(data.Cond), g.GetExit(node, 0), g.GetExit(node, 1), ctx, block)
-	case DubOp:
+	case flow.DubOp:
 		block = GenerateOp(info, info.decl, data, ctx, block)
 		block = generateFlowSwitch(info, node, ctx, block)
 	default:
@@ -564,7 +566,7 @@ func generateFlowSwitch(info *regionInfo, node base.NodeID, ctx *DubToGoContext,
 	}
 }
 
-func ParamIndex(f *LLFunc, r RegisterInfo_Ref) int {
+func ParamIndex(f *flow.LLFunc, r flow.RegisterInfo_Ref) int {
 	for i, p := range f.Params {
 		if p == r {
 			return i
@@ -573,11 +575,11 @@ func ParamIndex(f *LLFunc, r RegisterInfo_Ref) int {
 	return -1
 }
 
-func IsParam(f *LLFunc, r RegisterInfo_Ref) bool {
+func IsParam(f *flow.LLFunc, r flow.RegisterInfo_Ref) bool {
 	return ParamIndex(f, r) != -1
 }
 
-func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
+func GenerateGoFunc(f *flow.LLFunc, ctx *DubToGoContext) ast.Decl {
 	g := f.CFG
 	order, _ := base.ReversePostorder(g)
 
@@ -608,10 +610,10 @@ func GenerateGoFunc(f *LLFunc, ctx *DubToGoContext) ast.Decl {
 	numRegisters := f.RegisterInfo_Scope.Len()
 	dubToGo := make([]int, numRegisters)
 	for i := 0; i < numRegisters; i++ {
-		ref := RegisterInfo_Ref(i)
+		ref := flow.RegisterInfo_Ref(i)
 		info := f.RegisterInfo_Scope.Get(ref)
 		dubToGo[i] = funcDecl.CreateLocalInfo(
-			RegisterName(ref),
+			flow.RegisterName(ref),
 			goTypeName(info.T, ctx),
 		)
 	}
@@ -774,7 +776,7 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 	return decls
 }
 
-func ExternParserRuntime() (*ast.PackageAST, *ast.StructDecl) {
+func externParserRuntime() (*ast.PackageAST, *ast.StructDecl) {
 	state := &ast.StructDecl{
 		Name: "State",
 	}
@@ -792,7 +794,7 @@ func ExternParserRuntime() (*ast.PackageAST, *ast.StructDecl) {
 	return pkg, state
 }
 
-func ExternTestingPackage() (*ast.PackageAST, *ast.StructDecl) {
+func externTestingPackage() (*ast.PackageAST, *ast.StructDecl) {
 	t := &ast.StructDecl{
 		Name: "T",
 	}
@@ -810,7 +812,7 @@ func ExternTestingPackage() (*ast.PackageAST, *ast.StructDecl) {
 	return pkg, t
 }
 
-func ExternGraph() (*ast.PackageAST, *ast.StructDecl) {
+func externGraph() (*ast.PackageAST, *ast.StructDecl) {
 	graph := &ast.StructDecl{
 		Name: "Graph",
 	}
@@ -828,7 +830,7 @@ func ExternGraph() (*ast.PackageAST, *ast.StructDecl) {
 	return pkg, graph
 }
 
-func MakeBuiltinTypes() *ast.BuiltinTypeIndex {
+func makeBuiltinTypes() *ast.BuiltinTypeIndex {
 	return &ast.BuiltinTypeIndex{
 		Int:    &ast.ExternalType{Name: "int"},
 		UInt32: &ast.ExternalType{Name: "uint32"},
@@ -839,21 +841,14 @@ func MakeBuiltinTypes() *ast.BuiltinTypeIndex {
 	}
 }
 
-func GenerateGo(package_name string, structs []*core.StructType, funcs []*LLFunc, index *ast.BuiltinTypeIndex, state *ast.StructDecl, graph *ast.StructDecl, link DubToGoLinker) *ast.FileAST {
-	ctx := &DubToGoContext{
-		index: index,
-		state: state,
-		graph: graph,
-		link:  link,
-	}
-
+func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoContext) *ast.FileAST {
 	imports := []*ast.Import{}
 
 	decls := []ast.Decl{}
-	for _, f := range structs {
+	for _, f := range dubPkg.Structs {
 		decls = GenerateGoStruct(f, ctx, decls)
 	}
-	for _, f := range funcs {
+	for _, f := range dubPkg.Funcs {
 		decls = append(decls, GenerateGoFunc(f, ctx))
 	}
 
@@ -864,4 +859,55 @@ func GenerateGo(package_name string, structs []*core.StructType, funcs []*LLFunc
 		Decls:   decls,
 	}
 	return file
+}
+
+func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *ast.ProgramAST {
+	link := makeLinker()
+
+	packages := []*ast.PackageAST{}
+
+	index := makeBuiltinTypes()
+
+	pkg, state := externParserRuntime()
+	packages = append(packages, pkg)
+
+	pkg, graph := externGraph()
+	packages = append(packages, pkg)
+
+	pkg, t := externTestingPackage()
+	packages = append(packages, pkg)
+
+	ctx := &DubToGoContext{
+		index: index,
+		state: state,
+		graph: graph,
+		t:     t,
+		link:  link,
+	}
+
+	for _, dubPkg := range program {
+		path := []string{root}
+		path = append(path, dubPkg.Path...)
+		leaf := path[len(path)-1]
+
+		files := []*ast.FileAST{}
+		files = append(files, generateGoFile(leaf, dubPkg, ctx))
+
+		if generate_tests && len(dubPkg.Tests) != 0 {
+			files = append(files, GenerateTests(leaf, dubPkg.Tests, ctx))
+		}
+		packages = append(packages, &ast.PackageAST{
+			Path:  path,
+			Files: files,
+		})
+	}
+
+	prog := &ast.ProgramAST{
+		Builtins: index,
+		Packages: packages,
+	}
+
+	link.Finish()
+
+	return prog
 }
