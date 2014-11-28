@@ -3,15 +3,17 @@ struct TypeRef {
 
 struct NameRef implements TypeRef {
   Name string
-  Impl TypeImpl
+  T GoType
 }
 
 struct PointerRef implements TypeRef {
   Element TypeRef
+  T GoType
 }
 
 struct SliceRef implements TypeRef {
   Element TypeRef
+  T GoType
 }
 
 struct Param {
@@ -191,22 +193,26 @@ struct FieldDecl {
   Type TypeRef
 }
 
-struct StructDecl implements TypeImpl {
+struct StructDecl implements Decl {
   Name string
   Fields []FieldDecl
-  Package PackageAST
+  T StructType
 }
 
-struct InterfaceDecl implements TypeImpl {
+struct InterfaceDecl implements Decl {
   Name string
   Fields []FieldDecl
-  Package PackageAST
+  T InterfaceType
 }
 
-struct TypeDefDecl implements TypeImpl {
+struct TypeDefDecl implements Decl {
   Name string
   Type TypeRef
-  Package PackageAST
+  T TypeDefType
+}
+
+struct OpaqueDecl implements Decl {
+  T ExternalType
 }
 
 struct Import {
@@ -225,15 +231,6 @@ struct PackageAST {
   Path []string
   Files []FileAST
   Extern bool
-}
-
-struct BuiltinTypeIndex {
-  Int ExternalType
-  UInt32 ExternalType
-  Int64 ExternalType
-  Bool ExternalType
-  String ExternalType
-  Rune ExternalType
 }
 
 struct ProgramAST {

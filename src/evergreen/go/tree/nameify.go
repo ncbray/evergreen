@@ -40,15 +40,15 @@ func (info *FileInfo) QualifyName(pkg *PackageAST, name string) string {
 func nameifyType(t TypeRef, info *FileInfo) {
 	switch t := t.(type) {
 	case *NameRef:
-		impl := t.Impl
+		impl := t.T
 		switch impl := impl.(type) {
-		case *StructDecl:
+		case *StructType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
-		case *InterfaceDecl:
+		case *InterfaceType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
 		case *ExternalType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
-		case *TypeDefDecl:
+		case *TypeDefType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
 		default:
 			panic(impl)
@@ -203,7 +203,10 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 func nameifyFile(pkg *PackageAST, file *FileAST) {
 	file.Package = pkg.Path[len(pkg.Path)-1]
 
-	info := &FileInfo{Package: pkg, PackageName: map[*PackageAST]string{}}
+	info := &FileInfo{
+		Package:     pkg,
+		PackageName: map[*PackageAST]string{},
+	}
 
 	for _, decl := range file.Decls {
 		nameifyDecl(decl, info)
@@ -241,15 +244,15 @@ func nameifyPrepass(prog *ProgramAST) {
 			for _, decl := range file.Decls {
 				switch decl := decl.(type) {
 				case *InterfaceDecl:
-					decl.Package = pkg
+					decl.T.Package = pkg
 				case *StructDecl:
-					decl.Package = pkg
+					decl.T.Package = pkg
 				case *FuncDecl:
 					decl.Package = pkg
-				case *ExternalType:
-					decl.Package = pkg
+				case *OpaqueDecl:
+					decl.T.Package = pkg
 				case *TypeDefDecl:
-					decl.Package = pkg
+					decl.T.Package = pkg
 				case *VarDecl:
 					// Leaf
 				default:

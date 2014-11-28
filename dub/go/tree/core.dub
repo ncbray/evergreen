@@ -1,7 +1,52 @@
-struct TypeImpl implements Decl {
+struct GoType {
 }
 
-struct ExternalType implements TypeImpl {
+struct PointerType implements GoType {
+  Element GoType
+}
+
+struct SliceType implements GoType {
+  Element GoType
+}
+
+struct ExternalType implements GoType {
   Name string
-  Package PackageAST
+  Package PackageAST // HACK
+}
+
+struct TypeDefType implements GoType {
+  Name string
+  Type GoType
+  Package PackageAST // HACK
+}
+
+struct FuncType implements GoType {
+  Params []GoType
+  Results []GoType
+}
+
+struct Field {
+  Name string
+  Type GoType
+}
+
+struct StructType implements GoType {
+  Name string
+  Fields []Field
+  Package PackageAST // HACK
+}
+
+struct InterfaceType implements GoType {
+  Name string
+  Fields []Field
+  Package PackageAST // HACK
+}
+
+struct BuiltinTypeIndex {
+  Int ExternalType
+  UInt32 ExternalType
+  Int64 ExternalType
+  Bool ExternalType
+  String ExternalType
+  Rune ExternalType
 }

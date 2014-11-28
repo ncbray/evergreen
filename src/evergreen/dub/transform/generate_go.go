@@ -15,16 +15,16 @@ const (
 )
 
 type DubToGoLinker interface {
-	SetType(s *core.StructType, subtype int, impl ast.TypeImpl)
-	GetType(s *core.StructType, subtype int) ast.TypeImpl
+	SetType(s *core.StructType, subtype int, impl ast.GoType)
+	GetType(s *core.StructType, subtype int) ast.GoType
 	TypeRef(s *core.StructType, subtype int) *ast.NameRef
 }
 
 type linkerImpl struct {
-	types []map[*core.StructType]ast.TypeImpl
+	types []map[*core.StructType]ast.GoType
 }
 
-func (l *linkerImpl) SetType(s *core.StructType, subtype int, impl ast.TypeImpl) {
+func (l *linkerImpl) SetType(s *core.StructType, subtype int, impl ast.GoType) {
 	_, ok := l.types[subtype][s]
 	if ok {
 		panic(s)
@@ -32,7 +32,7 @@ func (l *linkerImpl) SetType(s *core.StructType, subtype int, impl ast.TypeImpl)
 	l.types[subtype][s] = impl
 }
 
-func (l *linkerImpl) GetType(s *core.StructType, subtype int) ast.TypeImpl {
+func (l *linkerImpl) GetType(s *core.StructType, subtype int) ast.GoType {
 	e, ok := l.types[subtype][s]
 	if !ok {
 		panic(s)
@@ -43,14 +43,14 @@ func (l *linkerImpl) GetType(s *core.StructType, subtype int) ast.TypeImpl {
 func (l *linkerImpl) TypeRef(s *core.StructType, subtype int) *ast.NameRef {
 	return &ast.NameRef{
 		Name: subtypeName(s, subtype),
-		Impl: l.GetType(s, subtype),
+		T:    l.GetType(s, subtype),
 	}
 }
 
 func makeLinker() DubToGoLinker {
-	types := []map[*core.StructType]ast.TypeImpl{}
+	types := []map[*core.StructType]ast.GoType{}
 	for i := 0; i < 3; i++ {
-		types = append(types, map[*core.StructType]ast.TypeImpl{})
+		types = append(types, map[*core.StructType]ast.GoType{})
 	}
 	return &linkerImpl{
 		types: types,
@@ -150,9 +150,9 @@ func intLiteral(value int) ast.Expr {
 
 type DubToGoContext struct {
 	index *ast.BuiltinTypeIndex
-	state *ast.StructDecl
-	graph *ast.StructDecl
-	t     *ast.StructDecl
+	state *ast.StructType
+	graph *ast.StructType
+	t     *ast.StructType
 	link  DubToGoLinker
 }
 
@@ -215,16 +215,55 @@ func opMultiAssign(info *regionInfo, expr ast.Expr, dsts []flow.RegisterInfo_Ref
 	}
 }
 
-func goFieldType(t core.DubType, ctx *DubToGoContext) ast.TypeRef {
+func goFieldType(t core.DubType, ctx *DubToGoContext) ast.GoType {
 	switch t := t.(type) {
 	case *core.StructType:
 		if t.Scoped {
-			return ctx.link.TypeRef(t, REF)
+			return ctx.link.GetType(t, REF)
 		}
 	case *core.ListType:
-		return &ast.SliceRef{Element: goFieldType(t.Type, ctx)}
+		return &ast.SliceType{Element: goFieldType(t.Type, ctx)}
 	}
-	return goTypeName(t, ctx)
+	return goType(t, ctx)
+}
+
+func builtinType(t *core.BuiltinType, ctx *DubToGoContext) ast.GoType {
+	switch t.Name {
+	case "bool":
+		return ctx.index.Bool
+	case "int":
+		return ctx.index.Int
+	case "uint32":
+		return ctx.index.UInt32
+	case "int64":
+		return ctx.index.Int64
+	case "rune":
+		return ctx.index.Rune
+	case "string":
+		return ctx.index.String
+	case "graph":
+		return &ast.PointerType{Element: ctx.graph}
+	default:
+		panic(t.Name)
+	}
+}
+
+func goType(t core.DubType, ctx *DubToGoContext) ast.GoType {
+	switch t := t.(type) {
+	case *core.BuiltinType:
+		return builtinType(t, ctx)
+	case *core.ListType:
+		return &ast.SliceType{Element: goType(t.Type, ctx)}
+	case *core.StructType:
+		out := ctx.link.GetType(t, STRUCT)
+		if t.IsParent {
+			return out
+		} else {
+			return &ast.PointerType{Element: out}
+		}
+	default:
+		panic(t)
+	}
 }
 
 func goTypeName(t core.DubType, ctx *DubToGoContext) ast.TypeRef {
@@ -232,19 +271,19 @@ func goTypeName(t core.DubType, ctx *DubToGoContext) ast.TypeRef {
 	case *core.BuiltinType:
 		switch t.Name {
 		case "bool":
-			return &ast.NameRef{Impl: ctx.index.Bool}
+			return &ast.NameRef{T: ctx.index.Bool}
 		case "int":
-			return &ast.NameRef{Impl: ctx.index.Int}
+			return &ast.NameRef{T: ctx.index.Int}
 		case "uint32":
-			return &ast.NameRef{Impl: ctx.index.UInt32}
+			return &ast.NameRef{T: ctx.index.UInt32}
 		case "int64":
-			return &ast.NameRef{Impl: ctx.index.Int64}
+			return &ast.NameRef{T: ctx.index.Int64}
 		case "rune":
-			return &ast.NameRef{Impl: ctx.index.Rune}
+			return &ast.NameRef{T: ctx.index.Rune}
 		case "string":
-			return &ast.NameRef{Impl: ctx.index.String}
+			return &ast.NameRef{T: ctx.index.String}
 		case "graph":
-			return &ast.PointerRef{Element: &ast.NameRef{Impl: ctx.graph}}
+			return &ast.PointerRef{Element: &ast.NameRef{T: ctx.graph}}
 		default:
 			panic(t.Name)
 		}
@@ -586,7 +625,7 @@ func GenerateGoFunc(f *flow.LLFunc, ctx *DubToGoContext) ast.Decl {
 	}
 
 	// Make local infos
-	frameType := &ast.PointerRef{Element: &ast.NameRef{Impl: ctx.state}}
+	frameType := &ast.PointerRef{Element: &ast.NameRef{T: ctx.state}}
 
 	frameInfo := funcDecl.CreateLocalInfo("frame", frameType)
 
@@ -670,11 +709,48 @@ func addTags(base *core.StructType, parent *core.StructType, ctx *DubToGoContext
 	return decls
 }
 
+func DeclForType(t ast.GoType, ctx *DubToGoContext) ast.Decl {
+	switch t := t.(type) {
+	case *ast.TypeDefType:
+		return &ast.TypeDefDecl{
+			Name: t.Name,
+			Type: ast.RefForType(t.Type),
+			T:    t,
+		}
+	case *ast.StructType:
+		fields := []*ast.FieldDecl{}
+		for _, f := range t.Fields {
+			fields = append(fields, &ast.FieldDecl{
+				Name: f.Name,
+				Type: ast.RefForType(f.Type),
+			})
+		}
+
+		return &ast.StructDecl{
+			Name:   t.Name,
+			Fields: fields,
+			T:      t,
+		}
+	case *ast.InterfaceType:
+		fields := []*ast.FieldDecl{}
+		for _, f := range t.Fields {
+			fields = append(fields, &ast.FieldDecl{
+				Name: f.Name,
+				Type: ast.RefForType(f.Type),
+			})
+		}
+		return &ast.InterfaceDecl{
+			Name:   t.Name,
+			Fields: fields,
+			T:      t,
+		}
+	default:
+		panic(t)
+	}
+}
+
 func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
-	ref := ctx.link.GetType(s, REF)
-	cRef, _ := ref.(*ast.TypeDefDecl)
-	cRef.Name = subtypeName(s, REF)
-	cRef.Type = &ast.NameRef{Impl: ctx.index.UInt32}
+	ref := DeclForType(ctx.link.GetType(s, REF), ctx)
 
 	noRef := &ast.VarDecl{
 		Name: "No" + s.Name.Text,
@@ -689,18 +765,7 @@ func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.D
 		Const: true,
 	}
 
-	scope := ctx.link.GetType(s, SCOPE)
-	cScope, ok := scope.(*ast.StructDecl)
-	if !ok {
-		panic(scope)
-	}
-	cScope.Name = subtypeName(s, SCOPE)
-	cScope.Fields = []*ast.FieldDecl{
-		&ast.FieldDecl{
-			Name: "objects",
-			Type: &ast.SliceRef{Element: goTypeName(s, ctx)},
-		},
-	}
+	scope := DeclForType(ctx.link.GetType(s, SCOPE), ctx)
 
 	decls = append(decls, ref, noRef, scope)
 	return decls
@@ -714,55 +779,24 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 		if len(s.Fields) != 0 {
 			panic(s.Name)
 		}
-		impl := ctx.link.GetType(s, STRUCT)
-		cImpl, _ := impl.(*ast.InterfaceDecl)
-		cImpl.Name = s.Name.Text
-		cImpl.Fields = []*ast.FieldDecl{}
-
-		for tag := s; tag != nil; tag = tag.Implements {
-			cImpl.Fields = append(cImpl.Fields, &ast.FieldDecl{
-				Name: tagName(tag),
-				Type: &ast.FuncTypeRef{},
-			})
-		}
-		decls = append(decls, impl)
+		decls = append(decls, DeclForType(ctx.link.GetType(s, STRUCT), ctx))
 	} else {
 		if s.Scoped {
 			decls = GenerateScopeHelpers(s, ctx, decls)
 		}
-
-		impl := ctx.link.GetType(s, STRUCT)
-		cImpl, _ := impl.(*ast.StructDecl)
-
-		fields := []*ast.FieldDecl{}
-		for _, f := range s.Fields {
-			fields = append(fields, &ast.FieldDecl{
-				Name: f.Name.Text,
-				Type: goFieldType(f.Type, ctx),
-			})
-		}
-		for _, c := range s.Contains {
-			if !c.Scoped {
-				panic(c)
-			}
-			fields = append(fields, &ast.FieldDecl{
-				Name: subtypeName(c, SCOPE),
-				Type: &ast.PointerRef{Element: ctx.link.TypeRef(c, SCOPE)},
-			})
-		}
-
-		cImpl.Name = s.Name.Text
-		cImpl.Fields = fields
-
-		decls = append(decls, impl)
+		decls = append(decls, DeclForType(ctx.link.GetType(s, STRUCT), ctx))
 		decls = addTags(s, s.Implements, ctx, decls)
 	}
 	return decls
 }
 
-func externParserRuntime() (*ast.PackageAST, *ast.StructDecl) {
+func externParserRuntime() (*ast.PackageAST, *ast.StructType) {
+	stateT := &ast.StructType{
+		Name: "State",
+	}
 	state := &ast.StructDecl{
 		Name: "State",
+		T:    stateT,
 	}
 	pkg := &ast.PackageAST{
 		Extern: true,
@@ -775,12 +809,16 @@ func externParserRuntime() (*ast.PackageAST, *ast.StructDecl) {
 			},
 		},
 	}
-	return pkg, state
+	return pkg, stateT
 }
 
-func externTestingPackage() (*ast.PackageAST, *ast.StructDecl) {
+func externTestingPackage() (*ast.PackageAST, *ast.StructType) {
+	tT := &ast.StructType{
+		Name: "T",
+	}
 	t := &ast.StructDecl{
 		Name: "T",
+		T:    tT,
 	}
 	pkg := &ast.PackageAST{
 		Extern: true,
@@ -793,12 +831,16 @@ func externTestingPackage() (*ast.PackageAST, *ast.StructDecl) {
 			},
 		},
 	}
-	return pkg, t
+	return pkg, tT
 }
 
-func externGraph() (*ast.PackageAST, *ast.StructDecl) {
+func externGraph() (*ast.PackageAST, *ast.StructType) {
+	graphT := &ast.StructType{
+		Name: "Graph",
+	}
 	graph := &ast.StructDecl{
 		Name: "Graph",
+		T:    graphT,
 	}
 	pkg := &ast.PackageAST{
 		Extern: true,
@@ -811,7 +853,7 @@ func externGraph() (*ast.PackageAST, *ast.StructDecl) {
 			},
 		},
 	}
-	return pkg, graph
+	return pkg, graphT
 }
 
 func makeBuiltinTypes() *ast.BuiltinTypeIndex {
@@ -845,32 +887,80 @@ func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoCo
 	return file
 }
 
+func createTypes(program []*flow.DubPackage, ctx *DubToGoContext) {
+	for _, dubPkg := range program {
+		for _, s := range dubPkg.Structs {
+			if s.IsParent {
+				impl, _ := ctx.link.GetType(s, STRUCT).(*ast.InterfaceType)
+				impl.Name = s.Name.Text
+				impl.Fields = []*ast.Field{}
+				for tag := s; tag != nil; tag = tag.Implements {
+					impl.Fields = append(impl.Fields, &ast.Field{
+						Name: tagName(tag),
+						Type: &ast.FuncType{},
+					})
+				}
+
+			} else {
+				impl, _ := ctx.link.GetType(s, STRUCT).(*ast.StructType)
+				impl.Name = s.Name.Text
+
+				fields := []*ast.Field{}
+				for _, f := range s.Fields {
+					fields = append(fields, &ast.Field{
+						Name: f.Name.Text,
+						Type: goFieldType(f.Type, ctx),
+					})
+				}
+				for _, c := range s.Contains {
+					if !c.Scoped {
+						panic(c)
+					}
+					fields = append(fields, &ast.Field{
+						Name: subtypeName(c, SCOPE),
+						Type: &ast.PointerType{
+							Element: ctx.link.GetType(c, SCOPE),
+						},
+					})
+				}
+				impl.Fields = fields
+
+				if s.Scoped {
+					ref, _ := ctx.link.GetType(s, REF).(*ast.TypeDefType)
+					ref.Name = subtypeName(s, REF)
+					ref.Type = ctx.index.UInt32
+
+					scope, _ := ctx.link.GetType(s, SCOPE).(*ast.StructType)
+					scope.Name = subtypeName(s, SCOPE)
+					scope.Fields = []*ast.Field{
+						&ast.Field{
+							Name: "objects",
+							Type: &ast.SliceType{
+								Element: &ast.PointerType{
+									Element: impl,
+								},
+							},
+						},
+					}
+				}
+			}
+
+		}
+		// TODO funcs
+	}
+}
+
 func createMapping(program []*flow.DubPackage, ctx *DubToGoContext) {
 	for _, dubPkg := range program {
 		for _, s := range dubPkg.Structs {
 			if s.IsParent {
-				impl := &ast.InterfaceDecl{
-					Name: s.Name.Text,
-				}
-				ctx.link.SetType(s, STRUCT, impl)
+				ctx.link.SetType(s, STRUCT, &ast.InterfaceType{})
 			} else {
 				if s.Scoped {
-					ref := &ast.TypeDefDecl{
-						Name: subtypeName(s, REF),
-					}
-					ctx.link.SetType(s, REF, ref)
-
-					scope := &ast.StructDecl{
-						Name: subtypeName(s, SCOPE),
-					}
-					ctx.link.SetType(s, SCOPE, scope)
+					ctx.link.SetType(s, REF, &ast.TypeDefType{})
+					ctx.link.SetType(s, SCOPE, &ast.StructType{})
 				}
-
-				impl := &ast.StructDecl{
-					Name:   s.Name.Text,
-					Fields: []*ast.FieldDecl{},
-				}
-				ctx.link.SetType(s, STRUCT, impl)
+				ctx.link.SetType(s, STRUCT, &ast.StructType{})
 			}
 
 		}
@@ -903,6 +993,7 @@ func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *a
 	}
 
 	createMapping(program, ctx)
+	createTypes(program, ctx)
 
 	for _, dubPkg := range program {
 		path := []string{root}

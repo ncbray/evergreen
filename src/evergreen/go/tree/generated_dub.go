@@ -6,7 +6,7 @@ type TypeRef interface {
 
 type NameRef struct {
 	Name string
-	Impl TypeImpl
+	T    GoType
 }
 
 func (node *NameRef) isTypeRef() {
@@ -14,6 +14,7 @@ func (node *NameRef) isTypeRef() {
 
 type PointerRef struct {
 	Element TypeRef
+	T       GoType
 }
 
 func (node *PointerRef) isTypeRef() {
@@ -21,6 +22,7 @@ func (node *PointerRef) isTypeRef() {
 
 type SliceRef struct {
 	Element TypeRef
+	T       GoType
 }
 
 func (node *SliceRef) isTypeRef() {
@@ -358,39 +360,37 @@ type FieldDecl struct {
 }
 
 type StructDecl struct {
-	Name    string
-	Fields  []*FieldDecl
-	Package *PackageAST
+	Name   string
+	Fields []*FieldDecl
+	T      *StructType
 }
 
 func (node *StructDecl) isDecl() {
 }
 
-func (node *StructDecl) isTypeImpl() {
-}
-
 type InterfaceDecl struct {
-	Name    string
-	Fields  []*FieldDecl
-	Package *PackageAST
+	Name   string
+	Fields []*FieldDecl
+	T      *InterfaceType
 }
 
 func (node *InterfaceDecl) isDecl() {
 }
 
-func (node *InterfaceDecl) isTypeImpl() {
-}
-
 type TypeDefDecl struct {
-	Name    string
-	Type    TypeRef
-	Package *PackageAST
+	Name string
+	Type TypeRef
+	T    *TypeDefType
 }
 
 func (node *TypeDefDecl) isDecl() {
 }
 
-func (node *TypeDefDecl) isTypeImpl() {
+type OpaqueDecl struct {
+	T *ExternalType
+}
+
+func (node *OpaqueDecl) isDecl() {
 }
 
 type Import struct {
@@ -411,23 +411,27 @@ type PackageAST struct {
 	Extern bool
 }
 
-type BuiltinTypeIndex struct {
-	Int    *ExternalType
-	UInt32 *ExternalType
-	Int64  *ExternalType
-	Bool   *ExternalType
-	String *ExternalType
-	Rune   *ExternalType
-}
-
 type ProgramAST struct {
 	Builtins *BuiltinTypeIndex
 	Packages []*PackageAST
 }
 
-type TypeImpl interface {
-	isTypeImpl()
-	isDecl()
+type GoType interface {
+	isGoType()
+}
+
+type PointerType struct {
+	Element GoType
+}
+
+func (node *PointerType) isGoType() {
+}
+
+type SliceType struct {
+	Element GoType
+}
+
+func (node *SliceType) isGoType() {
 }
 
 type ExternalType struct {
@@ -435,8 +439,54 @@ type ExternalType struct {
 	Package *PackageAST
 }
 
-func (node *ExternalType) isDecl() {
+func (node *ExternalType) isGoType() {
 }
 
-func (node *ExternalType) isTypeImpl() {
+type TypeDefType struct {
+	Name    string
+	Type    GoType
+	Package *PackageAST
+}
+
+func (node *TypeDefType) isGoType() {
+}
+
+type FuncType struct {
+	Params  []GoType
+	Results []GoType
+}
+
+func (node *FuncType) isGoType() {
+}
+
+type Field struct {
+	Name string
+	Type GoType
+}
+
+type StructType struct {
+	Name    string
+	Fields  []*Field
+	Package *PackageAST
+}
+
+func (node *StructType) isGoType() {
+}
+
+type InterfaceType struct {
+	Name    string
+	Fields  []*Field
+	Package *PackageAST
+}
+
+func (node *InterfaceType) isGoType() {
+}
+
+type BuiltinTypeIndex struct {
+	Int    *ExternalType
+	UInt32 *ExternalType
+	Int64  *ExternalType
+	Bool   *ExternalType
+	String *ExternalType
+	Rune   *ExternalType
 }

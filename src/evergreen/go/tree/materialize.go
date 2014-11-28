@@ -285,3 +285,57 @@ func (decl *FuncDecl) MakeSetLocal(idx int) Target {
 		Info: idx,
 	}
 }
+
+func RefForType(t GoType) TypeRef {
+	switch t := t.(type) {
+	case *ExternalType:
+		return &NameRef{
+			Name: t.Name,
+			T:    t,
+		}
+	case *StructType:
+		return &NameRef{
+			Name: t.Name,
+			T:    t,
+		}
+	case *InterfaceType:
+		return &NameRef{
+			Name: t.Name,
+			T:    t,
+		}
+	case *TypeDefType:
+		return &NameRef{
+			Name: t.Name,
+			T:    t,
+		}
+	case *FuncType:
+		params := make([]*Param, len(t.Params))
+		for i, pt := range t.Params {
+			params[i] = &Param{
+				Type: RefForType(pt),
+			}
+		}
+		results := make([]*Param, len(t.Results))
+		for i, pt := range t.Results {
+			results[i] = &Param{
+				Type: RefForType(pt),
+			}
+		}
+		return &FuncTypeRef{
+			Params:  params,
+			Results: results,
+		}
+	case *PointerType:
+		return &PointerRef{
+			Element: RefForType(t.Element),
+			T:       t,
+		}
+	case *SliceType:
+		return &SliceRef{
+			Element: RefForType(t.Element),
+			T:       t,
+		}
+	default:
+		panic(t)
+	}
+}

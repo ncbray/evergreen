@@ -94,18 +94,7 @@ func translateType(ctx *TestingContext, at core.DubType) dst.TypeRef {
 	case *core.ListType:
 		return &dst.SliceRef{Element: translateType(ctx, cat.Type)}
 	case *core.BuiltinType:
-		switch cat.Name {
-		case "string":
-			return &dst.NameRef{Impl: ctx.glbl.index.String}
-		case "rune":
-			return &dst.NameRef{Impl: ctx.glbl.index.Rune}
-		case "int":
-			return &dst.NameRef{Impl: ctx.glbl.index.Int}
-		case "bool":
-			return &dst.NameRef{Impl: ctx.glbl.index.Bool}
-		default:
-			panic(cat.Name)
-		}
+		return dst.RefForType(builtinType(cat, ctx.glbl))
 	default:
 		panic(at)
 	}
@@ -277,18 +266,17 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 	}
 	ctx.tInfo = decl.CreateLocalInfo("t", &dst.PointerRef{
 		Element: &dst.NameRef{
-			Impl: ctx.glbl.t,
+			T: ctx.glbl.t,
 		},
 	})
 	ctx.state = decl.CreateLocalInfo("state", &dst.PointerRef{
 		Element: &dst.NameRef{
-			Impl: ctx.glbl.state,
+			T: ctx.glbl.state,
 		},
 	})
 	ctx.okInfo = decl.CreateLocalInfo("ok", &dst.NameRef{
-		// HACK should actual reference a type.
 		Name: "bool",
-		Impl: &dst.ExternalType{Name: "bool"},
+		T:    gctx.index.Bool,
 	})
 
 	stmts := []dst.Stmt{}

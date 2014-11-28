@@ -14,9 +14,9 @@ func binaryOpExample(swap bool) (*FuncDecl, []Stmt) {
 	}
 
 	intType := &ExternalType{Name: "int"}
-	a := decl.CreateLocalInfo("a", &NameRef{Impl: intType})
-	b := decl.CreateLocalInfo("b", &NameRef{Impl: intType})
-	ret := decl.CreateLocalInfo("ret0", &NameRef{Impl: intType})
+	a := decl.CreateLocalInfo("a", &NameRef{T: intType})
+	b := decl.CreateLocalInfo("b", &NameRef{T: intType})
+	ret := decl.CreateLocalInfo("ret0", &NameRef{T: intType})
 
 	first := a
 	second := b
