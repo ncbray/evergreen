@@ -4,6 +4,7 @@ import (
 	"evergreen/base"
 	"evergreen/dub/flow"
 	"evergreen/dub/transform"
+	"evergreen/dub/transform/golang"
 	"evergreen/dub/tree"
 	core "evergreen/dub/tree"
 	"evergreen/framework"
@@ -129,7 +130,7 @@ func GenerateGo(program []*flow.DubPackage) {
 	if replace {
 		root = "evergreen"
 	}
-	prog := transform.GenerateGo(program, root, !replace)
+	prog := golang.GenerateGo(program, root, !replace)
 
 	// Compact simple expressions back into tree form.
 	gotree.Retree(prog)
