@@ -403,6 +403,7 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 
 	var buf bytes.Buffer
 	buf.WriteString("digraph G {\n")
+	buf.WriteString("  nslimit = 3;\n") // Make big graphs render faster.
 	nit := OrderedIterator(order)
 	for nit.Next() {
 		node := nit.Value()

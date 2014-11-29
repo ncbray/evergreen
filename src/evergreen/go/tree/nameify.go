@@ -167,6 +167,20 @@ func nameifyBody(body []Stmt, info *FileInfo) {
 	}
 }
 
+func nameifyFunc(decl *FuncDecl, info *FileInfo) {
+	CompactFunc(decl)
+	iter := decl.LocalInfo_Scope.Iter()
+	for iter.Next() {
+		nameifyType(iter.Value().T, info)
+	}
+	if decl.Recv != nil {
+		nameifyType(decl.Recv.Type, info)
+	}
+	nameifyType(decl.Type, info)
+	nameifyBody(decl.Body, info)
+	InsertVarDecls(decl)
+}
+
 func nameifyDecl(decl Decl, info *FileInfo) {
 	switch decl := decl.(type) {
 	case *InterfaceDecl:
@@ -180,18 +194,7 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 	case *TypeDefDecl:
 		nameifyType(decl.Type, info)
 	case *FuncDecl:
-		CompactFunc(decl)
-		iter := decl.LocalInfo_Scope.Iter()
-		for iter.Next() {
-			nameifyType(iter.Value().T, info)
-		}
-
-		if decl.Recv != nil {
-			nameifyType(decl.Recv.Type, info)
-		}
-		nameifyType(decl.Type, info)
-		nameifyBody(decl.Body, info)
-		InsertVarDecls(decl)
+		nameifyFunc(decl, info)
 	case *VarDecl:
 		nameifyType(decl.Type, info)
 		nameifyExpr(decl.Expr, info)

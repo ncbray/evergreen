@@ -254,16 +254,20 @@ func retreeBlock(stmts []Stmt, du *defUse) []Stmt {
 	return out
 }
 
+func RetreeFunc(decl *FuncDecl) {
+	if decl.Body != nil {
+		du := makeApproxDefUse(decl)
+		defUseFunc(decl, du)
+		decl.Body = retreeBlock(decl.Body, du)
+	}
+}
+
 func retreeDecl(decl Decl) {
 	switch decl := decl.(type) {
 	case *InterfaceDecl, *StructDecl, *TypeDefDecl, *VarDecl:
 		// Leaf
 	case *FuncDecl:
-		du := makeApproxDefUse(decl)
-		if decl.Body != nil {
-			defUseFunc(decl, du)
-			decl.Body = retreeBlock(decl.Body, du)
-		}
+		RetreeFunc(decl)
 	default:
 		panic(decl)
 	}

@@ -1,0 +1,116 @@
+import (
+  "go/tree"
+)
+
+struct Register scoped {
+  Name string
+  T tree.GoType
+}
+
+struct LLFunc contains(Register) {
+  Name string
+  Params []Register
+  Results []Register
+  CFG graph
+  Ops []GoOp
+}
+
+struct GoOp {
+}
+
+struct ConstantNil implements GoOp {
+  Dst Register
+}
+
+struct ConstantInt implements GoOp {
+  Value int64
+  Dst Register
+}
+
+struct ConstantBool implements GoOp {
+  Value bool
+  Dst Register
+}
+
+struct ConstantRune implements GoOp {
+  Value rune
+  Dst Register
+}
+
+struct ConstantString implements GoOp {
+  Value string
+  Dst Register
+}
+
+struct BinaryOp implements GoOp {
+  Left Register
+  Op string
+  Right Register
+  Dst Register
+}
+
+struct Attr implements GoOp {
+  Expr Register
+  Name string
+  Dst Register
+}
+
+// TODO reference to function.
+struct Call implements GoOp {
+  Name string
+  Args []Register
+  Dsts []Register
+}
+
+struct MethodCall implements GoOp {
+  Expr Register
+  Name string
+  Args []Register
+  Dsts []Register
+}
+
+struct NamedArg {
+  Name string
+  Arg Register
+}
+
+struct ConstructStruct implements GoOp {
+  Type tree.StructType
+  AddrTaken bool
+  Args []NamedArg
+  Dst Register
+}
+
+struct ConstructSlice implements GoOp {
+  Type tree.SliceType
+  Args []Register
+  Dst Register
+}
+
+struct Coerce implements GoOp {
+  Src Register
+  Type tree.GoType
+  Dst Register
+}
+
+struct Transfer implements GoOp {
+  Srcs []Register
+  Dsts []Register
+}
+
+struct Return implements GoOp {
+  Args []Register
+}
+
+struct Nop implements GoOp {
+}
+
+struct Entry implements GoOp {
+}
+
+struct Switch implements GoOp {
+  Cond Register
+}
+
+struct Exit implements GoOp {
+}

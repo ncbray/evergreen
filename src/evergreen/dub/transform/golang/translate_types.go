@@ -106,12 +106,16 @@ func builtinType(t *core.BuiltinType, ctx *DubToGoContext) ast.GoType {
 	}
 }
 
+func goSliceType(t *core.ListType, ctx *DubToGoContext) *ast.SliceType {
+	return &ast.SliceType{Element: goType(t.Type, ctx)}
+}
+
 func goType(t core.DubType, ctx *DubToGoContext) ast.GoType {
 	switch t := t.(type) {
 	case *core.BuiltinType:
 		return builtinType(t, ctx)
 	case *core.ListType:
-		return &ast.SliceType{Element: goType(t.Type, ctx)}
+		return goSliceType(t, ctx)
 	case *core.StructType:
 		out := ctx.link.GetType(t, STRUCT)
 		if t.IsParent {

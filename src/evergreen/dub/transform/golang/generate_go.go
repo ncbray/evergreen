@@ -452,6 +452,8 @@ func IsParam(f *flow.LLFunc, r flow.RegisterInfo_Ref) bool {
 }
 
 func GenerateGoFunc(f *flow.LLFunc, ctx *DubToGoContext) ast.Decl {
+	translateFlow(f, ctx)
+
 	g := f.CFG
 	order, _ := base.ReversePostorder(g)
 

@@ -395,6 +395,11 @@ func (it *entryIterator) Value() NodeID {
 	return it.node.entries[it.current].src.Id
 }
 
+func (it *entryIterator) Edge() (NodeID, int) {
+	edge := it.node.entries[it.current]
+	return edge.src.Id, edge.index
+}
+
 func EntryIterator(g *Graph, n NodeID) entryIterator {
 	return entryIterator{graph: g, node: g.nodes[n], current: -1}
 }
