@@ -1569,7 +1569,6 @@ func DecodeInt(frame *runtime.State) (ret0 int, ret1 string) {
 	var r15 int
 	var r16 rune
 	var r24 int
-	var r28 string
 	r0 = 0
 	r1 = frame.Checkpoint()
 	r2 = frame.Peek()
@@ -1607,9 +1606,7 @@ block2:
 	goto block3
 block3:
 	frame.Recover(r15)
-	r28 = frame.Slice(r1)
-	ret0 = r14
-	ret1 = r28
+	ret0, ret1 = r14, frame.Slice(r1)
 	return
 block4:
 	frame.Fail()
@@ -1847,7 +1844,6 @@ func DecodeRune(frame *runtime.State) (ret0 rune, ret1 string) {
 	var r11 rune
 	var r14 rune
 	var r15 rune
-	var r18 string
 	r0 = frame.Checkpoint()
 	r1 = frame.Peek()
 	if frame.Flow == 0 {
@@ -1897,9 +1893,7 @@ block3:
 	if frame.Flow == 0 {
 		if r15 == '\'' {
 			frame.Consume()
-			r18 = frame.Slice(r0)
-			ret0 = r10
-			ret1 = r18
+			ret0, ret1 = r10, frame.Slice(r0)
 			return
 		}
 		frame.Fail()
@@ -1923,7 +1917,6 @@ func DecodeBool(frame *runtime.State) (ret0 bool, ret1 string) {
 	var r22 rune
 	var r25 rune
 	var r28 rune
-	var r32 string
 	r0 = frame.Checkpoint()
 	r1 = frame.Checkpoint()
 	r2 = frame.Peek()
@@ -2016,9 +2009,7 @@ block1:
 block2:
 	EndKeyword(frame)
 	if frame.Flow == 0 {
-		r32 = frame.Slice(r0)
-		ret0 = r15
-		ret1 = r32
+		ret0, ret1 = r15, frame.Slice(r0)
 		return
 	}
 	goto block3
@@ -2116,12 +2107,8 @@ func BinaryOperator(frame *runtime.State) (ret0 string, ret1 int) {
 	var r0 int
 	var r1 int
 	var r2 rune
-	var r9 string
-	var r10 int
 	var r11 int
 	var r12 rune
-	var r17 string
-	var r18 int
 	var r19 int
 	var r20 int
 	var r21 rune
@@ -2129,8 +2116,6 @@ func BinaryOperator(frame *runtime.State) (ret0 string, ret1 int) {
 	var r27 rune
 	var r30 rune
 	var r35 rune
-	var r38 string
-	var r39 int
 	r0 = frame.Checkpoint()
 	r1 = frame.Checkpoint()
 	r2 = frame.Peek()
@@ -2150,10 +2135,7 @@ func BinaryOperator(frame *runtime.State) (ret0 string, ret1 int) {
 	goto block2
 block1:
 	frame.Consume()
-	r9 = frame.Slice(r1)
-	r10 = 5
-	ret0 = r9
-	ret1 = r10
+	ret0, ret1 = frame.Slice(r1), 5
 	goto block10
 block2:
 	frame.Recover(r0)
@@ -2172,10 +2154,7 @@ block2:
 	goto block4
 block3:
 	frame.Consume()
-	r17 = frame.Slice(r11)
-	r18 = 4
-	ret0 = r17
-	ret1 = r18
+	ret0, ret1 = frame.Slice(r11), 4
 	goto block10
 block4:
 	frame.Recover(r0)
@@ -2236,10 +2215,7 @@ block8:
 	}
 	goto block11
 block9:
-	r38 = frame.Slice(r19)
-	r39 = 3
-	ret0 = r38
-	ret1 = r39
+	ret0, ret1 = frame.Slice(r19), 3
 	goto block10
 block10:
 	return

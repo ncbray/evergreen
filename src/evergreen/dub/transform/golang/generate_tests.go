@@ -19,6 +19,18 @@ func (ctx *TestingContext) GetState() dst.Expr {
 	return &dst.GetLocal{Info: ctx.state}
 }
 
+func attr(expr dst.Expr, name string) dst.Expr {
+	return &dst.Selector{Expr: expr, Text: name}
+}
+
+func strLiteral(value string) dst.Expr {
+	return &dst.StringLiteral{Value: value}
+}
+
+func intLiteral(value int) dst.Expr {
+	return &dst.IntLiteral{Value: value}
+}
+
 func lcl(name string) dst.Expr {
 	return &dst.GetName{
 		Text: name,

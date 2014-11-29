@@ -24,8 +24,8 @@ type GoFlowBuilder struct {
 	CFG  *base.Graph
 }
 
-func (builder *GoFlowBuilder) MakeRegister(t core.GoType) Register_Ref {
-	return builder.decl.Register_Scope.Register(&Register{T: t})
+func (builder *GoFlowBuilder) MakeRegister(name string, t core.GoType) Register_Ref {
+	return builder.decl.Register_Scope.Register(&Register{Name: name, T: t})
 }
 
 func (builder *GoFlowBuilder) EmitOp(op GoOp, exit_count int) base.NodeID {

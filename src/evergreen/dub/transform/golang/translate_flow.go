@@ -5,9 +5,7 @@ import (
 	src "evergreen/dub/flow"
 	dst "evergreen/go/flow"
 	dstcore "evergreen/go/tree"
-	"evergreen/io"
 	"fmt"
-	"path/filepath"
 )
 
 func simpleFlow(stitcher *base.FlowStitcher, srcID base.NodeID, dstID base.NodeID) {
@@ -27,9 +25,9 @@ func dubFlow(ctx *DubToGoContext, builder *dst.GoFlowBuilder, stitcher *base.Flo
 
 	if normal != base.NoNode {
 		if fail != base.NoNode {
-			flow := builder.MakeRegister(ctx.index.Int)
-			reference := builder.MakeRegister(ctx.index.Int)
-			cond := builder.MakeRegister(ctx.index.Bool)
+			flow := builder.MakeRegister("", ctx.index.Int)
+			reference := builder.MakeRegister("", ctx.index.Int)
+			cond := builder.MakeRegister("", ctx.index.Bool)
 
 			attrID := builder.EmitOp(&dst.Attr{
 				Expr: frameRef,
@@ -93,7 +91,7 @@ func regList(regMap []dst.Register_Ref, args []src.RegisterInfo_Ref) []dst.Regis
 	return out
 }
 
-func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) {
+func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 	dstF := &dst.LLFunc{
 		Name:           srcF.Name,
 		Register_Scope: &dst.Register_Scope{},
@@ -101,14 +99,14 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) {
 
 	builder := dst.MakeGoFlowBuilder(dstF)
 
-	frameReg := builder.MakeRegister(ctx.state)
+	frameReg := builder.MakeRegister("frame", &dstcore.PointerType{Element: ctx.state})
 
 	// Remap registers
 	num := srcF.RegisterInfo_Scope.Len()
 	regMap := make([]dst.Register_Ref, num)
 	for i := 0; i < num; i++ {
 		r := srcF.RegisterInfo_Scope.Get(src.RegisterInfo_Ref(i))
-		regMap[i] = builder.MakeRegister(goType(r.T, ctx))
+		regMap[i] = builder.MakeRegister("", goType(r.T, ctx))
 	}
 
 	// Remap parameters
@@ -121,7 +119,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) {
 	// Create result registers
 	dstF.Results = make([]dst.Register_Ref, len(srcF.ReturnTypes))
 	for i, rt := range srcF.ReturnTypes {
-		dstF.Results[i] = builder.MakeRegister(goType(rt, ctx))
+		dstF.Results[i] = builder.MakeRegister(fmt.Sprintf("ret%d", i), goType(rt, ctx))
 	}
 
 	stitcher := base.MakeFlowStitcher(srcF.CFG, dstF.CFG)
@@ -153,9 +151,11 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) {
 			dstID := builder.EmitOp(&dst.Nop{}, 1)
 			simpleFlow(stitcher, srcID, dstID)
 		case *src.CallOp:
+			args := []dst.Register_Ref{frameReg}
+			args = append(args, regList(regMap, op.Args)...)
 			dstID := builder.EmitOp(&dst.Call{
 				Name: op.Name,
-				Args: regList(regMap, op.Args),
+				Args: args,
 				Dsts: regList(regMap, op.Dsts),
 			}, 1)
 			dubFlow(ctx, builder, stitcher, frameReg, srcID, dstID)
@@ -172,13 +172,42 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) {
 					Arg:  regMap[arg.Value],
 				}
 			}
-			dstID := builder.EmitOp(&dst.ConstructStruct{
+
+			nodes := []base.NodeID{}
+
+			for _, c := range op.Type.Contains {
+				scopeTA := ctx.link.GetType(c, SCOPE)
+				scopeT, ok := scopeTA.(*dstcore.StructType)
+				if !ok {
+					panic(scopeTA)
+				}
+				scopeTP := &dstcore.PointerType{Element: scopeT}
+				scope := builder.MakeRegister("", scopeTP)
+
+				nodes = append(nodes, builder.EmitOp(&dst.ConstructStruct{
+					Type:      scopeT,
+					AddrTaken: true,
+					Dst:       scope,
+				}, 1))
+				args = append(args, &dst.NamedArg{
+					Name: subtypeName(c, SCOPE),
+					Arg:  scope,
+				})
+			}
+
+			nodes = append(nodes, builder.EmitOp(&dst.ConstructStruct{
 				Type:      st,
 				AddrTaken: true,
 				Args:      args,
 				Dst:       dstReg(regMap, op.Dst),
-			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			}, 1))
+
+			stitcher.SetHead(srcID, nodes[0])
+			for i := 0; i < len(nodes)-1; i++ {
+				stitcher.Internal(nodes[i], 0, nodes[i+1])
+			}
+
+			stitcher.SetEdge(srcID, 0, nodes[len(nodes)-1], 0)
 		case *src.ConstructListOp:
 			dstID := builder.EmitOp(&dst.ConstructSlice{
 				Type: goSliceType(op.Type, ctx),
@@ -303,21 +332,24 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) {
 			}, 1)
 			simpleFlow(stitcher, srcID, dstID)
 		case *src.ReturnOp:
-			dstID := builder.EmitOp(&dst.Return{
-				Args: regList(regMap, op.Exprs),
+			transferID := builder.EmitOp(&dst.Transfer{
+				Srcs: regList(regMap, op.Exprs),
+				Dsts: dstF.Results, // TODO copy?
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+
+			if true {
+				simpleFlow(stitcher, srcID, transferID)
+			} else {
+
+				returnID := builder.EmitOp(&dst.Return{}, 1)
+
+				stitcher.SetHead(srcID, transferID)
+				stitcher.Internal(transferID, 0, returnID)
+				stitcher.SetEdge(srcID, 0, returnID, 0)
+			}
 		default:
 			panic(op)
 		}
 	}
-
-	dot := base.GraphToDot(dstF.CFG, &dst.DotStyler{Ops: dstF.Ops})
-
-	if false {
-		parts := []string{"output", "translate"}
-		parts = append(parts, fmt.Sprintf("%s.svg", dstF.Name))
-		outfile := filepath.Join(parts...)
-		io.WriteDot(dot, outfile)
-	}
+	return dstF
 }
