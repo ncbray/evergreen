@@ -1,7 +1,8 @@
 # Evergreen
 
 ## About
-Evergreen is a sandbox for exploring source-to-source compiler construction with Go.
+Evergreen is a sandbox for exploring source-to-source compiler construction with
+Go.
 
 ## Quick Start
 
@@ -10,22 +11,28 @@ Be sure to set GOPATH to this directory.  If using bash:
 
     export GOPATH=`pwd`
 
+Development workflow is assisted by a binary called "workflow".  Evergreen
+generates parts of itself.  You need to build workflow to get started.
+
+    go install evergreen/cmd/workflow
+
 ### Development
 Regenerate into src/generated and run tests:
 
-    ./test.sh
+    ./bin/workflow test
 
-This will help sanity check your changes to *.dub files.  If things look OK,
-regenerate into src/evergreen:
+Files in src/generated are only used for testing and will not affect the main
+build.  This will help sanity check your changes to *.dub files.  If things look
+OK, regenerate into src/evergreen:
 
-    ./build.sh
+    ./bin/workflow build
 
 This command will compile the current program to bin/regenerate before replacing
 the generated source files.  This is a safety net that lets generated sources be
-updated even when the source code is in an intermediate, uncompilable state.
+updated even when the source code is in an intermediate, uncompilable state.  If
+you need to regenerate sources while the compiler is broken:
 
-    bin/regenerate -replace
-    go fmt ./...
+    ./bin/workflow sync
 
 This development loop should help minimize situations where work in progress is
 lost because changes to the parser break it and prevent it from regenerating
@@ -33,7 +40,7 @@ itself.  This is still a risk, however, so be careful.
 
 If you have graphviz installed, you can visualize the graph IR of the *.dub files:
 
-    go run src/tools/regenerate/regenerate_main.go -dump
+    ./bin/regenerate -dump
 
 ## Background
 
