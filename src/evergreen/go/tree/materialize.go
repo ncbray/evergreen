@@ -1,7 +1,7 @@
 package tree
 
 type refRewriter interface {
-	rewriteLocalInfo(index int) int
+	rewriteLocalInfo(index LocalInfo_Ref) LocalInfo_Ref
 }
 
 // Find all LocalInfos
@@ -9,7 +9,7 @@ type funcGC struct {
 	live []bool
 }
 
-func (rewriter *funcGC) rewriteLocalInfo(index int) int {
+func (rewriter *funcGC) rewriteLocalInfo(index LocalInfo_Ref) LocalInfo_Ref {
 	if index < 0 {
 		panic(index)
 	}
@@ -19,10 +19,10 @@ func (rewriter *funcGC) rewriteLocalInfo(index int) int {
 
 // Rewrite all LocalInfos
 type funcRemap struct {
-	remap []int
+	remap []LocalInfo_Ref
 }
 
-func (rewriter *funcRemap) rewriteLocalInfo(index int) int {
+func (rewriter *funcRemap) rewriteLocalInfo(index LocalInfo_Ref) LocalInfo_Ref {
 	if index < 0 {
 		panic(index)
 	}
@@ -135,8 +135,8 @@ func sweepFunc(decl *FuncDecl, rewriter refRewriter) {
 	sweepBlock(decl.Body, rewriter)
 }
 
-func MakeRemap(live []bool) ([]int, int) {
-	remap := make([]int, len(live))
+func MakeRemap(live []bool) ([]LocalInfo_Ref, int) {
+	remap := make([]LocalInfo_Ref, len(live))
 	count := 0
 	for i, isLive := range live {
 		var idx int
@@ -146,7 +146,7 @@ func MakeRemap(live []bool) ([]int, int) {
 		} else {
 			idx = -1
 		}
-		remap[i] = idx
+		remap[i] = LocalInfo_Ref(idx)
 	}
 	return remap, count
 }
@@ -161,7 +161,7 @@ func CompactFunc(decl *FuncDecl) {
 	decl.LocalInfo_Scope.Remap(remap, count)
 }
 
-func isParam(decl *FuncDecl, ref int) bool {
+func isParam(decl *FuncDecl, ref LocalInfo_Ref) bool {
 	if ref < 0 {
 		return false
 	}
@@ -207,12 +207,12 @@ func InsertVarDecls(decl *FuncDecl) {
 	decl.Body = append(stmts, decl.Body...)
 }
 
-func (scope *LocalInfo_Scope) Get(ref int) *LocalInfo {
+func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {
 	return scope.objects[ref]
 }
 
-func (scope *LocalInfo_Scope) Register(info *LocalInfo) int {
-	index := len(scope.objects)
+func (scope *LocalInfo_Scope) Register(info *LocalInfo) LocalInfo_Ref {
+	index := LocalInfo_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
 	return index
 }
@@ -225,11 +225,11 @@ func (scope *LocalInfo_Scope) Iter() *localInfoIterator {
 	return &localInfoIterator{scope: scope, current: -1}
 }
 
-func (scope *LocalInfo_Scope) Remap(remap []int, count int) {
+func (scope *LocalInfo_Scope) Remap(remap []LocalInfo_Ref, count int) {
 	objects := make([]*LocalInfo, count)
 	for i, info := range scope.objects {
 		idx := remap[i]
-		if idx >= 0 {
+		if idx != NoLocalInfo {
 			objects[idx] = info
 		}
 	}
@@ -246,26 +246,26 @@ func (iter *localInfoIterator) Next() bool {
 	return iter.current < len(iter.scope.objects)
 }
 
-func (iter *localInfoIterator) Index() int {
-	return iter.current
+func (iter *localInfoIterator) Index() LocalInfo_Ref {
+	return LocalInfo_Ref(iter.current)
 }
 
 func (iter *localInfoIterator) Value() *LocalInfo {
 	return iter.scope.objects[iter.current]
 }
 
-func (decl *FuncDecl) CreateLocalInfo(name string, T TypeRef) int {
+func (decl *FuncDecl) CreateLocalInfo(name string, T TypeRef) LocalInfo_Ref {
 	return decl.LocalInfo_Scope.Register(&LocalInfo{
 		Name: name,
 		T:    T,
 	})
 }
 
-func (decl *FuncDecl) GetLocalInfo(idx int) *LocalInfo {
+func (decl *FuncDecl) GetLocalInfo(idx LocalInfo_Ref) *LocalInfo {
 	return decl.LocalInfo_Scope.Get(idx)
 }
 
-func (decl *FuncDecl) MakeParam(idx int) *Param {
+func (decl *FuncDecl) MakeParam(idx LocalInfo_Ref) *Param {
 	localInfo := decl.GetLocalInfo(idx)
 	return &Param{
 		Name: localInfo.Name,
@@ -274,13 +274,13 @@ func (decl *FuncDecl) MakeParam(idx int) *Param {
 	}
 }
 
-func (decl *FuncDecl) MakeGetLocal(idx int) Expr {
+func (decl *FuncDecl) MakeGetLocal(idx LocalInfo_Ref) Expr {
 	return &GetLocal{
 		Info: idx,
 	}
 }
 
-func (decl *FuncDecl) MakeSetLocal(idx int) Target {
+func (decl *FuncDecl) MakeSetLocal(idx LocalInfo_Ref) Target {
 	return &SetLocal{
 		Info: idx,
 	}

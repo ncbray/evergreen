@@ -31,7 +31,7 @@ func (node *SliceRef) isTypeRef() {
 type Param struct {
 	Name string
 	Type TypeRef
-	Info int
+	Info LocalInfo_Ref
 }
 
 type FuncTypeRef struct {
@@ -162,7 +162,7 @@ func (node *SetName) isTarget() {
 }
 
 type GetLocal struct {
-	Info int
+	Info LocalInfo_Ref
 }
 
 func (node *GetLocal) isStmt() {
@@ -172,7 +172,7 @@ func (node *GetLocal) isExpr() {
 }
 
 type SetLocal struct {
-	Info int
+	Info LocalInfo_Ref
 }
 
 func (node *SetLocal) isTarget() {
@@ -285,7 +285,7 @@ type Var struct {
 	Name string
 	Type TypeRef
 	Expr Expr
-	Info int
+	Info LocalInfo_Ref
 }
 
 func (node *Var) isStmt() {

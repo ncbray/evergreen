@@ -7,10 +7,10 @@ type defUseInfo struct {
 
 type defUse struct {
 	decl          *FuncDecl
-	localToStruct map[int]*defUseInfo
+	localToStruct map[LocalInfo_Ref]*defUseInfo
 }
 
-func (du *defUse) GetLocalInfo(index int) *defUseInfo {
+func (du *defUse) GetLocalInfo(index LocalInfo_Ref) *defUseInfo {
 	info, ok := du.localToStruct[index]
 	if !ok {
 		info = &defUseInfo{}
@@ -22,7 +22,7 @@ func (du *defUse) GetLocalInfo(index int) *defUseInfo {
 func makeApproxDefUse(decl *FuncDecl) *defUse {
 	return &defUse{
 		decl:          decl,
-		localToStruct: map[int]*defUseInfo{},
+		localToStruct: map[LocalInfo_Ref]*defUseInfo{},
 	}
 }
 

@@ -19,7 +19,7 @@ struct SliceRef implements TypeRef {
 struct Param {
   Name string
   Type TypeRef
-  Info int
+  Info LocalInfo
 }
 
 struct FuncTypeRef implements TypeRef {
@@ -84,11 +84,11 @@ struct SetName implements Target {
 }
 
 struct GetLocal implements Expr {
-  Info int
+  Info LocalInfo
 }
 
 struct SetLocal implements Target {
-  Info int
+  Info LocalInfo
 }
 
 struct GetGlobal implements Expr {
@@ -145,7 +145,7 @@ struct Var implements Stmt {
   Name string
   Type TypeRef
   Expr Expr
-  Info int
+  Info LocalInfo
 }
 
 struct BlockStmt implements Stmt {

@@ -39,7 +39,7 @@ func FindBlockHeads(g *base.Graph, order []base.NodeID) ([]base.NodeID, map[base
 
 func getLocal(lclMap []tree.LocalInfo_Ref, reg flow.Register_Ref) *tree.GetLocal {
 	return &tree.GetLocal{
-		Info: int(lclMap[reg]),
+		Info: lclMap[reg],
 	}
 }
 
@@ -54,7 +54,7 @@ func getLocalList(lclMap []tree.LocalInfo_Ref, regs []flow.Register_Ref) []tree.
 func setLocal(lclMap []tree.LocalInfo_Ref, reg flow.Register_Ref) tree.Target {
 	if reg != flow.NoRegister {
 		return &tree.SetLocal{
-			Info: int(lclMap[reg]),
+			Info: lclMap[reg],
 		}
 	} else {
 		return &tree.SetDiscard{}
@@ -274,7 +274,7 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 	ft.Params = make([]*tree.Param, len(decl.Params))
 	for i, ref := range decl.Params {
 		info := decl.Register_Scope.Get(ref)
-		index := int(lclMap[ref])
+		index := lclMap[ref]
 		mapped := funcDecl.LocalInfo_Scope.Get(index)
 		ft.Params[i] = &tree.Param{
 			Name: mapped.Name,
@@ -287,7 +287,7 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 	ft.Results = make([]*tree.Param, len(decl.Results))
 	for i, ref := range decl.Results {
 		info := decl.Register_Scope.Get(ref)
-		index := int(lclMap[ref])
+		index := lclMap[ref]
 		mapped := funcDecl.LocalInfo_Scope.Get(index)
 		ft.Results[i] = &tree.Param{
 			Name: mapped.Name,

@@ -10,9 +10,9 @@ import (
 type TestingContext struct {
 	glbl     *DubToGoContext
 	funcDecl *dst.FuncDecl
-	state    int
-	tInfo    int
-	okInfo   int
+	state    dst.LocalInfo_Ref
+	tInfo    dst.LocalInfo_Ref
+	okInfo   dst.LocalInfo_Ref
 }
 
 func (ctx *TestingContext) GetState() dst.Expr {
@@ -112,7 +112,7 @@ func translateType(ctx *TestingContext, at core.DubType) dst.TypeRef {
 	}
 }
 
-func generateDestructure(value int, nameX string, path string, d tree.Destructure, generalType core.DubType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
+func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d tree.Destructure, generalType core.DubType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
 	switch d := d.(type) {
 	case *tree.DestructureStruct:
 		actual_value := value
