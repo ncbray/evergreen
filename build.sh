@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 echo "### Building binary"
-go install tools/regenerate
+go install evergreen/cmd/regenerate
 echo "### Generating sources"
 bin/regenerate -replace
 echo "### Formatting sources"
