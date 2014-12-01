@@ -133,7 +133,7 @@ func GenerateGo(program []*flow.DubPackage) {
 	prog := golang.GenerateGo(program, root, !replace)
 
 	// Compact simple expressions back into tree form.
-	gotree.Retree(prog)
+	gotree.Consolidate(prog)
 
 	// Give everything names: variables, etc.
 	gotree.Nameify(prog)

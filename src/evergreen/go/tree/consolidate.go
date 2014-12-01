@@ -168,14 +168,14 @@ func pullLocal(expr *GetLocal, du *defUse, out []Stmt) (Expr, []Stmt) {
 	return lastAssign.Sources[0], out[:n-1]
 }
 
-func retreeExprList(exprs []Expr, du *defUse, out []Stmt) []Stmt {
+func consolidateExprList(exprs []Expr, du *defUse, out []Stmt) []Stmt {
 	for i := len(exprs) - 1; i >= 0; i-- {
-		exprs[i], out = retreeExpr(exprs[i], du, out)
+		exprs[i], out = consolidateExpr(exprs[i], du, out)
 	}
 	return out
 }
 
-func retreeExpr(expr Expr, du *defUse, out []Stmt) (Expr, []Stmt) {
+func consolidateExpr(expr Expr, du *defUse, out []Stmt) (Expr, []Stmt) {
 	if expr == nil {
 		return nil, out
 	}
@@ -185,58 +185,58 @@ func retreeExpr(expr Expr, du *defUse, out []Stmt) (Expr, []Stmt) {
 	case *IntLiteral, *RuneLiteral, *BoolLiteral, *StringLiteral, *NilLiteral, *GetGlobal:
 		// Leaf
 	case *UnaryExpr:
-		expr.Expr, out = retreeExpr(expr.Expr, du, out)
+		expr.Expr, out = consolidateExpr(expr.Expr, du, out)
 	case *BinaryExpr:
-		expr.Right, out = retreeExpr(expr.Right, du, out)
-		expr.Left, out = retreeExpr(expr.Left, du, out)
+		expr.Right, out = consolidateExpr(expr.Right, du, out)
+		expr.Left, out = consolidateExpr(expr.Left, du, out)
 	case *Call:
-		out = retreeExprList(expr.Args, du, out)
-		expr.Expr, out = retreeExpr(expr.Expr, du, out)
+		out = consolidateExprList(expr.Args, du, out)
+		expr.Expr, out = consolidateExpr(expr.Expr, du, out)
 	case *Selector:
-		expr.Expr, out = retreeExpr(expr.Expr, du, out)
+		expr.Expr, out = consolidateExpr(expr.Expr, du, out)
 	case *Index:
-		expr.Index, out = retreeExpr(expr.Index, du, out)
-		expr.Expr, out = retreeExpr(expr.Expr, du, out)
+		expr.Index, out = consolidateExpr(expr.Index, du, out)
+		expr.Expr, out = consolidateExpr(expr.Expr, du, out)
 	case *TypeCoerce:
-		expr.Expr, out = retreeExpr(expr.Expr, du, out)
+		expr.Expr, out = consolidateExpr(expr.Expr, du, out)
 	case *TypeAssert:
-		expr.Expr, out = retreeExpr(expr.Expr, du, out)
+		expr.Expr, out = consolidateExpr(expr.Expr, du, out)
 	case *StructLiteral:
 		for i := len(expr.Args) - 1; i >= 0; i-- {
-			expr.Args[i].Expr, out = retreeExpr(expr.Args[i].Expr, du, out)
+			expr.Args[i].Expr, out = consolidateExpr(expr.Args[i].Expr, du, out)
 		}
 	case *ListLiteral:
-		out = retreeExprList(expr.Args, du, out)
+		out = consolidateExprList(expr.Args, du, out)
 	default:
 		panic(expr)
 	}
 	return expr, out
 }
 
-func retreeStmt(stmt Stmt, du *defUse, out []Stmt) []Stmt {
+func consolidateStmt(stmt Stmt, du *defUse, out []Stmt) []Stmt {
 	switch stmt := stmt.(type) {
 	case *Goto, *Label:
 		// Leaf
 	case *Assign:
 		for i := len(stmt.Sources) - 1; i >= 0; i-- {
-			stmt.Sources[i], out = retreeExpr(stmt.Sources[i], du, out)
+			stmt.Sources[i], out = consolidateExpr(stmt.Sources[i], du, out)
 		}
 	case *Var:
-		stmt.Expr, out = retreeExpr(stmt.Expr, du, out)
+		stmt.Expr, out = consolidateExpr(stmt.Expr, du, out)
 	case *If:
-		stmt.Cond, out = retreeExpr(stmt.Cond, du, out)
-		stmt.Body = retreeBlock(stmt.Body, du)
+		stmt.Cond, out = consolidateExpr(stmt.Cond, du, out)
+		stmt.Body = consolidateBlock(stmt.Body, du)
 		if stmt.Else != nil {
-			retreeStmt(stmt.Else, du, nil)
+			consolidateStmt(stmt.Else, du, nil)
 		}
 	case *BlockStmt:
-		stmt.Body = retreeBlock(stmt.Body, du)
+		stmt.Body = consolidateBlock(stmt.Body, du)
 	case *Return:
-		out = retreeExprList(stmt.Args, du, out)
+		out = consolidateExprList(stmt.Args, du, out)
 	default:
 		expr, ok := stmt.(Expr)
 		if ok {
-			expr, out = retreeExpr(expr, du, out)
+			expr, out = consolidateExpr(expr, du, out)
 			stmt, _ = expr.(Stmt)
 		} else {
 			panic(stmt)
@@ -245,42 +245,42 @@ func retreeStmt(stmt Stmt, du *defUse, out []Stmt) []Stmt {
 	return out
 }
 
-func retreeBlock(stmts []Stmt, du *defUse) []Stmt {
+func consolidateBlock(stmts []Stmt, du *defUse) []Stmt {
 	out := []Stmt{}
 	for _, stmt := range stmts {
-		out = retreeStmt(stmt, du, out)
+		out = consolidateStmt(stmt, du, out)
 		out = append(out, stmt)
 	}
 	return out
 }
 
-func RetreeFunc(decl *FuncDecl) {
+func ConsolidateFunc(decl *FuncDecl) {
 	if decl.Body != nil {
 		du := makeApproxDefUse(decl)
 		defUseFunc(decl, du)
-		decl.Body = retreeBlock(decl.Body, du)
+		decl.Body = consolidateBlock(decl.Body, du)
 	}
 }
 
-func retreeDecl(decl Decl) {
+func consolidateDecl(decl Decl) {
 	switch decl := decl.(type) {
 	case *InterfaceDecl, *StructDecl, *TypeDefDecl, *VarDecl:
 		// Leaf
 	case *FuncDecl:
-		RetreeFunc(decl)
+		ConsolidateFunc(decl)
 	default:
 		panic(decl)
 	}
 }
 
-func Retree(prog *ProgramAST) {
+func Consolidate(prog *ProgramAST) {
 	for _, pkg := range prog.Packages {
 		if pkg.Extern {
 			continue
 		}
 		for _, file := range pkg.Files {
 			for _, decl := range file.Decls {
-				retreeDecl(decl)
+				consolidateDecl(decl)
 			}
 		}
 	}

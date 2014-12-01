@@ -314,7 +314,7 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 	funcDecl.Body = stmts
 
 	if false {
-		tree.RetreeFunc(funcDecl)
+		tree.ConsolidateFunc(funcDecl)
 
 		b, w := base.BufferedCodeWriter()
 		tree.GenerateDecl(funcDecl, w)

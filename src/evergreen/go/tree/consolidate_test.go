@@ -88,13 +88,13 @@ func TestBinaryExprDefUse(t *testing.T) {
 	assert.IntEquals(t, info.Uses, 0)
 }
 
-func TestBinaryExprRetree(t *testing.T) {
+func TestBinaryExprConsolidate(t *testing.T) {
 	decl, block := binaryOpExample(false)
 
 	du := makeApproxDefUse(decl)
 
 	defUseBlock(block, du)
-	block = retreeBlock(block, du)
+	block = consolidateBlock(block, du)
 
 	b, w := base.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
@@ -102,13 +102,13 @@ func TestBinaryExprRetree(t *testing.T) {
 	checkCode(b.String(), "ret0 := 2 + 3\n", t)
 }
 
-func TestBinaryExprRetreeSwap(t *testing.T) {
+func TestBinaryExprConsolidateSwap(t *testing.T) {
 	decl, block := binaryOpExample(true)
 
 	du := makeApproxDefUse(decl)
 
 	defUseBlock(block, du)
-	block = retreeBlock(block, du)
+	block = consolidateBlock(block, du)
 
 	b, w := base.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
@@ -116,9 +116,9 @@ func TestBinaryExprRetreeSwap(t *testing.T) {
 	checkCode(b.String(), "b := 2\nret0 := 3 + b\n", t)
 }
 
-func TestFuncRetree(t *testing.T) {
+func TestFuncConsolidate(t *testing.T) {
 	decl := functionExample()
-	retreeDecl(decl)
+	consolidateDecl(decl)
 
 	b, w := base.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
