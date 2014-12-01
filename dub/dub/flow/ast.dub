@@ -3,6 +3,7 @@ import (
 )
 
 struct RegisterInfo scoped {
+  Name string
   T tree.DubType
 }
 

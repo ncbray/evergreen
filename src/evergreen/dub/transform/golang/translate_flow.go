@@ -5,7 +5,6 @@ import (
 	src "evergreen/dub/flow"
 	dst "evergreen/go/flow"
 	dstcore "evergreen/go/tree"
-	"fmt"
 )
 
 func simpleFlow(stitcher *base.FlowStitcher, srcID base.NodeID, dstID base.NodeID) {
@@ -25,9 +24,9 @@ func dubFlow(ctx *DubToGoContext, builder *dst.GoFlowBuilder, stitcher *base.Flo
 
 	if normal != base.NoNode {
 		if fail != base.NoNode {
-			flow := builder.MakeRegister("", ctx.index.Int)
-			reference := builder.MakeRegister("", ctx.index.Int)
-			cond := builder.MakeRegister("", ctx.index.Bool)
+			flow := builder.MakeRegister("flow", ctx.index.Int)
+			reference := builder.MakeRegister("normal", ctx.index.Int)
+			cond := builder.MakeRegister("cond", ctx.index.Bool)
 
 			attrID := builder.EmitOp(&dst.Attr{
 				Expr: frameRef,
@@ -106,7 +105,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 	regMap := make([]dst.Register_Ref, num)
 	for i := 0; i < num; i++ {
 		r := srcF.RegisterInfo_Scope.Get(src.RegisterInfo_Ref(i))
-		regMap[i] = builder.MakeRegister("", goType(r.T, ctx))
+		regMap[i] = builder.MakeRegister(r.Name, goType(r.T, ctx))
 	}
 
 	// Remap parameters
@@ -119,7 +118,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 	// Create result registers
 	dstF.Results = make([]dst.Register_Ref, len(srcF.ReturnTypes))
 	for i, rt := range srcF.ReturnTypes {
-		dstF.Results[i] = builder.MakeRegister(fmt.Sprintf("ret%d", i), goType(rt, ctx))
+		dstF.Results[i] = builder.MakeRegister("ret", goType(rt, ctx))
 	}
 
 	stitcher := base.MakeFlowStitcher(srcF.CFG, dstF.CFG)
@@ -182,7 +181,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 					panic(scopeTA)
 				}
 				scopeTP := &dstcore.PointerType{Element: scopeT}
-				scope := builder.MakeRegister("", scopeTP)
+				scope := builder.MakeRegister("scope", scopeTP)
 
 				nodes = append(nodes, builder.EmitOp(&dst.ConstructStruct{
 					Type:      scopeT,

@@ -8,6 +8,7 @@ import (
 type FileInfo struct {
 	Package     *PackageAST
 	PackageName map[*PackageAST]string
+	Decl        *FuncDecl // HACK
 }
 
 func DefaultPackageName(pkg *PackageAST) string {
@@ -37,6 +38,15 @@ func (info *FileInfo) QualifyName(pkg *PackageAST, name string) string {
 	return name
 }
 
+func (info *FileInfo) LocalName(index LocalInfo_Ref) string {
+	return info.Decl.LocalInfo_Scope.Get(index).Name
+}
+
+func nameifyParam(p *Param, info *FileInfo) {
+	p.Name = info.LocalName(p.Info)
+	nameifyType(p.Type, info)
+}
+
 func nameifyType(t TypeRef, info *FileInfo) {
 	switch t := t.(type) {
 	case *NameRef:
@@ -59,10 +69,10 @@ func nameifyType(t TypeRef, info *FileInfo) {
 		nameifyType(t.Element, info)
 	case *FuncTypeRef:
 		for _, p := range t.Params {
-			nameifyType(p.Type, info)
+			nameifyParam(p, info)
 		}
 		for _, r := range t.Results {
-			nameifyType(r.Type, info)
+			nameifyParam(r, info)
 		}
 	default:
 		panic(t)
@@ -71,7 +81,7 @@ func nameifyType(t TypeRef, info *FileInfo) {
 
 func nameifyExpr(expr Expr, info *FileInfo) {
 	switch expr := expr.(type) {
-	case *GetName, *GetLocal, *GetGlobal:
+	case *GetLocal, *GetName, *GetGlobal:
 		// TODO
 	case *UnaryExpr:
 		nameifyExpr(expr.Expr, info)
@@ -123,6 +133,7 @@ func nameifyTarget(expr Target, info *FileInfo) {
 func nameifyStmt(stmt Stmt, info *FileInfo) {
 	switch stmt := stmt.(type) {
 	case *Var:
+		stmt.Name = info.LocalName(stmt.Info)
 		nameifyType(stmt.Type, info)
 		if stmt.Expr != nil {
 			nameifyExpr(stmt.Expr, info)
@@ -167,14 +178,56 @@ func nameifyBody(body []Stmt, info *FileInfo) {
 	}
 }
 
+func baseName(lcl *LocalInfo) string {
+	letters := []rune(lcl.Name)
+	end := len(letters)
+	for end > 0 && letters[end-1] >= '0' && letters[end-1] <= '9' {
+		end -= 1
+	}
+	name := string(letters[:end])
+	if name == "" {
+		name = "r"
+	}
+	return name
+}
+
 func nameifyFunc(decl *FuncDecl, info *FileInfo) {
+	info.Decl = decl
+
 	CompactFunc(decl)
+
+	num_vars := decl.LocalInfo_Scope.Len()
+
+	// Normalize variable names and count identical names.
+	count := make(map[string]int, num_vars)
 	iter := decl.LocalInfo_Scope.Iter()
 	for iter.Next() {
-		nameifyType(iter.Value().T, info)
+		lcl := iter.Value()
+		name := baseName(lcl)
+		lcl.Name = name
+		count[name] += 1
+	}
+
+	// Disambiguate identical names.
+	uids := make(map[string]int, num_vars)
+	iter = decl.LocalInfo_Scope.Iter()
+	for iter.Next() {
+		lcl := iter.Value()
+		name := baseName(lcl)
+		if count[name] > 1 {
+			uid, _ := uids[name]
+			uids[name] += 1
+			lcl.Name = fmt.Sprintf("%s%d", name, uid)
+		}
+	}
+
+	iter = decl.LocalInfo_Scope.Iter()
+	for iter.Next() {
+		lcl := iter.Value()
+		nameifyType(lcl.T, info)
 	}
 	if decl.Recv != nil {
-		nameifyType(decl.Recv.Type, info)
+		nameifyParam(decl.Recv, info)
 	}
 	nameifyType(decl.Type, info)
 	nameifyBody(decl.Body, info)

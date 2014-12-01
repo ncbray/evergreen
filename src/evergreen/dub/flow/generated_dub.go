@@ -14,7 +14,8 @@ type RegisterInfo_Scope struct {
 }
 
 type RegisterInfo struct {
-	T tree.DubType
+	Name string
+	T    tree.DubType
 }
 
 type LLFunc struct {

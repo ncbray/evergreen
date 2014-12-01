@@ -258,12 +258,8 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 	for i := 0; i < numRegisters; i++ {
 		ref := flow.Register_Ref(i)
 		info := decl.Register_Scope.Get(ref)
-		name := info.Name
-		if name == "" {
-			name = flow.RegisterName(ref - 1) // HACK to match existing code generator
-		}
 		lclMap[i] = tree.LocalInfo_Ref(funcDecl.LocalInfo_Scope.Register(&tree.LocalInfo{
-			Name: name,
+			Name: info.Name,
 			T:    tree.RefForType(info.T),
 		}))
 	}
