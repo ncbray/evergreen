@@ -6,22 +6,22 @@ import (
 )
 
 type FileInfo struct {
-	Package     *PackageAST
-	PackageName map[*PackageAST]string
+	Package     *Package
+	PackageName map[*Package]string
 	Decl        *FuncDecl // HACK
 }
 
-func DefaultPackageName(pkg *PackageAST) string {
+func DefaultPackageName(pkg *Package) string {
 	n := len(pkg.Path)
 	return pkg.Path[n-1]
 }
 
-func IsBuiltinPackage(pkg *PackageAST) bool {
+func IsBuiltinPackage(pkg *Package) bool {
 	// HACK pkg should not be nil
 	return pkg == nil || len(pkg.Path) == 0
 }
 
-func (info *FileInfo) ImportedName(pkg *PackageAST) string {
+func (info *FileInfo) ImportedName(pkg *Package) string {
 	name, ok := info.PackageName[pkg]
 	if !ok {
 		// HACK assume no import name conflicts
@@ -31,7 +31,7 @@ func (info *FileInfo) ImportedName(pkg *PackageAST) string {
 	return name
 }
 
-func (info *FileInfo) QualifyName(pkg *PackageAST, name string) string {
+func (info *FileInfo) QualifyName(pkg *Package, name string) string {
 	if pkg != info.Package && !IsBuiltinPackage(pkg) {
 		return fmt.Sprintf("%s.%s", info.ImportedName(pkg), name)
 	}
@@ -257,11 +257,11 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 }
 
 func nameifyFile(pkg *PackageAST, file *FileAST) {
-	file.Package = pkg.Path[len(pkg.Path)-1]
+	file.Package = pkg.P.Path[len(pkg.P.Path)-1]
 
 	info := &FileInfo{
-		Package:     pkg,
-		PackageName: map[*PackageAST]string{},
+		Package:     pkg.P,
+		PackageName: map[*Package]string{},
 	}
 
 	for _, decl := range file.Decls {
@@ -280,12 +280,13 @@ func nameifyFile(pkg *PackageAST, file *FileAST) {
 func Nameify(prog *ProgramAST) {
 	nameifyPrepass(prog)
 	for _, pkg := range prog.Packages {
-		if pkg.Extern {
+		p := pkg.P
+		if p.Extern {
 			continue
 		}
 		pkgName := ""
-		if len(pkg.Path) > 0 {
-			pkgName = pkg.Path[len(pkg.Path)-1]
+		if len(p.Path) > 0 {
+			pkgName = p.Path[len(p.Path)-1]
 		}
 		for _, file := range pkg.Files {
 			file.Package = pkgName
@@ -300,15 +301,15 @@ func nameifyPrepass(prog *ProgramAST) {
 			for _, decl := range file.Decls {
 				switch decl := decl.(type) {
 				case *InterfaceDecl:
-					decl.T.Package = pkg
+					decl.T.Package = pkg.P
 				case *StructDecl:
-					decl.T.Package = pkg
+					decl.T.Package = pkg.P
 				case *FuncDecl:
-					decl.Package = pkg
+					decl.Package = pkg.P
 				case *OpaqueDecl:
-					decl.T.Package = pkg
+					decl.T.Package = pkg.P
 				case *TypeDefDecl:
-					decl.T.Package = pkg
+					decl.T.Package = pkg.P
 				case *VarDecl:
 					// Leaf
 				default:

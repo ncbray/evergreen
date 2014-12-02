@@ -11,13 +11,13 @@ struct SliceType implements GoType {
 
 struct ExternalType implements GoType {
   Name string
-  Package PackageAST // HACK
+  Package Package
 }
 
 struct TypeDefType implements GoType {
   Name string
   Type GoType
-  Package PackageAST // HACK
+  Package Package
 }
 
 struct FuncType implements GoType {
@@ -33,13 +33,13 @@ struct Field {
 struct StructType implements GoType {
   Name string
   Fields []Field
-  Package PackageAST // HACK
+  Package Package
 }
 
 struct InterfaceType implements GoType {
   Name string
   Fields []Field
-  Package PackageAST // HACK
+  Package Package
 }
 
 struct BuiltinTypeIndex {
@@ -49,4 +49,9 @@ struct BuiltinTypeIndex {
   Bool ExternalType
   String ExternalType
   Rune ExternalType
+}
+
+struct Package {
+  Path []string
+  Extern bool
 }

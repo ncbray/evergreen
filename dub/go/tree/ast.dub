@@ -185,7 +185,7 @@ struct FuncDecl contains(LocalInfo) implements Decl {
   Recv Param
   Type FuncTypeRef
   Body []Stmt
-  Package PackageAST
+  Package Package
 }
 
 struct FieldDecl {
@@ -228,9 +228,8 @@ struct FileAST {
 }
 
 struct PackageAST {
-  Path []string
   Files []FileAST
-  Extern bool
+  P Package
 }
 
 struct ProgramAST {

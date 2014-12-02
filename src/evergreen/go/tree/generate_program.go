@@ -20,7 +20,7 @@ func OutputFile(file *FileAST, dirname string) {
 
 func OutputPackage(pkg *PackageAST, dirname string) {
 	path := []string{dirname}
-	path = append(path, pkg.Path...)
+	path = append(path, pkg.P.Path...)
 	pkgdir := filepath.Join(path...)
 	for _, file := range pkg.Files {
 		OutputFile(file, pkgdir)
@@ -29,7 +29,7 @@ func OutputPackage(pkg *PackageAST, dirname string) {
 
 func OutputProgram(prog *ProgramAST, dirname string) {
 	for _, pkg := range prog.Packages {
-		if !pkg.Extern {
+		if !pkg.P.Extern {
 			OutputPackage(pkg, dirname)
 		}
 	}

@@ -347,7 +347,7 @@ type FuncDecl struct {
 	Recv            *Param
 	Type            *FuncTypeRef
 	Body            []Stmt
-	Package         *PackageAST
+	Package         *Package
 	LocalInfo_Scope *LocalInfo_Scope
 }
 
@@ -406,9 +406,8 @@ type FileAST struct {
 }
 
 type PackageAST struct {
-	Path   []string
-	Files  []*FileAST
-	Extern bool
+	Files []*FileAST
+	P     *Package
 }
 
 type ProgramAST struct {
@@ -436,7 +435,7 @@ func (node *SliceType) isGoType() {
 
 type ExternalType struct {
 	Name    string
-	Package *PackageAST
+	Package *Package
 }
 
 func (node *ExternalType) isGoType() {
@@ -445,7 +444,7 @@ func (node *ExternalType) isGoType() {
 type TypeDefType struct {
 	Name    string
 	Type    GoType
-	Package *PackageAST
+	Package *Package
 }
 
 func (node *TypeDefType) isGoType() {
@@ -467,7 +466,7 @@ type Field struct {
 type StructType struct {
 	Name    string
 	Fields  []*Field
-	Package *PackageAST
+	Package *Package
 }
 
 func (node *StructType) isGoType() {
@@ -476,7 +475,7 @@ func (node *StructType) isGoType() {
 type InterfaceType struct {
 	Name    string
 	Fields  []*Field
-	Package *PackageAST
+	Package *Package
 }
 
 func (node *InterfaceType) isGoType() {
@@ -489,4 +488,9 @@ type BuiltinTypeIndex struct {
 	Bool   *ExternalType
 	String *ExternalType
 	Rune   *ExternalType
+}
+
+type Package struct {
+	Path   []string
+	Extern bool
 }

@@ -140,14 +140,16 @@ func externParserRuntime() (*ast.PackageAST, *ast.StructType) {
 		T:    stateT,
 	}
 	pkg := &ast.PackageAST{
-		Extern: true,
-		Path:   []string{"evergreen", "dub", "runtime"},
 		Files: []*ast.FileAST{
 			&ast.FileAST{
 				Decls: []ast.Decl{
 					state,
 				},
 			},
+		},
+		P: &ast.Package{
+			Extern: true,
+			Path:   []string{"evergreen", "dub", "runtime"},
 		},
 	}
 	return pkg, stateT
@@ -162,14 +164,16 @@ func externTestingPackage() (*ast.PackageAST, *ast.StructType) {
 		T:    tT,
 	}
 	pkg := &ast.PackageAST{
-		Extern: true,
-		Path:   []string{"testing"},
 		Files: []*ast.FileAST{
 			&ast.FileAST{
 				Decls: []ast.Decl{
 					t,
 				},
 			},
+		},
+		P: &ast.Package{
+			Extern: true,
+			Path:   []string{"testing"},
 		},
 	}
 	return pkg, tT
@@ -184,14 +188,16 @@ func externGraph() (*ast.PackageAST, *ast.StructType) {
 		T:    graphT,
 	}
 	pkg := &ast.PackageAST{
-		Extern: true,
-		Path:   []string{"evergreen", "base"},
 		Files: []*ast.FileAST{
 			&ast.FileAST{
 				Decls: []ast.Decl{
 					graph,
 				},
 			},
+		},
+		P: &ast.Package{
+			Extern: true,
+			Path:   []string{"evergreen", "base"},
 		},
 	}
 	return pkg, graphT
@@ -256,8 +262,10 @@ func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *a
 			files = append(files, GenerateTests(leaf, dubPkg.Tests, ctx))
 		}
 		packages = append(packages, &ast.PackageAST{
-			Path:  path,
 			Files: files,
+			P: &ast.Package{
+				Path: path,
+			},
 		})
 	}
 
