@@ -131,76 +131,40 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 	return decls
 }
 
-func externParserRuntime() (*ast.PackageAST, *ast.StructType) {
+func externParserRuntime() *ast.StructType {
+	p := &ast.Package{
+		Extern: true,
+		Path:   []string{"evergreen", "dub", "runtime"},
+	}
 	stateT := &ast.StructType{
-		Name: "State",
+		Name:    "State",
+		Package: p,
 	}
-	state := &ast.StructDecl{
-		Name: "State",
-		T:    stateT,
-	}
-	pkg := &ast.PackageAST{
-		Files: []*ast.FileAST{
-			&ast.FileAST{
-				Decls: []ast.Decl{
-					state,
-				},
-			},
-		},
-		P: &ast.Package{
-			Extern: true,
-			Path:   []string{"evergreen", "dub", "runtime"},
-		},
-	}
-	return pkg, stateT
+	return stateT
 }
 
-func externTestingPackage() (*ast.PackageAST, *ast.StructType) {
+func externTestingPackage() *ast.StructType {
+	p := &ast.Package{
+		Extern: true,
+		Path:   []string{"testing"},
+	}
 	tT := &ast.StructType{
-		Name: "T",
+		Name:    "T",
+		Package: p,
 	}
-	t := &ast.StructDecl{
-		Name: "T",
-		T:    tT,
-	}
-	pkg := &ast.PackageAST{
-		Files: []*ast.FileAST{
-			&ast.FileAST{
-				Decls: []ast.Decl{
-					t,
-				},
-			},
-		},
-		P: &ast.Package{
-			Extern: true,
-			Path:   []string{"testing"},
-		},
-	}
-	return pkg, tT
+	return tT
 }
 
-func externGraph() (*ast.PackageAST, *ast.StructType) {
+func externGraph() *ast.StructType {
+	p := &ast.Package{
+		Extern: true,
+		Path:   []string{"evergreen", "base"},
+	}
 	graphT := &ast.StructType{
-		Name: "Graph",
+		Name:    "Graph",
+		Package: p,
 	}
-	graph := &ast.StructDecl{
-		Name: "Graph",
-		T:    graphT,
-	}
-	pkg := &ast.PackageAST{
-		Files: []*ast.FileAST{
-			&ast.FileAST{
-				Decls: []ast.Decl{
-					graph,
-				},
-			},
-		},
-		P: &ast.Package{
-			Extern: true,
-			Path:   []string{"evergreen", "base"},
-		},
-	}
-	return pkg, graphT
+	return graphT
 }
 
 func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoContext) *ast.FileAST {
@@ -230,14 +194,9 @@ func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *a
 
 	index := makeBuiltinTypes()
 
-	pkg, state := externParserRuntime()
-	packages = append(packages, pkg)
-
-	pkg, graph := externGraph()
-	packages = append(packages, pkg)
-
-	pkg, t := externTestingPackage()
-	packages = append(packages, pkg)
+	state := externParserRuntime()
+	graph := externGraph()
+	t := externTestingPackage()
 
 	ctx := &DubToGoContext{
 		index: index,

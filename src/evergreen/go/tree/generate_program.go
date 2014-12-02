@@ -29,8 +29,6 @@ func OutputPackage(pkg *PackageAST, dirname string) {
 
 func OutputProgram(prog *ProgramAST, dirname string) {
 	for _, pkg := range prog.Packages {
-		if !pkg.P.Extern {
-			OutputPackage(pkg, dirname)
-		}
+		OutputPackage(pkg, dirname)
 	}
 }

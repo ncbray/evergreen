@@ -275,9 +275,6 @@ func consolidateDecl(decl Decl) {
 
 func Consolidate(prog *ProgramAST) {
 	for _, pkg := range prog.Packages {
-		if pkg.Extern {
-			continue
-		}
 		for _, file := range pkg.Files {
 			for _, decl := range file.Decls {
 				consolidateDecl(decl)

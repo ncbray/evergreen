@@ -281,9 +281,6 @@ func Nameify(prog *ProgramAST) {
 	nameifyPrepass(prog)
 	for _, pkg := range prog.Packages {
 		p := pkg.P
-		if p.Extern {
-			continue
-		}
 		pkgName := ""
 		if len(p.Path) > 0 {
 			pkgName = p.Path[len(p.Path)-1]
