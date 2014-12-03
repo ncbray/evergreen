@@ -143,7 +143,7 @@ func externParserRuntime() *ast.StructType {
 	return stateT
 }
 
-func externTestingPackage() *ast.StructType {
+func externTesting() *ast.StructType {
 	p := &ast.Package{
 		Extern: true,
 		Path:   []string{"testing"},
@@ -188,27 +188,18 @@ func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoCo
 }
 
 func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *ast.ProgramAST {
-	link := makeLinker()
-
-	packages := []*ast.PackageAST{}
-
-	index := makeBuiltinTypes()
-
-	state := externParserRuntime()
-	graph := externGraph()
-	t := externTestingPackage()
-
 	ctx := &DubToGoContext{
-		index: index,
-		state: state,
-		graph: graph,
-		t:     t,
-		link:  link,
+		index: makeBuiltinTypes(),
+		state: externParserRuntime(),
+		graph: externGraph(),
+		t:     externTesting(),
+		link:  makeLinker(),
 	}
 
 	createTypeMapping(program, ctx.link)
 	createTypes(program, ctx)
 
+	packages := []*ast.PackageAST{}
 	for _, dubPkg := range program {
 		path := []string{root}
 		path = append(path, dubPkg.Path...)
@@ -229,7 +220,7 @@ func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *a
 	}
 
 	return &ast.ProgramAST{
-		Builtins: index,
+		Builtins: ctx.index,
 		Packages: packages,
 	}
 }
