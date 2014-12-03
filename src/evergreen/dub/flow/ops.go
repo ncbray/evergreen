@@ -2,7 +2,7 @@ package flow
 
 import (
 	"evergreen/base"
-	core "evergreen/dub/tree"
+	"evergreen/dub/core"
 	"fmt"
 	"strings"
 )
@@ -48,7 +48,7 @@ func (scope *RegisterInfo_Scope) Replace(replacement []*RegisterInfo) {
 func TypeName(t core.DubType) string {
 	switch t := t.(type) {
 	case *core.StructType:
-		return t.Name.Text
+		return t.Name
 	case *core.ListType:
 		return fmt.Sprintf("[]%s", TypeName(t.Type))
 	case *core.BuiltinType:

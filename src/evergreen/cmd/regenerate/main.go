@@ -2,11 +2,11 @@ package main
 
 import (
 	"evergreen/base"
+	"evergreen/dub/core"
 	"evergreen/dub/flow"
 	"evergreen/dub/transform"
 	"evergreen/dub/transform/golang"
 	"evergreen/dub/tree"
-	core "evergreen/dub/tree"
 	"evergreen/framework"
 	gotree "evergreen/go/tree"
 	"evergreen/io"

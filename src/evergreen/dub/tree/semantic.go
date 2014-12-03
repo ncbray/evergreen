@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"evergreen/dub/core"
 	"evergreen/framework"
 	"fmt"
 	"strings"
@@ -26,16 +27,16 @@ func childScope(scope *semanticScope) *semanticScope {
 	return &semanticScope{parent: scope, locals: map[string]LocalInfo_Ref{}}
 }
 
-var unresolvedType DubType = nil
+var unresolvedType core.DubType = nil
 
-func TypeMatches(actual DubType, expected DubType, exact bool) bool {
+func TypeMatches(actual core.DubType, expected core.DubType, exact bool) bool {
 	if actual == unresolvedType || expected == unresolvedType {
 		return true
 	}
 
 	switch actual := actual.(type) {
-	case *StructType:
-		other, ok := expected.(*StructType)
+	case *core.StructType:
+		other, ok := expected.(*core.StructType)
 		if !ok {
 			return false
 		}
@@ -50,17 +51,17 @@ func TypeMatches(actual DubType, expected DubType, exact bool) bool {
 			current = current.Implements
 		}
 		return false
-	case *NilType:
-		_, ok := expected.(*StructType)
+	case *core.NilType:
+		_, ok := expected.(*core.StructType)
 		return ok
-	case *BuiltinType:
-		other, ok := expected.(*BuiltinType)
+	case *core.BuiltinType:
+		other, ok := expected.(*core.BuiltinType)
 		if !ok {
 			return false
 		}
 		return actual.Name == other.Name
-	case *ListType:
-		other, ok := expected.(*ListType)
+	case *core.ListType:
+		other, ok := expected.(*core.ListType)
 		if !ok {
 			return false
 		}
@@ -70,13 +71,13 @@ func TypeMatches(actual DubType, expected DubType, exact bool) bool {
 	}
 }
 
-func TypeName(t DubType) string {
+func TypeName(t core.DubType) string {
 	switch t := t.(type) {
-	case *StructType:
-		return t.Name.Text
-	case *BuiltinType:
+	case *core.StructType:
 		return t.Name
-	case *ListType:
+	case *core.BuiltinType:
+		return t.Name
+	case *core.ListType:
 		return fmt.Sprintf("[]%s", TypeName(t.Type))
 	default:
 		panic(t)
@@ -87,7 +88,7 @@ func IsDiscard(name string) bool {
 	return name == "_"
 }
 
-func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, t DubType, define bool, scope *semanticScope) {
+func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, t core.DubType, define bool, scope *semanticScope) {
 	switch expr := expr.(type) {
 	case *NameRef:
 		name := expr.Name.Text
@@ -119,7 +120,7 @@ func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, 
 	}
 }
 
-func scalarSemanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) DubType {
+func scalarSemanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) core.DubType {
 	types := semanticExprPass(ctx, decl, expr, scope)
 	if len(types) != 1 {
 		ctx.Status.Error("expected a single value, got %d instead", len(types))
@@ -128,11 +129,11 @@ func scalarSemanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTEx
 	return types[0]
 }
 
-func scalarReturn(t DubType) []DubType {
-	return []DubType{t}
+func scalarReturn(t core.DubType) []core.DubType {
+	return []core.DubType{t}
 }
 
-func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) []DubType {
+func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) []core.DubType {
 	switch expr := expr.(type) {
 	case *Repeat:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
@@ -156,16 +157,16 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		if l == nil || r == nil {
 			return nil
 		}
-		lt, ok := l.(*BuiltinType)
+		lt, ok := l.(*core.BuiltinType)
 		if !ok {
 			panic(l)
 		}
-		rt, ok := r.(*BuiltinType)
+		rt, ok := r.(*core.BuiltinType)
 		if !ok {
 			panic(r)
 		}
 		sig := fmt.Sprintf("%s%s%s", lt.Name, expr.Op, rt.Name)
-		t, ok := ctx.Program.BinaryOps[sig].(DubType)
+		t, ok := ctx.Program.BinaryOps[sig].(core.DubType)
 		if !ok {
 			panic(sig)
 		}
@@ -181,7 +182,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		expr.Local = info
 		return scalarReturn(decl.LocalInfo_Scope.Get(info).T)
 	case *Assign:
-		var t []DubType
+		var t []core.DubType
 		if expr.Expr != nil {
 			t = semanticExprPass(ctx, decl, expr.Expr, scope)
 		}
@@ -190,7 +191,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		}
 		if len(expr.Targets) != len(t) {
 			ctx.Status.Error("Expected %d values but got %d", len(expr.Targets), len(t))
-			t = make([]DubType, len(expr.Targets))
+			t = make([]core.DubType, len(expr.Targets))
 			for i, _ := range expr.Targets {
 				t[i] = unresolvedType
 			}
@@ -264,7 +265,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		return scalarReturn(t)
 	case *Construct:
 		t := semanticTypePass(ctx, expr.Type)
-		st, ok := t.(*StructType)
+		st, ok := t.(*core.StructType)
 		if t != nil && !ok {
 			panic(t)
 		}
@@ -286,7 +287,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		return scalarReturn(t)
 	case *ConstructList:
 		t := semanticTypePass(ctx, expr.Type)
-		lt, ok := t.(*ListType)
+		lt, ok := t.(*core.ListType)
 		if t != nil && !ok {
 			panic(t)
 		}
@@ -309,10 +310,10 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 	}
 }
 
-func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) DubType {
+func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) core.DubType {
 	switch node := node.(type) {
 	case *TypeRef:
-		var t DubType
+		var t core.DubType
 		name := node.Name.Text
 		d, ok := ctx.Module.Namespace[name]
 		if ok {
@@ -362,7 +363,7 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) DubType {
 	case *ListTypeRef:
 		t := semanticTypePass(ctx, node.Type)
 		// TODO memoize list types
-		node.T = &ListType{Type: t}
+		node.T = &core.ListType{Type: t}
 		return node.T
 	default:
 		panic(node)
@@ -381,12 +382,12 @@ func refLocation(node ASTTypeRef) int {
 	}
 }
 
-func semanticStructTypePass(ctx *semanticPassContext, node ASTTypeRef) *StructType {
+func semanticStructTypePass(ctx *semanticPassContext, node ASTTypeRef) *core.StructType {
 	t := semanticTypePass(ctx, node)
 	if t == unresolvedType {
 		return nil
 	}
-	st, ok := t.(*StructType)
+	st, ok := t.(*core.StructType)
 	if !ok {
 		ctx.Status.LocationError(refLocation(node), "Not a structure type.")
 		return nil
@@ -419,29 +420,29 @@ func semanticFuncBodyPass(ctx *semanticPassContext, decl *FuncDecl) {
 
 func semanticStructPass(ctx *semanticPassContext, decl *StructDecl) {
 	t := decl.T
-	t.Name = decl.Name
+	t.Name = decl.Name.Text
 	t.Scoped = decl.Scoped
-	t.Contains = make([]*StructType, len(decl.Contains))
+	t.Contains = make([]*core.StructType, len(decl.Contains))
 	for i, c := range decl.Contains {
 		t.Contains[i] = semanticStructTypePass(ctx, c)
 	}
 	if decl.Implements != nil {
 		t.Implements = semanticStructTypePass(ctx, decl.Implements)
 	}
-	t.Fields = make([]*FieldType, len(decl.Fields))
+	t.Fields = make([]*core.FieldType, len(decl.Fields))
 	for i, f := range decl.Fields {
-		t.Fields[i] = &FieldType{
-			Name: f.Name,
+		t.Fields[i] = &core.FieldType{
+			Name: f.Name.Text,
 			Type: semanticTypePass(ctx, f.Type),
 		}
 	}
 }
 
-func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destructure, scope *semanticScope) DubType {
+func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destructure, scope *semanticScope) core.DubType {
 	switch d := d.(type) {
 	case *DestructureStruct:
 		t := semanticTypePass(ctx, d.Type)
-		st, ok := t.(*StructType)
+		st, ok := t.(*core.StructType)
 		if t != nil && !ok {
 			panic(t)
 		}
@@ -463,7 +464,7 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 		return t
 	case *DestructureList:
 		t := semanticTypePass(ctx, d.Type)
-		lt, ok := t.(*ListType)
+		lt, ok := t.(*core.ListType)
 		if t != nil && !ok {
 			panic(t)
 		}
@@ -500,7 +501,7 @@ func semanticTestPass(ctx *semanticPassContext, tst *Test) {
 
 type ProgramScope struct {
 	Index     *BuiltinTypeIndex
-	BinaryOps map[string]DubType
+	BinaryOps map[string]core.DubType
 }
 
 type namedElement interface {
@@ -508,13 +509,13 @@ type namedElement interface {
 }
 
 type NamedType struct {
-	T DubType
+	T core.DubType
 }
 
 func (element *NamedType) isNamedElement() {
 }
 
-func AsType(node namedElement) (DubType, bool) {
+func AsType(node namedElement) (core.DubType, bool) {
 	switch node := node.(type) {
 	case *NamedType:
 		return node.T, true
@@ -560,16 +561,16 @@ type ModuleScope struct {
 	Namespace map[string]namedElement
 }
 
-func GetField(node *StructType, name string) *FieldType {
+func GetField(node *core.StructType, name string) *core.FieldType {
 	for _, decl := range node.Fields {
-		if decl.Name.Text == name {
+		if decl.Name == name {
 			return decl
 		}
 	}
 	return nil
 }
 
-func ResolveType(ref ASTTypeRef) DubType {
+func ResolveType(ref ASTTypeRef) core.DubType {
 	switch ref := ref.(type) {
 	case *TypeRef:
 		return ref.T
@@ -582,10 +583,10 @@ func ResolveType(ref ASTTypeRef) DubType {
 	}
 }
 
-func ReturnTypes(node ASTCallable) []DubType {
+func ReturnTypes(node ASTCallable) []core.DubType {
 	switch node := node.(type) {
 	case *FuncDecl:
-		types := make([]DubType, len(node.ReturnTypes))
+		types := make([]core.DubType, len(node.ReturnTypes))
 		for i, t := range node.ReturnTypes {
 			types[i] = ResolveType(t)
 		}
@@ -597,13 +598,13 @@ func ReturnTypes(node ASTCallable) []DubType {
 
 func MakeBuiltinTypeIndex() *BuiltinTypeIndex {
 	return &BuiltinTypeIndex{
-		String: &BuiltinType{"string"},
-		Rune:   &BuiltinType{"rune"},
-		Int:    &BuiltinType{"int"},
-		Int64:  &BuiltinType{"int64"},
-		Bool:   &BuiltinType{"bool"},
-		Graph:  &BuiltinType{"graph"},
-		Nil:    &NilType{},
+		String: &core.BuiltinType{"string"},
+		Rune:   &core.BuiltinType{"rune"},
+		Int:    &core.BuiltinType{"int"},
+		Int64:  &core.BuiltinType{"int64"},
+		Bool:   &core.BuiltinType{"bool"},
+		Graph:  &core.BuiltinType{"graph"},
+		Nil:    &core.NilType{},
 	}
 }
 
@@ -616,7 +617,7 @@ var BuiltinTypeNames = []string{
 	"graph",
 }
 
-func GetBuiltinType(index *BuiltinTypeIndex, name string) (DubType, bool) {
+func GetBuiltinType(index *BuiltinTypeIndex, name string) (core.DubType, bool) {
 	switch name {
 	case "string":
 		return index.String, true
@@ -650,7 +651,7 @@ var binaryOps = []string{
 
 func MakeProgramScope(program *Program) *ProgramScope {
 	programScope := &ProgramScope{
-		BinaryOps: map[string]DubType{},
+		BinaryOps: map[string]core.DubType{},
 		Index:     program.Builtins,
 	}
 
@@ -724,7 +725,7 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 				if exists {
 					ctx.Status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
 				} else {
-					decl.T = &StructType{}
+					decl.T = &core.StructType{}
 					ctx.Module.Namespace[name] = &NamedType{T: decl.T}
 				}
 			default:

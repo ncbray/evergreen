@@ -1,3 +1,7 @@
+import (
+  "dub/core"
+)
+
 struct TextMatch {
 }
 
@@ -81,18 +85,18 @@ struct ASTTypeRef {
 
 struct TypeRef implements ASTTypeRef {
   Name Id
-  T DubType
+  T core.DubType
 }
 
 struct ListTypeRef implements ASTTypeRef {
   Type ASTTypeRef
-  T DubType
+  T core.DubType
 }
 
 struct QualifiedTypeRef implements ASTTypeRef {
   Package Id
   Name Id
-  T DubType
+  T core.DubType
 }
 
 struct Destructure {
@@ -175,7 +179,7 @@ struct Call implements ASTExpr {
   Name Id
   Args []ASTExpr
   Target ASTCallable
-  T []DubType
+  T []core.DubType
 }
 
 struct Position implements ASTExpr {
@@ -187,7 +191,7 @@ struct Fail implements ASTExpr {
 struct Append implements ASTExpr {
   List ASTExpr
   Expr ASTExpr
-  T DubType
+  T core.DubType
 }
 
 struct Return implements ASTExpr {
@@ -198,7 +202,7 @@ struct BinaryOp implements ASTExpr {
   Left ASTExpr
   Op string
   Right ASTExpr
-  T DubType
+  T core.DubType
 }
 
 struct FieldDecl {
@@ -212,7 +216,7 @@ struct StructDecl implements ASTDecl {
   Fields []FieldDecl
   Scoped bool
   Contains []ASTTypeRef
-  T StructType
+  T core.StructType
 }
 
 struct ASTCallable implements ASTDecl {
@@ -220,7 +224,7 @@ struct ASTCallable implements ASTDecl {
 
 struct LocalInfo scoped {
   Name string
-  T DubType
+  T core.DubType
 }
 
 struct Param {
@@ -238,7 +242,7 @@ struct FuncDecl contains(LocalInfo) implements ASTCallable {
 struct Test {
   Name Id
   Rule ASTExpr
-  Type DubType
+  Type core.DubType
   Input string
   Flow string // TODO enum
   Destructure Destructure
@@ -260,13 +264,13 @@ struct Package {
 }
 
 struct BuiltinTypeIndex {
-  String BuiltinType
-  Rune BuiltinType
-  Int BuiltinType
-  Int64 BuiltinType
-  Bool BuiltinType
-  Graph BuiltinType
-  Nil NilType
+  String core.BuiltinType
+  Rune core.BuiltinType
+  Int core.BuiltinType
+  Int64 core.BuiltinType
+  Bool core.BuiltinType
+  Graph core.BuiltinType
+  Nil core.NilType
 }
 
 struct Program {

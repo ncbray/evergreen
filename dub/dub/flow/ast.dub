@@ -1,16 +1,17 @@
 import (
+  "dub/core"
   "dub/tree"
 )
 
 struct RegisterInfo scoped {
   Name string
-  T tree.DubType
+  T core.DubType
 }
 
 struct LLFunc contains(RegisterInfo) {
   Name string
   Params []RegisterInfo
-  ReturnTypes []tree.DubType
+  ReturnTypes []core.DubType
   CFG graph
   Ops []DubOp
 }
@@ -20,7 +21,7 @@ struct DubOp {
 
 struct CoerceOp implements DubOp {
   Src RegisterInfo
-  T tree.DubType
+  T core.DubType
   Dst RegisterInfo
 }
 
@@ -73,13 +74,13 @@ struct KeyValue {
 }
 
 struct ConstructOp implements DubOp {
-  Type tree.StructType
+  Type core.StructType
   Args []KeyValue
   Dst RegisterInfo
 }
 
 struct ConstructListOp implements DubOp {
-  Type tree.ListType
+  Type core.ListType
   Args []RegisterInfo
   Dst RegisterInfo
 }
@@ -149,7 +150,7 @@ struct ExitOp implements DubOp {
 
 struct DubPackage {
   Path []string
-  Structs []tree.StructType
+  Structs []core.StructType
   Funcs []LLFunc
   Tests []tree.Test
 }

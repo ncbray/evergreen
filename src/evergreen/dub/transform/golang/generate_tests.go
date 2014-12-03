@@ -1,8 +1,8 @@
 package golang
 
 import (
+	"evergreen/dub/core"
 	"evergreen/dub/tree"
-	core "evergreen/dub/tree"
 	dst "evergreen/go/tree"
 	"fmt"
 )
@@ -147,7 +147,7 @@ func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d t
 			})
 			stmts = append(stmts, ctx.makeFatalTest(
 				&dst.UnaryExpr{Op: "!", Expr: ctx.funcDecl.MakeGetLocal(ctx.okInfo)},
-				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, structType.Name.Text),
+				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, structType.Name),
 				ctx.funcDecl.MakeGetLocal(value),
 			))
 		}
@@ -192,7 +192,7 @@ func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d t
 			makeLen(ctx.funcDecl.MakeGetLocal(value)),
 		))
 		t := tree.ResolveType(d.Type)
-		dt, ok := t.(*tree.ListType)
+		dt, ok := t.(*core.ListType)
 		if !ok {
 			panic(t)
 		}

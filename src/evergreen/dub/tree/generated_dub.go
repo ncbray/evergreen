@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"evergreen/dub/core"
 	"evergreen/dub/runtime"
 )
 
@@ -130,7 +131,7 @@ type ASTTypeRef interface {
 
 type TypeRef struct {
 	Name *Id
-	T    DubType
+	T    core.DubType
 }
 
 func (node *TypeRef) isASTTypeRef() {
@@ -138,7 +139,7 @@ func (node *TypeRef) isASTTypeRef() {
 
 type ListTypeRef struct {
 	Type ASTTypeRef
-	T    DubType
+	T    core.DubType
 }
 
 func (node *ListTypeRef) isASTTypeRef() {
@@ -147,7 +148,7 @@ func (node *ListTypeRef) isASTTypeRef() {
 type QualifiedTypeRef struct {
 	Package *Id
 	Name    *Id
-	T       DubType
+	T       core.DubType
 }
 
 func (node *QualifiedTypeRef) isASTTypeRef() {
@@ -273,7 +274,7 @@ type Call struct {
 	Name   *Id
 	Args   []ASTExpr
 	Target ASTCallable
-	T      []DubType
+	T      []core.DubType
 }
 
 func (node *Call) isASTExpr() {
@@ -294,7 +295,7 @@ func (node *Fail) isASTExpr() {
 type Append struct {
 	List ASTExpr
 	Expr ASTExpr
-	T    DubType
+	T    core.DubType
 }
 
 func (node *Append) isASTExpr() {
@@ -311,7 +312,7 @@ type BinaryOp struct {
 	Left  ASTExpr
 	Op    string
 	Right ASTExpr
-	T     DubType
+	T     core.DubType
 }
 
 func (node *BinaryOp) isASTExpr() {
@@ -328,7 +329,7 @@ type StructDecl struct {
 	Fields     []*FieldDecl
 	Scoped     bool
 	Contains   []ASTTypeRef
-	T          *StructType
+	T          *core.StructType
 }
 
 func (node *StructDecl) isASTDecl() {
@@ -349,7 +350,7 @@ type LocalInfo_Scope struct {
 
 type LocalInfo struct {
 	Name string
-	T    DubType
+	T    core.DubType
 }
 
 type Param struct {
@@ -374,7 +375,7 @@ func (node *FuncDecl) isASTCallable() {
 type Test struct {
 	Name        *Id
 	Rule        ASTExpr
-	Type        DubType
+	Type        core.DubType
 	Input       string
 	Flow        string
 	Destructure Destructure
@@ -396,59 +397,18 @@ type Package struct {
 }
 
 type BuiltinTypeIndex struct {
-	String *BuiltinType
-	Rune   *BuiltinType
-	Int    *BuiltinType
-	Int64  *BuiltinType
-	Bool   *BuiltinType
-	Graph  *BuiltinType
-	Nil    *NilType
+	String *core.BuiltinType
+	Rune   *core.BuiltinType
+	Int    *core.BuiltinType
+	Int64  *core.BuiltinType
+	Bool   *core.BuiltinType
+	Graph  *core.BuiltinType
+	Nil    *core.NilType
 }
 
 type Program struct {
 	Builtins *BuiltinTypeIndex
 	Packages []*Package
-}
-
-type DubType interface {
-	isDubType()
-}
-
-type BuiltinType struct {
-	Name string
-}
-
-func (node *BuiltinType) isDubType() {
-}
-
-type NilType struct {
-}
-
-func (node *NilType) isDubType() {
-}
-
-type ListType struct {
-	Type DubType
-}
-
-func (node *ListType) isDubType() {
-}
-
-type FieldType struct {
-	Name *Id
-	Type DubType
-}
-
-type StructType struct {
-	Name       *Id
-	Implements *StructType
-	Fields     []*FieldType
-	Scoped     bool
-	Contains   []*StructType
-	IsParent   bool
-}
-
-func (node *StructType) isDubType() {
 }
 
 func LineTerminator(frame *runtime.State) {

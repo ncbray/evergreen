@@ -2,6 +2,7 @@ package flow
 
 import (
 	"evergreen/base"
+	"evergreen/dub/core"
 	"evergreen/dub/tree"
 )
 
@@ -15,13 +16,13 @@ type RegisterInfo_Scope struct {
 
 type RegisterInfo struct {
 	Name string
-	T    tree.DubType
+	T    core.DubType
 }
 
 type LLFunc struct {
 	Name               string
 	Params             []RegisterInfo_Ref
-	ReturnTypes        []tree.DubType
+	ReturnTypes        []core.DubType
 	CFG                *base.Graph
 	Ops                []DubOp
 	RegisterInfo_Scope *RegisterInfo_Scope
@@ -33,7 +34,7 @@ type DubOp interface {
 
 type CoerceOp struct {
 	Src RegisterInfo_Ref
-	T   tree.DubType
+	T   core.DubType
 	Dst RegisterInfo_Ref
 }
 
@@ -113,7 +114,7 @@ type KeyValue struct {
 }
 
 type ConstructOp struct {
-	Type *tree.StructType
+	Type *core.StructType
 	Args []*KeyValue
 	Dst  RegisterInfo_Ref
 }
@@ -122,7 +123,7 @@ func (node *ConstructOp) isDubOp() {
 }
 
 type ConstructListOp struct {
-	Type *tree.ListType
+	Type *core.ListType
 	Args []RegisterInfo_Ref
 	Dst  RegisterInfo_Ref
 }
@@ -238,7 +239,7 @@ func (node *ExitOp) isDubOp() {
 
 type DubPackage struct {
 	Path    []string
-	Structs []*tree.StructType
+	Structs []*core.StructType
 	Funcs   []*LLFunc
 	Tests   []*tree.Test
 }

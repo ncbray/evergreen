@@ -13,12 +13,12 @@ struct ListType implements DubType {
 }
 
 struct FieldType {
-  Name Id
+  Name string
   Type DubType
 }
 
 struct StructType implements DubType {
-  Name Id
+  Name string
   Implements StructType
   Fields []FieldType
   Scoped bool

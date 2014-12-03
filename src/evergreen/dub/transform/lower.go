@@ -2,9 +2,9 @@ package transform
 
 import (
 	"evergreen/base"
+	"evergreen/dub/core"
 	"evergreen/dub/flow"
 	"evergreen/dub/tree"
-	core "evergreen/dub/tree"
 )
 
 const REGION_EXITS = 4

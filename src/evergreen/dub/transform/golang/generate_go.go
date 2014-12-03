@@ -2,8 +2,8 @@ package golang
 
 import (
 	"evergreen/base"
+	"evergreen/dub/core"
 	"evergreen/dub/flow"
-	core "evergreen/dub/tree"
 	dstflow "evergreen/go/flow"
 	"evergreen/go/transform"
 	ast "evergreen/go/tree"
@@ -94,7 +94,7 @@ func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.D
 	ref := DeclForType(ctx.link.GetType(s, REF), ctx)
 
 	noRef := &ast.VarDecl{
-		Name: "No" + s.Name.Text,
+		Name: "No" + s.Name,
 		Type: ctx.link.TypeRef(s, REF),
 		Expr: &ast.UnaryExpr{
 			Op: "^",

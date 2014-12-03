@@ -1,8 +1,8 @@
 package golang
 
 import (
+	"evergreen/dub/core"
 	"evergreen/dub/flow"
-	core "evergreen/dub/tree"
 	ast "evergreen/go/tree"
 )
 
@@ -56,7 +56,7 @@ func makeLinker() DubToGoLinker {
 }
 
 func subtypeName(s *core.StructType, subtype int) string {
-	name := s.Name.Text
+	name := s.Name
 	switch subtype {
 	case STRUCT:
 		// Nothing
@@ -71,7 +71,7 @@ func subtypeName(s *core.StructType, subtype int) string {
 }
 
 func tagName(s *core.StructType) string {
-	return "is" + s.Name.Text
+	return "is" + s.Name
 }
 
 func makeBuiltinTypes() *ast.BuiltinTypeIndex {
@@ -161,7 +161,7 @@ func createTypes(program []*flow.DubPackage, ctx *DubToGoContext) {
 		for _, s := range dubPkg.Structs {
 			if s.IsParent {
 				impl, _ := ctx.link.GetType(s, STRUCT).(*ast.InterfaceType)
-				impl.Name = s.Name.Text
+				impl.Name = s.Name
 				impl.Fields = []*ast.Field{}
 				for tag := s; tag != nil; tag = tag.Implements {
 					impl.Fields = append(impl.Fields, &ast.Field{
@@ -172,12 +172,12 @@ func createTypes(program []*flow.DubPackage, ctx *DubToGoContext) {
 
 			} else {
 				impl, _ := ctx.link.GetType(s, STRUCT).(*ast.StructType)
-				impl.Name = s.Name.Text
+				impl.Name = s.Name
 
 				fields := []*ast.Field{}
 				for _, f := range s.Fields {
 					fields = append(fields, &ast.Field{
-						Name: f.Name.Text,
+						Name: f.Name,
 						Type: goFieldType(f.Type, ctx),
 					})
 				}
