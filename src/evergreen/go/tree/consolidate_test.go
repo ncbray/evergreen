@@ -3,6 +3,7 @@ package tree
 import (
 	"evergreen/assert"
 	"evergreen/base"
+	"evergreen/go/core"
 	"testing"
 )
 
@@ -13,7 +14,7 @@ func binaryOpExample(swap bool) (*FuncDecl, []Stmt) {
 		LocalInfo_Scope: &LocalInfo_Scope{},
 	}
 
-	intType := &ExternalType{Name: "int"}
+	intType := &core.ExternalType{Name: "int"}
 	a := decl.CreateLocalInfo("a", &NameRef{T: intType})
 	b := decl.CreateLocalInfo("b", &NameRef{T: intType})
 	ret := decl.CreateLocalInfo("ret0", &NameRef{T: intType})

@@ -2,7 +2,7 @@ package flow
 
 import (
 	"evergreen/base"
-	"evergreen/go/tree"
+	"evergreen/go/core"
 )
 
 type Register_Ref uint32
@@ -15,7 +15,7 @@ type Register_Scope struct {
 
 type Register struct {
 	Name string
-	T    tree.GoType
+	T    core.GoType
 }
 
 type LLFunc struct {
@@ -114,7 +114,7 @@ type NamedArg struct {
 }
 
 type ConstructStruct struct {
-	Type      *tree.StructType
+	Type      *core.StructType
 	AddrTaken bool
 	Args      []*NamedArg
 	Dst       Register_Ref
@@ -124,7 +124,7 @@ func (node *ConstructStruct) isGoOp() {
 }
 
 type ConstructSlice struct {
-	Type *tree.SliceType
+	Type *core.SliceType
 	Args []Register_Ref
 	Dst  Register_Ref
 }
@@ -134,7 +134,7 @@ func (node *ConstructSlice) isGoOp() {
 
 type Coerce struct {
 	Src  Register_Ref
-	Type tree.GoType
+	Type core.GoType
 	Dst  Register_Ref
 }
 

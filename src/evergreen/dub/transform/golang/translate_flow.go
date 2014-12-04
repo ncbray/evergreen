@@ -3,8 +3,8 @@ package golang
 import (
 	"evergreen/base"
 	src "evergreen/dub/flow"
+	dstcore "evergreen/go/core"
 	dst "evergreen/go/flow"
-	dstcore "evergreen/go/tree"
 )
 
 func simpleFlow(stitcher *base.FlowStitcher, srcID base.NodeID, dstID base.NodeID) {

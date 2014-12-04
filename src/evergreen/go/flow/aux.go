@@ -2,7 +2,7 @@ package flow
 
 import (
 	"evergreen/base"
-	core "evergreen/go/tree"
+	"evergreen/go/core"
 )
 
 func (scope *Register_Scope) Get(ref Register_Ref) *Register {

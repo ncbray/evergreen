@@ -1,19 +1,23 @@
+import (
+  "go/core"
+)
+
 struct TypeRef {
 }
 
 struct NameRef implements TypeRef {
   Name string
-  T GoType
+  T core.GoType
 }
 
 struct PointerRef implements TypeRef {
   Element TypeRef
-  T GoType
+  T core.GoType
 }
 
 struct SliceRef implements TypeRef {
   Element TypeRef
-  T GoType
+  T core.GoType
 }
 
 struct Param {
@@ -185,7 +189,7 @@ struct FuncDecl contains(LocalInfo) implements Decl {
   Recv Param
   Type FuncTypeRef
   Body []Stmt
-  Package Package
+  Package core.Package
 }
 
 struct FieldDecl {
@@ -196,23 +200,23 @@ struct FieldDecl {
 struct StructDecl implements Decl {
   Name string
   Fields []FieldDecl
-  T StructType
+  T core.StructType
 }
 
 struct InterfaceDecl implements Decl {
   Name string
   Fields []FieldDecl
-  T InterfaceType
+  T core.InterfaceType
 }
 
 struct TypeDefDecl implements Decl {
   Name string
   Type TypeRef
-  T TypeDefType
+  T core.TypeDefType
 }
 
 struct OpaqueDecl implements Decl {
-  T ExternalType
+  T core.ExternalType
 }
 
 struct Import {
@@ -229,10 +233,10 @@ struct FileAST {
 
 struct PackageAST {
   Files []FileAST
-  P Package
+  P core.Package
 }
 
 struct ProgramAST {
-  Builtins BuiltinTypeIndex
+  Builtins core.BuiltinTypeIndex
   Packages []PackageAST
 }

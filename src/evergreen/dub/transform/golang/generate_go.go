@@ -4,6 +4,7 @@ import (
 	"evergreen/base"
 	"evergreen/dub/core"
 	"evergreen/dub/flow"
+	dstcore "evergreen/go/core"
 	dstflow "evergreen/go/flow"
 	"evergreen/go/transform"
 	ast "evergreen/go/tree"
@@ -13,10 +14,10 @@ import (
 )
 
 type DubToGoContext struct {
-	index *ast.BuiltinTypeIndex
-	state *ast.StructType
-	graph *ast.StructType
-	t     *ast.StructType
+	index *dstcore.BuiltinTypeIndex
+	state *dstcore.StructType
+	graph *dstcore.StructType
+	t     *dstcore.StructType
 	link  DubToGoLinker
 }
 
@@ -50,15 +51,15 @@ func addTags(base *core.StructType, parent *core.StructType, ctx *DubToGoContext
 	return decls
 }
 
-func DeclForType(t ast.GoType, ctx *DubToGoContext) ast.Decl {
+func DeclForType(t dstcore.GoType, ctx *DubToGoContext) ast.Decl {
 	switch t := t.(type) {
-	case *ast.TypeDefType:
+	case *dstcore.TypeDefType:
 		return &ast.TypeDefDecl{
 			Name: t.Name,
 			Type: ast.RefForType(t.Type),
 			T:    t,
 		}
-	case *ast.StructType:
+	case *dstcore.StructType:
 		fields := []*ast.FieldDecl{}
 		for _, f := range t.Fields {
 			fields = append(fields, &ast.FieldDecl{
@@ -72,7 +73,7 @@ func DeclForType(t ast.GoType, ctx *DubToGoContext) ast.Decl {
 			Fields: fields,
 			T:      t,
 		}
-	case *ast.InterfaceType:
+	case *dstcore.InterfaceType:
 		fields := []*ast.FieldDecl{}
 		for _, f := range t.Fields {
 			fields = append(fields, &ast.FieldDecl{
@@ -131,36 +132,36 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 	return decls
 }
 
-func externParserRuntime() *ast.StructType {
-	p := &ast.Package{
+func externParserRuntime() *dstcore.StructType {
+	p := &dstcore.Package{
 		Extern: true,
 		Path:   []string{"evergreen", "dub", "runtime"},
 	}
-	stateT := &ast.StructType{
+	stateT := &dstcore.StructType{
 		Name:    "State",
 		Package: p,
 	}
 	return stateT
 }
 
-func externTesting() *ast.StructType {
-	p := &ast.Package{
+func externTesting() *dstcore.StructType {
+	p := &dstcore.Package{
 		Extern: true,
 		Path:   []string{"testing"},
 	}
-	tT := &ast.StructType{
+	tT := &dstcore.StructType{
 		Name:    "T",
 		Package: p,
 	}
 	return tT
 }
 
-func externGraph() *ast.StructType {
-	p := &ast.Package{
+func externGraph() *dstcore.StructType {
+	p := &dstcore.Package{
 		Extern: true,
 		Path:   []string{"evergreen", "base"},
 	}
-	graphT := &ast.StructType{
+	graphT := &dstcore.StructType{
 		Name:    "Graph",
 		Package: p,
 	}
@@ -213,7 +214,7 @@ func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *a
 		}
 		packages = append(packages, &ast.PackageAST{
 			Files: files,
-			P: &ast.Package{
+			P: &dstcore.Package{
 				Path: path,
 			},
 		})

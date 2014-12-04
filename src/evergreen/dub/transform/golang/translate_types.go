@@ -3,6 +3,7 @@ package golang
 import (
 	"evergreen/dub/core"
 	"evergreen/dub/flow"
+	dstcore "evergreen/go/core"
 	ast "evergreen/go/tree"
 )
 
@@ -13,16 +14,16 @@ const (
 )
 
 type DubToGoLinker interface {
-	SetType(s *core.StructType, subtype int, impl ast.GoType)
-	GetType(s *core.StructType, subtype int) ast.GoType
+	SetType(s *core.StructType, subtype int, impl dstcore.GoType)
+	GetType(s *core.StructType, subtype int) dstcore.GoType
 	TypeRef(s *core.StructType, subtype int) *ast.NameRef
 }
 
 type linkerImpl struct {
-	types []map[*core.StructType]ast.GoType
+	types []map[*core.StructType]dstcore.GoType
 }
 
-func (l *linkerImpl) SetType(s *core.StructType, subtype int, impl ast.GoType) {
+func (l *linkerImpl) SetType(s *core.StructType, subtype int, impl dstcore.GoType) {
 	_, ok := l.types[subtype][s]
 	if ok {
 		panic(s)
@@ -30,7 +31,7 @@ func (l *linkerImpl) SetType(s *core.StructType, subtype int, impl ast.GoType) {
 	l.types[subtype][s] = impl
 }
 
-func (l *linkerImpl) GetType(s *core.StructType, subtype int) ast.GoType {
+func (l *linkerImpl) GetType(s *core.StructType, subtype int) dstcore.GoType {
 	e, ok := l.types[subtype][s]
 	if !ok {
 		panic(s)
@@ -46,9 +47,9 @@ func (l *linkerImpl) TypeRef(s *core.StructType, subtype int) *ast.NameRef {
 }
 
 func makeLinker() DubToGoLinker {
-	types := []map[*core.StructType]ast.GoType{}
+	types := []map[*core.StructType]dstcore.GoType{}
 	for i := 0; i < 3; i++ {
-		types = append(types, map[*core.StructType]ast.GoType{})
+		types = append(types, map[*core.StructType]dstcore.GoType{})
 	}
 	return &linkerImpl{
 		types: types,
@@ -74,18 +75,18 @@ func tagName(s *core.StructType) string {
 	return "is" + s.Name
 }
 
-func makeBuiltinTypes() *ast.BuiltinTypeIndex {
-	return &ast.BuiltinTypeIndex{
-		Int:    &ast.ExternalType{Name: "int"},
-		UInt32: &ast.ExternalType{Name: "uint32"},
-		Int64:  &ast.ExternalType{Name: "int64"},
-		Bool:   &ast.ExternalType{Name: "bool"},
-		String: &ast.ExternalType{Name: "string"},
-		Rune:   &ast.ExternalType{Name: "rune"},
+func makeBuiltinTypes() *dstcore.BuiltinTypeIndex {
+	return &dstcore.BuiltinTypeIndex{
+		Int:    &dstcore.ExternalType{Name: "int"},
+		UInt32: &dstcore.ExternalType{Name: "uint32"},
+		Int64:  &dstcore.ExternalType{Name: "int64"},
+		Bool:   &dstcore.ExternalType{Name: "bool"},
+		String: &dstcore.ExternalType{Name: "string"},
+		Rune:   &dstcore.ExternalType{Name: "rune"},
 	}
 }
 
-func builtinType(t *core.BuiltinType, ctx *DubToGoContext) ast.GoType {
+func builtinType(t *core.BuiltinType, ctx *DubToGoContext) dstcore.GoType {
 	switch t.Name {
 	case "bool":
 		return ctx.index.Bool
@@ -100,17 +101,17 @@ func builtinType(t *core.BuiltinType, ctx *DubToGoContext) ast.GoType {
 	case "string":
 		return ctx.index.String
 	case "graph":
-		return &ast.PointerType{Element: ctx.graph}
+		return &dstcore.PointerType{Element: ctx.graph}
 	default:
 		panic(t.Name)
 	}
 }
 
-func goSliceType(t *core.ListType, ctx *DubToGoContext) *ast.SliceType {
-	return &ast.SliceType{Element: goType(t.Type, ctx)}
+func goSliceType(t *core.ListType, ctx *DubToGoContext) *dstcore.SliceType {
+	return &dstcore.SliceType{Element: goType(t.Type, ctx)}
 }
 
-func goType(t core.DubType, ctx *DubToGoContext) ast.GoType {
+func goType(t core.DubType, ctx *DubToGoContext) dstcore.GoType {
 	switch t := t.(type) {
 	case *core.BuiltinType:
 		return builtinType(t, ctx)
@@ -121,21 +122,21 @@ func goType(t core.DubType, ctx *DubToGoContext) ast.GoType {
 		if t.IsParent {
 			return out
 		} else {
-			return &ast.PointerType{Element: out}
+			return &dstcore.PointerType{Element: out}
 		}
 	default:
 		panic(t)
 	}
 }
 
-func goFieldType(t core.DubType, ctx *DubToGoContext) ast.GoType {
+func goFieldType(t core.DubType, ctx *DubToGoContext) dstcore.GoType {
 	switch t := t.(type) {
 	case *core.StructType:
 		if t.Scoped {
 			return ctx.link.GetType(t, REF)
 		}
 	case *core.ListType:
-		return &ast.SliceType{Element: goFieldType(t.Type, ctx)}
+		return &dstcore.SliceType{Element: goFieldType(t.Type, ctx)}
 	}
 	return goType(t, ctx)
 }
@@ -144,13 +145,13 @@ func createTypeMapping(program []*flow.DubPackage, link DubToGoLinker) {
 	for _, dubPkg := range program {
 		for _, s := range dubPkg.Structs {
 			if s.IsParent {
-				link.SetType(s, STRUCT, &ast.InterfaceType{})
+				link.SetType(s, STRUCT, &dstcore.InterfaceType{})
 			} else {
 				if s.Scoped {
-					link.SetType(s, REF, &ast.TypeDefType{})
-					link.SetType(s, SCOPE, &ast.StructType{})
+					link.SetType(s, REF, &dstcore.TypeDefType{})
+					link.SetType(s, SCOPE, &dstcore.StructType{})
 				}
-				link.SetType(s, STRUCT, &ast.StructType{})
+				link.SetType(s, STRUCT, &dstcore.StructType{})
 			}
 		}
 	}
@@ -160,23 +161,23 @@ func createTypes(program []*flow.DubPackage, ctx *DubToGoContext) {
 	for _, dubPkg := range program {
 		for _, s := range dubPkg.Structs {
 			if s.IsParent {
-				impl, _ := ctx.link.GetType(s, STRUCT).(*ast.InterfaceType)
+				impl, _ := ctx.link.GetType(s, STRUCT).(*dstcore.InterfaceType)
 				impl.Name = s.Name
-				impl.Fields = []*ast.Field{}
+				impl.Fields = []*dstcore.Field{}
 				for tag := s; tag != nil; tag = tag.Implements {
-					impl.Fields = append(impl.Fields, &ast.Field{
+					impl.Fields = append(impl.Fields, &dstcore.Field{
 						Name: tagName(tag),
-						Type: &ast.FuncType{},
+						Type: &dstcore.FuncType{},
 					})
 				}
 
 			} else {
-				impl, _ := ctx.link.GetType(s, STRUCT).(*ast.StructType)
+				impl, _ := ctx.link.GetType(s, STRUCT).(*dstcore.StructType)
 				impl.Name = s.Name
 
-				fields := []*ast.Field{}
+				fields := []*dstcore.Field{}
 				for _, f := range s.Fields {
-					fields = append(fields, &ast.Field{
+					fields = append(fields, &dstcore.Field{
 						Name: f.Name,
 						Type: goFieldType(f.Type, ctx),
 					})
@@ -185,9 +186,9 @@ func createTypes(program []*flow.DubPackage, ctx *DubToGoContext) {
 					if !c.Scoped {
 						panic(c)
 					}
-					fields = append(fields, &ast.Field{
+					fields = append(fields, &dstcore.Field{
 						Name: subtypeName(c, SCOPE),
-						Type: &ast.PointerType{
+						Type: &dstcore.PointerType{
 							Element: ctx.link.GetType(c, SCOPE),
 						},
 					})
@@ -195,17 +196,17 @@ func createTypes(program []*flow.DubPackage, ctx *DubToGoContext) {
 				impl.Fields = fields
 
 				if s.Scoped {
-					ref, _ := ctx.link.GetType(s, REF).(*ast.TypeDefType)
+					ref, _ := ctx.link.GetType(s, REF).(*dstcore.TypeDefType)
 					ref.Name = subtypeName(s, REF)
 					ref.Type = ctx.index.UInt32
 
-					scope, _ := ctx.link.GetType(s, SCOPE).(*ast.StructType)
+					scope, _ := ctx.link.GetType(s, SCOPE).(*dstcore.StructType)
 					scope.Name = subtypeName(s, SCOPE)
-					scope.Fields = []*ast.Field{
-						&ast.Field{
+					scope.Fields = []*dstcore.Field{
+						&dstcore.Field{
 							Name: "objects",
-							Type: &ast.SliceType{
-								Element: &ast.PointerType{
+							Type: &dstcore.SliceType{
+								Element: &dstcore.PointerType{
 									Element: impl,
 								},
 							},

@@ -1,27 +1,28 @@
 package tree
 
 import (
+	"evergreen/go/core"
 	"fmt"
 	"strings"
 )
 
 type FileInfo struct {
-	Package     *Package
-	PackageName map[*Package]string
+	Package     *core.Package
+	PackageName map[*core.Package]string
 	Decl        *FuncDecl // HACK
 }
 
-func DefaultPackageName(pkg *Package) string {
+func DefaultPackageName(pkg *core.Package) string {
 	n := len(pkg.Path)
 	return pkg.Path[n-1]
 }
 
-func IsBuiltinPackage(pkg *Package) bool {
+func IsBuiltinPackage(pkg *core.Package) bool {
 	// HACK pkg should not be nil
 	return pkg == nil || len(pkg.Path) == 0
 }
 
-func (info *FileInfo) ImportedName(pkg *Package) string {
+func (info *FileInfo) ImportedName(pkg *core.Package) string {
 	name, ok := info.PackageName[pkg]
 	if !ok {
 		// HACK assume no import name conflicts
@@ -31,7 +32,7 @@ func (info *FileInfo) ImportedName(pkg *Package) string {
 	return name
 }
 
-func (info *FileInfo) QualifyName(pkg *Package, name string) string {
+func (info *FileInfo) QualifyName(pkg *core.Package, name string) string {
 	if pkg != info.Package && !IsBuiltinPackage(pkg) {
 		return fmt.Sprintf("%s.%s", info.ImportedName(pkg), name)
 	}
@@ -52,13 +53,13 @@ func nameifyType(t TypeRef, info *FileInfo) {
 	case *NameRef:
 		impl := t.T
 		switch impl := impl.(type) {
-		case *StructType:
+		case *core.StructType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
-		case *InterfaceType:
+		case *core.InterfaceType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
-		case *ExternalType:
+		case *core.ExternalType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
-		case *TypeDefType:
+		case *core.TypeDefType:
 			t.Name = info.QualifyName(impl.Package, impl.Name)
 		default:
 			panic(impl)
@@ -261,7 +262,7 @@ func nameifyFile(pkg *PackageAST, file *FileAST) {
 
 	info := &FileInfo{
 		Package:     pkg.P,
-		PackageName: map[*Package]string{},
+		PackageName: map[*core.Package]string{},
 	}
 
 	for _, decl := range file.Decls {

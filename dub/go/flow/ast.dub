@@ -1,10 +1,10 @@
 import (
-  "go/tree"
+  "go/core"
 )
 
 struct Register scoped {
   Name string
-  T tree.GoType
+  T core.GoType
 }
 
 struct LLFunc contains(Register) {
@@ -75,21 +75,21 @@ struct NamedArg {
 }
 
 struct ConstructStruct implements GoOp {
-  Type tree.StructType
+  Type core.StructType
   AddrTaken bool
   Args []NamedArg
   Dst Register
 }
 
 struct ConstructSlice implements GoOp {
-  Type tree.SliceType
+  Type core.SliceType
   Args []Register
   Dst Register
 }
 
 struct Coerce implements GoOp {
   Src Register
-  Type tree.GoType
+  Type core.GoType
   Dst Register
 }
 

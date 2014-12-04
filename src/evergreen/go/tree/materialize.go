@@ -1,5 +1,9 @@
 package tree
 
+import (
+	"evergreen/go/core"
+)
+
 type refRewriter interface {
 	rewriteLocalInfo(index LocalInfo_Ref) LocalInfo_Ref
 }
@@ -286,29 +290,29 @@ func (decl *FuncDecl) MakeSetLocal(idx LocalInfo_Ref) Target {
 	}
 }
 
-func RefForType(t GoType) TypeRef {
+func RefForType(t core.GoType) TypeRef {
 	switch t := t.(type) {
-	case *ExternalType:
+	case *core.ExternalType:
 		return &NameRef{
 			Name: t.Name,
 			T:    t,
 		}
-	case *StructType:
+	case *core.StructType:
 		return &NameRef{
 			Name: t.Name,
 			T:    t,
 		}
-	case *InterfaceType:
+	case *core.InterfaceType:
 		return &NameRef{
 			Name: t.Name,
 			T:    t,
 		}
-	case *TypeDefType:
+	case *core.TypeDefType:
 		return &NameRef{
 			Name: t.Name,
 			T:    t,
 		}
-	case *FuncType:
+	case *core.FuncType:
 		params := make([]*Param, len(t.Params))
 		for i, pt := range t.Params {
 			params[i] = &Param{
@@ -325,12 +329,12 @@ func RefForType(t GoType) TypeRef {
 			Params:  params,
 			Results: results,
 		}
-	case *PointerType:
+	case *core.PointerType:
 		return &PointerRef{
 			Element: RefForType(t.Element),
 			T:       t,
 		}
-	case *SliceType:
+	case *core.SliceType:
 		return &SliceRef{
 			Element: RefForType(t.Element),
 			T:       t,
