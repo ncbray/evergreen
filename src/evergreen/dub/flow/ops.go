@@ -120,7 +120,7 @@ func opToString(op DubOp) string {
 	case *BinaryOp:
 		return formatAssignment(fmt.Sprintf("%s %s %s", RegisterName(n.Left), n.Op, RegisterName(n.Right)), n.Dst)
 	case *CallOp:
-		return formatMultiAssignment(fmt.Sprintf("%s(%s)", n.Name, RegisterList(n.Args)), n.Dsts)
+		return formatMultiAssignment(fmt.Sprintf("%s(%s)", n.Target.Name, RegisterList(n.Args)), n.Dsts)
 	case *ConstructOp:
 		return formatAssignment(fmt.Sprintf("%s{%s}", TypeName(n.Type), KeyValueList(n.Args)), n.Dst)
 	case *ConstructListOp:

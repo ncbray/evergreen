@@ -677,6 +677,11 @@ type semanticPassContext struct {
 	Module         *ModuleScope
 	ModuleContexts []*semanticPassContext
 	Status         framework.Status
+	Core           *CoreProgram
+}
+
+type CoreProgram struct {
+	Functions []*core.Function
 }
 
 func resolveImport(ctx *semanticPassContext, imp *ImportDecl) {
@@ -719,6 +724,9 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 				} else {
 					ctx.Module.Namespace[name] = &NamedCallable{Func: decl}
 				}
+				f := &core.Function{Name: name}
+				decl.F = f
+				ctx.Core.Functions = append(ctx.Core.Functions, f)
 			case *StructDecl:
 				name := decl.Name.Text
 				_, exists := ctx.Module.Namespace[name]
@@ -770,8 +778,9 @@ func semanticModulePass(ctx *semanticPassContext, pkg *Package) {
 	}
 }
 
-func SemanticPass(program *Program, status framework.Status) {
+func SemanticPass(program *Program, status framework.Status) []*core.Function {
 	programScope := MakeProgramScope(program)
+	core := &CoreProgram{}
 	ctxs := make([]*semanticPassContext, len(program.Packages))
 	for i, pkg := range program.Packages {
 		moduleScope := &ModuleScope{
@@ -783,6 +792,7 @@ func SemanticPass(program *Program, status framework.Status) {
 			Module:         moduleScope,
 			ModuleContexts: ctxs,
 			Status:         status.CreateChild(),
+			Core:           core,
 		}
 	}
 
@@ -790,17 +800,18 @@ func SemanticPass(program *Program, status framework.Status) {
 		indexModule(ctxs[i], pkg)
 	}
 	if status.ShouldHalt() {
-		return
+		return nil
 	}
 	for i, pkg := range program.Packages {
 		resolveSignatures(ctxs[i], pkg)
 	}
 	if status.ShouldHalt() {
-		return
+		return nil
 	}
 	for i, pkg := range program.Packages {
 		semanticModulePass(ctxs[i], pkg)
 	}
+	return core.Functions
 }
 
 func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {

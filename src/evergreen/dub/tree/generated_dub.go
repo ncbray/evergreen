@@ -363,6 +363,7 @@ type FuncDecl struct {
 	Params          []*Param
 	ReturnTypes     []ASTTypeRef
 	Block           []ASTExpr
+	F               *core.Function
 	LocalInfo_Scope *LocalInfo_Scope
 }
 

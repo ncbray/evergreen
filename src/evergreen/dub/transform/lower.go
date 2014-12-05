@@ -261,7 +261,11 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *
 				dsts[i] = builder.CreateRegister("", t)
 			}
 		}
-		body := builder.EmitOp(&flow.CallOp{Name: expr.Name.Text, Args: args, Dsts: dsts})
+		target, ok := expr.Target.(*tree.FuncDecl)
+		if !ok {
+			panic(expr.Target)
+		}
+		body := builder.EmitOp(&flow.CallOp{Target: target.F, Args: args, Dsts: dsts})
 		gr.AttachFlow(flow.NORMAL, body)
 		gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
 		gr.RegisterExit(body, flow.FAIL, flow.FAIL)
@@ -627,17 +631,14 @@ func lowerBlock(block []tree.ASTExpr, builder *DubBuilder, gr *base.GraphRegion)
 	}
 }
 
-func lowerAST(program *tree.Program, decl *tree.FuncDecl) *flow.LLFunc {
+func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap map[*core.Function]*flow.LLFunc) *flow.LLFunc {
 	g := base.CreateGraph()
 	ops := []flow.DubOp{
 		&flow.EntryOp{},
 		&flow.ExitOp{},
 	}
 
-	f := &flow.LLFunc{
-		Name:               decl.Name.Text,
-		RegisterInfo_Scope: &flow.RegisterInfo_Scope{},
-	}
+	f, _ := funcMap[decl.F]
 
 	builder := &DubBuilder{
 		index: program.Builtins,
@@ -689,7 +690,7 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl) *flow.LLFunc {
 	return f
 }
 
-func lowerPackage(program *tree.Program, pkg *tree.Package) *flow.DubPackage {
+func lowerPackage(program *tree.Program, pkg *tree.Package, funcMap map[*core.Function]*flow.LLFunc) *flow.DubPackage {
 	dubPkg := &flow.DubPackage{
 		Path:    pkg.Path,
 		Structs: []*core.StructType{},
@@ -702,7 +703,7 @@ func lowerPackage(program *tree.Program, pkg *tree.Package) *flow.DubPackage {
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
 			case *tree.FuncDecl:
-				f := lowerAST(program, decl)
+				f := lowerAST(program, decl, funcMap)
 				flow.SSI(f)
 				dubPkg.Funcs = append(dubPkg.Funcs, f)
 			case *tree.StructDecl:
@@ -717,10 +718,19 @@ func lowerPackage(program *tree.Program, pkg *tree.Package) *flow.DubPackage {
 	return dubPkg
 }
 
-func LowerProgram(program *tree.Program) []*flow.DubPackage {
+func LowerProgram(program *tree.Program, funcs []*core.Function) []*flow.DubPackage {
+	funcMap := map[*core.Function]*flow.LLFunc{}
+	for _, f := range funcs {
+		funcMap[f] = &flow.LLFunc{
+			Name:               f.Name,
+			RegisterInfo_Scope: &flow.RegisterInfo_Scope{},
+			F:                  f,
+		}
+	}
+
 	dubPackages := []*flow.DubPackage{}
 	for _, pkg := range program.Packages {
-		dubPackages = append(dubPackages, lowerPackage(program, pkg))
+		dubPackages = append(dubPackages, lowerPackage(program, pkg, funcMap))
 	}
 	return dubPackages
 }

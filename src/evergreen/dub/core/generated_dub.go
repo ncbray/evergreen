@@ -40,3 +40,7 @@ type StructType struct {
 
 func (node *StructType) isDubType() {
 }
+
+type Function struct {
+	Name string
+}

@@ -237,6 +237,7 @@ struct FuncDecl contains(LocalInfo) implements ASTCallable {
   Params []Param
   ReturnTypes []ASTTypeRef
   Block []ASTExpr
+  F core.Function
 }
 
 struct Test {

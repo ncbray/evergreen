@@ -106,11 +106,11 @@ func GenerateGo(program []*flow.DubPackage) {
 }
 
 func processProgram(status framework.Status, p framework.LocationProvider, manager *IOManager, root string) {
-	program := tree.ParseProgram(status.CreateChild(), p, root)
+	program, funcs := tree.ParseProgram(status.CreateChild(), p, root)
 	if status.ShouldHalt() {
 		return
 	}
-	flowProgram := transform.LowerProgram(program)
+	flowProgram := transform.LowerProgram(program, funcs)
 
 	if dump {
 		dumpProgram(manager, flowProgram)

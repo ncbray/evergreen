@@ -25,3 +25,7 @@ struct StructType implements DubType {
   Contains []StructType
   IsParent bool
 }
+
+struct Function {
+  Name string
+}

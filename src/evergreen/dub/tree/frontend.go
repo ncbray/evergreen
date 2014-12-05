@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"evergreen/dub/core"
 	"evergreen/framework"
 	"io/ioutil"
 	"path/filepath"
@@ -72,15 +73,15 @@ func parsePackageTree(status framework.Status, p framework.LocationProvider, roo
 	return packages
 }
 
-func ParseProgram(status framework.Status, p framework.LocationProvider, root string) *Program {
+func ParseProgram(status framework.Status, p framework.LocationProvider, root string) (*Program, []*core.Function) {
 	packages := parsePackageTree(status.CreateChild(), p, root, []string{}, []*Package{})
 	if status.ShouldHalt() {
-		return nil
+		return nil, nil
 	}
 	program := &Program{
 		Packages: packages,
 		Builtins: MakeBuiltinTypeIndex(),
 	}
-	SemanticPass(program, status.CreateChild())
-	return program
+	funcs := SemanticPass(program, status.CreateChild())
+	return program, funcs
 }

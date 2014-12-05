@@ -153,7 +153,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 			args := []dst.Register_Ref{frameReg}
 			args = append(args, regList(regMap, op.Args)...)
 			dstID := builder.EmitOp(&dst.Call{
-				Name: op.Name,
+				Name: op.Target.Name,
 				Args: args,
 				Dsts: regList(regMap, op.Dsts),
 			}, 1)
