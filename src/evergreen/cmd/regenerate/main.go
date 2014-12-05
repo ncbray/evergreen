@@ -2,7 +2,6 @@ package main
 
 import (
 	"evergreen/base"
-	"evergreen/dub/core"
 	"evergreen/dub/flow"
 	"evergreen/dub/transform"
 	"evergreen/dub/transform/golang"
@@ -58,42 +57,6 @@ func CreateIOManager() *IOManager {
 	return manager
 }
 
-func lowerPackage(program *tree.Program, pkg *tree.Package) *flow.DubPackage {
-	dubPkg := &flow.DubPackage{
-		Path:    pkg.Path,
-		Structs: []*core.StructType{},
-		Funcs:   []*flow.LLFunc{},
-		Tests:   []*tree.Test{},
-	}
-
-	// Lower to flow IR
-	for _, file := range pkg.Files {
-		for _, decl := range file.Decls {
-			switch decl := decl.(type) {
-			case *tree.FuncDecl:
-				f := transform.LowerAST(program, decl)
-				flow.SSI(f)
-				dubPkg.Funcs = append(dubPkg.Funcs, f)
-			case *tree.StructDecl:
-				dubPkg.Structs = append(dubPkg.Structs, decl.T)
-			default:
-				panic(decl)
-			}
-		}
-		dubPkg.Tests = append(dubPkg.Tests, file.Tests...)
-	}
-
-	return dubPkg
-}
-
-func lowerProgram(program *tree.Program) []*flow.DubPackage {
-	dubPackages := []*flow.DubPackage{}
-	for _, pkg := range program.Packages {
-		dubPackages = append(dubPackages, lowerPackage(program, pkg))
-	}
-	return dubPackages
-}
-
 func dumpProgram(manager *IOManager, program []*flow.DubPackage) {
 	for _, dubPkg := range program {
 		for _, f := range dubPkg.Funcs {
@@ -147,7 +110,7 @@ func processProgram(status framework.Status, p framework.LocationProvider, manag
 	if status.ShouldHalt() {
 		return
 	}
-	flowProgram := lowerProgram(program)
+	flowProgram := transform.LowerProgram(program)
 
 	if dump {
 		dumpProgram(manager, flowProgram)

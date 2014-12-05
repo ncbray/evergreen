@@ -627,7 +627,7 @@ func lowerBlock(block []tree.ASTExpr, builder *DubBuilder, gr *base.GraphRegion)
 	}
 }
 
-func LowerAST(program *tree.Program, decl *tree.FuncDecl) *flow.LLFunc {
+func lowerAST(program *tree.Program, decl *tree.FuncDecl) *flow.LLFunc {
 	g := base.CreateGraph()
 	ops := []flow.DubOp{
 		&flow.EntryOp{},
@@ -687,4 +687,40 @@ func LowerAST(program *tree.Program, decl *tree.FuncDecl) *flow.LLFunc {
 	f.CFG = g
 	f.Ops = builder.ops
 	return f
+}
+
+func lowerPackage(program *tree.Program, pkg *tree.Package) *flow.DubPackage {
+	dubPkg := &flow.DubPackage{
+		Path:    pkg.Path,
+		Structs: []*core.StructType{},
+		Funcs:   []*flow.LLFunc{},
+		Tests:   []*tree.Test{},
+	}
+
+	// Lower to flow IR
+	for _, file := range pkg.Files {
+		for _, decl := range file.Decls {
+			switch decl := decl.(type) {
+			case *tree.FuncDecl:
+				f := lowerAST(program, decl)
+				flow.SSI(f)
+				dubPkg.Funcs = append(dubPkg.Funcs, f)
+			case *tree.StructDecl:
+				dubPkg.Structs = append(dubPkg.Structs, decl.T)
+			default:
+				panic(decl)
+			}
+		}
+		dubPkg.Tests = append(dubPkg.Tests, file.Tests...)
+	}
+
+	return dubPkg
+}
+
+func LowerProgram(program *tree.Program) []*flow.DubPackage {
+	dubPackages := []*flow.DubPackage{}
+	for _, pkg := range program.Packages {
+		dubPackages = append(dubPackages, lowerPackage(program, pkg))
+	}
+	return dubPackages
 }
