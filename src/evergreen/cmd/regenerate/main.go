@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 )
 
@@ -77,7 +78,7 @@ func processProgram(status framework.Status, p framework.LocationProvider, runne
 }
 
 func entryPoint(p framework.LocationProvider, status framework.Status) {
-	runner := framework.CreateTaskRunner(8)
+	runner := framework.CreateTaskRunner(jobs)
 
 	root_dir := "dub"
 	processProgram(status, p, runner, root_dir)
@@ -88,13 +89,18 @@ var dump bool
 var replace bool
 var cpuprofile string
 var memprofile string
+var jobs int
 
 func main() {
 	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
 	flag.BoolVar(&replace, "replace", false, "Replace the existing implementation.")
 	flag.StringVar(&cpuprofile, "cpuprofile", "", "write cpu profile to file")
 	flag.StringVar(&memprofile, "memprofile", "", "write memory profile to this file")
+	flag.IntVar(&jobs, "j", runtime.NumCPU(), "Number of threads.")
+
 	flag.Parse()
+
+	runtime.GOMAXPROCS(jobs)
 
 	p := framework.MakeProvider()
 	status := framework.MakeStatus(p)
