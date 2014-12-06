@@ -3,32 +3,36 @@ package tree
 import (
 	"bytes"
 	"evergreen/base"
+	"evergreen/framework"
 	"evergreen/io"
 	"path/filepath"
 )
 
-func OutputFile(file *FileAST, dirname string) {
+func OutputFile(file *FileAST, dirname string, runner *framework.TaskRunner) {
 	if file.Name == "" {
 		panic(file)
 	}
-	filename := filepath.Join(dirname, file.Name)
-	b := &bytes.Buffer{}
-	w := &base.CodeWriter{Out: b}
-	GenerateFile(file, w)
-	io.WriteFile(filename, []byte(b.String()))
+
+	runner.Run(func() {
+		filename := filepath.Join(dirname, file.Name)
+		b := &bytes.Buffer{}
+		w := &base.CodeWriter{Out: b}
+		GenerateFile(file, w)
+		io.WriteFile(filename, []byte(b.String()))
+	})
 }
 
-func OutputPackage(pkg *PackageAST, dirname string) {
+func OutputPackage(pkg *PackageAST, dirname string, runner *framework.TaskRunner) {
 	path := []string{dirname}
 	path = append(path, pkg.P.Path...)
 	pkgdir := filepath.Join(path...)
 	for _, file := range pkg.Files {
-		OutputFile(file, pkgdir)
+		OutputFile(file, pkgdir, runner)
 	}
 }
 
-func OutputProgram(prog *ProgramAST, dirname string) {
+func OutputProgram(prog *ProgramAST, dirname string, runner *framework.TaskRunner) {
 	for _, pkg := range prog.Packages {
-		OutputPackage(pkg, dirname)
+		OutputPackage(pkg, dirname, runner)
 	}
 }

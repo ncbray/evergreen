@@ -14,50 +14,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
-	"sync"
 )
 
-type IOManager struct {
-	limit chan bool
-	group sync.WaitGroup
-}
-
-func (m *IOManager) Create() {
-	m.group.Add(1)
-}
-
-func (m *IOManager) Aquire() {
-	<-m.limit
-}
-
-func (m *IOManager) Release() {
-	m.limit <- true
-	m.group.Done()
-}
-
-func (m *IOManager) Flush() {
-	m.group.Wait()
-}
-
-func (m *IOManager) WriteFile(filename string, data []byte) {
-	m.Create()
-	go func() {
-		m.Aquire()
-		defer m.Release()
-		io.WriteFile(filename, data)
-	}()
-}
-
-func CreateIOManager() *IOManager {
-	limit := 8
-	manager := &IOManager{limit: make(chan bool, limit)}
-	for i := 0; i < limit; i++ {
-		manager.limit <- true
-	}
-	return manager
-}
-
-func dumpProgram(manager *IOManager, program []*flow.DubPackage) {
+func dumpProgram(runner *framework.TaskRunner, program []*flow.DubPackage) {
 	for _, dubPkg := range program {
 		for _, f := range dubPkg.Funcs {
 			styler := &flow.DotStyler{Decl: f}
@@ -66,14 +25,11 @@ func dumpProgram(manager *IOManager, program []*flow.DubPackage) {
 			parts = append(parts, dubPkg.Path...)
 			parts = append(parts, fmt.Sprintf("%s.svg", f.Name))
 			outfile := filepath.Join(parts...)
-			manager.Create()
-			go func(dot string, outfile string) {
-				manager.Aquire()
-				defer manager.Release()
 
+			runner.Run(func() {
 				// Dump flowgraph
 				io.WriteDot(dot, outfile)
-			}(dot, outfile)
+			})
 		}
 	}
 }
@@ -88,7 +44,7 @@ func analyizeProgram(program []*flow.DubPackage) {
 	}
 }
 
-func GenerateGo(program []*flow.DubPackage) {
+func GenerateGo(program []*flow.DubPackage, runner *framework.TaskRunner) {
 	root := "generated"
 	if replace {
 		root = "evergreen"
@@ -102,10 +58,10 @@ func GenerateGo(program []*flow.DubPackage) {
 	gotree.Nameify(prog)
 
 	// Generate the sources.
-	gotree.OutputProgram(prog, "src")
+	gotree.OutputProgram(prog, "src", runner)
 }
 
-func processProgram(status framework.Status, p framework.LocationProvider, manager *IOManager, root string) {
+func processProgram(status framework.Status, p framework.LocationProvider, runner *framework.TaskRunner, root string) {
 	program, funcs := tree.ParseProgram(status.CreateChild(), p, root)
 	if status.ShouldHalt() {
 		return
@@ -113,19 +69,19 @@ func processProgram(status framework.Status, p framework.LocationProvider, manag
 	flowProgram := transform.LowerProgram(program, funcs)
 
 	if dump {
-		dumpProgram(manager, flowProgram)
+		dumpProgram(runner, flowProgram)
 	}
 
 	analyizeProgram(flowProgram)
-	GenerateGo(flowProgram)
+	GenerateGo(flowProgram, runner)
 }
 
 func entryPoint(p framework.LocationProvider, status framework.Status) {
-	manager := CreateIOManager()
+	runner := framework.CreateTaskRunner(8)
 
 	root_dir := "dub"
-	processProgram(status, p, manager, root_dir)
-	manager.Flush()
+	processProgram(status, p, runner, root_dir)
+	runner.Kill()
 }
 
 var dump bool
