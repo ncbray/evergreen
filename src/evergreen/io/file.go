@@ -1,3 +1,4 @@
+// Package io moves bulk data to the file system and back.
 package io
 
 import (

@@ -1,3 +1,4 @@
+// Package tree implements a tree IR for the Dub language.
 package tree
 
 import (

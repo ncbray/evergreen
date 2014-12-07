@@ -1,3 +1,4 @@
+// Package tree implements a tree IR for the Go language.
 package tree
 
 import (

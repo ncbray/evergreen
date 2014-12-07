@@ -1,3 +1,4 @@
+// Package runtime implements runtime support for executing Dub inside Go.
 package runtime
 
 import (

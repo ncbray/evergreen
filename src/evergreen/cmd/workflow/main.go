@@ -1,3 +1,4 @@
+// Tool for developing Evergreen.
 package main
 
 import (

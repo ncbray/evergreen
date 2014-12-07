@@ -1,3 +1,4 @@
+// Package framework implements generic compiler functionality.
 package framework
 
 import (

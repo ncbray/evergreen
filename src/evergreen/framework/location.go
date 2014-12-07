@@ -1,6 +1,6 @@
 package framework
 
-func FindLines(stream []rune) []int {
+func findLines(stream []rune) []int {
 	lines := []int{0}
 	for i, r := range stream {
 		if r == '\n' {
@@ -10,7 +10,7 @@ func FindLines(stream []rune) []int {
 	return lines
 }
 
-func GetLine(stream []rune, lines []int, line int) string {
+func getLine(stream []rune, lines []int, line int) string {
 	start := lines[line]
 	end := len(stream)
 	if line+1 < len(lines) {
@@ -23,7 +23,7 @@ func GetLine(stream []rune, lines []int, line int) string {
 	return string(stream[start:end])
 }
 
-func GetLocation(stream []rune, lines []int, pos int) (int, int, string) {
+func getLocation(stream []rune, lines []int, pos int) (int, int, string) {
 	// Stupid linear search
 	var line int
 	// If we don't find it, it must be on the last line.
@@ -33,7 +33,7 @@ func GetLocation(stream []rune, lines []int, pos int) (int, int, string) {
 		}
 	}
 	col := pos - lines[line]
-	return line, col, GetLine(stream, lines, line)
+	return line, col, getLine(stream, lines, line)
 }
 
 type LocationProvider interface {
@@ -54,7 +54,7 @@ func (info *fileInfo) Contains(pos int) bool {
 }
 
 func (info *fileInfo) GetLocationInfo(pos int) (string, int, int, string) {
-	line, col, text := GetLocation(info.Stream, info.Lines, pos-info.Offset)
+	line, col, text := getLocation(info.Stream, info.Lines, pos-info.Offset)
 	return info.Filename, line, col, text
 }
 
@@ -68,7 +68,7 @@ func (p *simpleProvider) AddFile(filename string, stream []rune) int {
 		Offset:   p.maxOffset,
 		Filename: filename,
 		Stream:   stream,
-		Lines:    FindLines(stream),
+		Lines:    findLines(stream),
 	}
 	p.maxOffset += len(stream)
 	p.files = append(p.files, info)

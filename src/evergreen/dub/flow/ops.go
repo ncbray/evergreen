@@ -1,3 +1,4 @@
+// Package flow implements a graph IR for the Dub language.
 package flow
 
 import (

@@ -8,9 +8,9 @@ import (
 	"evergreen/framework"
 )
 
-const REGION_EXITS = 4
+const numRegionExits = 4
 
-type DubBuilder struct {
+type dubBuilder struct {
 	index    *tree.BuiltinTypeIndex
 	decl     *tree.FuncDecl
 	flow     *flow.LLFunc
@@ -19,7 +19,7 @@ type DubBuilder struct {
 	ops      []flow.DubOp
 }
 
-func (builder *DubBuilder) EmitOp(op flow.DubOp) base.NodeID {
+func (builder *dubBuilder) EmitOp(op flow.DubOp) base.NodeID {
 	id := builder.graph.CreateNode(2)
 	if int(id) != len(builder.ops) {
 		panic(op)
@@ -28,7 +28,7 @@ func (builder *DubBuilder) EmitOp(op flow.DubOp) base.NodeID {
 	return id
 }
 
-func (builder *DubBuilder) CreateRegister(name string, t core.DubType) flow.RegisterInfo_Ref {
+func (builder *dubBuilder) CreateRegister(name string, t core.DubType) flow.RegisterInfo_Ref {
 	info := &flow.RegisterInfo{
 		Name: name,
 		T:    t,
@@ -36,11 +36,11 @@ func (builder *DubBuilder) CreateRegister(name string, t core.DubType) flow.Regi
 	return builder.flow.RegisterInfo_Scope.Register(info)
 }
 
-func (builder *DubBuilder) CreateCheckpointRegister() flow.RegisterInfo_Ref {
+func (builder *dubBuilder) CreateCheckpointRegister() flow.RegisterInfo_Ref {
 	return builder.CreateRegister("checkpoint", builder.index.Int)
 }
 
-func (builder *DubBuilder) ZeroRegister(dst flow.RegisterInfo_Ref) flow.DubOp {
+func (builder *dubBuilder) ZeroRegister(dst flow.RegisterInfo_Ref) flow.DubOp {
 	info := builder.flow.RegisterInfo_Scope.Get(dst)
 	switch t := info.T.(type) {
 	case *core.StructType:
@@ -64,7 +64,7 @@ func (builder *DubBuilder) ZeroRegister(dst flow.RegisterInfo_Ref) flow.DubOp {
 	}
 }
 
-func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *DubBuilder) (base.NodeID, base.NodeID) {
+func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *dubBuilder) (base.NodeID, base.NodeID) {
 	vreg := builder.CreateRegister("other", builder.index.Rune)
 	make_value := builder.EmitOp(&flow.ConstantRuneOp{Value: value, Dst: vreg})
 
@@ -86,7 +86,7 @@ func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *
 	return make_value, decide
 }
 
-func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *DubBuilder, gr *base.GraphRegion) flow.RegisterInfo_Ref {
+func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, gr *base.GraphRegion) flow.RegisterInfo_Ref {
 	// Read
 	cond := flow.NoRegisterInfo
 	if len(match.Filters) > 0 || used {
@@ -97,7 +97,7 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *DubBuilder, 
 	gr.RegisterExit(body, flow.NORMAL, flow.NORMAL)
 	gr.RegisterExit(body, flow.FAIL, flow.FAIL)
 
-	filters := builder.graph.CreateRegion(REGION_EXITS)
+	filters := builder.graph.CreateRegion(numRegionExits)
 
 	onMatch := flow.FAIL
 	onNoMatch := flow.NORMAL
@@ -156,7 +156,7 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *DubBuilder, 
 	return cond
 }
 
-func lowerMatch(match tree.TextMatch, builder *DubBuilder, gr *base.GraphRegion) {
+func lowerMatch(match tree.TextMatch, builder *dubBuilder, gr *base.GraphRegion) {
 	switch match := match.(type) {
 	case *tree.RuneRangeMatch:
 		lowerRuneMatch(match, false, builder, gr)
@@ -175,7 +175,7 @@ func lowerMatch(match tree.TextMatch, builder *DubBuilder, gr *base.GraphRegion)
 		gr.AttachFlow(flow.NORMAL, head)
 
 		for i, child := range match.Matches {
-			block := builder.graph.CreateRegion(REGION_EXITS)
+			block := builder.graph.CreateRegion(numRegionExits)
 			lowerMatch(child, builder, block)
 
 			// Recover if not the last block.
@@ -194,7 +194,7 @@ func lowerMatch(match tree.TextMatch, builder *DubBuilder, gr *base.GraphRegion)
 			lowerMatch(match.Match, builder, gr)
 		}
 
-		child := builder.graph.CreateRegion(REGION_EXITS)
+		child := builder.graph.CreateRegion(numRegionExits)
 
 		// Checkpoint
 		checkpoint := builder.CreateCheckpointRegister()
@@ -217,7 +217,7 @@ func lowerMatch(match tree.TextMatch, builder *DubBuilder, gr *base.GraphRegion)
 
 		gr.Splice(flow.NORMAL, child)
 	case *tree.MatchLookahead:
-		child := builder.graph.CreateRegion(REGION_EXITS)
+		child := builder.graph.CreateRegion(numRegionExits)
 
 		checkpoint := builder.CreateCheckpointRegister()
 		head := builder.EmitOp(&flow.LookaheadBegin{Dst: checkpoint})
@@ -247,7 +247,7 @@ func lowerMatch(match tree.TextMatch, builder *DubBuilder, gr *base.GraphRegion)
 	}
 }
 
-func lowerMultiValueExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.GraphRegion) []flow.RegisterInfo_Ref {
+func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *base.GraphRegion) []flow.RegisterInfo_Ref {
 	switch expr := expr.(type) {
 
 	case *tree.Call:
@@ -277,14 +277,14 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *
 	}
 }
 
-func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.GraphRegion) flow.RegisterInfo_Ref {
+func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *base.GraphRegion) flow.RegisterInfo_Ref {
 	switch expr := expr.(type) {
 	case *tree.If:
 		cond := lowerExpr(expr.Expr, builder, true, gr)
 		decide := builder.EmitOp(&flow.SwitchOp{Cond: cond})
 		gr.AttachFlow(flow.NORMAL, decide)
 
-		block := builder.graph.CreateRegion(REGION_EXITS)
+		block := builder.graph.CreateRegion(numRegionExits)
 		lowerBlock(expr.Block, builder, block)
 
 		gr.SpliceToEdge(decide, 0, block)
@@ -297,7 +297,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 			lowerBlock(expr.Block, builder, gr)
 		}
 
-		block := builder.graph.CreateRegion(REGION_EXITS)
+		block := builder.graph.CreateRegion(numRegionExits)
 
 		// Checkpoint at head of loop
 		checkpoint := builder.CreateCheckpointRegister()
@@ -329,7 +329,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		gr.AttachFlow(flow.NORMAL, head)
 
 		for i, b := range expr.Blocks {
-			block := builder.graph.CreateRegion(REGION_EXITS)
+			block := builder.graph.CreateRegion(numRegionExits)
 			lowerBlock(b, builder, block)
 
 			// Recover if not the last block.
@@ -351,7 +351,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 		gr.AttachFlow(flow.NORMAL, head)
 		gr.RegisterExit(head, flow.NORMAL, flow.NORMAL)
 
-		block := builder.graph.CreateRegion(REGION_EXITS)
+		block := builder.graph.CreateRegion(numRegionExits)
 
 		lowerBlock(expr.Block, builder, block)
 
@@ -626,7 +626,7 @@ func lowerExpr(expr tree.ASTExpr, builder *DubBuilder, used bool, gr *base.Graph
 
 }
 
-func lowerBlock(block []tree.ASTExpr, builder *DubBuilder, gr *base.GraphRegion) {
+func lowerBlock(block []tree.ASTExpr, builder *dubBuilder, gr *base.GraphRegion) {
 	for _, expr := range block {
 		lowerExpr(expr, builder, false, gr)
 	}
@@ -641,7 +641,7 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap map[*core.Func
 
 	f, _ := funcMap[decl.F]
 
-	builder := &DubBuilder{
+	builder := &dubBuilder{
 		index: program.Builtins,
 		decl:  decl,
 		flow:  f,
@@ -671,12 +671,12 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap map[*core.Func
 	}
 	f.ReturnTypes = types
 
-	gr := g.CreateRegion(REGION_EXITS)
+	gr := g.CreateRegion(numRegionExits)
 	lowerBlock(decl.Block, builder, gr)
 	gr.MergeFlowInto(flow.RETURN, flow.NORMAL)
 
 	// TODO only connect the real exits, assert no virtual exits.
-	for i := 0; i < REGION_EXITS; i++ {
+	for i := 0; i < numRegionExits; i++ {
 		if gr.HasFlow(i) {
 			fe := builder.EmitOp(&flow.FlowExitOp{Flow: i})
 			gr.AttachFlow(i, fe)

@@ -1,3 +1,4 @@
+// Package flow implements a graph IR for the Go language.
 package flow
 
 import (

@@ -1,3 +1,4 @@
+// Tool for regenerating checked-in sources.
 package main
 
 import (

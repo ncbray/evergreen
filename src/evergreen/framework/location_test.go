@@ -6,7 +6,7 @@ import (
 )
 
 func checkLocation(stream []rune, lines []int, pos int, eLine int, eCol int, eText string, t *testing.T) {
-	line, col, text := GetLocation(stream, lines, pos)
+	line, col, text := getLocation(stream, lines, pos)
 	assert.IntEquals(t, line, eLine)
 	assert.IntEquals(t, col, eCol)
 	assert.StringEquals(t, text, eText)
@@ -14,7 +14,7 @@ func checkLocation(stream []rune, lines []int, pos int, eLine int, eCol int, eTe
 
 func TestFileLinesFull(t *testing.T) {
 	stream := []rune("a\nb\nc")
-	lines := FindLines(stream)
+	lines := findLines(stream)
 	assert.IntListEquals(t, lines, []int{0, 2, 4})
 	checkLocation(stream, lines, 0, 0, 0, "a", t)
 	checkLocation(stream, lines, 1, 0, 1, "a", t)
@@ -27,7 +27,7 @@ func TestFileLinesFull(t *testing.T) {
 
 func TestFileLinesEmpty(t *testing.T) {
 	stream := []rune("\nx\n\n")
-	lines := FindLines(stream)
+	lines := findLines(stream)
 	assert.IntListEquals(t, lines, []int{0, 1, 3, 4})
 	checkLocation(stream, lines, 0, 0, 0, "", t)
 	checkLocation(stream, lines, 1, 1, 0, "x", t)
