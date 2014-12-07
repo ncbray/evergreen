@@ -19,6 +19,12 @@ func (e *Edge) attach(other *Node) {
 	other.addEntry(e)
 }
 
+func (e *Edge) detach() {
+	if e.dst != nil {
+		e.dst.replaceEntry(e, nil)
+	}
+}
+
 const NoNodeIndex = ^int(0)
 
 type Node struct {
@@ -41,6 +47,10 @@ func (n *Node) SetExit(flow int, other *Node) {
 	}
 	e := n.GetExit(flow)
 	e.attach(other)
+}
+
+func (n *Node) RemoveExit(flow int) {
+	n.GetExit(flow).detach()
 }
 
 func (n *Node) NumExits() int {
@@ -185,6 +195,10 @@ func (g *Graph) NumNodes() int {
 
 func (g *Graph) Connect(src NodeID, edge int, dst NodeID) {
 	g.nodes[src].SetExit(edge, g.nodes[dst])
+}
+
+func (g *Graph) Disconnect(src NodeID, edge int) {
+	g.nodes[src].RemoveExit(edge)
 }
 
 func (g *Graph) Remove(n NodeID) {

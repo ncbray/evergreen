@@ -76,6 +76,8 @@ func processProgram(status framework.PassStatus, p framework.LocationProvider, r
 	}
 	flowProgram := transform.LowerProgram(status.Pass("lower"), program, funcs)
 
+	flow.TrimFlow(status.Pass("trim_flow"), flowProgram)
+
 	if dump {
 		dumpProgram(status.Pass("dump"), runner, flowProgram)
 	}
