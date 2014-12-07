@@ -331,7 +331,9 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 			checkNE(attr(ctx.GetState(), "Index"), intLiteral(len(tst.Input))),
 			fmt.Sprintf("Only consumed %%d/%d (deepest %%d) runes", len(tst.Input)),
 			attr(ctx.GetState(), "Index"),
-			attr(ctx.GetState(), "Deepest"),
+			&dst.Call{
+				Expr: attr(ctx.GetState(), "Deepest"),
+			},
 		))
 	}
 

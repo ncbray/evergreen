@@ -81,15 +81,19 @@ func (state *State) LookaheadFail(index int) {
 	state.Fail()
 }
 
-func (state *State) Deepest() (int, string) {
-	pos := state.deepest
+func (state *State) Deepest() int {
+	return state.deepest + state.Offset
+}
+
+func (state *State) RuneName(pos int) string {
+	pos -= state.Offset
 	var name string
 	if pos < len(state.Stream) {
 		name = strconv.QuoteRune(state.Stream[pos])
 	} else {
 		name = "EOF"
 	}
-	return pos + state.Offset, name
+	return name
 }
 
 // Utility function for generated tests

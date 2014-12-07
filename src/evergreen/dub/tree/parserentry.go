@@ -16,7 +16,8 @@ func ParseDub(data []byte, offset int, status framework.TaskStatus) *File {
 	if state.Flow == 0 {
 		return f
 	} else {
-		pos, name := state.Deepest()
+		pos := state.Deepest()
+		name := state.RuneName(pos)
 		status.LocationError(pos, fmt.Sprintf("Unexpected %s", name))
 		return nil
 	}

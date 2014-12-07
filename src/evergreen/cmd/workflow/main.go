@@ -49,6 +49,11 @@ func (ctx *Context) CheckError(err error) {
 }
 
 func Build(ctx *Context) {
+	ctx.Step("Vetting sources")
+	ctx.SimpleCommand("go", "vet", "./...")
+	if ctx.Errored {
+		return
+	}
 	ctx.Step("Building binary")
 	ctx.SimpleCommand("go", "install", "evergreen/cmd/regenerate")
 	if ctx.Errored {

@@ -9,7 +9,7 @@ import (
 var Verbosity int = 0
 
 type StatusReporter interface {
-	Error(format string, a ...interface{})
+	GlobalError(message string)
 	LocationError(loc int, message string)
 	ShouldHalt() bool
 }
@@ -60,8 +60,8 @@ func (status *compileStatus) incErrorCount() {
 	status.errorCount += 1
 }
 
-func (status *compileStatus) Error(format string, a ...interface{}) {
-	fmt.Printf("ERROR %s\n", fmt.Sprintf(format, a...))
+func (status *compileStatus) GlobalError(message string) {
+	fmt.Printf("ERROR: %s\n", message)
 	status.incErrorCount()
 }
 func (status *compileStatus) LocationError(loc int, message string) {
@@ -128,11 +128,11 @@ func (status *passStatus) Task(name string) TaskStatus {
 	}
 }
 
-func (status *passStatus) Error(format string, a ...interface{}) {
+func (status *passStatus) GlobalError(message string) {
 	if !status.live {
 		panic(status.name())
 	}
-	status.parent.Error(format, a...)
+	status.parent.GlobalError(message)
 	status.errored = true
 }
 func (status *passStatus) LocationError(loc int, message string) {
@@ -191,11 +191,11 @@ type taskStatus struct {
 	live    bool
 }
 
-func (status *taskStatus) Error(format string, a ...interface{}) {
+func (status *taskStatus) GlobalError(message string) {
 	if !status.live {
 		panic(status.name())
 	}
-	status.parent.Error(format, a...)
+	status.parent.GlobalError(message)
 	status.errored = true
 }
 

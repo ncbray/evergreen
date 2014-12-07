@@ -123,7 +123,7 @@ func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, 
 func scalarSemanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) core.DubType {
 	types := semanticExprPass(ctx, decl, expr, scope)
 	if len(types) != 1 {
-		ctx.Status.Error("expected a single value, got %d instead", len(types))
+		ctx.Status.GlobalError(fmt.Sprintf("expected a single value, got %d instead", len(types)))
 		return unresolvedType
 	}
 	return types[0]
@@ -190,7 +190,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			t = scalarReturn(semanticTypePass(ctx, expr.Type))
 		}
 		if len(expr.Targets) != len(t) {
-			ctx.Status.Error("Expected %d values but got %d", len(expr.Targets), len(t))
+			ctx.Status.GlobalError(fmt.Sprintf("Expected %d values but got %d", len(expr.Targets), len(t)))
 			t = make([]core.DubType, len(expr.Targets))
 			for i, _ := range expr.Targets {
 				t[i] = unresolvedType
@@ -219,14 +219,14 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		return scalarReturn(ctx.Program.Index.Nil)
 	case *Return:
 		if len(decl.ReturnTypes) != len(expr.Exprs) {
-			ctx.Status.Error("wrong number of return types: %d vs. %d", len(expr.Exprs), len(decl.ReturnTypes))
+			ctx.Status.GlobalError(fmt.Sprintf("wrong number of return types: %d vs. %d", len(expr.Exprs), len(decl.ReturnTypes)))
 		}
 		for i, e := range expr.Exprs {
 			at := scalarSemanticExprPass(ctx, decl, e, scope)
 			if i < len(decl.ReturnTypes) {
 				et := ResolveType(decl.ReturnTypes[i])
 				if !TypeMatches(at, et, false) {
-					ctx.Status.Error("return: %s vs. %s", TypeName(at), TypeName(et))
+					ctx.Status.GlobalError(fmt.Sprintf("return: %s vs. %s", TypeName(at), TypeName(et)))
 				}
 
 			}
@@ -295,7 +295,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			at := scalarSemanticExprPass(ctx, decl, arg, scope)
 			if lt != nil {
 				if !TypeMatches(at, lt.Type, false) {
-					ctx.Status.Error("%s vs. %s", TypeName(at), TypeName(lt.Type))
+					ctx.Status.GlobalError(fmt.Sprintf("%s vs. %s", TypeName(at), TypeName(lt.Type)))
 				}
 			}
 		}
@@ -454,7 +454,7 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 				if f != nil {
 					eft := f.Type
 					if !TypeMatches(aft, eft, false) {
-						ctx.Status.Error("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft))
+						ctx.Status.GlobalError(fmt.Sprintf("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft)))
 					}
 				} else {
 					ctx.Status.LocationError(arg.Name.Pos, fmt.Sprintf("%s does not have field %s", TypeName(t), fn))
@@ -472,7 +472,7 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 			at := semanticDestructurePass(ctx, decl, arg, scope)
 			if lt != nil {
 				if !TypeMatches(at, lt.Type, false) {
-					ctx.Status.Error("%s vs. %s", TypeName(at), TypeName(lt.Type))
+					ctx.Status.GlobalError(fmt.Sprintf("%s vs. %s", TypeName(at), TypeName(lt.Type)))
 				}
 			}
 		}
@@ -495,7 +495,7 @@ func semanticTestPass(ctx *semanticPassContext, tst *Test) {
 
 	at := semanticDestructurePass(ctx, nil, tst.Destructure, scope)
 	if !TypeMatches(at, tst.Type, false) {
-		ctx.Status.Error(fmt.Sprintf("destructure %s vs. %s", TypeName(at), TypeName(tst.Type)))
+		ctx.Status.GlobalError(fmt.Sprintf("destructure %s vs. %s", TypeName(at), TypeName(tst.Type)))
 	}
 }
 
@@ -598,12 +598,12 @@ func ReturnTypes(node ASTCallable) []core.DubType {
 
 func MakeBuiltinTypeIndex() *BuiltinTypeIndex {
 	return &BuiltinTypeIndex{
-		String: &core.BuiltinType{"string"},
-		Rune:   &core.BuiltinType{"rune"},
-		Int:    &core.BuiltinType{"int"},
-		Int64:  &core.BuiltinType{"int64"},
-		Bool:   &core.BuiltinType{"bool"},
-		Graph:  &core.BuiltinType{"graph"},
+		String: &core.BuiltinType{Name: "string"},
+		Rune:   &core.BuiltinType{Name: "rune"},
+		Int:    &core.BuiltinType{Name: "int"},
+		Int64:  &core.BuiltinType{Name: "int64"},
+		Bool:   &core.BuiltinType{Name: "bool"},
+		Graph:  &core.BuiltinType{Name: "graph"},
 		Nil:    &core.NilType{},
 	}
 }

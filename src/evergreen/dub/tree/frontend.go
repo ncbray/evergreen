@@ -13,7 +13,7 @@ func parsePackage(status framework.PassStatus, p framework.LocationProvider, pat
 	for i, filename := range filenames {
 		data, err := ioutil.ReadFile(filename)
 		if err != nil {
-			status.Error("%s", err.Error())
+			status.GlobalError(err.Error())
 			return nil
 		}
 		stream := []rune(string(data))
@@ -44,7 +44,7 @@ func parsePackageTree(status framework.PassStatus, p framework.LocationProvider,
 	dir := filepath.Join(root, strings.Join(path, string(filepath.Separator)))
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		status.Error(err.Error())
+		status.GlobalError(err.Error())
 		return nil
 	}
 	dubfiles := []string{}
