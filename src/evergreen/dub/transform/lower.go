@@ -705,7 +705,6 @@ func lowerPackage(program *tree.Program, pkg *tree.Package, funcMap map[*core.Fu
 			switch decl := decl.(type) {
 			case *tree.FuncDecl:
 				f := lowerAST(program, decl, funcMap)
-				flow.SSI(f)
 				dubPkg.Funcs = append(dubPkg.Funcs, f)
 			case *tree.StructDecl:
 				dubPkg.Structs = append(dubPkg.Structs, decl.T)
@@ -717,6 +716,17 @@ func lowerPackage(program *tree.Program, pkg *tree.Package, funcMap map[*core.Fu
 	}
 
 	return dubPkg
+}
+
+func ssiProgram(status framework.PassStatus, packages []*flow.DubPackage) {
+	status.Begin()
+	defer status.End()
+
+	for _, pkg := range packages {
+		for _, f := range pkg.Funcs {
+			flow.SSI(f)
+		}
+	}
 }
 
 func LowerProgram(status framework.PassStatus, program *tree.Program, funcs []*core.Function) []*flow.DubPackage {
@@ -736,5 +746,8 @@ func LowerProgram(status framework.PassStatus, program *tree.Program, funcs []*c
 	for _, pkg := range program.Packages {
 		dubPackages = append(dubPackages, lowerPackage(program, pkg, funcMap))
 	}
+
+	ssiProgram(status.Pass("ssi"), dubPackages)
+
 	return dubPackages
 }

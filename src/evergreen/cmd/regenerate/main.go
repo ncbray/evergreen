@@ -95,6 +95,26 @@ func entryPoint(p framework.LocationProvider, status framework.PassStatus) {
 	runner.Kill()
 }
 
+func mainLoop() {
+	p := framework.MakeProvider()
+	status := framework.MakeStatus(p)
+
+	start := time.Now()
+	for i := 0; ; i++ {
+		entryPoint(p, status.Pass("regenerate"))
+		if cpuprofile != "" && time.Since(start) < time.Second*10 {
+			fmt.Println("Re-running to improve profiling data", i)
+		} else {
+			break
+		}
+	}
+
+	if status.ShouldHalt() {
+		fmt.Printf("%d errors\n", status.ErrorCount())
+		os.Exit(1)
+	}
+}
+
 var dump bool
 var replace bool
 var cpuprofile string
@@ -115,13 +135,10 @@ func main() {
 	runtime.GOMAXPROCS(jobs)
 	framework.Verbosity = verbosity
 
-	p := framework.MakeProvider()
-	status := framework.MakeStatus(p)
-
 	if cpuprofile != "" {
 		f, err := os.Create(cpuprofile)
 		if err != nil {
-			status.Error(err.Error())
+			fmt.Println(err.Error())
 			return
 		} else {
 			pprof.StartCPUProfile(f)
@@ -129,29 +146,16 @@ func main() {
 		}
 	}
 
-	start := time.Now()
-	for i := 0; ; i++ {
-		entryPoint(p, status.Pass("regenerate"))
-		if cpuprofile != "" && time.Since(start) < time.Second*10 {
-			fmt.Println("Re-running to improve profiling data", i)
-		} else {
-			break
-		}
-	}
+	mainLoop()
 
 	if memprofile != "" {
 		f, err := os.Create(memprofile)
 		if err != nil {
-			status.Error(err.Error())
+			fmt.Println(err.Error())
 			return
 		} else {
 			pprof.WriteHeapProfile(f)
 			f.Close()
 		}
-	}
-
-	if status.ShouldHalt() {
-		fmt.Printf("%d errors\n", status.ErrorCount())
-		os.Exit(1)
 	}
 }

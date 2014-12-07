@@ -162,7 +162,7 @@ func (status *passStatus) name() string {
 }
 
 func (status *passStatus) Begin() {
-	if status.live {
+	if status.live || status.liveChild {
 		panic(status.name())
 	}
 	if Verbosity > 0 {
@@ -173,7 +173,8 @@ func (status *passStatus) Begin() {
 }
 
 func (status *passStatus) End() {
-	if !status.live {
+	status.parent.ChildEnded()
+	if !status.live || status.liveChild {
 		panic(status.name())
 	}
 	status.live = false
@@ -181,7 +182,6 @@ func (status *passStatus) End() {
 	if Verbosity > 0 {
 		fmt.Printf("<<< [%s] %d us\n", status.name(), delta/time.Microsecond)
 	}
-	status.parent.ChildEnded()
 }
 
 type taskStatus struct {

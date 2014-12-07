@@ -373,32 +373,10 @@ func CreateTransfer(decl *LLFunc, size int) (base.NodeID, *TransferOp) {
 	return n, op
 }
 
-func SSI(decl *LLFunc) {
+func place(decl *LLFunc, builder *base.SSIBuilder, live *base.LiveVars) {
 	g := decl.CFG
-
-	defuse := base.CreateDefUse(len(decl.Ops), decl.RegisterInfo_Scope.Len())
-	nit := base.NodeIterator(g)
-	for nit.Next() {
-		n := nit.Value()
-		collectDefUse(decl, n, decl.Ops[n], defuse)
-	}
-
-	live := base.FindLiveVars(g, defuse)
-
-	builder := base.CreateSSIBuilder(g, live)
-	for i := 0; i < decl.RegisterInfo_Scope.Len(); i++ {
-		base.SSI(builder, i, defuse.VarDefAt[i])
-	}
-
-	//fmt.Println(decl.Name)
-	//for i := 0; i < len(order); i++ {
-	//	fmt.Println(i, live.LiveSet(i), builder.PhiFuncs[i])
-	//}
-	//fmt.Println()
-
 	// Place the transfer functions on edges.
-
-	nit = base.NodeIterator(g)
+	nit := base.NodeIterator(g)
 	for nit.Next() {
 		n := nit.Value()
 		eit := base.ExitIterator(g, n)
@@ -422,6 +400,30 @@ func SSI(decl *LLFunc) {
 			g.Remove(n)
 		}
 	}
+}
 
+func makeDefUse(decl *LLFunc) *base.DefUseCollector {
+	defuse := base.CreateDefUse(len(decl.Ops), decl.RegisterInfo_Scope.Len())
+	nit := base.NodeIterator(decl.CFG)
+	for nit.Next() {
+		n := nit.Value()
+		collectDefUse(decl, n, decl.Ops[n], defuse)
+	}
+	return defuse
+}
+
+func SSI(decl *LLFunc) {
+	g := decl.CFG
+
+	defuse := makeDefUse(decl)
+
+	live := base.FindLiveVars(g, defuse)
+
+	builder := base.CreateSSIBuilder(g, live)
+	for i := 0; i < decl.RegisterInfo_Scope.Len(); i++ {
+		base.SSI(builder, i, defuse.VarDefAt[i])
+	}
+
+	place(decl, builder, live)
 	rename(decl)
 }
