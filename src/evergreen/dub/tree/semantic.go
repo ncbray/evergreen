@@ -676,7 +676,7 @@ type semanticPassContext struct {
 	Program        *ProgramScope
 	Module         *ModuleScope
 	ModuleContexts []*semanticPassContext
-	Status         framework.Status
+	Status         framework.PassStatus
 	Core           *CoreProgram
 }
 
@@ -778,7 +778,10 @@ func semanticModulePass(ctx *semanticPassContext, pkg *Package) {
 	}
 }
 
-func SemanticPass(program *Program, status framework.Status) []*core.Function {
+func SemanticPass(program *Program, status framework.PassStatus) []*core.Function {
+	status.Begin()
+	defer status.End()
+
 	programScope := MakeProgramScope(program)
 	core := &CoreProgram{}
 	ctxs := make([]*semanticPassContext, len(program.Packages))
@@ -791,7 +794,7 @@ func SemanticPass(program *Program, status framework.Status) []*core.Function {
 			Program:        programScope,
 			Module:         moduleScope,
 			ModuleContexts: ctxs,
-			Status:         status.CreateChild(),
+			Status:         status,
 			Core:           core,
 		}
 	}

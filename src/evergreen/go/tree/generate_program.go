@@ -31,7 +31,10 @@ func OutputPackage(pkg *PackageAST, dirname string, runner *framework.TaskRunner
 	}
 }
 
-func OutputProgram(prog *ProgramAST, dirname string, runner *framework.TaskRunner) {
+func OutputProgram(status framework.PassStatus, prog *ProgramAST, dirname string, runner *framework.TaskRunner) {
+	status.Begin()
+	defer status.End()
+
 	for _, pkg := range prog.Packages {
 		OutputPackage(pkg, dirname, runner)
 	}

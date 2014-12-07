@@ -8,10 +8,10 @@ import (
 var root = "../../../../dub"
 
 func BenchmarkParser(b *testing.B) {
+	p := framework.MakeProvider()
+	status := framework.MakeStatus(p)
 	for i := 0; i < b.N; i++ {
-		p := framework.MakeProvider()
-		status := framework.MakeStatus(p)
-		ParseProgram(status, p, root)
+		DubProgramFrontend(status.Pass("dub frontend"), p, root)
 	}
 }
 

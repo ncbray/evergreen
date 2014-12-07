@@ -17,7 +17,10 @@ import (
 	"runtime/pprof"
 )
 
-func dumpProgram(runner *framework.TaskRunner, program []*flow.DubPackage) {
+func dumpProgram(status framework.PassStatus, runner *framework.TaskRunner, program []*flow.DubPackage) {
+	status.Begin()
+	defer status.End()
+
 	for _, dubPkg := range program {
 		for _, f := range dubPkg.Funcs {
 			styler := &flow.DotStyler{Decl: f}
@@ -45,39 +48,45 @@ func analyizeProgram(program []*flow.DubPackage) {
 	}
 }
 
-func GenerateGo(program []*flow.DubPackage, runner *framework.TaskRunner) {
+func GenerateGo(status framework.PassStatus, program []*flow.DubPackage, runner *framework.TaskRunner) {
+	status.Begin()
+	defer status.End()
+
 	root := "generated"
 	if replace {
 		root = "evergreen"
 	}
-	prog := golang.GenerateGo(program, root, !replace)
+	prog := golang.GenerateGo(status.Pass("generate_go"), program, root, !replace)
 
 	// Compact simple expressions back into tree form.
-	gotree.Consolidate(prog)
+	gotree.Consolidate(status.Pass("consolidate"), prog)
 
 	// Give everything names: variables, etc.
-	gotree.Nameify(prog)
+	gotree.Nameify(status.Pass("nameify"), prog)
 
 	// Generate the sources.
-	gotree.OutputProgram(prog, "src", runner)
+	gotree.OutputProgram(status.Pass("output"), prog, "src", runner)
 }
 
-func processProgram(status framework.Status, p framework.LocationProvider, runner *framework.TaskRunner, root string) {
-	program, funcs := tree.ParseProgram(status.CreateChild(), p, root)
+func processProgram(status framework.PassStatus, p framework.LocationProvider, runner *framework.TaskRunner, root string) {
+	program, funcs := tree.DubProgramFrontend(status.Pass("dub_frontend"), p, root)
 	if status.ShouldHalt() {
 		return
 	}
-	flowProgram := transform.LowerProgram(program, funcs)
+	flowProgram := transform.LowerProgram(status.Pass("lower"), program, funcs)
 
 	if dump {
-		dumpProgram(runner, flowProgram)
+		dumpProgram(status.Pass("dump"), runner, flowProgram)
 	}
 
 	analyizeProgram(flowProgram)
-	GenerateGo(flowProgram, runner)
+	GenerateGo(status.Pass("go_backend"), flowProgram, runner)
 }
 
-func entryPoint(p framework.LocationProvider, status framework.Status) {
+func entryPoint(p framework.LocationProvider, status framework.PassStatus) {
+	status.Begin()
+	defer status.End()
+
 	runner := framework.CreateTaskRunner(jobs)
 
 	root_dir := "dub"
@@ -90,6 +99,7 @@ var replace bool
 var cpuprofile string
 var memprofile string
 var jobs int
+var verbosity int
 
 func main() {
 	flag.BoolVar(&dump, "dump", false, "Dump flowgraphs to disk.")
@@ -97,10 +107,12 @@ func main() {
 	flag.StringVar(&cpuprofile, "cpuprofile", "", "write cpu profile to file")
 	flag.StringVar(&memprofile, "memprofile", "", "write memory profile to this file")
 	flag.IntVar(&jobs, "j", runtime.NumCPU(), "Number of threads.")
+	flag.IntVar(&verbosity, "v", 0, "Verbosity level.")
 
 	flag.Parse()
 
 	runtime.GOMAXPROCS(jobs)
+	framework.Verbosity = verbosity
 
 	p := framework.MakeProvider()
 	status := framework.MakeStatus(p)
@@ -116,7 +128,7 @@ func main() {
 		}
 	}
 
-	entryPoint(p, status)
+	entryPoint(p, status.Pass("regenerate"))
 
 	if memprofile != "" {
 		f, err := os.Create(memprofile)

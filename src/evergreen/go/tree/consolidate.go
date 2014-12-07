@@ -1,5 +1,9 @@
 package tree
 
+import (
+	"evergreen/framework"
+)
+
 type defUseInfo struct {
 	Defs int
 	Uses int
@@ -273,7 +277,10 @@ func consolidateDecl(decl Decl) {
 	}
 }
 
-func Consolidate(prog *ProgramAST) {
+func Consolidate(status framework.PassStatus, prog *ProgramAST) {
+	status.Begin()
+	defer status.End()
+
 	for _, pkg := range prog.Packages {
 		for _, file := range pkg.Files {
 			for _, decl := range file.Decls {

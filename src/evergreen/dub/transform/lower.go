@@ -5,6 +5,7 @@ import (
 	"evergreen/dub/core"
 	"evergreen/dub/flow"
 	"evergreen/dub/tree"
+	"evergreen/framework"
 )
 
 const REGION_EXITS = 4
@@ -718,7 +719,10 @@ func lowerPackage(program *tree.Program, pkg *tree.Package, funcMap map[*core.Fu
 	return dubPkg
 }
 
-func LowerProgram(program *tree.Program, funcs []*core.Function) []*flow.DubPackage {
+func LowerProgram(status framework.PassStatus, program *tree.Program, funcs []*core.Function) []*flow.DubPackage {
+	status.Begin()
+	defer status.End()
+
 	funcMap := map[*core.Function]*flow.LLFunc{}
 	for _, f := range funcs {
 		funcMap[f] = &flow.LLFunc{

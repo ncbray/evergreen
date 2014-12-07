@@ -4,6 +4,7 @@ import (
 	"evergreen/base"
 	"evergreen/dub/core"
 	"evergreen/dub/flow"
+	"evergreen/framework"
 	dstcore "evergreen/go/core"
 	dstflow "evergreen/go/flow"
 	"evergreen/go/transform"
@@ -188,7 +189,10 @@ func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoCo
 	return file
 }
 
-func GenerateGo(program []*flow.DubPackage, root string, generate_tests bool) *ast.ProgramAST {
+func GenerateGo(status framework.PassStatus, program []*flow.DubPackage, root string, generate_tests bool) *ast.ProgramAST {
+	status.Begin()
+	defer status.End()
+
 	ctx := &DubToGoContext{
 		index: makeBuiltinTypes(),
 		state: externParserRuntime(),

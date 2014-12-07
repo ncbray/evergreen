@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func parsePackage(status framework.Status, p framework.LocationProvider, path []string, filenames []string) *Package {
+func parsePackage(status framework.PassStatus, p framework.LocationProvider, path []string, filenames []string) *Package {
 	files := make([]*File, len(filenames))
 	for i, filename := range filenames {
 		data, err := ioutil.ReadFile(filename)
@@ -18,7 +18,7 @@ func parsePackage(status framework.Status, p framework.LocationProvider, path []
 		}
 		stream := []rune(string(data))
 		offset := p.AddFile(filename, stream)
-		files[i] = ParseDub(data, offset, status)
+		files[i] = ParseDub(data, offset, status.Task(filename))
 
 		if status.ShouldHalt() {
 			return nil
@@ -40,7 +40,7 @@ func extendPath(path []string, next string) []string {
 	return newPath
 }
 
-func parsePackageTree(status framework.Status, p framework.LocationProvider, root string, path []string, packages []*Package) []*Package {
+func parsePackageTree(status framework.PassStatus, p framework.LocationProvider, root string, path []string, packages []*Package) []*Package {
 	dir := filepath.Join(root, strings.Join(path, string(filepath.Separator)))
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -65,7 +65,7 @@ func parsePackageTree(status framework.Status, p framework.LocationProvider, roo
 		}
 	}
 	if len(dubfiles) > 0 {
-		pkg := parsePackage(status.CreateChild(), p, path, dubfiles)
+		pkg := parsePackage(status, p, path, dubfiles)
 		if pkg != nil {
 			packages = append(packages, pkg)
 		}
@@ -73,15 +73,30 @@ func parsePackageTree(status framework.Status, p framework.LocationProvider, roo
 	return packages
 }
 
-func ParseProgram(status framework.Status, p framework.LocationProvider, root string) (*Program, []*core.Function) {
-	packages := parsePackageTree(status.CreateChild(), p, root, []string{}, []*Package{})
+func parseProgram(status framework.PassStatus, p framework.LocationProvider, root string) *Program {
+	status.Begin()
+	defer status.End()
+
+	packages := parsePackageTree(status, p, root, []string{}, []*Package{})
 	if status.ShouldHalt() {
-		return nil, nil
+		return nil
 	}
-	program := &Program{
+	return &Program{
 		Packages: packages,
 		Builtins: MakeBuiltinTypeIndex(),
 	}
-	funcs := SemanticPass(program, status.CreateChild())
+}
+
+func DubProgramFrontend(status framework.PassStatus, p framework.LocationProvider, root string) (*Program, []*core.Function) {
+	status.Begin()
+	defer status.End()
+	program := parseProgram(status.Pass("parse"), p, root)
+	if status.ShouldHalt() {
+		return nil, nil
+	}
+	funcs := SemanticPass(program, status.Pass("semantic"))
+	if status.ShouldHalt() {
+		return nil, nil
+	}
 	return program, funcs
 }

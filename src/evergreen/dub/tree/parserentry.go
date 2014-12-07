@@ -6,7 +6,10 @@ import (
 	"fmt"
 )
 
-func ParseDub(data []byte, offset int, status framework.Status) *File {
+func ParseDub(data []byte, offset int, status framework.TaskStatus) *File {
+	status.Begin()
+	defer status.End()
+
 	stream := []rune(string(data))
 	state := &runtime.State{Stream: stream, Offset: offset}
 	f := ParseFile(state)
