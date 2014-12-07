@@ -2,13 +2,13 @@
 package main
 
 import (
-	"evergreen/base"
 	"evergreen/dub/flow"
 	"evergreen/dub/transform"
 	"evergreen/dub/transform/golang"
 	"evergreen/dub/tree"
 	"evergreen/framework"
 	gotree "evergreen/go/tree"
+	"evergreen/graph"
 	"evergreen/io"
 	"flag"
 	"fmt"
@@ -26,7 +26,7 @@ func dumpProgram(status framework.PassStatus, runner *framework.TaskRunner, prog
 	for _, dubPkg := range program {
 		for _, f := range dubPkg.Funcs {
 			styler := &flow.DotStyler{Decl: f}
-			dot := base.GraphToDot(f.CFG, styler)
+			dot := graph.GraphToDot(f.CFG, styler)
 			parts := []string{"output"}
 			parts = append(parts, dubPkg.Path...)
 			parts = append(parts, fmt.Sprintf("%s.svg", f.Name))

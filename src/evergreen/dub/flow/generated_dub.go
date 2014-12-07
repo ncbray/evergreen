@@ -1,9 +1,9 @@
 package flow
 
 import (
-	"evergreen/base"
 	"evergreen/dub/core"
 	"evergreen/dub/tree"
+	"evergreen/graph"
 )
 
 type RegisterInfo_Ref uint32
@@ -23,7 +23,7 @@ type LLFunc struct {
 	Name               string
 	Params             []RegisterInfo_Ref
 	ReturnTypes        []core.DubType
-	CFG                *base.Graph
+	CFG                *graph.Graph
 	Ops                []DubOp
 	F                  *core.Function
 	RegisterInfo_Scope *RegisterInfo_Scope

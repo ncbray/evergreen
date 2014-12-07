@@ -1,8 +1,8 @@
 package flow
 
 import (
-	"evergreen/base"
 	"evergreen/go/core"
+	"evergreen/graph"
 	"fmt"
 	"strings"
 )
@@ -113,7 +113,7 @@ type DotStyler struct {
 	Ops []GoOp
 }
 
-func (styler *DotStyler) NodeStyle(node base.NodeID) string {
+func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	op := styler.Ops[node]
 	switch op := op.(type) {
 	case *Entry:
@@ -129,7 +129,7 @@ func (styler *DotStyler) NodeStyle(node base.NodeID) string {
 	}
 }
 
-func (styler *DotStyler) EdgeStyle(node base.NodeID, flow int) string {
+func (styler *DotStyler) EdgeStyle(node graph.NodeID, flow int) string {
 	op := styler.Ops[node]
 	color := "red"
 	switch op.(type) {

@@ -1,7 +1,6 @@
 package golang
 
 import (
-	"evergreen/base"
 	"evergreen/dub/core"
 	"evergreen/dub/flow"
 	"evergreen/framework"
@@ -9,6 +8,7 @@ import (
 	dstflow "evergreen/go/flow"
 	"evergreen/go/transform"
 	ast "evergreen/go/tree"
+	"evergreen/graph"
 	"evergreen/io"
 	"fmt"
 	"path/filepath"
@@ -26,7 +26,7 @@ func GenerateGoFunc(f *flow.LLFunc, ctx *DubToGoContext) ast.Decl {
 	flowDecl := translateFlow(f, ctx)
 
 	if false {
-		dot := base.GraphToDot(flowDecl.CFG, &dstflow.DotStyler{Ops: flowDecl.Ops})
+		dot := graph.GraphToDot(flowDecl.CFG, &dstflow.DotStyler{Ops: flowDecl.Ops})
 		parts := []string{"output", "translate"}
 		parts = append(parts, fmt.Sprintf("%s.svg", flowDecl.Name))
 		outfile := filepath.Join(parts...)
@@ -160,7 +160,7 @@ func externTesting() *dstcore.StructType {
 func externGraph() *dstcore.StructType {
 	p := &dstcore.Package{
 		Extern: true,
-		Path:   []string{"evergreen", "base"},
+		Path:   []string{"evergreen", "graph"},
 	}
 	graphT := &dstcore.StructType{
 		Name:    "Graph",

@@ -1,4 +1,4 @@
-package base
+package graph
 
 type rpoSearch struct {
 	graph *Graph

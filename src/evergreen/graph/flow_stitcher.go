@@ -1,4 +1,4 @@
-package base
+package graph
 
 type stitch struct {
 	src  NodeID

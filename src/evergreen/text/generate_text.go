@@ -1,3 +1,4 @@
+// Package text implements text generation and processing.
 package text
 
 import (

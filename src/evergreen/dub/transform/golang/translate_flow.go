@@ -1,18 +1,18 @@
 package golang
 
 import (
-	"evergreen/base"
 	src "evergreen/dub/flow"
 	dstcore "evergreen/go/core"
 	dst "evergreen/go/flow"
+	"evergreen/graph"
 )
 
-func simpleFlow(stitcher *base.FlowStitcher, srcID base.NodeID, dstID base.NodeID) {
+func simpleFlow(stitcher *graph.FlowStitcher, srcID graph.NodeID, dstID graph.NodeID) {
 	stitcher.SetHead(srcID, dstID)
 	stitcher.SetEdge(srcID, 0, dstID, 0)
 }
 
-func dubFlow(ctx *DubToGoContext, builder *dst.GoFlowBuilder, stitcher *base.FlowStitcher, frameRef dst.Register_Ref, srcID base.NodeID, dstID base.NodeID) {
+func dubFlow(ctx *DubToGoContext, builder *dst.GoFlowBuilder, stitcher *graph.FlowStitcher, frameRef dst.Register_Ref, srcID graph.NodeID, dstID graph.NodeID) {
 	stitcher.SetHead(srcID, dstID)
 
 	if stitcher.NumExits(srcID) != 2 {
@@ -22,8 +22,8 @@ func dubFlow(ctx *DubToGoContext, builder *dst.GoFlowBuilder, stitcher *base.Flo
 	normal := stitcher.GetExit(srcID, 0)
 	fail := stitcher.GetExit(srcID, 1)
 
-	if normal != base.NoNode {
-		if fail != base.NoNode {
+	if normal != graph.NoNode {
+		if fail != graph.NoNode {
 			flow := builder.MakeRegister("flow", ctx.index.Int)
 			reference := builder.MakeRegister("normal", ctx.index.Int)
 			cond := builder.MakeRegister("cond", ctx.index.Bool)
@@ -60,7 +60,7 @@ func dubFlow(ctx *DubToGoContext, builder *dst.GoFlowBuilder, stitcher *base.Flo
 		} else {
 			stitcher.SetEdge(srcID, 0, dstID, 0)
 		}
-	} else if fail != base.NoNode {
+	} else if fail != graph.NoNode {
 		stitcher.SetEdge(srcID, 1, dstID, 0)
 	} else {
 		// Dead end should not happen?
@@ -121,10 +121,10 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 		dstF.Results[i] = builder.MakeRegister("ret", goType(rt, ctx))
 	}
 
-	stitcher := base.MakeFlowStitcher(srcF.CFG, dstF.CFG)
+	stitcher := graph.MakeFlowStitcher(srcF.CFG, dstF.CFG)
 
-	order, _ := base.ReversePostorder(srcF.CFG)
-	nit := base.OrderedIterator(order)
+	order, _ := graph.ReversePostorder(srcF.CFG)
+	nit := graph.OrderedIterator(order)
 	for nit.Next() {
 		srcID := nit.Value()
 		op := srcF.Ops[srcID]
@@ -172,7 +172,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 				}
 			}
 
-			nodes := []base.NodeID{}
+			nodes := []graph.NodeID{}
 
 			for _, c := range op.Type.Contains {
 				scopeTA := ctx.link.GetType(c, SCOPE)

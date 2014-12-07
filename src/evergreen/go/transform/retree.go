@@ -1,9 +1,9 @@
 package transform
 
 import (
-	"evergreen/base"
 	"evergreen/go/flow"
 	"evergreen/go/tree"
+	"evergreen/graph"
 	//core "evergreen/go/tree"
 	"fmt"
 )
@@ -20,12 +20,12 @@ func BlockLabel(i int) *tree.Label {
 	return &tree.Label{Text: blockName(i)}
 }
 
-func FindBlockHeads(g *base.Graph, order []base.NodeID) ([]base.NodeID, map[base.NodeID]int) {
-	heads := []base.NodeID{}
-	labels := map[base.NodeID]int{}
+func FindBlockHeads(g *graph.Graph, order []graph.NodeID) ([]graph.NodeID, map[graph.NodeID]int) {
+	heads := []graph.NodeID{}
+	labels := map[graph.NodeID]int{}
 	uid := 0
 
-	nit := base.OrderedIterator(order)
+	nit := graph.OrderedIterator(order)
 	for nit.Next() {
 		n := nit.Value()
 		if (n == g.Entry() || g.NumEntries(n) >= 2) && n != g.Exit() {
@@ -89,7 +89,7 @@ func multiAssign(expr tree.Expr, lclMap []tree.LocalInfo_Ref, regs []flow.Regist
 	}
 }
 
-func generateNode(decl *flow.LLFunc, lclMap []tree.LocalInfo_Ref, labels map[base.NodeID]int, parent_label int, is_head bool, node base.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
+func generateNode(decl *flow.LLFunc, lclMap []tree.LocalInfo_Ref, labels map[graph.NodeID]int, parent_label int, is_head bool, node graph.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
 	g := decl.CFG
 	for {
 		if !is_head {
@@ -294,7 +294,7 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 
 	funcDecl.Type = ft
 
-	order, _ := base.ReversePostorder(decl.CFG)
+	order, _ := graph.ReversePostorder(decl.CFG)
 	heads, labels := FindBlockHeads(decl.CFG, order)
 
 	// Generate Go code from flow blocks

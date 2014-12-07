@@ -2,8 +2,8 @@
 package flow
 
 import (
-	"evergreen/base"
 	"evergreen/dub/core"
+	"evergreen/graph"
 	"fmt"
 	"strings"
 )
@@ -154,7 +154,7 @@ func opToString(op DubOp) string {
 	}
 }
 
-func (styler *DotStyler) NodeStyle(node base.NodeID) string {
+func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	op := styler.Decl.Ops[node]
 	switch op := op.(type) {
 	case *EntryOp:
@@ -183,7 +183,7 @@ func (styler *DotStyler) NodeStyle(node base.NodeID) string {
 	}
 }
 
-func (styler *DotStyler) EdgeStyle(node base.NodeID, flow int) string {
+func (styler *DotStyler) EdgeStyle(node graph.NodeID, flow int) string {
 	op := styler.Decl.Ops[node]
 	color := "red"
 	switch op.(type) {

@@ -1,4 +1,5 @@
-package base
+// Package graph implements a directed graph and common operations on directed graphs.
+package graph
 
 type entryList []*edge
 

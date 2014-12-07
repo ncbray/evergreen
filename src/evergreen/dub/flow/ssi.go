@@ -1,23 +1,23 @@
 package flow
 
 import (
-	"evergreen/base"
+	"evergreen/graph"
 )
 
-func AddDef(reg RegisterInfo_Ref, node base.NodeID, defuse *base.DefUseCollector) {
+func AddDef(reg RegisterInfo_Ref, node graph.NodeID, defuse *graph.DefUseCollector) {
 	if reg != NoRegisterInfo {
 		defuse.AddDef(node, int(reg))
 	}
 }
 
-func AddUse(reg RegisterInfo_Ref, node base.NodeID, defuse *base.DefUseCollector) {
+func AddUse(reg RegisterInfo_Ref, node graph.NodeID, defuse *graph.DefUseCollector) {
 	if reg == NoRegisterInfo {
 		panic("Tried to use non-existant register.")
 	}
 	defuse.AddUse(node, int(reg))
 }
 
-func collectDefUse(decl *LLFunc, node base.NodeID, op DubOp, defuse *base.DefUseCollector) {
+func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *graph.DefUseCollector) {
 	switch op := op.(type) {
 	case *EntryOp:
 		for _, p := range decl.Params {
@@ -93,10 +93,10 @@ func collectDefUse(decl *LLFunc, node base.NodeID, op DubOp, defuse *base.DefUse
 type NameMap struct {
 	names     []map[int]int
 	transfers []map[int]int
-	idoms     []base.NodeID
+	idoms     []graph.NodeID
 }
 
-func (nm *NameMap) GetName(n base.NodeID, v int) int {
+func (nm *NameMap) GetName(n graph.NodeID, v int) int {
 	name, ok := nm.names[n][v]
 	if !ok {
 		if n == nm.idoms[n] {
@@ -108,11 +108,11 @@ func (nm *NameMap) GetName(n base.NodeID, v int) int {
 	return name
 }
 
-func (nm *NameMap) SetName(n base.NodeID, v int, name int) {
+func (nm *NameMap) SetName(n graph.NodeID, v int, name int) {
 	nm.names[n][v] = name
 }
 
-func CreateNameMap(numNodes int, idoms []base.NodeID) *NameMap {
+func CreateNameMap(numNodes int, idoms []graph.NodeID) *NameMap {
 	nm := &NameMap{
 		names:     make([]map[int]int, numNodes),
 		transfers: make([]map[int]int, numNodes),
@@ -138,7 +138,7 @@ func (r *RegisterReallocator) Allocate(v int) int {
 	return name
 }
 
-func (r *RegisterReallocator) MakeOutput(n base.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
+func (r *RegisterReallocator) MakeOutput(n graph.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
 	if reg != NoRegisterInfo {
 		v := int(reg)
 		name := r.Allocate(v)
@@ -148,7 +148,7 @@ func (r *RegisterReallocator) MakeOutput(n base.NodeID, reg RegisterInfo_Ref) Re
 	return NoRegisterInfo
 }
 
-func (r *RegisterReallocator) Transfer(dst base.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
+func (r *RegisterReallocator) Transfer(dst graph.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
 	v := int(reg)
 	name, ok := r.nm.transfers[dst][v]
 	if !ok {
@@ -159,15 +159,15 @@ func (r *RegisterReallocator) Transfer(dst base.NodeID, reg RegisterInfo_Ref) Re
 	return RegisterInfo_Ref(name)
 }
 
-func (r *RegisterReallocator) Get(n base.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
+func (r *RegisterReallocator) Get(n graph.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
 	return RegisterInfo_Ref(r.nm.GetName(n, int(reg)))
 }
 
-func (r *RegisterReallocator) Set(n base.NodeID, reg RegisterInfo_Ref, name RegisterInfo_Ref) {
+func (r *RegisterReallocator) Set(n graph.NodeID, reg RegisterInfo_Ref, name RegisterInfo_Ref) {
 	r.nm.SetName(n, int(reg), int(name))
 }
 
-func renameOp(n base.NodeID, data DubOp, ra *RegisterReallocator) {
+func renameOp(n graph.NodeID, data DubOp, ra *RegisterReallocator) {
 	switch op := data.(type) {
 	case *EntryOp, *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
@@ -249,8 +249,8 @@ func renameOp(n base.NodeID, data DubOp, ra *RegisterReallocator) {
 
 func rename(decl *LLFunc) {
 	g := decl.CFG
-	order, index := base.ReversePostorder(g)
-	idoms := base.FindDominators(g, order, index)
+	order, index := graph.ReversePostorder(g)
+	idoms := graph.FindDominators(g, order, index)
 
 	nm := CreateNameMap(g.NumNodes(), idoms)
 	ra := &RegisterReallocator{decl: decl, nm: nm}
@@ -260,7 +260,7 @@ func rename(decl *LLFunc) {
 		decl.Params[i] = ra.MakeOutput(g.Entry(), p)
 	}
 
-	nit := base.OrderedIterator(order)
+	nit := graph.OrderedIterator(order)
 	for nit.Next() {
 		n := nit.Value()
 		op := decl.Ops[n]
@@ -273,7 +273,7 @@ func rename(decl *LLFunc) {
 	decl.RegisterInfo_Scope.Replace(ra.info)
 }
 
-func killUnusedOutputs(n base.NodeID, op DubOp, live base.LivenessOracle) {
+func killUnusedOutputs(n graph.NodeID, op DubOp, live graph.LivenessOracle) {
 	switch op := op.(type) {
 	case *EntryOp, *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
@@ -358,7 +358,7 @@ func killUnusedOutputs(n base.NodeID, op DubOp, live base.LivenessOracle) {
 	}
 }
 
-func CreateTransfer(decl *LLFunc, size int) (base.NodeID, *TransferOp) {
+func CreateTransfer(decl *LLFunc, size int) (graph.NodeID, *TransferOp) {
 	n := decl.CFG.CreateNode(1)
 	if int(n) != len(decl.Ops) {
 		panic("desync")
@@ -373,13 +373,13 @@ func CreateTransfer(decl *LLFunc, size int) (base.NodeID, *TransferOp) {
 	return n, op
 }
 
-func place(decl *LLFunc, builder *base.SSIBuilder, live *base.LiveVars) {
+func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 	g := decl.CFG
 	// Place the transfer functions on edges.
-	nit := base.NodeIterator(g)
+	nit := graph.NodeIterator(g)
 	for nit.Next() {
 		n := nit.Value()
-		eit := base.ExitIterator(g, n)
+		eit := graph.ExitIterator(g, n)
 		for eit.Next() {
 			dst := eit.Value()
 			phiFuncs := builder.PhiFuncs[dst]
@@ -402,9 +402,9 @@ func place(decl *LLFunc, builder *base.SSIBuilder, live *base.LiveVars) {
 	}
 }
 
-func makeDefUse(decl *LLFunc) *base.DefUseCollector {
-	defuse := base.CreateDefUse(len(decl.Ops), decl.RegisterInfo_Scope.Len())
-	nit := base.NodeIterator(decl.CFG)
+func makeDefUse(decl *LLFunc) *graph.DefUseCollector {
+	defuse := graph.CreateDefUse(len(decl.Ops), decl.RegisterInfo_Scope.Len())
+	nit := graph.NodeIterator(decl.CFG)
 	for nit.Next() {
 		n := nit.Value()
 		collectDefUse(decl, n, decl.Ops[n], defuse)
@@ -417,11 +417,11 @@ func SSI(decl *LLFunc) {
 
 	defuse := makeDefUse(decl)
 
-	live := base.FindLiveVars(g, defuse)
+	live := graph.FindLiveVars(g, defuse)
 
-	builder := base.CreateSSIBuilder(g, live)
+	builder := graph.CreateSSIBuilder(g, live)
 	for i := 0; i < decl.RegisterInfo_Scope.Len(); i++ {
-		base.SSI(builder, i, defuse.VarDefAt[i])
+		graph.SSI(builder, i, defuse.VarDefAt[i])
 	}
 
 	place(decl, builder, live)

@@ -1,9 +1,9 @@
 package flow
 
 import (
-	"evergreen/base"
 	"evergreen/dub/core"
 	"evergreen/framework"
+	"evergreen/graph"
 )
 
 func TrimFlow(status framework.PassStatus, program []*DubPackage) {
@@ -26,7 +26,7 @@ func TrimFlow(status framework.PassStatus, program []*DubPackage) {
 		// Find the exit flows of every function.
 		for i, f := range pkg.Funcs {
 			lut[f.F] = i
-			it := base.EntryIterator(f.CFG, f.CFG.Exit())
+			it := graph.EntryIterator(f.CFG, f.CFG.Exit())
 			for it.Next() {
 				op := f.Ops[it.Value()]
 				flowExit, ok := op.(*FlowExitOp)
@@ -48,7 +48,7 @@ func TrimFlow(status framework.PassStatus, program []*DubPackage) {
 					for i := 0; i < numFlows; i++ {
 						possible := flows[i][tgt]
 						if !possible {
-							f.CFG.Disconnect(base.NodeID(node), i)
+							f.CFG.Disconnect(graph.NodeID(node), i)
 						}
 					}
 				default:

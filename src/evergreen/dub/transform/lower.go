@@ -1,11 +1,11 @@
 package transform
 
 import (
-	"evergreen/base"
 	"evergreen/dub/core"
 	"evergreen/dub/flow"
 	"evergreen/dub/tree"
 	"evergreen/framework"
+	"evergreen/graph"
 )
 
 const numRegionExits = 4
@@ -15,11 +15,11 @@ type dubBuilder struct {
 	decl     *tree.FuncDecl
 	flow     *flow.LLFunc
 	localMap []flow.RegisterInfo_Ref
-	graph    *base.Graph
+	graph    *graph.Graph
 	ops      []flow.DubOp
 }
 
-func (builder *dubBuilder) EmitOp(op flow.DubOp) base.NodeID {
+func (builder *dubBuilder) EmitOp(op flow.DubOp) graph.NodeID {
 	id := builder.graph.CreateNode(2)
 	if int(id) != len(builder.ops) {
 		panic(op)
@@ -64,7 +64,7 @@ func (builder *dubBuilder) ZeroRegister(dst flow.RegisterInfo_Ref) flow.DubOp {
 	}
 }
 
-func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *dubBuilder) (base.NodeID, base.NodeID) {
+func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *dubBuilder) (graph.NodeID, graph.NodeID) {
 	vreg := builder.CreateRegister("other", builder.index.Rune)
 	make_value := builder.EmitOp(&flow.ConstantRuneOp{Value: value, Dst: vreg})
 
@@ -86,7 +86,7 @@ func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *
 	return make_value, decide
 }
 
-func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, gr *base.GraphRegion) flow.RegisterInfo_Ref {
+func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, gr *graph.GraphRegion) flow.RegisterInfo_Ref {
 	// Read
 	cond := flow.NoRegisterInfo
 	if len(match.Filters) > 0 || used {
@@ -156,7 +156,7 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, 
 	return cond
 }
 
-func lowerMatch(match tree.TextMatch, builder *dubBuilder, gr *base.GraphRegion) {
+func lowerMatch(match tree.TextMatch, builder *dubBuilder, gr *graph.GraphRegion) {
 	switch match := match.(type) {
 	case *tree.RuneRangeMatch:
 		lowerRuneMatch(match, false, builder, gr)
@@ -247,7 +247,7 @@ func lowerMatch(match tree.TextMatch, builder *dubBuilder, gr *base.GraphRegion)
 	}
 }
 
-func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *base.GraphRegion) []flow.RegisterInfo_Ref {
+func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.GraphRegion) []flow.RegisterInfo_Ref {
 	switch expr := expr.(type) {
 
 	case *tree.Call:
@@ -277,7 +277,7 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *
 	}
 }
 
-func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *base.GraphRegion) flow.RegisterInfo_Ref {
+func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.GraphRegion) flow.RegisterInfo_Ref {
 	switch expr := expr.(type) {
 	case *tree.If:
 		cond := lowerExpr(expr.Expr, builder, true, gr)
@@ -626,14 +626,14 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *base.Graph
 
 }
 
-func lowerBlock(block []tree.ASTExpr, builder *dubBuilder, gr *base.GraphRegion) {
+func lowerBlock(block []tree.ASTExpr, builder *dubBuilder, gr *graph.GraphRegion) {
 	for _, expr := range block {
 		lowerExpr(expr, builder, false, gr)
 	}
 }
 
 func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap map[*core.Function]*flow.LLFunc) *flow.LLFunc {
-	g := base.CreateGraph()
+	g := graph.CreateGraph()
 	ops := []flow.DubOp{
 		&flow.EntryOp{},
 		&flow.ExitOp{},

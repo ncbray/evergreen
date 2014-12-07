@@ -2,8 +2,8 @@
 package flow
 
 import (
-	"evergreen/base"
 	"evergreen/go/core"
+	"evergreen/graph"
 )
 
 func (scope *Register_Scope) Get(ref Register_Ref) *Register {
@@ -22,14 +22,14 @@ func (scope *Register_Scope) Len() int {
 
 type GoFlowBuilder struct {
 	decl *LLFunc
-	CFG  *base.Graph
+	CFG  *graph.Graph
 }
 
 func (builder *GoFlowBuilder) MakeRegister(name string, t core.GoType) Register_Ref {
 	return builder.decl.Register_Scope.Register(&Register{Name: name, T: t})
 }
 
-func (builder *GoFlowBuilder) EmitOp(op GoOp, exit_count int) base.NodeID {
+func (builder *GoFlowBuilder) EmitOp(op GoOp, exit_count int) graph.NodeID {
 	id := builder.decl.CFG.CreateNode(exit_count)
 	if int(id) != len(builder.decl.Ops) {
 		panic(op)
@@ -39,7 +39,7 @@ func (builder *GoFlowBuilder) EmitOp(op GoOp, exit_count int) base.NodeID {
 }
 
 func MakeGoFlowBuilder(decl *LLFunc) *GoFlowBuilder {
-	decl.CFG = base.CreateGraph()
+	decl.CFG = graph.CreateGraph()
 	decl.Ops = []GoOp{
 		&Entry{},
 		&Exit{},

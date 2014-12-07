@@ -1,8 +1,8 @@
 package flow
 
 import (
-	"evergreen/base"
 	"evergreen/go/core"
+	"evergreen/graph"
 )
 
 type Register_Ref uint32
@@ -22,7 +22,7 @@ type LLFunc struct {
 	Name           string
 	Params         []Register_Ref
 	Results        []Register_Ref
-	CFG            *base.Graph
+	CFG            *graph.Graph
 	Ops            []GoOp
 	Register_Scope *Register_Scope
 }
