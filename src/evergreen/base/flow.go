@@ -1,17 +1,14 @@
 package base
 
-type NodeData interface {
-}
+type entryList []*edge
 
-type EntryList []*Edge
-
-type Edge struct {
-	src   *Node
-	dst   *Node
+type edge struct {
+	src   *node
+	dst   *node
 	index int
 }
 
-func (e *Edge) attach(other *Node) {
+func (e *edge) attach(other *node) {
 	if e.dst != nil {
 		panic(e)
 	}
@@ -19,29 +16,27 @@ func (e *Edge) attach(other *Node) {
 	other.addEntry(e)
 }
 
-func (e *Edge) detach() {
+func (e *edge) detach() {
 	if e.dst != nil {
 		e.dst.replaceEntry(e, nil)
 	}
 }
 
-const NoNodeIndex = ^int(0)
-
-type Node struct {
-	entries EntryList
-	exits   []Edge
+type node struct {
+	entries entryList
+	exits   []edge
 	Id      NodeID
 }
 
-func (n *Node) GetNext(flow int) *Node {
+func (n *node) GetNext(flow int) *node {
 	return n.exits[flow].dst
 }
 
-func (n *Node) GetExit(flow int) *Edge {
+func (n *node) GetExit(flow int) *edge {
 	return &n.exits[flow]
 }
 
-func (n *Node) SetExit(flow int, other *Node) {
+func (n *node) SetExit(flow int, other *node) {
 	if flow >= len(n.exits) {
 		panic(flow)
 	}
@@ -49,15 +44,15 @@ func (n *Node) SetExit(flow int, other *Node) {
 	e.attach(other)
 }
 
-func (n *Node) RemoveExit(flow int) {
+func (n *node) RemoveExit(flow int) {
 	n.GetExit(flow).detach()
 }
 
-func (n *Node) NumExits() int {
+func (n *node) NumExits() int {
 	return len(n.exits)
 }
 
-func (n *Node) SetDefaultExits(exits []*Node) {
+func (n *node) SetDefaultExits(exits []*node) {
 	for i, e := range n.exits {
 		if e.dst == nil {
 			n.SetExit(i, exits[i])
@@ -65,37 +60,37 @@ func (n *Node) SetDefaultExits(exits []*Node) {
 	}
 }
 
-func (n *Node) addEntry(e *Edge) {
+func (n *node) addEntry(e *edge) {
 	n.entries = append(n.entries, e)
 }
 
-func (n *Node) addEntries(e EntryList) {
+func (n *node) addEntries(e entryList) {
 	n.entries = append(n.entries, e...)
 }
 
-func (n *Node) popEntries() EntryList {
+func (n *node) popEntries() entryList {
 	temp := n.entries
 	n.entries = nil
 	return temp
 }
 
-func (n *Node) peekEntries() EntryList {
+func (n *node) peekEntries() entryList {
 	return n.entries
 }
 
-func (n *Node) NumEntries() int {
+func (n *node) NumEntries() int {
 	return len(n.entries)
 }
 
-func (n *Node) HasEntries() bool {
+func (n *node) HasEntries() bool {
 	return len(n.entries) > 0
 }
 
-func (n *Node) GetEntry(i int) *Edge {
+func (n *node) GetEntry(i int) *edge {
 	return n.entries[i]
 }
 
-func (n *Node) TransferEntries(other *Node) {
+func (n *node) TransferEntries(other *node) {
 	entries := n.popEntries()
 	for _, e := range entries {
 		e.dst = other
@@ -103,7 +98,7 @@ func (n *Node) TransferEntries(other *Node) {
 	other.addEntries(entries)
 }
 
-func (n *Node) InsertAt(flow int, target *Edge) {
+func (n *node) InsertAt(flow int, target *edge) {
 	if target.dst != nil {
 		target.dst.replaceSingleEntry(target, n.GetExit(flow))
 	}
@@ -111,7 +106,7 @@ func (n *Node) InsertAt(flow int, target *Edge) {
 	n.addEntry(target)
 }
 
-func (n *Node) Remove() {
+func (n *node) Remove() {
 	for i := 0; i < len(n.exits); i++ {
 		e := n.GetExit(i)
 		// Find the active exit.
@@ -129,17 +124,17 @@ func (n *Node) Remove() {
 	}
 }
 
-func (n *Node) replaceSingleEntry(target *Edge, replacement *Edge) {
-	n.replaceEntry(target, []*Edge{replacement})
+func (n *node) replaceSingleEntry(target *edge, replacement *edge) {
+	n.replaceEntry(target, []*edge{replacement})
 }
 
-func (n *Node) replaceEntry(target *Edge, replacements EntryList) {
+func (n *node) replaceEntry(target *edge, replacements entryList) {
 	old := n.popEntries()
 	for i, e := range old {
 		if e == target {
 			// Caution: splicing arrays is tricky because "append" may mutate the first argument.
 			// Avoid appending.
-			entries := make([]*Edge, len(old)+len(replacements)-1)
+			entries := make([]*edge, len(old)+len(replacements)-1)
 			copy(entries[:i], old[:i])
 			copy(entries[i:i+len(replacements)], replacements)
 			copy(entries[i+len(replacements):], old[i+1:])
@@ -165,7 +160,7 @@ type EdgeID struct {
 }
 
 type Graph struct {
-	nodes []*Node
+	nodes []*node
 }
 
 func (g *Graph) Entry() NodeID {
@@ -178,12 +173,12 @@ func (g *Graph) Exit() NodeID {
 
 func (g *Graph) CreateNode(exits int) NodeID {
 	id := NodeID(len(g.nodes))
-	n := &Node{
+	n := &node{
 		Id:    id,
-		exits: make([]Edge, exits),
+		exits: make([]edge, exits),
 	}
 	for i := 0; i < exits; i++ {
-		n.exits[i] = Edge{src: n, index: i}
+		n.exits[i] = edge{src: n, index: i}
 	}
 	g.nodes = append(g.nodes, n)
 	return id
@@ -235,9 +230,9 @@ func (g *Graph) GetExit(src NodeID, edge int) NodeID {
 func (g *Graph) CreateRegion(exits int) *GraphRegion {
 	gr := &GraphRegion{
 		graph: g,
-		exits: make([][]*Edge, exits),
+		exits: make([][]*edge, exits),
 	}
-	gr.exits[0] = []*Edge{&gr.entryEdge}
+	gr.exits[0] = []*edge{&gr.entryEdge}
 	return gr
 }
 
@@ -267,8 +262,8 @@ func CreateGraph() *Graph {
 
 type GraphRegion struct {
 	graph     *Graph
-	exits     [][]*Edge
-	entryEdge Edge
+	exits     [][]*edge
+	entryEdge edge
 }
 
 func (gr *GraphRegion) HasFlow(flow int) bool {
@@ -300,7 +295,7 @@ func (gr *GraphRegion) Swap(flow0 int, flow1 int) {
 	gr.exits[flow0], gr.exits[flow1] = gr.exits[flow1], gr.exits[flow0]
 }
 
-func (gr *GraphRegion) popExits(flow int) []*Edge {
+func (gr *GraphRegion) popExits(flow int) []*edge {
 	exits := gr.exits[flow]
 	gr.exits[flow] = nil
 	return exits
@@ -396,7 +391,7 @@ func OrderedIterator(order []NodeID) orderedNodeIterator {
 
 type entryIterator struct {
 	graph   *Graph
-	node    *Node
+	node    *node
 	current int
 }
 
@@ -420,7 +415,7 @@ func EntryIterator(g *Graph, n NodeID) entryIterator {
 
 type exitIterator struct {
 	graph   *Graph
-	node    *Node
+	node    *node
 	current int
 }
 

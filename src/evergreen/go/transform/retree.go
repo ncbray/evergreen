@@ -312,15 +312,5 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 	}
 
 	funcDecl.Body = stmts
-
-	if false {
-		tree.ConsolidateFunc(funcDecl)
-
-		b, w := base.BufferedCodeWriter()
-		tree.GenerateDecl(funcDecl, w)
-
-		fmt.Println(b.String())
-	}
-
 	return funcDecl
 }

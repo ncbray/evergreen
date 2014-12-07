@@ -2,7 +2,7 @@ package tree
 
 import (
 	"evergreen/assert"
-	"evergreen/base"
+	"evergreen/text"
 	"go/format"
 	"testing"
 )
@@ -229,7 +229,7 @@ func TestFuncDecl(t *testing.T) {
 		},
 		LocalInfo_Scope: &LocalInfo_Scope{},
 	}
-	b, w := base.BufferedCodeWriter()
+	b, w := text.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
 	GenerateFunc(gen, decl, w)
 	checkCode(b.String(), "func (o *Obj) foo(cond bool, names []string) (biz int, baz *int) {\n\tif cond {\n\t\t\"hello\"\n\t} else if !cond {\n\t\t\"goodbye\"\n\t} else {\n\t\t\"impossible\"\n\t}\n\tbiz, baz := bar(names), 7\n}\n", t)
@@ -307,7 +307,7 @@ func TestFile(t *testing.T) {
 		},
 	}
 
-	b, w := base.BufferedCodeWriter()
+	b, w := text.BufferedCodeWriter()
 	GenerateFile(file, w)
 	checkCode(b.String(), "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n\nfunc F() {\n\t{\n\t\tvar foo int = 7\n\t\tgoto block\n\tblock:\n\t\treturn\n\t}\n}\n\ntype I interface {\n\tTouch()\n\tProcess(inp int) (outp string)\n}\n", t)
 

@@ -2,10 +2,9 @@
 package tree
 
 import (
-	"bytes"
-	"evergreen/base"
 	"evergreen/framework"
 	"evergreen/io"
+	"evergreen/text"
 	"path/filepath"
 )
 
@@ -16,8 +15,7 @@ func OutputFile(file *FileAST, dirname string, runner *framework.TaskRunner) {
 
 	runner.Run(func() {
 		filename := filepath.Join(dirname, file.Name)
-		b := &bytes.Buffer{}
-		w := &base.CodeWriter{Out: b}
+		b, w := text.BufferedCodeWriter()
 		GenerateFile(file, w)
 		io.WriteFile(filename, []byte(b.String()))
 	})

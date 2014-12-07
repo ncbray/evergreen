@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func checkEdge(e *Edge, src *Node, dst *Node, t *testing.T) {
+func checkEdge(e *edge, src *node, dst *node, t *testing.T) {
 	if e.src != src {
 		t.Errorf("Got src of %v, expected %v", e.src, src)
 	}

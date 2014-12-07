@@ -1,7 +1,7 @@
 package tree
 
 import (
-	"evergreen/base"
+	"evergreen/text"
 	"fmt"
 	"sort"
 	"strconv"
@@ -163,12 +163,12 @@ func GenerateTargetList(gen *textGenerator, exprs []Target) string {
 	return strings.Join(parts, ", ")
 }
 
-func Dedent(w *base.CodeWriter) {
+func Dedent(w *text.CodeWriter) {
 	margin := w.GetMargin()
 	w.SetMargin(margin[:len(margin)-1])
 }
 
-func GenerateStmt(gen *textGenerator, stmt Stmt, w *base.CodeWriter) {
+func GenerateStmt(gen *textGenerator, stmt Stmt, w *text.CodeWriter) {
 	expr, ok := stmt.(Expr)
 	if ok {
 		w.Line(GenerateExpr(gen, expr))
@@ -241,13 +241,13 @@ func GenerateType(t TypeRef) string {
 	}
 }
 
-func generateBlock(gen *textGenerator, stmts []Stmt, w *base.CodeWriter) {
+func generateBlock(gen *textGenerator, stmts []Stmt, w *text.CodeWriter) {
 	for _, stmt := range stmts {
 		GenerateStmt(gen, stmt, w)
 	}
 }
 
-func GenerateBody(gen *textGenerator, stmts []Stmt, w *base.CodeWriter) {
+func GenerateBody(gen *textGenerator, stmts []Stmt, w *text.CodeWriter) {
 	w.AppendMargin(indent)
 	generateBlock(gen, stmts, w)
 	w.RestoreMargin()
@@ -285,7 +285,7 @@ func GenerateFuncType(t *FuncTypeRef) string {
 	return fmt.Sprintf("(%s)%s", strings.Join(params, ", "), returns)
 }
 
-func GenerateFunc(gen *textGenerator, decl *FuncDecl, w *base.CodeWriter) {
+func GenerateFunc(gen *textGenerator, decl *FuncDecl, w *text.CodeWriter) {
 	recv := ""
 	if decl.Recv != nil {
 		recv = fmt.Sprintf("(%s %s) ", decl.Recv.Name, GenerateType(decl.Recv.Type))
@@ -296,7 +296,7 @@ func GenerateFunc(gen *textGenerator, decl *FuncDecl, w *base.CodeWriter) {
 	w.Line("}")
 }
 
-func GenerateDecl(decl Decl, w *base.CodeWriter) {
+func GenerateDecl(decl Decl, w *text.CodeWriter) {
 	switch decl := decl.(type) {
 	case *StructDecl:
 		w.Linef("type %s struct {", decl.Name)
@@ -363,7 +363,7 @@ func NeedsName(imp *Import) bool {
 	return false
 }
 
-func GenerateFile(file *FileAST, w *base.CodeWriter) {
+func GenerateFile(file *FileAST, w *text.CodeWriter) {
 	w.Linef("package %s", file.Package)
 	w.EmptyLines(1)
 	if len(file.Imports) > 0 {

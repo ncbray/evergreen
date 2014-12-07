@@ -2,8 +2,8 @@ package tree
 
 import (
 	"evergreen/assert"
-	"evergreen/base"
 	"evergreen/go/core"
+	"evergreen/text"
 	"testing"
 )
 
@@ -97,7 +97,7 @@ func TestBinaryExprConsolidate(t *testing.T) {
 	defUseBlock(block, du)
 	block = consolidateBlock(block, du)
 
-	b, w := base.BufferedCodeWriter()
+	b, w := text.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
 	generateBlock(gen, block, w)
 	checkCode(b.String(), "ret0 := 2 + 3\n", t)
@@ -111,7 +111,7 @@ func TestBinaryExprConsolidateSwap(t *testing.T) {
 	defUseBlock(block, du)
 	block = consolidateBlock(block, du)
 
-	b, w := base.BufferedCodeWriter()
+	b, w := text.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
 	generateBlock(gen, block, w)
 	checkCode(b.String(), "b := 2\nret0 := 3 + b\n", t)
@@ -121,7 +121,7 @@ func TestFuncConsolidate(t *testing.T) {
 	decl := functionExample()
 	consolidateDecl(decl)
 
-	b, w := base.BufferedCodeWriter()
+	b, w := text.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
 	GenerateFunc(gen, decl, w)
 	checkCode(b.String(), "func foo() {\n\tret0 := 2 + 3\n}\n", t)
