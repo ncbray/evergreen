@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"time"
 )
 
 func dumpProgram(status framework.PassStatus, runner *framework.TaskRunner, program []*flow.DubPackage) {
@@ -128,7 +129,15 @@ func main() {
 		}
 	}
 
-	entryPoint(p, status.Pass("regenerate"))
+	start := time.Now()
+	for i := 0; ; i++ {
+		entryPoint(p, status.Pass("regenerate"))
+		if cpuprofile != "" && time.Since(start) < time.Second*10 {
+			fmt.Println("Re-running to improve profiling data", i)
+		} else {
+			break
+		}
+	}
 
 	if memprofile != "" {
 		f, err := os.Create(memprofile)
