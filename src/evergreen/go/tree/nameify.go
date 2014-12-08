@@ -1,7 +1,7 @@
 package tree
 
 import (
-	"evergreen/framework"
+	"evergreen/compiler"
 	"evergreen/go/core"
 	"fmt"
 	"strings"
@@ -279,7 +279,7 @@ func nameifyFile(pkg *PackageAST, file *FileAST) {
 	}
 }
 
-func Nameify(status framework.PassStatus, prog *ProgramAST) {
+func Nameify(status compiler.PassStatus, prog *ProgramAST) {
 	status.Begin()
 	defer status.End()
 

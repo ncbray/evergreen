@@ -1,12 +1,12 @@
 package tree
 
 import (
+	"evergreen/compiler"
 	"evergreen/dub/runtime"
-	"evergreen/framework"
 	"fmt"
 )
 
-func ParseDub(data []byte, offset int, status framework.TaskStatus) *File {
+func ParseDub(data []byte, offset int, status compiler.TaskStatus) *File {
 	status.Begin()
 	defer status.End()
 

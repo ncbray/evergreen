@@ -1,5 +1,5 @@
-// Package framework implements generic compiler functionality.
-package framework
+// Package compiler implements generic compiler functionality.
+package compiler
 
 import (
 	"fmt"

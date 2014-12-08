@@ -1,8 +1,8 @@
 package tree
 
 import (
+	"evergreen/compiler"
 	"evergreen/dub/core"
-	"evergreen/framework"
 	"fmt"
 	"strings"
 )
@@ -676,7 +676,7 @@ type semanticPassContext struct {
 	Program        *ProgramScope
 	Module         *ModuleScope
 	ModuleContexts []*semanticPassContext
-	Status         framework.PassStatus
+	Status         compiler.PassStatus
 	Core           *CoreProgram
 }
 
@@ -778,7 +778,7 @@ func semanticModulePass(ctx *semanticPassContext, pkg *Package) {
 	}
 }
 
-func SemanticPass(program *Program, status framework.PassStatus) []*core.Function {
+func SemanticPass(program *Program, status compiler.PassStatus) []*core.Function {
 	status.Begin()
 	defer status.End()
 

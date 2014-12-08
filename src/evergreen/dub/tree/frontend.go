@@ -2,14 +2,14 @@
 package tree
 
 import (
+	"evergreen/compiler"
 	"evergreen/dub/core"
-	"evergreen/framework"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
 )
 
-func parsePackage(status framework.PassStatus, p framework.LocationProvider, path []string, filenames []string) *Package {
+func parsePackage(status compiler.PassStatus, p compiler.LocationProvider, path []string, filenames []string) *Package {
 	files := make([]*File, len(filenames))
 	for i, filename := range filenames {
 		data, err := ioutil.ReadFile(filename)
@@ -41,7 +41,7 @@ func extendPath(path []string, next string) []string {
 	return newPath
 }
 
-func parsePackageTree(status framework.PassStatus, p framework.LocationProvider, root string, path []string, packages []*Package) []*Package {
+func parsePackageTree(status compiler.PassStatus, p compiler.LocationProvider, root string, path []string, packages []*Package) []*Package {
 	dir := filepath.Join(root, strings.Join(path, string(filepath.Separator)))
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -74,7 +74,7 @@ func parsePackageTree(status framework.PassStatus, p framework.LocationProvider,
 	return packages
 }
 
-func parseProgram(status framework.PassStatus, p framework.LocationProvider, root string) *Program {
+func parseProgram(status compiler.PassStatus, p compiler.LocationProvider, root string) *Program {
 	status.Begin()
 	defer status.End()
 
@@ -88,7 +88,7 @@ func parseProgram(status framework.PassStatus, p framework.LocationProvider, roo
 	}
 }
 
-func DubProgramFrontend(status framework.PassStatus, p framework.LocationProvider, root string) (*Program, []*core.Function) {
+func DubProgramFrontend(status compiler.PassStatus, p compiler.LocationProvider, root string) (*Program, []*core.Function) {
 	status.Begin()
 	defer status.End()
 	program := parseProgram(status.Pass("parse"), p, root)

@@ -1,12 +1,12 @@
 package flow
 
 import (
+	"evergreen/compiler"
 	"evergreen/dub/core"
-	"evergreen/framework"
 	"evergreen/graph"
 )
 
-func TrimFlow(status framework.PassStatus, program []*DubPackage) {
+func TrimFlow(status compiler.PassStatus, program []*DubPackage) {
 	status.Begin()
 	defer status.End()
 

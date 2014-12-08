@@ -2,11 +2,11 @@
 package main
 
 import (
+	"evergreen/compiler"
 	"evergreen/dub/flow"
 	"evergreen/dub/transform"
 	"evergreen/dub/transform/golang"
 	"evergreen/dub/tree"
-	"evergreen/framework"
 	gotree "evergreen/go/tree"
 	"evergreen/graph"
 	"evergreen/io"
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func dumpProgram(status framework.PassStatus, runner *framework.TaskRunner, program []*flow.DubPackage) {
+func dumpProgram(status compiler.PassStatus, runner *compiler.TaskRunner, program []*flow.DubPackage) {
 	status.Begin()
 	defer status.End()
 
@@ -50,7 +50,7 @@ func analyizeProgram(program []*flow.DubPackage) {
 	}
 }
 
-func GenerateGo(status framework.PassStatus, program []*flow.DubPackage, runner *framework.TaskRunner) {
+func GenerateGo(status compiler.PassStatus, program []*flow.DubPackage, runner *compiler.TaskRunner) {
 	status.Begin()
 	defer status.End()
 
@@ -70,7 +70,7 @@ func GenerateGo(status framework.PassStatus, program []*flow.DubPackage, runner 
 	gotree.OutputProgram(status.Pass("output"), prog, "src", runner)
 }
 
-func processProgram(status framework.PassStatus, p framework.LocationProvider, runner *framework.TaskRunner, root string) {
+func processProgram(status compiler.PassStatus, p compiler.LocationProvider, runner *compiler.TaskRunner, root string) {
 	program, funcs := tree.DubProgramFrontend(status.Pass("dub_frontend"), p, root)
 	if status.ShouldHalt() {
 		return
@@ -87,11 +87,11 @@ func processProgram(status framework.PassStatus, p framework.LocationProvider, r
 	GenerateGo(status.Pass("go_backend"), flowProgram, runner)
 }
 
-func entryPoint(p framework.LocationProvider, status framework.PassStatus) {
+func entryPoint(p compiler.LocationProvider, status compiler.PassStatus) {
 	status.Begin()
 	defer status.End()
 
-	runner := framework.CreateTaskRunner(jobs)
+	runner := compiler.CreateTaskRunner(jobs)
 
 	root_dir := "dub"
 	processProgram(status, p, runner, root_dir)
@@ -99,8 +99,8 @@ func entryPoint(p framework.LocationProvider, status framework.PassStatus) {
 }
 
 func mainLoop() {
-	p := framework.MakeProvider()
-	status := framework.MakeStatus(p)
+	p := compiler.MakeProvider()
+	status := compiler.MakeStatus(p)
 
 	start := time.Now()
 	for i := 0; ; i++ {
@@ -136,7 +136,7 @@ func main() {
 	flag.Parse()
 
 	runtime.GOMAXPROCS(jobs)
-	framework.Verbosity = verbosity
+	compiler.Verbosity = verbosity
 
 	if cpuprofile != "" {
 		f, err := os.Create(cpuprofile)

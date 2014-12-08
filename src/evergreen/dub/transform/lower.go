@@ -1,10 +1,10 @@
 package transform
 
 import (
+	"evergreen/compiler"
 	"evergreen/dub/core"
 	"evergreen/dub/flow"
 	"evergreen/dub/tree"
-	"evergreen/framework"
 	"evergreen/graph"
 )
 
@@ -718,7 +718,7 @@ func lowerPackage(program *tree.Program, pkg *tree.Package, funcMap map[*core.Fu
 	return dubPkg
 }
 
-func ssiProgram(status framework.PassStatus, packages []*flow.DubPackage) {
+func ssiProgram(status compiler.PassStatus, packages []*flow.DubPackage) {
 	status.Begin()
 	defer status.End()
 
@@ -729,7 +729,7 @@ func ssiProgram(status framework.PassStatus, packages []*flow.DubPackage) {
 	}
 }
 
-func LowerProgram(status framework.PassStatus, program *tree.Program, funcs []*core.Function) []*flow.DubPackage {
+func LowerProgram(status compiler.PassStatus, program *tree.Program, funcs []*core.Function) []*flow.DubPackage {
 	status.Begin()
 	defer status.End()
 

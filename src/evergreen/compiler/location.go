@@ -1,4 +1,4 @@
-package framework
+package compiler
 
 func findLines(stream []rune) []int {
 	lines := []int{0}

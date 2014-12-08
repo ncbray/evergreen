@@ -1,4 +1,4 @@
-package framework
+package compiler
 
 import (
 	"sync"

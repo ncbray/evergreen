@@ -2,13 +2,13 @@
 package tree
 
 import (
-	"evergreen/framework"
+	"evergreen/compiler"
 	"evergreen/io"
 	"evergreen/text"
 	"path/filepath"
 )
 
-func OutputFile(file *FileAST, dirname string, runner *framework.TaskRunner) {
+func OutputFile(file *FileAST, dirname string, runner *compiler.TaskRunner) {
 	if file.Name == "" {
 		panic(file)
 	}
@@ -21,7 +21,7 @@ func OutputFile(file *FileAST, dirname string, runner *framework.TaskRunner) {
 	})
 }
 
-func OutputPackage(pkg *PackageAST, dirname string, runner *framework.TaskRunner) {
+func OutputPackage(pkg *PackageAST, dirname string, runner *compiler.TaskRunner) {
 	path := []string{dirname}
 	path = append(path, pkg.P.Path...)
 	pkgdir := filepath.Join(path...)
@@ -30,7 +30,7 @@ func OutputPackage(pkg *PackageAST, dirname string, runner *framework.TaskRunner
 	}
 }
 
-func OutputProgram(status framework.PassStatus, prog *ProgramAST, dirname string, runner *framework.TaskRunner) {
+func OutputProgram(status compiler.PassStatus, prog *ProgramAST, dirname string, runner *compiler.TaskRunner) {
 	status.Begin()
 	defer status.End()
 

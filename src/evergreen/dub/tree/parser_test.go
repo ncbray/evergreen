@@ -1,15 +1,15 @@
 package tree
 
 import (
-	"evergreen/framework"
+	"evergreen/compiler"
 	"testing"
 )
 
 var root = "../../../../dub"
 
 func BenchmarkParser(b *testing.B) {
-	p := framework.MakeProvider()
-	status := framework.MakeStatus(p)
+	p := compiler.MakeProvider()
+	status := compiler.MakeStatus(p)
 	for i := 0; i < b.N; i++ {
 		DubProgramFrontend(status.Pass("dub frontend"), p, root)
 	}
@@ -21,9 +21,9 @@ func BenchmarkSemantic(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	p := framework.MakeProvider()
+	p := compiler.MakeProvider()
 	offset := p.AddFile(filename, []rune(string(data)))
-	status := framework.MakeStatus(p)
+	status := compiler.MakeStatus(p)
 	file := ParseDub(data, offset, status)
 	pkg := &Package{
 		Files: []*File{

@@ -1,7 +1,7 @@
 package tree
 
 import (
-	"evergreen/framework"
+	"evergreen/compiler"
 )
 
 type defUseInfo struct {
@@ -277,7 +277,7 @@ func consolidateDecl(decl Decl) {
 	}
 }
 
-func Consolidate(status framework.PassStatus, prog *ProgramAST) {
+func Consolidate(status compiler.PassStatus, prog *ProgramAST) {
 	status.Begin()
 	defer status.End()
 
