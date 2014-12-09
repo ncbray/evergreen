@@ -4,13 +4,13 @@ import (
 	"evergreen/graph"
 )
 
-func AddDef(reg RegisterInfo_Ref, node graph.NodeID, defuse *graph.DefUseCollector) {
+func addDef(reg RegisterInfo_Ref, node graph.NodeID, defuse *graph.DefUseCollector) {
 	if reg != NoRegisterInfo {
 		defuse.AddDef(node, int(reg))
 	}
 }
 
-func AddUse(reg RegisterInfo_Ref, node graph.NodeID, defuse *graph.DefUseCollector) {
+func addUse(reg RegisterInfo_Ref, node graph.NodeID, defuse *graph.DefUseCollector) {
 	if reg == NoRegisterInfo {
 		panic("Tried to use non-existant register.")
 	}
@@ -21,70 +21,70 @@ func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *graph.DefU
 	switch op := op.(type) {
 	case *EntryOp:
 		for _, p := range decl.Params {
-			AddDef(p, node, defuse)
+			addDef(p, node, defuse)
 		}
 	case *FlowExitOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *Peek:
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *LookaheadBegin:
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *ConstantRuneOp:
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *ConstantStringOp:
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *ConstantIntOp:
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *ConstantBoolOp:
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *ConstantNilOp:
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *CallOp:
 		for _, arg := range op.Args {
-			AddUse(arg, node, defuse)
+			addUse(arg, node, defuse)
 		}
 		for _, dst := range op.Dsts {
-			AddDef(dst, node, defuse)
+			addDef(dst, node, defuse)
 		}
 	case *Slice:
-		AddUse(op.Src, node, defuse)
-		AddDef(op.Dst, node, defuse)
+		addUse(op.Src, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *BinaryOp:
-		AddUse(op.Left, node, defuse)
-		AddUse(op.Right, node, defuse)
-		AddDef(op.Dst, node, defuse)
+		addUse(op.Left, node, defuse)
+		addUse(op.Right, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *AppendOp:
-		AddUse(op.List, node, defuse)
-		AddUse(op.Value, node, defuse)
-		AddDef(op.Dst, node, defuse)
+		addUse(op.List, node, defuse)
+		addUse(op.Value, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *CopyOp:
-		AddUse(op.Src, node, defuse)
-		AddDef(op.Dst, node, defuse)
+		addUse(op.Src, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *CoerceOp:
-		AddUse(op.Src, node, defuse)
-		AddDef(op.Dst, node, defuse)
+		addUse(op.Src, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *Recover:
-		AddUse(op.Src, node, defuse)
+		addUse(op.Src, node, defuse)
 	case *LookaheadEnd:
-		AddUse(op.Src, node, defuse)
+		addUse(op.Src, node, defuse)
 	case *SwitchOp:
-		AddUse(op.Cond, node, defuse)
+		addUse(op.Cond, node, defuse)
 	case *ReturnOp:
 		for _, arg := range op.Exprs {
-			AddUse(arg, node, defuse)
+			addUse(arg, node, defuse)
 		}
 	case *ConstructOp:
 		for _, arg := range op.Args {
-			AddUse(arg.Value, node, defuse)
+			addUse(arg.Value, node, defuse)
 		}
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	case *ConstructListOp:
 		for _, arg := range op.Args {
-			AddUse(arg, node, defuse)
+			addUse(arg, node, defuse)
 		}
-		AddDef(op.Dst, node, defuse)
+		addDef(op.Dst, node, defuse)
 	default:
 		panic(op)
 	}
@@ -358,7 +358,7 @@ func killUnusedOutputs(n graph.NodeID, op DubOp, live graph.LivenessOracle) {
 	}
 }
 
-func CreateTransfer(decl *LLFunc, size int) (graph.NodeID, *TransferOp) {
+func createTransfer(decl *LLFunc, size int) (graph.NodeID, *TransferOp) {
 	n := decl.CFG.CreateNode(1)
 	if int(n) != len(decl.Ops) {
 		panic("desync")
@@ -386,7 +386,7 @@ func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 			if len(phiFuncs) == 0 {
 				continue
 			}
-			t, op := CreateTransfer(decl, len(phiFuncs))
+			t, op := createTransfer(decl, len(phiFuncs))
 			for j, v := range phiFuncs {
 				op.Srcs[j] = RegisterInfo_Ref(v)
 				op.Dsts[j] = RegisterInfo_Ref(v)

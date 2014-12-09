@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func NodeDotID(node NodeID) string {
+func nodeDotID(node NodeID) string {
 	return fmt.Sprintf("n%d", node)
 }
 
@@ -30,7 +30,7 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 	for nit.Next() {
 		node := nit.Value()
 		buf.WriteString("  ")
-		buf.WriteString(NodeDotID(node))
+		buf.WriteString(nodeDotID(node))
 		buf.WriteString("[")
 		buf.WriteString(styler.NodeStyle(node))
 		buf.WriteString("];\n")
@@ -39,9 +39,9 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 		for eit.Next() {
 			dst := eit.Value()
 			buf.WriteString("  ")
-			buf.WriteString(NodeDotID(node))
+			buf.WriteString(nodeDotID(node))
 			buf.WriteString(" -> ")
-			buf.WriteString(NodeDotID(dst))
+			buf.WriteString(nodeDotID(dst))
 			buf.WriteString("[")
 			buf.WriteString(styler.EdgeStyle(node, eit.Label()))
 			buf.WriteString("];\n")
@@ -54,9 +54,9 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 			dst := idoms[src]
 			if src != dst {
 				buf.WriteString("  ")
-				buf.WriteString(NodeDotID(src))
+				buf.WriteString(nodeDotID(src))
 				buf.WriteString(" -> ")
-				buf.WriteString(NodeDotID(dst))
+				buf.WriteString(nodeDotID(dst))
 				buf.WriteString("[")
 				buf.WriteString("style=dotted")
 				buf.WriteString("];\n")

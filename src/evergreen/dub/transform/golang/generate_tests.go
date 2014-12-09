@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-type TestingContext struct {
+type testingContext struct {
 	glbl     *DubToGoContext
 	funcDecl *dst.FuncDecl
 	state    dst.LocalInfo_Ref
@@ -15,7 +15,7 @@ type TestingContext struct {
 	okInfo   dst.LocalInfo_Ref
 }
 
-func (ctx *TestingContext) GetState() dst.Expr {
+func (ctx *testingContext) GetState() dst.Expr {
 	return &dst.GetLocal{Info: ctx.state}
 }
 
@@ -55,7 +55,7 @@ func nilLiteral() dst.Expr {
 	return &dst.NilLiteral{}
 }
 
-func (ctx *TestingContext) makeFatalTest(cond dst.Expr, f string, args ...dst.Expr) dst.Stmt {
+func (ctx *testingContext) makeFatalTest(cond dst.Expr, f string, args ...dst.Expr) dst.Stmt {
 	wrapped := []dst.Expr{strLiteral(f)}
 	wrapped = append(wrapped, args...)
 	return &dst.If{
@@ -94,7 +94,7 @@ func checkNE(x dst.Expr, y dst.Expr) dst.Expr {
 	}
 }
 
-func translateType(ctx *TestingContext, at core.DubType) dst.TypeRef {
+func translateType(ctx *testingContext, at core.DubType) dst.TypeRef {
 	switch cat := at.(type) {
 	case *core.StructType:
 		ref := ctx.glbl.link.TypeRef(cat, STRUCT)
@@ -112,7 +112,7 @@ func translateType(ctx *TestingContext, at core.DubType) dst.TypeRef {
 	}
 }
 
-func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d tree.Destructure, generalType core.DubType, ctx *TestingContext, stmts []dst.Stmt) []dst.Stmt {
+func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d tree.Destructure, generalType core.DubType, ctx *testingContext, stmts []dst.Stmt) []dst.Stmt {
 	switch d := d.(type) {
 	case *tree.DestructureStruct:
 		actual_value := value
@@ -239,7 +239,7 @@ func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d t
 	return stmts
 }
 
-func generateExpr(ctx *TestingContext, expr tree.ASTExpr) dst.Expr {
+func generateExpr(ctx *testingContext, expr tree.ASTExpr) dst.Expr {
 	switch expr := expr.(type) {
 	case *tree.Call:
 		args := []dst.Expr{
@@ -272,7 +272,7 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 		LocalInfo_Scope: &dst.LocalInfo_Scope{},
 	}
 
-	ctx := &TestingContext{
+	ctx := &testingContext{
 		glbl:     gctx,
 		funcDecl: decl,
 	}

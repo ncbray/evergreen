@@ -22,7 +22,7 @@ type DubToGoContext struct {
 	link  DubToGoLinker
 }
 
-func GenerateGoFunc(f *flow.LLFunc, ctx *DubToGoContext) ast.Decl {
+func generateGoFunc(f *flow.LLFunc, ctx *DubToGoContext) ast.Decl {
 	flowDecl := translateFlow(f, ctx)
 
 	if false {
@@ -52,7 +52,7 @@ func addTags(base *core.StructType, parent *core.StructType, ctx *DubToGoContext
 	return decls
 }
 
-func DeclForType(t dstcore.GoType, ctx *DubToGoContext) ast.Decl {
+func declForType(t dstcore.GoType, ctx *DubToGoContext) ast.Decl {
 	switch t := t.(type) {
 	case *dstcore.TypeDefType:
 		return &ast.TypeDefDecl{
@@ -92,8 +92,8 @@ func DeclForType(t dstcore.GoType, ctx *DubToGoContext) ast.Decl {
 	}
 }
 
-func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
-	ref := DeclForType(ctx.link.GetType(s, REF), ctx)
+func generateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
+	ref := declForType(ctx.link.GetType(s, REF), ctx)
 
 	noRef := &ast.VarDecl{
 		Name: "No" + s.Name,
@@ -108,13 +108,13 @@ func GenerateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.D
 		Const: true,
 	}
 
-	scope := DeclForType(ctx.link.GetType(s, SCOPE), ctx)
+	scope := declForType(ctx.link.GetType(s, SCOPE), ctx)
 
 	decls = append(decls, ref, noRef, scope)
 	return decls
 }
 
-func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
+func generateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
 	if s.IsParent {
 		if s.Scoped {
 			panic(s.Name)
@@ -122,12 +122,12 @@ func GenerateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl)
 		if len(s.Fields) != 0 {
 			panic(s.Name)
 		}
-		decls = append(decls, DeclForType(ctx.link.GetType(s, STRUCT), ctx))
+		decls = append(decls, declForType(ctx.link.GetType(s, STRUCT), ctx))
 	} else {
 		if s.Scoped {
-			decls = GenerateScopeHelpers(s, ctx, decls)
+			decls = generateScopeHelpers(s, ctx, decls)
 		}
-		decls = append(decls, DeclForType(ctx.link.GetType(s, STRUCT), ctx))
+		decls = append(decls, declForType(ctx.link.GetType(s, STRUCT), ctx))
 		decls = addTags(s, s.Implements, ctx, decls)
 	}
 	return decls
@@ -174,10 +174,10 @@ func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoCo
 
 	decls := []ast.Decl{}
 	for _, t := range dubPkg.Structs {
-		decls = GenerateGoStruct(t, ctx, decls)
+		decls = generateGoStruct(t, ctx, decls)
 	}
 	for _, f := range dubPkg.Funcs {
-		decls = append(decls, GenerateGoFunc(f, ctx))
+		decls = append(decls, generateGoFunc(f, ctx))
 	}
 
 	file := &ast.FileAST{

@@ -71,19 +71,6 @@ func TypeMatches(actual core.DubType, expected core.DubType, exact bool) bool {
 	}
 }
 
-func TypeName(t core.DubType) string {
-	switch t := t.(type) {
-	case *core.StructType:
-		return t.Name
-	case *core.BuiltinType:
-		return t.Name
-	case *core.ListType:
-		return fmt.Sprintf("[]%s", TypeName(t.Type))
-	default:
-		panic(t)
-	}
-}
-
 func IsDiscard(name string) bool {
 	return name == "_"
 }
@@ -226,7 +213,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			if i < len(decl.ReturnTypes) {
 				et := ResolveType(decl.ReturnTypes[i])
 				if !TypeMatches(at, et, false) {
-					ctx.Status.GlobalError(fmt.Sprintf("return: %s vs. %s", TypeName(at), TypeName(et)))
+					ctx.Status.GlobalError(fmt.Sprintf("return: %s vs. %s", core.TypeName(at), core.TypeName(et)))
 				}
 
 			}
@@ -277,10 +264,10 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				if f != nil {
 					eft := f.Type
 					if !TypeMatches(aft, eft, false) {
-						ctx.Status.LocationError(arg.Name.Pos, fmt.Sprintf("Expected type %s, but got %s", TypeName(eft), TypeName(aft)))
+						ctx.Status.LocationError(arg.Name.Pos, fmt.Sprintf("Expected type %s, but got %s", core.TypeName(eft), core.TypeName(aft)))
 					}
 				} else {
-					ctx.Status.LocationError(arg.Name.Pos, fmt.Sprintf("%s does not have field %s", TypeName(t), fn))
+					ctx.Status.LocationError(arg.Name.Pos, fmt.Sprintf("%s does not have field %s", core.TypeName(t), fn))
 				}
 			}
 		}
@@ -295,7 +282,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			at := scalarSemanticExprPass(ctx, decl, arg, scope)
 			if lt != nil {
 				if !TypeMatches(at, lt.Type, false) {
-					ctx.Status.GlobalError(fmt.Sprintf("%s vs. %s", TypeName(at), TypeName(lt.Type)))
+					ctx.Status.GlobalError(fmt.Sprintf("%s vs. %s", core.TypeName(at), core.TypeName(lt.Type)))
 				}
 			}
 		}
@@ -454,10 +441,10 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 				if f != nil {
 					eft := f.Type
 					if !TypeMatches(aft, eft, false) {
-						ctx.Status.GlobalError(fmt.Sprintf("%s.%s: %s vs. %s", TypeName(t), fn, TypeName(aft), TypeName(eft)))
+						ctx.Status.GlobalError(fmt.Sprintf("%s.%s: %s vs. %s", core.TypeName(t), fn, core.TypeName(aft), core.TypeName(eft)))
 					}
 				} else {
-					ctx.Status.LocationError(arg.Name.Pos, fmt.Sprintf("%s does not have field %s", TypeName(t), fn))
+					ctx.Status.LocationError(arg.Name.Pos, fmt.Sprintf("%s does not have field %s", core.TypeName(t), fn))
 				}
 			}
 		}
@@ -472,7 +459,7 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 			at := semanticDestructurePass(ctx, decl, arg, scope)
 			if lt != nil {
 				if !TypeMatches(at, lt.Type, false) {
-					ctx.Status.GlobalError(fmt.Sprintf("%s vs. %s", TypeName(at), TypeName(lt.Type)))
+					ctx.Status.GlobalError(fmt.Sprintf("%s vs. %s", core.TypeName(at), core.TypeName(lt.Type)))
 				}
 			}
 		}
@@ -495,7 +482,7 @@ func semanticTestPass(ctx *semanticPassContext, tst *Test) {
 
 	at := semanticDestructurePass(ctx, nil, tst.Destructure, scope)
 	if !TypeMatches(at, tst.Type, false) {
-		ctx.Status.GlobalError(fmt.Sprintf("destructure %s vs. %s", TypeName(at), TypeName(tst.Type)))
+		ctx.Status.GlobalError(fmt.Sprintf("destructure %s vs. %s", core.TypeName(at), core.TypeName(tst.Type)))
 	}
 }
 

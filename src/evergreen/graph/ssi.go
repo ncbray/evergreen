@@ -60,7 +60,7 @@ type LiveVars struct {
 	liveOut []map[int]bool
 }
 
-func CanonicalSet(set map[int]bool) []int {
+func canonicalSet(set map[int]bool) []int {
 	out := make([]int, len(set))
 	i := 0
 	for k, _ := range set {
@@ -72,7 +72,7 @@ func CanonicalSet(set map[int]bool) []int {
 }
 
 func (l *LiveVars) LiveSet(n NodeID) []int {
-	return CanonicalSet(l.liveIn[n])
+	return canonicalSet(l.liveIn[n])
 }
 
 func (l *LiveVars) LiveAtEntry(n NodeID, v int) bool {

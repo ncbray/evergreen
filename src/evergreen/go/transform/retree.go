@@ -12,15 +12,15 @@ func blockName(i int) string {
 	return fmt.Sprintf("block%d", i)
 }
 
-func GotoBlock(i int) *tree.Goto {
+func gotoBlock(i int) *tree.Goto {
 	return &tree.Goto{Text: blockName(i)}
 }
 
-func BlockLabel(i int) *tree.Label {
+func blockLabel(i int) *tree.Label {
 	return &tree.Label{Text: blockName(i)}
 }
 
-func FindBlockHeads(g *graph.Graph, order []graph.NodeID) ([]graph.NodeID, map[graph.NodeID]int) {
+func findBlockHeads(g *graph.Graph, order []graph.NodeID) ([]graph.NodeID, map[graph.NodeID]int) {
 	heads := []graph.NodeID{}
 	labels := map[graph.NodeID]int{}
 	uid := 0
@@ -101,7 +101,7 @@ func generateNode(decl *flow.LLFunc, lclMap []tree.LocalInfo_Ref, labels map[gra
 					return block, true
 				} else {
 
-					block = append(block, GotoBlock(label))
+					block = append(block, gotoBlock(label))
 					return block, false
 				}
 			}
@@ -295,7 +295,7 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 	funcDecl.Type = ft
 
 	order, _ := graph.ReversePostorder(decl.CFG)
-	heads, labels := FindBlockHeads(decl.CFG, order)
+	heads, labels := findBlockHeads(decl.CFG, order)
 
 	// Generate Go code from flow blocks
 	stmts := []tree.Stmt{}
@@ -304,7 +304,7 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 		label, _ := labels[node]
 		// HACK assume label 0 is always the entry node.
 		if label != 0 {
-			block = append(block, BlockLabel(label))
+			block = append(block, blockLabel(label))
 		}
 		block, _ = generateNode(decl, lclMap, labels, label, true, node, block)
 		// Extend the statement list

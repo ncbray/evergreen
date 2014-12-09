@@ -46,20 +46,7 @@ func (scope *RegisterInfo_Scope) Replace(replacement []*RegisterInfo) {
 	scope.objects = replacement
 }
 
-func TypeName(t core.DubType) string {
-	switch t := t.(type) {
-	case *core.StructType:
-		return t.Name
-	case *core.ListType:
-		return fmt.Sprintf("[]%s", TypeName(t.Type))
-	case *core.BuiltinType:
-		return t.Name
-	default:
-		panic(t)
-	}
-}
-
-func RegisterName(reg RegisterInfo_Ref) string {
+func registerName(reg RegisterInfo_Ref) string {
 	if reg != NoRegisterInfo {
 		return fmt.Sprintf("r%d", reg)
 	} else {
@@ -67,18 +54,18 @@ func RegisterName(reg RegisterInfo_Ref) string {
 	}
 }
 
-func RegisterList(regs []RegisterInfo_Ref) string {
+func registerList(regs []RegisterInfo_Ref) string {
 	names := make([]string, len(regs))
 	for i, reg := range regs {
-		names[i] = RegisterName(reg)
+		names[i] = registerName(reg)
 	}
 	return strings.Join(names, ", ")
 }
 
-func KeyValueList(args []*KeyValue) string {
+func keyValueList(args []*KeyValue) string {
 	names := make([]string, len(args))
 	for i, arg := range args {
-		names[i] = fmt.Sprintf("%s: %s", arg.Key, RegisterName(arg.Value))
+		names[i] = fmt.Sprintf("%s: %s", arg.Key, registerName(arg.Value))
 	}
 	return strings.Join(names, ", ")
 }
@@ -87,12 +74,12 @@ func formatAssignment(op string, dst RegisterInfo_Ref) string {
 	if dst == NoRegisterInfo {
 		return op
 	}
-	return fmt.Sprintf("%s := %s", RegisterName(dst), op)
+	return fmt.Sprintf("%s := %s", registerName(dst), op)
 }
 
 func formatMultiAssignment(op string, dsts []RegisterInfo_Ref) string {
 	if len(dsts) > 0 {
-		return fmt.Sprintf("%s := %s", RegisterList(dsts), op)
+		return fmt.Sprintf("%s := %s", registerList(dsts), op)
 	} else {
 		return op
 	}
@@ -105,9 +92,9 @@ type DotStyler struct {
 func opToString(op DubOp) string {
 	switch n := op.(type) {
 	case *CoerceOp:
-		return formatAssignment(fmt.Sprintf("%s(%s)", TypeName(n.T), RegisterName(n.Src)), n.Dst)
+		return formatAssignment(fmt.Sprintf("%s(%s)", core.TypeName(n.T), registerName(n.Src)), n.Dst)
 	case *CopyOp:
-		return fmt.Sprintf("%s := %s", RegisterName(n.Dst), RegisterName(n.Src))
+		return fmt.Sprintf("%s := %s", registerName(n.Dst), registerName(n.Src))
 	case *ConstantNilOp:
 		return formatAssignment("nil", n.Dst)
 	case *ConstantIntOp:
@@ -119,27 +106,27 @@ func opToString(op DubOp) string {
 	case *ConstantStringOp:
 		return formatAssignment(fmt.Sprintf("%#v", n.Value), n.Dst)
 	case *BinaryOp:
-		return formatAssignment(fmt.Sprintf("%s %s %s", RegisterName(n.Left), n.Op, RegisterName(n.Right)), n.Dst)
+		return formatAssignment(fmt.Sprintf("%s %s %s", registerName(n.Left), n.Op, registerName(n.Right)), n.Dst)
 	case *CallOp:
-		return formatMultiAssignment(fmt.Sprintf("%s(%s)", n.Target.Name, RegisterList(n.Args)), n.Dsts)
+		return formatMultiAssignment(fmt.Sprintf("%s(%s)", n.Target.Name, registerList(n.Args)), n.Dsts)
 	case *ConstructOp:
-		return formatAssignment(fmt.Sprintf("%s{%s}", TypeName(n.Type), KeyValueList(n.Args)), n.Dst)
+		return formatAssignment(fmt.Sprintf("%s{%s}", core.TypeName(n.Type), keyValueList(n.Args)), n.Dst)
 	case *ConstructListOp:
-		return formatAssignment(fmt.Sprintf("%s{%s}", TypeName(n.Type), RegisterList(n.Args)), n.Dst)
+		return formatAssignment(fmt.Sprintf("%s{%s}", core.TypeName(n.Type), registerList(n.Args)), n.Dst)
 	case *Checkpoint:
 		return formatAssignment("<checkpoint>", n.Dst)
 	case *Recover:
-		return fmt.Sprintf("<recover> %s", RegisterName(n.Src))
+		return fmt.Sprintf("<recover> %s", registerName(n.Src))
 	case *LookaheadBegin:
 		return formatAssignment("<lookahead begin>", n.Dst)
 	case *LookaheadEnd:
-		return fmt.Sprintf("<lookahead end> %v %s", n.Failed, RegisterName(n.Src))
+		return fmt.Sprintf("<lookahead end> %v %s", n.Failed, registerName(n.Src))
 	case *Slice:
-		return formatAssignment(fmt.Sprintf("<slice> %s", RegisterName(n.Src)), n.Dst)
+		return formatAssignment(fmt.Sprintf("<slice> %s", registerName(n.Src)), n.Dst)
 	case *AppendOp:
-		return formatAssignment(fmt.Sprintf("<append> %s %s", RegisterName(n.List), RegisterName(n.Value)), n.Dst)
+		return formatAssignment(fmt.Sprintf("<append> %s %s", registerName(n.List), registerName(n.Value)), n.Dst)
 	case *ReturnOp:
-		return fmt.Sprintf("<return> %s", RegisterList(n.Exprs))
+		return fmt.Sprintf("<return> %s", registerList(n.Exprs))
 	case *Fail:
 		return "<fail>"
 	case *Peek:
@@ -147,7 +134,7 @@ func opToString(op DubOp) string {
 	case *Consume:
 		return "<consume>"
 	case *TransferOp:
-		return fmt.Sprintf("%s << %s", RegisterList(n.Dsts), RegisterList(n.Srcs))
+		return fmt.Sprintf("%s << %s", registerList(n.Dsts), registerList(n.Srcs))
 
 	default:
 		panic(op)
@@ -175,7 +162,7 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 			return `shape=invtriangle,label="?"`
 		}
 	case *SwitchOp:
-		return fmt.Sprintf("shape=diamond,label=%#v", RegisterName(op.Cond))
+		return fmt.Sprintf("shape=diamond,label=%#v", registerName(op.Cond))
 	case DubOp:
 		return fmt.Sprintf("shape=box,label=%#v", opToString(op))
 	default:
