@@ -141,8 +141,8 @@ func goFieldType(t core.DubType, ctx *DubToGoContext) dstcore.GoType {
 	return goType(t, ctx)
 }
 
-func createTypeMapping(program []*flow.DubPackage, link DubToGoLinker) {
-	for _, dubPkg := range program {
+func createTypeMapping(program *flow.DubProgram, link DubToGoLinker) {
+	for _, dubPkg := range program.Packages {
 		for _, s := range dubPkg.Structs {
 			if s.IsParent {
 				link.SetType(s, STRUCT, &dstcore.InterfaceType{})
@@ -157,8 +157,8 @@ func createTypeMapping(program []*flow.DubPackage, link DubToGoLinker) {
 	}
 }
 
-func createTypes(program []*flow.DubPackage, ctx *DubToGoContext) {
-	for _, dubPkg := range program {
+func createTypes(program *flow.DubProgram, ctx *DubToGoContext) {
+	for _, dubPkg := range program.Packages {
 		for _, s := range dubPkg.Structs {
 			if s.IsParent {
 				impl, _ := ctx.link.GetType(s, STRUCT).(*dstcore.InterfaceType)

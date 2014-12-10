@@ -718,28 +718,29 @@ func lowerPackage(program *tree.Program, pkg *tree.Package, funcMap map[*core.Fu
 	return dubPkg
 }
 
-func ssiProgram(status compiler.PassStatus, packages []*flow.DubPackage) {
+func ssiProgram(status compiler.PassStatus, program *flow.DubProgram) {
 	status.Begin()
 	defer status.End()
 
-	for _, pkg := range packages {
-		for _, f := range pkg.Funcs {
-			flow.SSI(f)
-		}
+	for _, f := range program.LLFuncs {
+		flow.SSI(f)
 	}
 }
 
-func LowerProgram(status compiler.PassStatus, program *tree.Program, funcs []*core.Function) []*flow.DubPackage {
+func LowerProgram(status compiler.PassStatus, program *tree.Program, funcs []*core.Function) *flow.DubProgram {
 	status.Begin()
 	defer status.End()
 
 	funcMap := map[*core.Function]*flow.LLFunc{}
+	dubFuncs := []*flow.LLFunc{}
 	for _, f := range funcs {
-		funcMap[f] = &flow.LLFunc{
+		df := &flow.LLFunc{
 			Name:               f.Name,
 			RegisterInfo_Scope: &flow.RegisterInfo_Scope{},
 			F:                  f,
 		}
+		funcMap[f] = df
+		dubFuncs = append(dubFuncs, df)
 	}
 
 	dubPackages := []*flow.DubPackage{}
@@ -747,7 +748,13 @@ func LowerProgram(status compiler.PassStatus, program *tree.Program, funcs []*co
 		dubPackages = append(dubPackages, lowerPackage(program, pkg, funcMap))
 	}
 
-	ssiProgram(status.Pass("ssi"), dubPackages)
+	dubProg := &flow.DubProgram{
+		Packages: dubPackages,
+		Funcs:    funcs,
+		LLFuncs:  dubFuncs,
+	}
 
-	return dubPackages
+	ssiProgram(status.Pass("ssi"), dubProg)
+
+	return dubProg
 }

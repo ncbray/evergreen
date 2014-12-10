@@ -154,3 +154,9 @@ struct DubPackage {
   Funcs []LLFunc
   Tests []tree.Test
 }
+
+struct DubProgram {
+  Packages []DubPackage
+  Funcs []core.Function
+  LLFuncs []LLFunc
+}

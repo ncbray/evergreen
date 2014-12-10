@@ -19,11 +19,11 @@ import (
 	"time"
 )
 
-func dumpProgram(status compiler.PassStatus, runner *compiler.TaskRunner, program []*flow.DubPackage) {
+func dumpProgram(status compiler.PassStatus, runner *compiler.TaskRunner, program *flow.DubProgram) {
 	status.Begin()
 	defer status.End()
 
-	for _, dubPkg := range program {
+	for _, dubPkg := range program.Packages {
 		for _, f := range dubPkg.Funcs {
 			styler := &flow.DotStyler{Decl: f}
 			dot := graph.GraphToDot(f.CFG, styler)
@@ -40,8 +40,8 @@ func dumpProgram(status compiler.PassStatus, runner *compiler.TaskRunner, progra
 	}
 }
 
-func analyizeProgram(program []*flow.DubPackage) {
-	for _, dubPkg := range program {
+func analyizeProgram(program *flow.DubProgram) {
+	for _, dubPkg := range program.Packages {
 		for _, s := range dubPkg.Structs {
 			if s.Implements != nil {
 				s.Implements.IsParent = true
@@ -50,7 +50,7 @@ func analyizeProgram(program []*flow.DubPackage) {
 	}
 }
 
-func GenerateGo(status compiler.PassStatus, program []*flow.DubPackage, runner *compiler.TaskRunner) {
+func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, runner *compiler.TaskRunner) {
 	status.Begin()
 	defer status.End()
 

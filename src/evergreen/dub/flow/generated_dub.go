@@ -243,3 +243,9 @@ type DubPackage struct {
 	Funcs   []*LLFunc
 	Tests   []*tree.Test
 }
+
+type DubProgram struct {
+	Packages []*DubPackage
+	Funcs    []*core.Function
+	LLFuncs  []*LLFunc
+}
