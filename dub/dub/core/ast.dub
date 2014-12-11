@@ -29,3 +29,7 @@ struct StructType implements DubType {
 struct Function {
   Name string
 }
+
+struct CoreProgram {
+  Functions []Function
+}

@@ -71,11 +71,11 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, runner *co
 }
 
 func processProgram(status compiler.PassStatus, p compiler.LocationProvider, runner *compiler.TaskRunner, root string) {
-	program, funcs := tree.DubProgramFrontend(status.Pass("dub_frontend"), p, root)
+	program, coreProg := tree.DubProgramFrontend(status.Pass("dub_frontend"), p, root)
 	if status.ShouldHalt() {
 		return
 	}
-	flowProgram := transform.LowerProgram(status.Pass("lower"), program, funcs)
+	flowProgram := transform.LowerProgram(status.Pass("lower"), program, coreProg)
 
 	flow.TrimFlow(status.Pass("trim_flow"), flowProgram)
 

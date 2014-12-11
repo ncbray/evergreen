@@ -245,7 +245,7 @@ type DubPackage struct {
 }
 
 type DubProgram struct {
+	Core     *core.CoreProgram
 	Packages []*DubPackage
-	Funcs    []*core.Function
 	LLFuncs  []*LLFunc
 }

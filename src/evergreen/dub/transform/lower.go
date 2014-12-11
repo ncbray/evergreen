@@ -727,13 +727,13 @@ func ssiProgram(status compiler.PassStatus, program *flow.DubProgram) {
 	}
 }
 
-func LowerProgram(status compiler.PassStatus, program *tree.Program, funcs []*core.Function) *flow.DubProgram {
+func LowerProgram(status compiler.PassStatus, program *tree.Program, coreProg *core.CoreProgram) *flow.DubProgram {
 	status.Begin()
 	defer status.End()
 
 	funcMap := map[*core.Function]*flow.LLFunc{}
 	dubFuncs := []*flow.LLFunc{}
-	for _, f := range funcs {
+	for _, f := range coreProg.Functions {
 		df := &flow.LLFunc{
 			Name:               f.Name,
 			RegisterInfo_Scope: &flow.RegisterInfo_Scope{},
@@ -749,8 +749,8 @@ func LowerProgram(status compiler.PassStatus, program *tree.Program, funcs []*co
 	}
 
 	dubProg := &flow.DubProgram{
+		Core:     coreProg,
 		Packages: dubPackages,
-		Funcs:    funcs,
 		LLFuncs:  dubFuncs,
 	}
 

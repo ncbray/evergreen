@@ -88,16 +88,16 @@ func parseProgram(status compiler.PassStatus, p compiler.LocationProvider, root 
 	}
 }
 
-func DubProgramFrontend(status compiler.PassStatus, p compiler.LocationProvider, root string) (*Program, []*core.Function) {
+func DubProgramFrontend(status compiler.PassStatus, p compiler.LocationProvider, root string) (*Program, *core.CoreProgram) {
 	status.Begin()
 	defer status.End()
 	program := parseProgram(status.Pass("parse"), p, root)
 	if status.ShouldHalt() {
 		return nil, nil
 	}
-	funcs := SemanticPass(program, status.Pass("semantic"))
+	coreProg := SemanticPass(program, status.Pass("semantic"))
 	if status.ShouldHalt() {
 		return nil, nil
 	}
-	return program, funcs
+	return program, coreProg
 }

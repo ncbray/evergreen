@@ -664,11 +664,7 @@ type semanticPassContext struct {
 	Module         *ModuleScope
 	ModuleContexts []*semanticPassContext
 	Status         compiler.PassStatus
-	Core           *CoreProgram
-}
-
-type CoreProgram struct {
-	Functions []*core.Function
+	Core           *core.CoreProgram
 }
 
 func resolveImport(ctx *semanticPassContext, imp *ImportDecl) {
@@ -765,12 +761,12 @@ func semanticModulePass(ctx *semanticPassContext, pkg *Package) {
 	}
 }
 
-func SemanticPass(program *Program, status compiler.PassStatus) []*core.Function {
+func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgram {
 	status.Begin()
 	defer status.End()
 
 	programScope := MakeProgramScope(program)
-	core := &CoreProgram{}
+	core := &core.CoreProgram{}
 	ctxs := make([]*semanticPassContext, len(program.Packages))
 	for i, pkg := range program.Packages {
 		moduleScope := &ModuleScope{
@@ -801,7 +797,7 @@ func SemanticPass(program *Program, status compiler.PassStatus) []*core.Function
 	for i, pkg := range program.Packages {
 		semanticModulePass(ctxs[i], pkg)
 	}
-	return core.Functions
+	return core
 }
 
 func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {

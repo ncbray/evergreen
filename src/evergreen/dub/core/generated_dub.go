@@ -44,3 +44,7 @@ func (node *StructType) isDubType() {
 type Function struct {
 	Name string
 }
+
+type CoreProgram struct {
+	Functions []*Function
+}
