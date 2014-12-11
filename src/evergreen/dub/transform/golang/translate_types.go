@@ -141,80 +141,75 @@ func goFieldType(t core.DubType, ctx *DubToGoContext) dstcore.GoType {
 	return goType(t, ctx)
 }
 
-func createTypeMapping(program *flow.DubProgram, link DubToGoLinker) {
-	for _, dubPkg := range program.Packages {
-		for _, s := range dubPkg.Structs {
-			if s.IsParent {
-				link.SetType(s, STRUCT, &dstcore.InterfaceType{})
-			} else {
-				if s.Scoped {
-					link.SetType(s, REF, &dstcore.TypeDefType{})
-					link.SetType(s, SCOPE, &dstcore.StructType{})
-				}
-				link.SetType(s, STRUCT, &dstcore.StructType{})
+func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, link DubToGoLinker) {
+	for _, s := range coreProg.Structures {
+		if s.IsParent {
+			link.SetType(s, STRUCT, &dstcore.InterfaceType{})
+		} else {
+			if s.Scoped {
+				link.SetType(s, REF, &dstcore.TypeDefType{})
+				link.SetType(s, SCOPE, &dstcore.StructType{})
 			}
+			link.SetType(s, STRUCT, &dstcore.StructType{})
 		}
 	}
 }
 
-func createTypes(program *flow.DubProgram, ctx *DubToGoContext) {
-	for _, dubPkg := range program.Packages {
-		for _, s := range dubPkg.Structs {
-			if s.IsParent {
-				impl, _ := ctx.link.GetType(s, STRUCT).(*dstcore.InterfaceType)
-				impl.Name = s.Name
-				impl.Fields = []*dstcore.Field{}
-				for tag := s; tag != nil; tag = tag.Implements {
-					impl.Fields = append(impl.Fields, &dstcore.Field{
-						Name: tagName(tag),
-						Type: &dstcore.FuncType{},
-					})
-				}
-
-			} else {
-				impl, _ := ctx.link.GetType(s, STRUCT).(*dstcore.StructType)
-				impl.Name = s.Name
-
-				fields := []*dstcore.Field{}
-				for _, f := range s.Fields {
-					fields = append(fields, &dstcore.Field{
-						Name: f.Name,
-						Type: goFieldType(f.Type, ctx),
-					})
-				}
-				for _, c := range s.Contains {
-					if !c.Scoped {
-						panic(c)
-					}
-					fields = append(fields, &dstcore.Field{
-						Name: subtypeName(c, SCOPE),
-						Type: &dstcore.PointerType{
-							Element: ctx.link.GetType(c, SCOPE),
-						},
-					})
-				}
-				impl.Fields = fields
-
-				if s.Scoped {
-					ref, _ := ctx.link.GetType(s, REF).(*dstcore.TypeDefType)
-					ref.Name = subtypeName(s, REF)
-					ref.Type = ctx.index.UInt32
-
-					scope, _ := ctx.link.GetType(s, SCOPE).(*dstcore.StructType)
-					scope.Name = subtypeName(s, SCOPE)
-					scope.Fields = []*dstcore.Field{
-						&dstcore.Field{
-							Name: "objects",
-							Type: &dstcore.SliceType{
-								Element: &dstcore.PointerType{
-									Element: impl,
-								},
-							},
-						},
-					}
-				}
+func createTypes(program *flow.DubProgram, coreProg *core.CoreProgram, ctx *DubToGoContext) {
+	for _, s := range coreProg.Structures {
+		if s.IsParent {
+			impl, _ := ctx.link.GetType(s, STRUCT).(*dstcore.InterfaceType)
+			impl.Name = s.Name
+			impl.Fields = []*dstcore.Field{}
+			for tag := s; tag != nil; tag = tag.Implements {
+				impl.Fields = append(impl.Fields, &dstcore.Field{
+					Name: tagName(tag),
+					Type: &dstcore.FuncType{},
+				})
 			}
 
+		} else {
+			impl, _ := ctx.link.GetType(s, STRUCT).(*dstcore.StructType)
+			impl.Name = s.Name
+
+			fields := []*dstcore.Field{}
+			for _, f := range s.Fields {
+				fields = append(fields, &dstcore.Field{
+					Name: f.Name,
+					Type: goFieldType(f.Type, ctx),
+				})
+			}
+			for _, c := range s.Contains {
+				if !c.Scoped {
+					panic(c)
+				}
+				fields = append(fields, &dstcore.Field{
+					Name: subtypeName(c, SCOPE),
+					Type: &dstcore.PointerType{
+						Element: ctx.link.GetType(c, SCOPE),
+					},
+				})
+			}
+			impl.Fields = fields
+
+			if s.Scoped {
+				ref, _ := ctx.link.GetType(s, REF).(*dstcore.TypeDefType)
+				ref.Name = subtypeName(s, REF)
+				ref.Type = ctx.index.UInt32
+
+				scope, _ := ctx.link.GetType(s, SCOPE).(*dstcore.StructType)
+				scope.Name = subtypeName(s, SCOPE)
+				scope.Fields = []*dstcore.Field{
+					&dstcore.Field{
+						Name: "objects",
+						Type: &dstcore.SliceType{
+							Element: &dstcore.PointerType{
+								Element: impl,
+							},
+						},
+					},
+				}
+			}
 		}
 	}
 }

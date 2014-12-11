@@ -3,6 +3,7 @@ package main
 
 import (
 	"evergreen/compiler"
+	"evergreen/dub/core"
 	"evergreen/dub/flow"
 	"evergreen/dub/transform"
 	"evergreen/dub/transform/golang"
@@ -50,7 +51,7 @@ func analyizeProgram(program *flow.DubProgram) {
 	}
 }
 
-func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, runner *compiler.TaskRunner) {
+func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, runner *compiler.TaskRunner) {
 	status.Begin()
 	defer status.End()
 
@@ -58,7 +59,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, runner *co
 	if replace {
 		root = "evergreen"
 	}
-	prog := golang.GenerateGo(status.Pass("generate_go"), program, root, !replace)
+	prog := golang.GenerateGo(status.Pass("generate_go"), program, coreProg, root, !replace)
 
 	// Compact simple expressions back into tree form.
 	gotree.Consolidate(status.Pass("consolidate"), prog)
@@ -84,7 +85,7 @@ func processProgram(status compiler.PassStatus, p compiler.LocationProvider, run
 	}
 
 	analyizeProgram(flowProgram)
-	GenerateGo(status.Pass("go_backend"), flowProgram, runner)
+	GenerateGo(status.Pass("go_backend"), flowProgram, coreProg, runner)
 }
 
 func entryPoint(p compiler.LocationProvider, status compiler.PassStatus) {

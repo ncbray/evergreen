@@ -716,8 +716,10 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 				if exists {
 					ctx.Status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
 				} else {
-					decl.T = &core.StructType{}
-					ctx.Module.Namespace[name] = &NamedType{T: decl.T}
+					t := &core.StructType{}
+					decl.T = t
+					ctx.Core.Structures = append(ctx.Core.Structures, t)
+					ctx.Module.Namespace[name] = &NamedType{T: t}
 				}
 			default:
 				panic(decl)

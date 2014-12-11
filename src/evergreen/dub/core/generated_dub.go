@@ -46,5 +46,6 @@ type Function struct {
 }
 
 type CoreProgram struct {
-	Functions []*Function
+	Structures []*StructType
+	Functions  []*Function
 }

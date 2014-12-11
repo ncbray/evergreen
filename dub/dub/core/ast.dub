@@ -31,5 +31,6 @@ struct Function {
 }
 
 struct CoreProgram {
+  Structures []StructType
   Functions []Function
 }

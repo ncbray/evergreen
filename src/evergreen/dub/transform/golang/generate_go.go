@@ -189,7 +189,7 @@ func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoCo
 	return file
 }
 
-func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, root string, generate_tests bool) *ast.ProgramAST {
+func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool) *ast.ProgramAST {
 	status.Begin()
 	defer status.End()
 
@@ -201,8 +201,8 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, root strin
 		link:  makeLinker(),
 	}
 
-	createTypeMapping(program, ctx.link)
-	createTypes(program, ctx)
+	createTypeMapping(program, coreProg, ctx.link)
+	createTypes(program, coreProg, ctx)
 
 	packages := []*ast.PackageAST{}
 	for _, dubPkg := range program.Packages {
