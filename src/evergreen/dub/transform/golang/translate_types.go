@@ -14,7 +14,7 @@ const (
 )
 
 type DubToGoLinker interface {
-	SetType(s *core.StructType, subtype int, impl dstcore.GoType)
+	SetType(s *core.StructType, subtype int, impl dstcore.GoType) dstcore.GoType
 	GetType(s *core.StructType, subtype int) dstcore.GoType
 	TypeRef(s *core.StructType, subtype int) *ast.NameRef
 }
@@ -23,12 +23,13 @@ type linkerImpl struct {
 	types []map[*core.StructType]dstcore.GoType
 }
 
-func (l *linkerImpl) SetType(s *core.StructType, subtype int, impl dstcore.GoType) {
+func (l *linkerImpl) SetType(s *core.StructType, subtype int, impl dstcore.GoType) dstcore.GoType {
 	_, ok := l.types[subtype][s]
 	if ok {
 		panic(s)
 	}
 	l.types[subtype][s] = impl
+	return impl
 }
 
 func (l *linkerImpl) GetType(s *core.StructType, subtype int) dstcore.GoType {
@@ -141,18 +142,26 @@ func goFieldType(t core.DubType, ctx *DubToGoContext) dstcore.GoType {
 	return goType(t, ctx)
 }
 
-func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, link DubToGoLinker) {
+func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, link DubToGoLinker) []dstcore.GoType {
+	types := []dstcore.GoType{}
 	for _, s := range coreProg.Structures {
 		if s.IsParent {
-			link.SetType(s, STRUCT, &dstcore.InterfaceType{})
+			if s.Scoped {
+				panic(s.Name)
+			}
+			if len(s.Fields) != 0 {
+				panic(s.Name)
+			}
+			types = append(types, link.SetType(s, STRUCT, &dstcore.InterfaceType{}))
 		} else {
 			if s.Scoped {
-				link.SetType(s, REF, &dstcore.TypeDefType{})
-				link.SetType(s, SCOPE, &dstcore.StructType{})
+				types = append(types, link.SetType(s, REF, &dstcore.TypeDefType{}))
+				types = append(types, link.SetType(s, SCOPE, &dstcore.StructType{}))
 			}
-			link.SetType(s, STRUCT, &dstcore.StructType{})
+			types = append(types, link.SetType(s, STRUCT, &dstcore.StructType{}))
 		}
 	}
+	return types
 }
 
 func createTypes(program *flow.DubProgram, coreProg *core.CoreProgram, ctx *DubToGoContext) {

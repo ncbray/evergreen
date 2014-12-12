@@ -92,42 +92,37 @@ func declForType(t dstcore.GoType, ctx *DubToGoContext) ast.Decl {
 	}
 }
 
-func generateScopeHelpers(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
-	ref := declForType(ctx.link.GetType(s, REF), ctx)
-
-	noRef := &ast.VarDecl{
-		Name: "No" + s.Name,
-		Type: ctx.link.TypeRef(s, REF),
-		Expr: &ast.UnaryExpr{
-			Op: "^",
-			Expr: &ast.TypeCoerce{
-				Type: ctx.link.TypeRef(s, REF),
-				Expr: &ast.IntLiteral{Value: 0},
-			},
-		},
-		Const: true,
-	}
-
-	scope := declForType(ctx.link.GetType(s, SCOPE), ctx)
-
-	decls = append(decls, ref, noRef, scope)
-	return decls
-}
-
 func generateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
 	if s.IsParent {
-		if s.Scoped {
-			panic(s.Name)
-		}
-		if len(s.Fields) != 0 {
-			panic(s.Name)
-		}
 		decls = append(decls, declForType(ctx.link.GetType(s, STRUCT), ctx))
 	} else {
 		if s.Scoped {
-			decls = generateScopeHelpers(s, ctx, decls)
+			ref := declForType(ctx.link.GetType(s, REF), ctx)
+			scope := declForType(ctx.link.GetType(s, SCOPE), ctx)
+			decls = append(decls, ref, scope)
 		}
 		decls = append(decls, declForType(ctx.link.GetType(s, STRUCT), ctx))
+	}
+	return decls
+}
+
+func generateTreeForStruct(s *core.StructType, ctx *DubToGoContext) []ast.Decl {
+	decls := []ast.Decl{}
+	if !s.IsParent {
+		if s.Scoped {
+			decls = append(decls, &ast.VarDecl{
+				Name: "No" + s.Name,
+				Type: ctx.link.TypeRef(s, REF),
+				Expr: &ast.UnaryExpr{
+					Op: "^",
+					Expr: &ast.TypeCoerce{
+						Type: ctx.link.TypeRef(s, REF),
+						Expr: &ast.IntLiteral{Value: 0},
+					},
+				},
+				Const: true,
+			})
+		}
 		decls = addTags(s, s.Implements, ctx, decls)
 	}
 	return decls
@@ -169,12 +164,14 @@ func externGraph() *dstcore.StructType {
 	return graphT
 }
 
-func generateGoFile(package_name string, dubPkg *flow.DubPackage, ctx *DubToGoContext) *ast.FileAST {
+func generateGoFile(package_name string, dubPkg *flow.DubPackage, structToDecls map[*core.StructType][]ast.Decl, ctx *DubToGoContext) *ast.FileAST {
 	imports := []*ast.Import{}
 
 	decls := []ast.Decl{}
 	for _, t := range dubPkg.Structs {
 		decls = generateGoStruct(t, ctx, decls)
+		more, _ := structToDecls[t]
+		decls = append(decls, more...)
 	}
 	for _, f := range dubPkg.Funcs {
 		decls = append(decls, generateGoFunc(f, ctx))
@@ -201,31 +198,45 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 		link:  makeLinker(),
 	}
 
+	// Translate package identities.
+	packages := make([]*dstcore.Package, len(program.Packages))
+	for i, dubPkg := range program.Packages {
+		path := []string{root}
+		path = append(path, dubPkg.Path...)
+		packages[i] = &dstcore.Package{
+			Path: path,
+		}
+	}
+
+	// Translate types.
 	createTypeMapping(program, coreProg, ctx.link)
 	createTypes(program, coreProg, ctx)
 
-	packages := []*ast.PackageAST{}
-	for _, dubPkg := range program.Packages {
-		path := []string{root}
-		path = append(path, dubPkg.Path...)
-		leaf := path[len(path)-1]
+	// For each type, generate declarations that cannot be derived from the flow IR.
+	structToDecls := map[*core.StructType][]ast.Decl{}
+	for _, s := range coreProg.Structures {
+		structToDecls[s] = generateTreeForStruct(s, ctx)
+	}
 
-		files := []*ast.FileAST{}
-		files = append(files, generateGoFile(leaf, dubPkg, ctx))
+	packageDecls := make([]*ast.PackageAST, len(program.Packages))
+	for i, dubPkg := range program.Packages {
+		p := packages[i]
+		leaf := p.Path[len(p.Path)-1]
 
+		files := []*ast.FileAST{
+			generateGoFile(leaf, dubPkg, structToDecls, ctx),
+		}
 		if generate_tests && len(dubPkg.Tests) != 0 {
 			files = append(files, GenerateTests(leaf, dubPkg.Tests, ctx))
 		}
-		packages = append(packages, &ast.PackageAST{
+		packageDecls[i] = &ast.PackageAST{
 			Files: files,
-			P: &dstcore.Package{
-				Path: path,
-			},
-		})
+			P:     p,
+		}
 	}
 
 	return &ast.ProgramAST{
 		Builtins: ctx.index,
-		Packages: packages,
+		Packages: packageDecls,
 	}
 }

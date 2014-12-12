@@ -8,8 +8,6 @@ import (
 
 type RegisterInfo_Ref uint32
 
-const NoRegisterInfo = ^RegisterInfo_Ref(0)
-
 type RegisterInfo_Scope struct {
 	objects []*RegisterInfo
 }
@@ -18,6 +16,8 @@ type RegisterInfo struct {
 	Name string
 	T    core.DubType
 }
+
+const NoRegisterInfo = ^RegisterInfo_Ref(0)
 
 type LLFunc struct {
 	Name               string

@@ -137,8 +137,6 @@ func (node *ListLiteral) isExpr() {
 
 type LocalInfo_Ref uint32
 
-const NoLocalInfo = ^LocalInfo_Ref(0)
-
 type LocalInfo_Scope struct {
 	objects []*LocalInfo
 }
@@ -147,6 +145,8 @@ type LocalInfo struct {
 	Name string
 	T    TypeRef
 }
+
+const NoLocalInfo = ^LocalInfo_Ref(0)
 
 type GetName struct {
 	Text string
