@@ -155,13 +155,13 @@ func externGraph() *dstcore.StructType {
 	return graphT
 }
 
-func generateGoFile(package_name string, dubPkg *flow.DubPackage, structToDecls map[*core.StructType][]ast.Decl, flowFuncs []*dstflow.LLFunc, ctx *DubToGoContext) *ast.FileAST {
+func generateGoFile(package_name string, dubPkg *flow.DubPackage, auxDeclsForStruct map[*core.StructType][]ast.Decl, flowFuncs []*dstflow.LLFunc, ctx *DubToGoContext) *ast.FileAST {
 	imports := []*ast.Import{}
 
 	decls := []ast.Decl{}
 	for _, t := range dubPkg.Structs {
 		decls = generateGoStruct(t, ctx, decls)
-		more, _ := structToDecls[t]
+		more, _ := auxDeclsForStruct[t]
 		decls = append(decls, more...)
 	}
 	for _, f := range dubPkg.Funcs {
@@ -233,9 +233,9 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	}
 
 	// For each type, generate declarations that cannot be derived from the flow IR.
-	structToDecls := map[*core.StructType][]ast.Decl{}
+	auxDeclsForStruct := map[*core.StructType][]ast.Decl{}
 	for _, s := range coreProg.Structures {
-		structToDecls[s] = generateTreeForStruct(s, ctx)
+		auxDeclsForStruct[s] = generateTreeForStruct(s, ctx)
 	}
 
 	packageDecls := make([]*ast.PackageAST, len(program.Packages))
@@ -244,7 +244,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 		leaf := p.Path[len(p.Path)-1]
 
 		files := []*ast.FileAST{
-			generateGoFile(leaf, dubPkg, structToDecls, flowFuncs, ctx),
+			generateGoFile(leaf, dubPkg, auxDeclsForStruct, flowFuncs, ctx),
 		}
 		if generate_tests && len(dubPkg.Tests) != 0 {
 			files = append(files, GenerateTests(leaf, dubPkg.Tests, ctx))
