@@ -23,17 +23,7 @@ type DubToGoContext struct {
 	core  *core.CoreProgram
 }
 
-func generateGoFunc(f *flow.LLFunc, ctx *DubToGoContext) ast.Decl {
-	flowDecl := translateFlow(f, ctx)
-
-	if false {
-		dot := graph.GraphToDot(flowDecl.CFG, &dstflow.DotStyler{Ops: flowDecl.Ops})
-		parts := []string{"output", "translate"}
-		parts = append(parts, fmt.Sprintf("%s.svg", flowDecl.Name))
-		outfile := filepath.Join(parts...)
-		io.WriteDot(dot, outfile)
-	}
-
+func generateGoFunc(f *flow.LLFunc, flowDecl *dstflow.LLFunc, ctx *DubToGoContext) ast.Decl {
 	return transform.RetreeFunc(flowDecl)
 }
 
@@ -165,7 +155,7 @@ func externGraph() *dstcore.StructType {
 	return graphT
 }
 
-func generateGoFile(package_name string, dubPkg *flow.DubPackage, structToDecls map[*core.StructType][]ast.Decl, ctx *DubToGoContext) *ast.FileAST {
+func generateGoFile(package_name string, dubPkg *flow.DubPackage, structToDecls map[*core.StructType][]ast.Decl, flowFuncs []*dstflow.LLFunc, ctx *DubToGoContext) *ast.FileAST {
 	imports := []*ast.Import{}
 
 	decls := []ast.Decl{}
@@ -175,7 +165,7 @@ func generateGoFile(package_name string, dubPkg *flow.DubPackage, structToDecls 
 		decls = append(decls, more...)
 	}
 	for _, f := range dubPkg.Funcs {
-		decls = append(decls, generateGoFunc(f, ctx))
+		decls = append(decls, generateGoFunc(f, flowFuncs[f.F], ctx))
 	}
 
 	file := &ast.FileAST{
@@ -185,6 +175,28 @@ func generateGoFile(package_name string, dubPkg *flow.DubPackage, structToDecls 
 		Decls:   decls,
 	}
 	return file
+}
+
+func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, ctx *DubToGoContext) []*dstflow.LLFunc {
+	flowFuncs := make([]*dstflow.LLFunc, coreProg.Function_Scope.Len())
+
+	// TODO iterate over Dub funcs directly.
+	for _, p := range program.Packages {
+		for _, f := range p.Funcs {
+			flowFuncs[f.F] = translateFlow(f, ctx)
+		}
+	}
+	return flowFuncs
+}
+
+func dumpFuncs(flowFuncs []*dstflow.LLFunc) {
+	for _, f := range flowFuncs {
+		dot := graph.GraphToDot(f.CFG, &dstflow.DotStyler{Ops: f.Ops})
+		parts := []string{"output", "translate"}
+		parts = append(parts, fmt.Sprintf("%s.svg", f.Name))
+		outfile := filepath.Join(parts...)
+		io.WriteDot(dot, outfile)
+	}
 }
 
 func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool) *ast.ProgramAST {
@@ -214,6 +226,12 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	createTypeMapping(program, coreProg, ctx.link)
 	createTypes(program, coreProg, ctx)
 
+	// Translate functions.
+	flowFuncs := createFuncs(program, coreProg, ctx)
+	if false {
+		dumpFuncs(flowFuncs)
+	}
+
 	// For each type, generate declarations that cannot be derived from the flow IR.
 	structToDecls := map[*core.StructType][]ast.Decl{}
 	for _, s := range coreProg.Structures {
@@ -226,7 +244,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 		leaf := p.Path[len(p.Path)-1]
 
 		files := []*ast.FileAST{
-			generateGoFile(leaf, dubPkg, structToDecls, ctx),
+			generateGoFile(leaf, dubPkg, structToDecls, flowFuncs, ctx),
 		}
 		if generate_tests && len(dubPkg.Tests) != 0 {
 			files = append(files, GenerateTests(leaf, dubPkg.Tests, ctx))
