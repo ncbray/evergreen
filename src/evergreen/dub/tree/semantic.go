@@ -707,9 +707,7 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 				} else {
 					ctx.Module.Namespace[name] = &NamedCallable{Func: decl}
 				}
-				f := &core.Function{Name: name}
-				decl.F = f
-				ctx.Core.Functions = append(ctx.Core.Functions, f)
+				decl.F = ctx.Core.Function_Scope.Register(&core.Function{Name: name})
 			case *StructDecl:
 				name := decl.Name.Text
 				_, exists := ctx.Module.Namespace[name]
@@ -768,7 +766,7 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 	defer status.End()
 
 	programScope := MakeProgramScope(program)
-	core := &core.CoreProgram{}
+	core := &core.CoreProgram{Function_Scope: &core.Function_Scope{}}
 	ctxs := make([]*semanticPassContext, len(program.Packages))
 	for i, pkg := range program.Packages {
 		moduleScope := &ModuleScope{

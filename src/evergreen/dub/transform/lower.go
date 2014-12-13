@@ -632,14 +632,14 @@ func lowerBlock(block []tree.ASTExpr, builder *dubBuilder, gr *graph.GraphRegion
 	}
 }
 
-func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap map[*core.Function]*flow.LLFunc) *flow.LLFunc {
+func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc) *flow.LLFunc {
 	g := graph.CreateGraph()
 	ops := []flow.DubOp{
 		&flow.EntryOp{},
 		&flow.ExitOp{},
 	}
 
-	f, _ := funcMap[decl.F]
+	f := funcMap[decl.F]
 
 	builder := &dubBuilder{
 		index: program.Builtins,
@@ -691,7 +691,7 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap map[*core.Func
 	return f
 }
 
-func lowerPackage(program *tree.Program, pkg *tree.Package, funcMap map[*core.Function]*flow.LLFunc) *flow.DubPackage {
+func lowerPackage(program *tree.Program, pkg *tree.Package, funcMap []*flow.LLFunc) *flow.DubPackage {
 	dubPkg := &flow.DubPackage{
 		Path:    pkg.Path,
 		Structs: []*core.StructType{},
@@ -731,21 +731,22 @@ func LowerProgram(status compiler.PassStatus, program *tree.Program, coreProg *c
 	status.Begin()
 	defer status.End()
 
-	funcMap := map[*core.Function]*flow.LLFunc{}
-	dubFuncs := []*flow.LLFunc{}
-	for _, f := range coreProg.Functions {
+	n := coreProg.Function_Scope.Len()
+	dubFuncs := make([]*flow.LLFunc, n)
+	iter := coreProg.Function_Scope.Iter()
+	for iter.Next() {
+		fref, f := iter.Value()
 		df := &flow.LLFunc{
 			Name:               f.Name,
 			RegisterInfo_Scope: &flow.RegisterInfo_Scope{},
-			F:                  f,
+			F:                  fref,
 		}
-		funcMap[f] = df
-		dubFuncs = append(dubFuncs, df)
+		dubFuncs[fref] = df
 	}
 
 	dubPackages := []*flow.DubPackage{}
 	for _, pkg := range program.Packages {
-		dubPackages = append(dubPackages, lowerPackage(program, pkg, funcMap))
+		dubPackages = append(dubPackages, lowerPackage(program, pkg, dubFuncs))
 	}
 
 	dubProg := &flow.DubProgram{

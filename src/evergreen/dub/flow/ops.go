@@ -87,9 +87,10 @@ func formatMultiAssignment(op string, dsts []RegisterInfo_Ref) string {
 
 type DotStyler struct {
 	Decl *LLFunc
+	Core *core.CoreProgram
 }
 
-func opToString(op DubOp) string {
+func opToString(coreProg *core.CoreProgram, op DubOp) string {
 	switch n := op.(type) {
 	case *CoerceOp:
 		return formatAssignment(fmt.Sprintf("%s(%s)", core.TypeName(n.T), registerName(n.Src)), n.Dst)
@@ -108,7 +109,8 @@ func opToString(op DubOp) string {
 	case *BinaryOp:
 		return formatAssignment(fmt.Sprintf("%s %s %s", registerName(n.Left), n.Op, registerName(n.Right)), n.Dst)
 	case *CallOp:
-		return formatMultiAssignment(fmt.Sprintf("%s(%s)", n.Target.Name, registerList(n.Args)), n.Dsts)
+		name := coreProg.Function_Scope.Get(n.Target).Name
+		return formatMultiAssignment(fmt.Sprintf("%s(%s)", name, registerList(n.Args)), n.Dsts)
 	case *ConstructOp:
 		return formatAssignment(fmt.Sprintf("%s{%s}", core.TypeName(n.Type), keyValueList(n.Args)), n.Dst)
 	case *ConstructListOp:
@@ -164,7 +166,7 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	case *SwitchOp:
 		return fmt.Sprintf("shape=diamond,label=%#v", registerName(op.Cond))
 	case DubOp:
-		return fmt.Sprintf("shape=box,label=%#v", opToString(op))
+		return fmt.Sprintf("shape=box,label=%#v", opToString(styler.Core, op))
 	default:
 		panic(op)
 	}

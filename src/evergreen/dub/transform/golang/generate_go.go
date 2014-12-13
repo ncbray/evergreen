@@ -20,6 +20,7 @@ type DubToGoContext struct {
 	graph *dstcore.StructType
 	t     *dstcore.StructType
 	link  DubToGoLinker
+	core  *core.CoreProgram
 }
 
 func generateGoFunc(f *flow.LLFunc, ctx *DubToGoContext) ast.Decl {
@@ -196,6 +197,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 		graph: externGraph(),
 		t:     externTesting(),
 		link:  makeLinker(),
+		core:  coreProg,
 	}
 
 	// Translate package identities.

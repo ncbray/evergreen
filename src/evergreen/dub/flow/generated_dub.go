@@ -25,7 +25,7 @@ type LLFunc struct {
 	ReturnTypes        []core.DubType
 	CFG                *graph.Graph
 	Ops                []DubOp
-	F                  *core.Function
+	F                  core.Function_Ref
 	RegisterInfo_Scope *RegisterInfo_Scope
 }
 
@@ -100,7 +100,7 @@ func (node *BinaryOp) isDubOp() {
 }
 
 type CallOp struct {
-	Target *core.Function
+	Target core.Function_Ref
 	Args   []RegisterInfo_Ref
 	Dsts   []RegisterInfo_Ref
 }

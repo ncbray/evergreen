@@ -26,7 +26,7 @@ func dumpProgram(status compiler.PassStatus, runner *compiler.TaskRunner, progra
 
 	for _, dubPkg := range program.Packages {
 		for _, f := range dubPkg.Funcs {
-			styler := &flow.DotStyler{Decl: f}
+			styler := &flow.DotStyler{Decl: f, Core: program.Core}
 			dot := graph.GraphToDot(f.CFG, styler)
 			parts := []string{"output"}
 			parts = append(parts, dubPkg.Path...)

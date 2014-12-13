@@ -41,11 +41,19 @@ type StructType struct {
 func (node *StructType) isDubType() {
 }
 
+type Function_Ref uint32
+
+type Function_Scope struct {
+	objects []*Function
+}
+
 type Function struct {
 	Name string
 }
 
+const NoFunction = ^Function_Ref(0)
+
 type CoreProgram struct {
-	Structures []*StructType
-	Functions  []*Function
+	Structures     []*StructType
+	Function_Scope *Function_Scope
 }

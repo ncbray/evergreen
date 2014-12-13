@@ -26,11 +26,10 @@ struct StructType implements DubType {
   IsParent bool
 }
 
-struct Function {
+struct Function scoped {
   Name string
 }
 
-struct CoreProgram {
+struct CoreProgram contains (Function) {
   Structures []StructType
-  Functions []Function
 }

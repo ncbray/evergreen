@@ -11,7 +11,7 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 	defer status.End()
 
 	// TODO use whole-program analysis to agressively find dead flows.
-	lut := map[*core.Function]int{}
+	lut := map[core.Function_Ref]int{}
 
 	// HACK assumes two flows.
 	numFlows := 2
