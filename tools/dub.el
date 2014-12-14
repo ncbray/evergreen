@@ -2,7 +2,7 @@
     
 (define-generic-mode 'dub-mode
   '("//") ;; comments
-  '("func" "test" "struct" "implements" "star" "plus" "choose" "or" "question" "if" "else" "return" "var" "true" "false" "nil")
+  '("func" "test" "struct" "implements" "star" "plus" "choose" "or" "question" "if" "else" "return" "var" "true" "false" "nil" "scoped" "contains")
   '(
     ("\\[\\([^\]]\\)*\\]" . font-lock-constant-face) ;; TODO escaped brackets.
     ("\\+\\|\\*\\|/\\|\\-\\|\\$\\|!" . 'font-lock-builtin-face)
