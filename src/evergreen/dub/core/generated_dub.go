@@ -36,10 +36,37 @@ type StructType struct {
 	Scoped     bool
 	Contains   []*StructType
 	IsParent   bool
+	File       File_Ref
 }
 
 func (node *StructType) isDubType() {
 }
+
+type Package_Ref uint32
+
+type Package_Scope struct {
+	objects []*Package
+}
+
+type Package struct {
+	Path  []string
+	Files []File_Ref
+}
+
+const NoPackage = ^Package_Ref(0)
+
+type File_Ref uint32
+
+type File_Scope struct {
+	objects []*File
+}
+
+type File struct {
+	Name    string
+	Package Package_Ref
+}
+
+const NoFile = ^File_Ref(0)
 
 type Function_Ref uint32
 
@@ -49,11 +76,14 @@ type Function_Scope struct {
 
 type Function struct {
 	Name string
+	File File_Ref
 }
 
 const NoFunction = ^Function_Ref(0)
 
 type CoreProgram struct {
 	Structures     []*StructType
+	Package_Scope  *Package_Scope
+	File_Scope     *File_Scope
 	Function_Scope *Function_Scope
 }

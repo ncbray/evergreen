@@ -24,12 +24,24 @@ struct StructType implements DubType {
   Scoped bool
   Contains []StructType
   IsParent bool
+  File File
+}
+
+struct Package scoped {
+  Path []string
+  Files []File
+}
+
+struct File scoped {
+  Name string
+  Package Package
 }
 
 struct Function scoped {
   Name string
+  File File
 }
 
-struct CoreProgram contains (Function) {
+struct CoreProgram contains (Package, File, Function) {
   Structures []StructType
 }

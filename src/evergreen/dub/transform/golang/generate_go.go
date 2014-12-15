@@ -155,26 +155,17 @@ func externGraph() *dstcore.StructType {
 	return graphT
 }
 
-func generateGoFile(package_name string, dubPkg *flow.DubPackage, auxDeclsForStruct map[*core.StructType][]ast.Decl, flowFuncs []*dstflow.LLFunc, ctx *DubToGoContext) *ast.FileAST {
-	imports := []*ast.Import{}
+func generateGoFile(dubPkg *flow.DubPackage, auxDeclsForStruct map[*core.StructType][]ast.Decl, flowFuncs []*dstflow.LLFunc, file *ast.FileAST, ctx *DubToGoContext) {
+	file.Name = "generated_dub.go"
 
-	decls := []ast.Decl{}
 	for _, t := range dubPkg.Structs {
-		decls = generateGoStruct(t, ctx, decls)
+		file.Decls = generateGoStruct(t, ctx, file.Decls)
 		more, _ := auxDeclsForStruct[t]
-		decls = append(decls, more...)
+		file.Decls = append(file.Decls, more...)
 	}
 	for _, f := range dubPkg.Funcs {
-		decls = append(decls, generateGoFunc(f, flowFuncs[f.F], ctx))
+		file.Decls = append(file.Decls, generateGoFunc(f, flowFuncs[f.F], ctx))
 	}
-
-	file := &ast.FileAST{
-		Name:    "generated_dub.go",
-		Package: package_name,
-		Imports: imports,
-		Decls:   decls,
-	}
-	return file
 }
 
 func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, ctx *DubToGoContext) []*dstflow.LLFunc {
@@ -239,19 +230,26 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	}
 
 	packageDecls := make([]*ast.PackageAST, len(program.Packages))
-	for i, dubPkg := range program.Packages {
-		p := packages[i]
+	fileDecls := make([]*ast.FileAST, len(program.Packages))
+	for i, p := range packages {
 		leaf := p.Path[len(p.Path)-1]
 
-		files := []*ast.FileAST{
-			generateGoFile(leaf, dubPkg, auxDeclsForStruct, flowFuncs, ctx),
+		file := &ast.FileAST{
+			Package: leaf,
+			Imports: []*ast.Import{},
 		}
-		if generate_tests && len(dubPkg.Tests) != 0 {
-			files = append(files, GenerateTests(leaf, dubPkg.Tests, ctx))
-		}
-		packageDecls[i] = &ast.PackageAST{
-			Files: files,
+		fileDecls[i] = file
+		pkg := &ast.PackageAST{
+			Files: []*ast.FileAST{file},
 			P:     p,
+		}
+		packageDecls[i] = pkg
+	}
+
+	for i, dubPkg := range program.Packages {
+		generateGoFile(dubPkg, auxDeclsForStruct, flowFuncs, fileDecls[i], ctx)
+		if generate_tests && len(dubPkg.Tests) != 0 {
+			packageDecls[i].Files = append(packageDecls[i].Files, GenerateTests(fileDecls[i].Package, dubPkg.Tests, ctx))
 		}
 	}
 

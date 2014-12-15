@@ -707,17 +707,23 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 				} else {
 					ctx.Module.Namespace[name] = &NamedCallable{Func: decl}
 				}
-				decl.F = ctx.Core.Function_Scope.Register(&core.Function{Name: name})
+				f := &core.Function{
+					Name: name,
+					File: file.F,
+				}
+				decl.F = ctx.Core.Function_Scope.Register(f)
 			case *StructDecl:
 				name := decl.Name.Text
 				_, exists := ctx.Module.Namespace[name]
 				if exists {
 					ctx.Status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
 				} else {
-					t := &core.StructType{}
-					decl.T = t
-					ctx.Core.Structures = append(ctx.Core.Structures, t)
-					ctx.Module.Namespace[name] = &NamedType{T: t}
+					st := &core.StructType{
+						File: file.F,
+					}
+					decl.T = st
+					ctx.Core.Structures = append(ctx.Core.Structures, st)
+					ctx.Module.Namespace[name] = &NamedType{T: st}
 				}
 			default:
 				panic(decl)
@@ -766,7 +772,25 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 	defer status.End()
 
 	programScope := MakeProgramScope(program)
-	core := &core.CoreProgram{Function_Scope: &core.Function_Scope{}}
+	coreProg := &core.CoreProgram{
+		Package_Scope:  &core.Package_Scope{},
+		File_Scope:     &core.File_Scope{},
+		Function_Scope: &core.Function_Scope{},
+	}
+
+	for _, pkg := range program.Packages {
+		corePkg := &core.Package{Path: pkg.Path}
+		packageRef := coreProg.Package_Scope.Register(corePkg)
+		pkg.P = packageRef
+
+		for _, file := range pkg.Files {
+			coreFile := &core.File{Name: file.Name, Package: pkg.P}
+			fileRef := coreProg.File_Scope.Register(coreFile)
+			file.F = fileRef
+			corePkg.Files = append(corePkg.Files, fileRef)
+		}
+	}
+
 	ctxs := make([]*semanticPassContext, len(program.Packages))
 	for i, pkg := range program.Packages {
 		moduleScope := &ModuleScope{
@@ -778,7 +802,7 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 			Module:         moduleScope,
 			ModuleContexts: ctxs,
 			Status:         status,
-			Core:           core,
+			Core:           coreProg,
 		}
 	}
 
@@ -797,7 +821,7 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 	for i, pkg := range program.Packages {
 		semanticModulePass(ctxs[i], pkg)
 	}
-	return core
+	return coreProg
 }
 
 func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {

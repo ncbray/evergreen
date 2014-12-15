@@ -254,14 +254,17 @@ struct ImportDecl {
 }
 
 struct File {
+  Name string
   Imports []ImportDecl
   Decls []ASTDecl
   Tests []Test
+  F core.File
 }
 
 struct Package {
   Path []string
   Files []File
+  P core.Package
 }
 
 struct BuiltinTypeIndex {

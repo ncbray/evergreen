@@ -387,14 +387,17 @@ type ImportDecl struct {
 }
 
 type File struct {
+	Name    string
 	Imports []*ImportDecl
 	Decls   []ASTDecl
 	Tests   []*Test
+	F       core.File_Ref
 }
 
 type Package struct {
 	Path  []string
 	Files []*File
+	P     core.Package_Ref
 }
 
 type BuiltinTypeIndex struct {
