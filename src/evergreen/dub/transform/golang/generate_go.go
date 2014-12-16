@@ -190,7 +190,7 @@ func dumpFuncs(flowFuncs []*dstflow.LLFunc) {
 	}
 }
 
-func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool) *ast.ProgramAST {
+func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool, dump bool) *ast.ProgramAST {
 	status.Begin()
 	defer status.End()
 
@@ -219,7 +219,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 
 	// Translate functions.
 	flowFuncs := createFuncs(program, coreProg, ctx)
-	if false {
+	if dump {
 		dumpFuncs(flowFuncs)
 	}
 

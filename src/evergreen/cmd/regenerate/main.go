@@ -59,7 +59,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	if replace {
 		root = "evergreen"
 	}
-	prog := golang.GenerateGo(status.Pass("generate_go"), program, coreProg, root, !replace)
+	prog := golang.GenerateGo(status.Pass("generate_go"), program, coreProg, root, !replace, dump)
 
 	// Compact simple expressions back into tree form.
 	gotree.Consolidate(status.Pass("consolidate"), prog)
