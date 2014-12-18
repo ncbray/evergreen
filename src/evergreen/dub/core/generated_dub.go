@@ -44,6 +44,8 @@ func (node *StructType) isDubType() {
 
 type Package_Ref uint32
 
+const NoPackage = ^Package_Ref(0)
+
 type Package_Scope struct {
 	objects []*Package
 }
@@ -53,9 +55,9 @@ type Package struct {
 	Files []File_Ref
 }
 
-const NoPackage = ^Package_Ref(0)
-
 type File_Ref uint32
+
+const NoFile = ^File_Ref(0)
 
 type File_Scope struct {
 	objects []*File
@@ -66,9 +68,9 @@ type File struct {
 	Package Package_Ref
 }
 
-const NoFile = ^File_Ref(0)
-
 type Function_Ref uint32
+
+const NoFunction = ^Function_Ref(0)
 
 type Function_Scope struct {
 	objects []*Function
@@ -78,8 +80,6 @@ type Function struct {
 	Name string
 	File File_Ref
 }
-
-const NoFunction = ^Function_Ref(0)
 
 type CoreProgram struct {
 	Structures     []*StructType

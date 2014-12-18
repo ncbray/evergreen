@@ -79,26 +79,26 @@ func declForType(t dstcore.GoType) ast.Decl {
 	}
 }
 
-func generateTreeForStruct(s *core.StructType, ctx *DubToGoContext) []ast.Decl {
-	decls := []ast.Decl{}
+func generateTreeForStruct(s *core.StructType, bypass *TreeBypass, ctx *DubToGoContext) {
 	if !s.IsParent {
 		if s.Scoped {
-			decls = append(decls, &ast.VarDecl{
-				Name: "No" + s.Name,
-				Type: ctx.link.TypeRef(s, REF),
-				Expr: &ast.UnaryExpr{
-					Op: "^",
-					Expr: &ast.TypeCoerce{
-						Type: ctx.link.TypeRef(s, REF),
-						Expr: &ast.IntLiteral{Value: 0},
+			bypass.DeclsForStruct[ctx.link.GetType(s, REF)] = []ast.Decl{
+				&ast.VarDecl{
+					Name: "No" + s.Name,
+					Type: ctx.link.TypeRef(s, REF),
+					Expr: &ast.UnaryExpr{
+						Op: "^",
+						Expr: &ast.TypeCoerce{
+							Type: ctx.link.TypeRef(s, REF),
+							Expr: &ast.IntLiteral{Value: 0},
+						},
 					},
+					Const: true,
 				},
-				Const: true,
-			})
+			}
 		}
-		decls = addTags(s, s.Implements, ctx, decls)
+		bypass.DeclsForStruct[ctx.link.GetType(s, STRUCT)] = addTags(s, s.Implements, ctx, []ast.Decl{})
 	}
-	return decls
 }
 
 func externParserRuntime() *dstcore.StructType {
@@ -248,7 +248,7 @@ func generateTreeBypass(program *flow.DubProgram, coreProg *core.CoreProgram, ge
 
 	// For each type, generate declarations that cannot be derived from the flow IR.
 	for _, s := range coreProg.Structures {
-		bypass.DeclsForStruct[ctx.link.GetType(s, STRUCT)] = generateTreeForStruct(s, ctx)
+		generateTreeForStruct(s, bypass, ctx)
 	}
 
 	// For each package, generate tests that cannot be derived from the flow IR

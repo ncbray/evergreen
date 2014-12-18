@@ -7,6 +7,8 @@ import (
 
 type Register_Ref uint32
 
+const NoRegister = ^Register_Ref(0)
+
 type Register_Scope struct {
 	objects []*Register
 }
@@ -15,8 +17,6 @@ type Register struct {
 	Name string
 	T    core.GoType
 }
-
-const NoRegister = ^Register_Ref(0)
 
 type LLFunc struct {
 	Name           string

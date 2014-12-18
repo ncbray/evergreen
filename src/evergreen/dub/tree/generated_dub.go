@@ -342,6 +342,8 @@ type ASTCallable interface {
 
 type LocalInfo_Ref uint32
 
+const NoLocalInfo = ^LocalInfo_Ref(0)
+
 type LocalInfo_Scope struct {
 	objects []*LocalInfo
 }
@@ -350,8 +352,6 @@ type LocalInfo struct {
 	Name string
 	T    core.DubType
 }
-
-const NoLocalInfo = ^LocalInfo_Ref(0)
 
 type Param struct {
 	Name *NameRef
