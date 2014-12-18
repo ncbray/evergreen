@@ -78,4 +78,5 @@ type BuiltinTypeIndex struct {
 type Package struct {
 	Path   []string
 	Extern bool
+	Index  int
 }

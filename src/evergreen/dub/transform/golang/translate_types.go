@@ -142,9 +142,12 @@ func goFieldType(t core.DubType, ctx *DubToGoContext) dstcore.GoType {
 	return goType(t, ctx)
 }
 
-func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, link DubToGoLinker) []dstcore.GoType {
+func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, packages []*dstcore.Package, link DubToGoLinker) []dstcore.GoType {
 	types := []dstcore.GoType{}
 	for _, s := range coreProg.Structures {
+		pIndex := coreProg.File_Scope.Get(s.File).Package
+		p := packages[pIndex]
+
 		if s.IsParent {
 			if s.Scoped {
 				panic(s.Name)
@@ -152,13 +155,13 @@ func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, lin
 			if len(s.Fields) != 0 {
 				panic(s.Name)
 			}
-			types = append(types, link.SetType(s, STRUCT, &dstcore.InterfaceType{}))
+			types = append(types, link.SetType(s, STRUCT, &dstcore.InterfaceType{Package: p}))
 		} else {
 			if s.Scoped {
-				types = append(types, link.SetType(s, REF, &dstcore.TypeDefType{}))
-				types = append(types, link.SetType(s, SCOPE, &dstcore.StructType{}))
+				types = append(types, link.SetType(s, REF, &dstcore.TypeDefType{Package: p}))
+				types = append(types, link.SetType(s, SCOPE, &dstcore.StructType{Package: p}))
 			}
-			types = append(types, link.SetType(s, STRUCT, &dstcore.StructType{}))
+			types = append(types, link.SetType(s, STRUCT, &dstcore.StructType{Package: p}))
 		}
 	}
 	return types

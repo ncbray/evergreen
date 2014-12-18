@@ -79,20 +79,6 @@ func declForType(t dstcore.GoType) ast.Decl {
 	}
 }
 
-func generateGoStruct(s *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
-	if s.IsParent {
-		decls = append(decls, declForType(ctx.link.GetType(s, STRUCT)))
-	} else {
-		if s.Scoped {
-			ref := declForType(ctx.link.GetType(s, REF))
-			scope := declForType(ctx.link.GetType(s, SCOPE))
-			decls = append(decls, ref, scope)
-		}
-		decls = append(decls, declForType(ctx.link.GetType(s, STRUCT)))
-	}
-	return decls
-}
-
 func generateTreeForStruct(s *core.StructType, ctx *DubToGoContext) []ast.Decl {
 	decls := []ast.Decl{}
 	if !s.IsParent {
@@ -151,14 +137,15 @@ func externGraph() *dstcore.StructType {
 	return graphT
 }
 
-func generateGoFile(dubPkg *flow.DubPackage, auxDeclsForStruct map[*core.StructType][]ast.Decl, flowFuncs []*dstflow.LLFunc, file *ast.FileAST, ctx *DubToGoContext) {
+func generateGoFile(dubPkg *flow.DubPackage, auxDeclsForStruct map[dstcore.GoType][]ast.Decl, flowFuncs []*dstflow.LLFunc, types []dstcore.GoType, file *ast.FileAST) {
 	file.Name = "generated_dub.go"
 
-	for _, t := range dubPkg.Structs {
-		file.Decls = generateGoStruct(t, ctx, file.Decls)
+	for _, t := range types {
+		file.Decls = append(file.Decls, declForType(t))
 		more, _ := auxDeclsForStruct[t]
 		file.Decls = append(file.Decls, more...)
 	}
+
 	for _, f := range dubPkg.Funcs {
 		file.Decls = append(file.Decls, transform.RetreeFunc(flowFuncs[f.F]))
 	}
@@ -187,12 +174,26 @@ func dumpFuncs(flowFuncs []*dstflow.LLFunc) {
 }
 
 type TreeBypass struct {
-	DeclsForStruct map[*core.StructType][]ast.Decl
+	DeclsForStruct map[dstcore.GoType][]ast.Decl
 	Tests          []*ast.FileAST
 }
 
 func pathLeaf(path []string) string {
 	return path[len(path)-1]
+}
+
+func getPackage(t dstcore.GoType) *dstcore.Package {
+	switch t := t.(type) {
+	case *dstcore.StructType:
+		return t.Package
+	case *dstcore.InterfaceType:
+		return t.Package
+	case *dstcore.TypeDefType:
+		return t.Package
+	default:
+		panic(t)
+	}
+
 }
 
 func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool, dump bool) *ast.ProgramAST {
@@ -211,16 +212,23 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	// Translate package identities.
 	packages := make([]*dstcore.Package, len(program.Packages))
 	for i, dubPkg := range program.Packages {
-		path := []string{root}
-		path = append(path, dubPkg.Path...)
+		path := append([]string{root}, dubPkg.Path...)
 		packages[i] = &dstcore.Package{
-			Path: path,
+			Path:  path,
+			Index: i,
 		}
 	}
 
 	// Translate types.
-	createTypeMapping(program, coreProg, ctx.link)
+	types := createTypeMapping(program, coreProg, packages, ctx.link)
 	createTypes(program, coreProg, ctx)
+
+	// Bucket types for each package.
+	packageTypes := make([][]dstcore.GoType, len(program.Packages))
+	for _, t := range types {
+		pIndex := getPackage(t).Index
+		packageTypes[pIndex] = append(packageTypes[pIndex], t)
+	}
 
 	// Translate functions.
 	flowFuncs := createFuncs(program, coreProg, ctx)
@@ -229,18 +237,18 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	}
 
 	bypass := generateTreeBypass(program, coreProg, generate_tests, ctx)
-	return generateTree(packages, flowFuncs, bypass, program, ctx)
+	return generateTree(packages, flowFuncs, packageTypes, bypass, program, ctx)
 }
 
 func generateTreeBypass(program *flow.DubProgram, coreProg *core.CoreProgram, generate_tests bool, ctx *DubToGoContext) *TreeBypass {
 	bypass := &TreeBypass{
-		DeclsForStruct: map[*core.StructType][]ast.Decl{},
+		DeclsForStruct: map[dstcore.GoType][]ast.Decl{},
 		Tests:          make([]*ast.FileAST, len(program.Packages)),
 	}
 
 	// For each type, generate declarations that cannot be derived from the flow IR.
 	for _, s := range coreProg.Structures {
-		bypass.DeclsForStruct[s] = generateTreeForStruct(s, ctx)
+		bypass.DeclsForStruct[ctx.link.GetType(s, STRUCT)] = generateTreeForStruct(s, ctx)
 	}
 
 	// For each package, generate tests that cannot be derived from the flow IR
@@ -254,7 +262,7 @@ func generateTreeBypass(program *flow.DubProgram, coreProg *core.CoreProgram, ge
 	return bypass
 }
 
-func generateTree(packages []*dstcore.Package, flowFuncs []*dstflow.LLFunc, bypass *TreeBypass, program *flow.DubProgram, ctx *DubToGoContext) *ast.ProgramAST {
+func generateTree(packages []*dstcore.Package, flowFuncs []*dstflow.LLFunc, packageTypes [][]dstcore.GoType, bypass *TreeBypass, program *flow.DubProgram, ctx *DubToGoContext) *ast.ProgramAST {
 	packageDecls := make([]*ast.PackageAST, len(packages))
 	fileDecls := make([]*ast.FileAST, len(packages))
 	for i, p := range packages {
@@ -273,7 +281,7 @@ func generateTree(packages []*dstcore.Package, flowFuncs []*dstflow.LLFunc, bypa
 	}
 
 	for i, dubPkg := range program.Packages {
-		generateGoFile(dubPkg, bypass.DeclsForStruct, flowFuncs, fileDecls[i], ctx)
+		generateGoFile(dubPkg, bypass.DeclsForStruct, flowFuncs, packageTypes[i], fileDecls[i])
 		if bypass.Tests[i] != nil {
 			packageDecls[i].Files = append(packageDecls[i].Files, bypass.Tests[i])
 		}

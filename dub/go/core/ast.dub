@@ -54,4 +54,5 @@ struct BuiltinTypeIndex {
 struct Package {
   Path []string
   Extern bool
+  Index int // HACK
 }
