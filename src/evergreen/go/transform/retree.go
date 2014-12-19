@@ -1,10 +1,10 @@
 package transform
 
 import (
+	"evergreen/go/core"
 	"evergreen/go/flow"
 	"evergreen/go/tree"
 	"evergreen/graph"
-	//core "evergreen/go/tree"
 	"fmt"
 )
 
@@ -313,4 +313,126 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 
 	funcDecl.Body = stmts
 	return funcDecl
+}
+
+type TreeBypass struct {
+	DeclsForStruct map[core.GoType][]tree.Decl
+	Tests          []*tree.FileAST
+}
+
+func pathLeaf(path []string) string {
+	return path[len(path)-1]
+}
+
+func getPackage(t core.GoType) *core.Package {
+	switch t := t.(type) {
+	case *core.StructType:
+		return t.Package
+	case *core.InterfaceType:
+		return t.Package
+	case *core.TypeDefType:
+		return t.Package
+	default:
+		panic(t)
+	}
+
+}
+
+func declForType(t core.GoType) tree.Decl {
+	switch t := t.(type) {
+	case *core.TypeDefType:
+		return &tree.TypeDefDecl{
+			Name: t.Name,
+			Type: tree.RefForType(t.Type),
+			T:    t,
+		}
+	case *core.StructType:
+		fields := []*tree.FieldDecl{}
+		for _, f := range t.Fields {
+			fields = append(fields, &tree.FieldDecl{
+				Name: f.Name,
+				Type: tree.RefForType(f.Type),
+			})
+		}
+
+		return &tree.StructDecl{
+			Name:   t.Name,
+			Fields: fields,
+			T:      t,
+		}
+	case *core.InterfaceType:
+		fields := []*tree.FieldDecl{}
+		for _, f := range t.Fields {
+			fields = append(fields, &tree.FieldDecl{
+				Name: f.Name,
+				Type: tree.RefForType(f.Type),
+			})
+		}
+		return &tree.InterfaceDecl{
+			Name:   t.Name,
+			Fields: fields,
+			T:      t,
+		}
+	default:
+		panic(t)
+	}
+}
+
+func generateGoFile(auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []*flow.LLFunc, file *tree.FileAST) {
+	file.Name = "generated_dub.go"
+
+	for _, t := range types {
+		file.Decls = append(file.Decls, declForType(t))
+		more, _ := auxDeclsForStruct[t]
+		file.Decls = append(file.Decls, more...)
+	}
+
+	for _, f := range funcs {
+		file.Decls = append(file.Decls, RetreeFunc(f))
+	}
+}
+
+func FlowToTree(program *flow.FlowProgram, bypass *TreeBypass) *tree.ProgramAST {
+	// Bucket types for each package.
+	packageTypes := make([][]core.GoType, len(program.Packages))
+	for _, t := range program.Types {
+		pIndex := getPackage(t).Index
+		packageTypes[pIndex] = append(packageTypes[pIndex], t)
+	}
+
+	// Bucket functions for each package.
+	packageFuncs := make([][]*flow.LLFunc, len(program.Packages))
+	for _, f := range program.Functions {
+		pIndex := f.Package.Index
+		packageFuncs[pIndex] = append(packageFuncs[pIndex], f)
+	}
+
+	packageDecls := make([]*tree.PackageAST, len(program.Packages))
+	fileDecls := make([]*tree.FileAST, len(program.Packages))
+	for i, p := range program.Packages {
+		leaf := pathLeaf(p.Path)
+
+		file := &tree.FileAST{
+			Package: leaf,
+			Imports: []*tree.Import{},
+		}
+		fileDecls[i] = file
+		pkg := &tree.PackageAST{
+			Files: []*tree.FileAST{file},
+			P:     p,
+		}
+		packageDecls[i] = pkg
+	}
+
+	for i, _ := range program.Packages {
+		generateGoFile(bypass.DeclsForStruct, packageTypes[i], packageFuncs[i], fileDecls[i])
+		if bypass.Tests[i] != nil {
+			packageDecls[i].Files = append(packageDecls[i].Files, bypass.Tests[i])
+		}
+	}
+
+	return &tree.ProgramAST{
+		Builtins: program.Builtins,
+		Packages: packageDecls,
+	}
 }
