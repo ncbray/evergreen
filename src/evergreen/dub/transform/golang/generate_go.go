@@ -8,10 +8,6 @@ import (
 	dstflow "evergreen/go/flow"
 	"evergreen/go/transform"
 	ast "evergreen/go/tree"
-	"evergreen/graph"
-	"evergreen/io"
-	"fmt"
-	"path/filepath"
 )
 
 type DubToGoContext struct {
@@ -112,21 +108,11 @@ func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, packages 
 	return flowFuncs
 }
 
-func dumpFuncs(flowFuncs []*dstflow.LLFunc) {
-	for _, f := range flowFuncs {
-		dot := graph.GraphToDot(f.CFG, &dstflow.DotStyler{Ops: f.Ops})
-		parts := []string{"output", "translate"}
-		parts = append(parts, fmt.Sprintf("%s.svg", f.Name))
-		outfile := filepath.Join(parts...)
-		io.WriteDot(dot, outfile)
-	}
-}
-
 func pathLeaf(path []string) string {
 	return path[len(path)-1]
 }
 
-func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool, dump bool) *ast.ProgramAST {
+func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool) (*dstflow.FlowProgram, *transform.TreeBypass) {
 	status.Begin()
 	defer status.End()
 
@@ -155,9 +141,6 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 
 	// Translate functions.
 	flowFuncs := createFuncs(program, coreProg, packages, ctx)
-	if dump {
-		dumpFuncs(flowFuncs)
-	}
 
 	bypass := generateTreeBypass(program, coreProg, generate_tests, ctx)
 
@@ -168,7 +151,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 		Builtins:  ctx.index,
 	}
 
-	return transform.FlowToTree(flowProg, bypass)
+	return flowProg, bypass
 }
 
 func generateTreeBypass(program *flow.DubProgram, coreProg *core.CoreProgram, generate_tests bool, ctx *DubToGoContext) *transform.TreeBypass {

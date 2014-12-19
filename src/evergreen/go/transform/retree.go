@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"evergreen/compiler"
 	"evergreen/go/core"
 	"evergreen/go/flow"
 	"evergreen/go/tree"
@@ -392,7 +393,10 @@ func generateGoFile(auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.
 	}
 }
 
-func FlowToTree(program *flow.FlowProgram, bypass *TreeBypass) *tree.ProgramAST {
+func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, bypass *TreeBypass) *tree.ProgramAST {
+	status.Begin()
+	defer status.End()
+
 	// Bucket types for each package.
 	packageTypes := make([][]core.GoType, len(program.Packages))
 	for _, t := range program.Types {

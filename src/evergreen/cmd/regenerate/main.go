@@ -8,6 +8,8 @@ import (
 	"evergreen/dub/transform"
 	"evergreen/dub/transform/golang"
 	"evergreen/dub/tree"
+	goflow "evergreen/go/flow"
+	gotransform "evergreen/go/transform"
 	gotree "evergreen/go/tree"
 	"evergreen/graph"
 	"evergreen/io"
@@ -51,6 +53,16 @@ func analyizeProgram(program *flow.DubProgram) {
 	}
 }
 
+func dumpFlowFuncs(flowFuncs []*goflow.LLFunc) {
+	for _, f := range flowFuncs {
+		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Ops: f.Ops})
+		parts := []string{"output", "translate"}
+		parts = append(parts, fmt.Sprintf("%s.svg", f.Name))
+		outfile := filepath.Join(parts...)
+		io.WriteDot(dot, outfile)
+	}
+}
+
 func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, runner *compiler.TaskRunner) {
 	status.Begin()
 	defer status.End()
@@ -59,7 +71,12 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	if replace {
 		root = "evergreen"
 	}
-	prog := golang.GenerateGo(status.Pass("generate_go"), program, coreProg, root, !replace, dump)
+
+	flowProg, bypass := golang.GenerateGo(status.Pass("dub_to_go"), program, coreProg, root, !replace)
+	if dump {
+		dumpFlowFuncs(flowProg.Functions)
+	}
+	prog := gotransform.FlowToTree(status.Pass("flow_to_tree"), flowProg, bypass)
 
 	// Compact simple expressions back into tree form.
 	gotree.Consolidate(status.Pass("consolidate"), prog)
