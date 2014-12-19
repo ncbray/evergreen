@@ -115,3 +115,10 @@ struct Switch implements GoOp {
 
 struct Exit implements GoOp {
 }
+
+struct FlowProgram {
+  Packages []core.Package
+  Types []core.GoType
+  Functions []LLFunc
+  Builtins core.BuiltinTypeIndex
+}

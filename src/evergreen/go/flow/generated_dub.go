@@ -181,3 +181,10 @@ type Exit struct {
 
 func (node *Exit) isGoOp() {
 }
+
+type FlowProgram struct {
+	Packages  []*core.Package
+	Types     []core.GoType
+	Functions []*LLFunc
+	Builtins  *core.BuiltinTypeIndex
+}
