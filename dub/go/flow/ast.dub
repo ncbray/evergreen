@@ -13,6 +13,7 @@ struct LLFunc contains(Register) {
   Results []Register
   CFG graph
   Ops []GoOp
+  Package core.Package
 }
 
 struct GoOp {

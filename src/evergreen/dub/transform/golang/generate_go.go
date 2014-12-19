@@ -137,7 +137,7 @@ func externGraph() *dstcore.StructType {
 	return graphT
 }
 
-func generateGoFile(dubPkg *flow.DubPackage, auxDeclsForStruct map[dstcore.GoType][]ast.Decl, flowFuncs []*dstflow.LLFunc, types []dstcore.GoType, file *ast.FileAST) {
+func generateGoFile(auxDeclsForStruct map[dstcore.GoType][]ast.Decl, types []dstcore.GoType, funcs []*dstflow.LLFunc, file *ast.FileAST) {
 	file.Name = "generated_dub.go"
 
 	for _, t := range types {
@@ -146,18 +146,21 @@ func generateGoFile(dubPkg *flow.DubPackage, auxDeclsForStruct map[dstcore.GoTyp
 		file.Decls = append(file.Decls, more...)
 	}
 
-	for _, f := range dubPkg.Funcs {
-		file.Decls = append(file.Decls, transform.RetreeFunc(flowFuncs[f.F]))
+	for _, f := range funcs {
+		file.Decls = append(file.Decls, transform.RetreeFunc(f))
 	}
 }
 
-func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, ctx *DubToGoContext) []*dstflow.LLFunc {
+func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, packages []*dstcore.Package, ctx *DubToGoContext) []*dstflow.LLFunc {
 	flowFuncs := make([]*dstflow.LLFunc, coreProg.Function_Scope.Len())
 
 	// TODO iterate over Dub funcs directly.
-	for _, p := range program.Packages {
+	for i, p := range program.Packages {
+		dstPkg := packages[i]
 		for _, f := range p.Funcs {
-			flowFuncs[f.F] = translateFlow(f, ctx)
+			dstF := translateFlow(f, ctx)
+			dstF.Package = dstPkg
+			flowFuncs[f.F] = dstF
 		}
 	}
 	return flowFuncs
@@ -223,6 +226,14 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	types := createTypeMapping(program, coreProg, packages, ctx.link)
 	createTypes(program, coreProg, ctx)
 
+	// Translate functions.
+	flowFuncs := createFuncs(program, coreProg, packages, ctx)
+	if dump {
+		dumpFuncs(flowFuncs)
+	}
+
+	bypass := generateTreeBypass(program, coreProg, generate_tests, ctx)
+
 	// Bucket types for each package.
 	packageTypes := make([][]dstcore.GoType, len(program.Packages))
 	for _, t := range types {
@@ -230,14 +241,14 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 		packageTypes[pIndex] = append(packageTypes[pIndex], t)
 	}
 
-	// Translate functions.
-	flowFuncs := createFuncs(program, coreProg, ctx)
-	if dump {
-		dumpFuncs(flowFuncs)
+	// Bucket functions for each package.
+	packageFuncs := make([][]*dstflow.LLFunc, len(program.Packages))
+	for _, f := range flowFuncs {
+		pIndex := f.Package.Index
+		packageFuncs[pIndex] = append(packageFuncs[pIndex], f)
 	}
 
-	bypass := generateTreeBypass(program, coreProg, generate_tests, ctx)
-	return generateTree(packages, flowFuncs, packageTypes, bypass, program, ctx)
+	return generateTree(packages, packageTypes, packageFuncs, bypass, ctx.index)
 }
 
 func generateTreeBypass(program *flow.DubProgram, coreProg *core.CoreProgram, generate_tests bool, ctx *DubToGoContext) *TreeBypass {
@@ -262,7 +273,7 @@ func generateTreeBypass(program *flow.DubProgram, coreProg *core.CoreProgram, ge
 	return bypass
 }
 
-func generateTree(packages []*dstcore.Package, flowFuncs []*dstflow.LLFunc, packageTypes [][]dstcore.GoType, bypass *TreeBypass, program *flow.DubProgram, ctx *DubToGoContext) *ast.ProgramAST {
+func generateTree(packages []*dstcore.Package, packageTypes [][]dstcore.GoType, funcTypes [][]*dstflow.LLFunc, bypass *TreeBypass, index *dstcore.BuiltinTypeIndex) *ast.ProgramAST {
 	packageDecls := make([]*ast.PackageAST, len(packages))
 	fileDecls := make([]*ast.FileAST, len(packages))
 	for i, p := range packages {
@@ -280,15 +291,15 @@ func generateTree(packages []*dstcore.Package, flowFuncs []*dstflow.LLFunc, pack
 		packageDecls[i] = pkg
 	}
 
-	for i, dubPkg := range program.Packages {
-		generateGoFile(dubPkg, bypass.DeclsForStruct, flowFuncs, packageTypes[i], fileDecls[i])
+	for i, _ := range packages {
+		generateGoFile(bypass.DeclsForStruct, packageTypes[i], funcTypes[i], fileDecls[i])
 		if bypass.Tests[i] != nil {
 			packageDecls[i].Files = append(packageDecls[i].Files, bypass.Tests[i])
 		}
 	}
 
 	return &ast.ProgramAST{
-		Builtins: ctx.index,
+		Builtins: index,
 		Packages: packageDecls,
 	}
 }
