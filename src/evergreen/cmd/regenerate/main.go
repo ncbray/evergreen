@@ -3,7 +3,6 @@ package main
 
 import (
 	"evergreen/compiler"
-	"evergreen/dub/core"
 	"evergreen/dub/flow"
 	"evergreen/dub/transform"
 	"evergreen/dub/transform/golang"
@@ -63,31 +62,6 @@ func dumpFlowFuncs(flowFuncs []*goflow.LLFunc) {
 	}
 }
 
-func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, runner *compiler.TaskRunner) {
-	status.Begin()
-	defer status.End()
-
-	root := "generated"
-	if replace {
-		root = "evergreen"
-	}
-
-	flowProg, bypass := golang.GenerateGo(status.Pass("dub_to_go"), program, coreProg, root, !replace)
-	if dump {
-		dumpFlowFuncs(flowProg.Functions)
-	}
-	prog := gotransform.FlowToTree(status.Pass("flow_to_tree"), flowProg, bypass)
-
-	// Compact simple expressions back into tree form.
-	gotree.Consolidate(status.Pass("consolidate"), prog)
-
-	// Give everything names: variables, etc.
-	gotree.Nameify(status.Pass("nameify"), prog)
-
-	// Generate the sources.
-	gotree.OutputProgram(status.Pass("output"), prog, "src", runner)
-}
-
 func processProgram(status compiler.PassStatus, p compiler.LocationProvider, runner *compiler.TaskRunner, root string) {
 	program, coreProg := tree.DubProgramFrontend(status.Pass("dub_frontend"), p, root)
 	if status.ShouldHalt() {
@@ -102,7 +76,19 @@ func processProgram(status compiler.PassStatus, p compiler.LocationProvider, run
 	}
 
 	analyizeProgram(flowProgram)
-	GenerateGo(status.Pass("go_backend"), flowProgram, coreProg, runner)
+
+	rootPkg := "generated"
+	if replace {
+		rootPkg = "evergreen"
+	}
+
+	flowProg, bypass := golang.GenerateGo(status.Pass("dub_to_go"), flowProgram, coreProg, rootPkg, !replace)
+	if dump {
+		dumpFlowFuncs(flowProg.Functions)
+	}
+	prog := gotransform.FlowToTree(status.Pass("flow_to_tree"), flowProg, bypass)
+
+	gotree.GoProgramBackend(status.Pass("go_backend"), prog, "src", runner)
 }
 
 func entryPoint(p compiler.LocationProvider, status compiler.PassStatus) {
