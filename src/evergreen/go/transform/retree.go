@@ -267,6 +267,19 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 
 	ft := &tree.FuncTypeRef{}
 
+	// Translate receiver.
+	ref := decl.Recv
+	if ref != flow.NoRegister {
+		info := decl.Register_Scope.Get(ref)
+		index := lclMap[ref]
+		mapped := funcDecl.LocalInfo_Scope.Get(index)
+		funcDecl.Recv = &tree.Param{
+			Name: mapped.Name,
+			Type: tree.RefForType(info.T),
+			Info: index,
+		}
+	}
+
 	// Translate parameters
 	ft.Params = make([]*tree.Param, len(decl.Params))
 	for i, ref := range decl.Params {
@@ -295,24 +308,27 @@ func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
 
 	funcDecl.Type = ft
 
-	order, _ := graph.ReversePostorder(decl.CFG)
-	heads, labels := findBlockHeads(decl.CFG, order)
+	// Don't reconstruct empty functions.
+	if decl.CFG.GetExit(decl.CFG.Entry(), 0) != decl.CFG.Exit() {
+		order, _ := graph.ReversePostorder(decl.CFG)
+		heads, labels := findBlockHeads(decl.CFG, order)
 
-	// Generate Go code from flow blocks
-	stmts := []tree.Stmt{}
-	for _, node := range heads {
-		block := []tree.Stmt{}
-		label, _ := labels[node]
-		// HACK assume label 0 is always the entry node.
-		if label != 0 {
-			block = append(block, blockLabel(label))
+		// Generate Go code from flow blocks
+		stmts := []tree.Stmt{}
+		for _, node := range heads {
+			block := []tree.Stmt{}
+			label, _ := labels[node]
+			// HACK assume label 0 is always the entry node.
+			if label != 0 {
+				block = append(block, blockLabel(label))
+			}
+			block, _ = generateNode(decl, lclMap, labels, label, true, node, block)
+			// Extend the statement list
+			stmts = append(stmts, block...)
 		}
-		block, _ = generateNode(decl, lclMap, labels, label, true, node, block)
-		// Extend the statement list
-		stmts = append(stmts, block...)
-	}
 
-	funcDecl.Body = stmts
+		funcDecl.Body = stmts
+	}
 	return funcDecl
 }
 
@@ -379,13 +395,17 @@ func declForType(t core.GoType) tree.Decl {
 	}
 }
 
-func generateGoFile(auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []*flow.LLFunc, file *tree.FileAST) {
+func generateGoFile(auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []*flow.LLFunc, typeFuncs map[core.GoType][]*flow.LLFunc, file *tree.FileAST) {
 	file.Name = "generated_dub.go"
 
 	for _, t := range types {
 		file.Decls = append(file.Decls, declForType(t))
 		more, _ := auxDeclsForStruct[t]
 		file.Decls = append(file.Decls, more...)
+		funcs := typeFuncs[t]
+		for _, f := range funcs {
+			file.Decls = append(file.Decls, RetreeFunc(f))
+		}
 	}
 
 	for _, f := range funcs {
@@ -406,9 +426,20 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, bypass *T
 
 	// Bucket functions for each package.
 	packageFuncs := make([][]*flow.LLFunc, len(program.Packages))
+	typeFuncs := map[core.GoType][]*flow.LLFunc{}
 	for _, f := range program.Functions {
-		pIndex := f.Package.Index
-		packageFuncs[pIndex] = append(packageFuncs[pIndex], f)
+		if f.Recv == flow.NoRegister {
+			pIndex := f.Package.Index
+			packageFuncs[pIndex] = append(packageFuncs[pIndex], f)
+		} else {
+			at := f.Register_Scope.Get(f.Recv).T
+			pt, ok := at.(*core.PointerType)
+			if !ok {
+				panic(at)
+			}
+			t := pt.Element
+			typeFuncs[t] = append(typeFuncs[t], f)
+		}
 	}
 
 	packageDecls := make([]*tree.PackageAST, len(program.Packages))
@@ -429,7 +460,7 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, bypass *T
 	}
 
 	for i, _ := range program.Packages {
-		generateGoFile(bypass.DeclsForStruct, packageTypes[i], packageFuncs[i], fileDecls[i])
+		generateGoFile(bypass.DeclsForStruct, packageTypes[i], packageFuncs[i], typeFuncs, fileDecls[i])
 		if bypass.Tests[i] != nil {
 			packageDecls[i].Files = append(packageDecls[i].Files, bypass.Tests[i])
 		}

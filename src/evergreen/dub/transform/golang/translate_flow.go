@@ -1,6 +1,7 @@
 package golang
 
 import (
+	srccore "evergreen/dub/core"
 	src "evergreen/dub/flow"
 	dstcore "evergreen/go/core"
 	dst "evergreen/go/flow"
@@ -93,6 +94,7 @@ func regList(regMap []dst.Register_Ref, args []src.RegisterInfo_Ref) []dst.Regis
 func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 	dstF := &dst.LLFunc{
 		Name:           srcF.Name,
+		Recv:           dst.NoRegister,
 		Register_Scope: &dst.Register_Scope{},
 	}
 
@@ -352,4 +354,55 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 		}
 	}
 	return dstF
+}
+
+// Fake functions for enforcing type relationships.
+func createTags(program *src.DubProgram, coreProg *srccore.CoreProgram, packages []*dstcore.Package, ctx *DubToGoContext) []*dst.LLFunc {
+	tags := []*dst.LLFunc{}
+
+	for _, s := range coreProg.Structures {
+		if s.IsParent || s.Implements == nil {
+			continue
+		}
+
+		pIndex := coreProg.File_Scope.Get(s.File).Package
+		p := packages[pIndex]
+
+		selfType := ctx.link.GetType(s, STRUCT)
+
+		parent := s.Implements
+
+		// Generate all the type tags.
+		for parent != nil {
+			tag := &dst.LLFunc{
+				Name: "is" + parent.Name,
+				Recv: dst.NoRegister,
+				CFG:  graph.CreateGraph(),
+				Ops: []dst.GoOp{
+					&dst.Entry{},
+					&dst.Exit{},
+				},
+				Package:        p,
+				Register_Scope: &dst.Register_Scope{},
+			}
+
+			tag.Recv = tag.Register_Scope.Register(&dst.Register{
+				Name: "node",
+				T: &dstcore.PointerType{
+					Element: selfType,
+				},
+			})
+
+			// TODO attach method to type.
+
+			// Empty function.
+			tag.CFG.Connect(0, 0, 1)
+
+			// TODO more efficient reverse construction.
+			tags = append([]*dst.LLFunc{tag}, tags...)
+
+			parent = parent.Implements
+		}
+	}
+	return tags
 }

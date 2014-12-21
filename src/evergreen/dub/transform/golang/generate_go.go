@@ -19,22 +19,6 @@ type DubToGoContext struct {
 	core  *core.CoreProgram
 }
 
-func addTags(base *core.StructType, parent *core.StructType, ctx *DubToGoContext, decls []ast.Decl) []ast.Decl {
-	if parent != nil {
-		decls = addTags(base, parent.Implements, ctx, decls)
-		decl := &ast.FuncDecl{
-			Name:            tagName(parent),
-			Type:            &ast.FuncTypeRef{},
-			Body:            []ast.Stmt{},
-			LocalInfo_Scope: &ast.LocalInfo_Scope{},
-		}
-		recv := decl.CreateLocalInfo("node", ast.RefForType(goType(base, ctx)))
-		decl.Recv = decl.MakeParam(recv)
-		decls = append(decls, decl)
-	}
-	return decls
-}
-
 func generateTreeForStruct(s *core.StructType, bypass *transform.TreeBypass, ctx *DubToGoContext) {
 	if !s.IsParent {
 		if s.Scoped {
@@ -53,7 +37,6 @@ func generateTreeForStruct(s *core.StructType, bypass *transform.TreeBypass, ctx
 				},
 			}
 		}
-		bypass.DeclsForStruct[ctx.link.GetType(s, STRUCT)] = addTags(s, s.Implements, ctx, []ast.Decl{})
 	}
 }
 
@@ -141,6 +124,8 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 
 	// Translate functions.
 	flowFuncs := createFuncs(program, coreProg, packages, ctx)
+
+	flowFuncs = append(flowFuncs, createTags(program, coreProg, packages, ctx)...)
 
 	bypass := generateTreeBypass(program, coreProg, generate_tests, ctx)
 

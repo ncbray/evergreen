@@ -20,6 +20,7 @@ type Register struct {
 
 type LLFunc struct {
 	Name           string
+	Recv           Register_Ref
 	Params         []Register_Ref
 	Results        []Register_Ref
 	CFG            *graph.Graph

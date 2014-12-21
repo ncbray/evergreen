@@ -9,6 +9,7 @@ struct Register scoped {
 
 struct LLFunc contains(Register) {
   Name string
+  Recv Register
   Params []Register
   Results []Register
   CFG graph
