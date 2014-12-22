@@ -7,6 +7,7 @@ import (
 	"evergreen/dub/transform"
 	"evergreen/dub/transform/golang"
 	"evergreen/dub/tree"
+	gocore "evergreen/go/core"
 	goflow "evergreen/go/flow"
 	gotransform "evergreen/go/transform"
 	gotree "evergreen/go/tree"
@@ -29,7 +30,7 @@ func dumpProgram(status compiler.PassStatus, runner *compiler.TaskRunner, progra
 		for _, f := range dubPkg.Funcs {
 			styler := &flow.DotStyler{Decl: f, Core: program.Core}
 			dot := graph.GraphToDot(f.CFG, styler)
-			parts := outputDir
+			parts := append(outputDir, "dub_frontend")
 			parts = append(parts, dubPkg.Path...)
 			parts = append(parts, fmt.Sprintf("%s.svg", f.Name))
 			outfile := filepath.Join(parts...)
@@ -52,11 +53,30 @@ func analyizeProgram(program *flow.DubProgram) {
 	}
 }
 
+func goFlowFuncName(f *goflow.LLFunc) string {
+	base := "func"
+	if f.Recv != goflow.NoRegister {
+		ref := f.Register_Scope.Get(f.Recv)
+		at := ref.T
+		pt, ok := at.(*gocore.PointerType)
+		if !ok {
+			panic(at)
+		}
+		st, ok := pt.Element.(*gocore.StructType)
+		if !ok {
+			panic(pt.Element)
+		}
+		base = "meth_" + st.Name
+	}
+	return base + "_" + f.Name
+}
+
 func dumpFlowFuncs(flowFuncs []*goflow.LLFunc, outputDir []string) {
 	for _, f := range flowFuncs {
 		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Ops: f.Ops})
-		parts := append(outputDir, "translate")
-		parts = append(parts, fmt.Sprintf("%s.svg", f.Name))
+		parts := append(outputDir, "dub_to_go")
+		parts = append(parts, f.Package.Path...)
+		parts = append(parts, fmt.Sprintf("%s.svg", goFlowFuncName(f)))
 		outfile := filepath.Join(parts...)
 		io.WriteDot(dot, outfile)
 	}
