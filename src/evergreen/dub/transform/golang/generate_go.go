@@ -77,8 +77,8 @@ func externGraph(coreProg *dstcore.CoreProgram) *dstcore.StructType {
 	return graphT
 }
 
-func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []*dstflow.LLFunc {
-	flowFuncs := make([]*dstflow.LLFunc, coreProg.Function_Scope.Len())
+func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []*dstflow.FlowFunc {
+	flowFuncs := make([]*dstflow.FlowFunc, coreProg.Function_Scope.Len())
 
 	// TODO iterate over Dub funcs directly.
 	for i, p := range program.Packages {

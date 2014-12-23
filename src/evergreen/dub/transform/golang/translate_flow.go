@@ -91,8 +91,8 @@ func regList(regMap []dst.Register_Ref, args []src.RegisterInfo_Ref) []dst.Regis
 	return out
 }
 
-func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
-	dstF := &dst.LLFunc{
+func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
+	dstF := &dst.FlowFunc{
 		Name:           srcF.Name,
 		Recv:           dst.NoRegister,
 		Register_Scope: &dst.Register_Scope{},
@@ -357,8 +357,8 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 }
 
 // Fake functions for enforcing type relationships.
-func createTags(program *src.DubProgram, coreProg *srccore.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []*dst.LLFunc {
-	tags := []*dst.LLFunc{}
+func createTags(program *src.DubProgram, coreProg *srccore.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []*dst.FlowFunc {
+	tags := []*dst.FlowFunc{}
 
 	for _, s := range coreProg.Structures {
 		if s.IsParent || s.Implements == nil {
@@ -374,7 +374,7 @@ func createTags(program *src.DubProgram, coreProg *srccore.CoreProgram, packages
 
 		// Generate all the type tags.
 		for parent != nil {
-			tag := &dst.LLFunc{
+			tag := &dst.FlowFunc{
 				Name: "is" + parent.Name,
 				Recv: dst.NoRegister,
 				CFG:  graph.CreateGraph(),
@@ -399,7 +399,7 @@ func createTags(program *src.DubProgram, coreProg *srccore.CoreProgram, packages
 			tag.CFG.Connect(0, 0, 1)
 
 			// TODO more efficient reverse construction.
-			tags = append([]*dst.LLFunc{tag}, tags...)
+			tags = append([]*dst.FlowFunc{tag}, tags...)
 
 			parent = parent.Implements
 		}

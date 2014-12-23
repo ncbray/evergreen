@@ -7,7 +7,7 @@ struct Register scoped {
   T core.GoType
 }
 
-struct LLFunc contains(Register) {
+struct FlowFunc contains(Register) {
   Name string
   Recv Register
   Params []Register
@@ -119,7 +119,7 @@ struct Exit implements GoOp {
 
 struct FlowProgram {
   Packages []core.Package
+  Functions []FlowFunc
   Types []core.GoType
-  Functions []LLFunc
   Builtins core.BuiltinTypeIndex
 }

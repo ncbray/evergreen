@@ -21,7 +21,7 @@ func (scope *Register_Scope) Len() int {
 }
 
 type GoFlowBuilder struct {
-	decl *LLFunc
+	decl *FlowFunc
 	CFG  *graph.Graph
 }
 
@@ -38,7 +38,7 @@ func (builder *GoFlowBuilder) EmitOp(op GoOp, exit_count int) graph.NodeID {
 	return id
 }
 
-func MakeGoFlowBuilder(decl *LLFunc) *GoFlowBuilder {
+func MakeGoFlowBuilder(decl *FlowFunc) *GoFlowBuilder {
 	decl.CFG = graph.CreateGraph()
 	decl.Ops = []GoOp{
 		&Entry{},

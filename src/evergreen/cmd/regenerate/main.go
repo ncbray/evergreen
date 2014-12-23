@@ -53,7 +53,7 @@ func analyizeProgram(program *flow.DubProgram) {
 	}
 }
 
-func goFlowFuncName(f *goflow.LLFunc) string {
+func goFlowFuncName(f *goflow.FlowFunc) string {
 	base := "func"
 	if f.Recv != goflow.NoRegister {
 		ref := f.Register_Scope.Get(f.Recv)
@@ -71,7 +71,7 @@ func goFlowFuncName(f *goflow.LLFunc) string {
 	return base + "_" + f.Name
 }
 
-func dumpFlowFuncs(flowFuncs []*goflow.LLFunc, coreProg *gocore.CoreProgram, outputDir []string) {
+func dumpFlowFuncs(flowFuncs []*goflow.FlowFunc, coreProg *gocore.CoreProgram, outputDir []string) {
 	for _, f := range flowFuncs {
 		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Ops: f.Ops})
 		parts := append(outputDir, "dub_to_go")

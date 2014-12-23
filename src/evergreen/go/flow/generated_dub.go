@@ -18,7 +18,7 @@ type Register struct {
 	T    core.GoType
 }
 
-type LLFunc struct {
+type FlowFunc struct {
 	Name           string
 	Recv           Register_Ref
 	Params         []Register_Ref
@@ -185,7 +185,7 @@ func (node *Exit) isGoOp() {
 
 type FlowProgram struct {
 	Packages  []core.Package_Ref
+	Functions []*FlowFunc
 	Types     []core.GoType
-	Functions []*LLFunc
 	Builtins  *core.BuiltinTypeIndex
 }

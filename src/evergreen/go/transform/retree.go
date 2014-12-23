@@ -90,7 +90,7 @@ func multiAssign(expr tree.Expr, lclMap []tree.LocalInfo_Ref, regs []flow.Regist
 	}
 }
 
-func generateNode(decl *flow.LLFunc, lclMap []tree.LocalInfo_Ref, labels map[graph.NodeID]int, parent_label int, is_head bool, node graph.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
+func generateNode(decl *flow.FlowFunc, lclMap []tree.LocalInfo_Ref, labels map[graph.NodeID]int, parent_label int, is_head bool, node graph.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
 	g := decl.CFG
 	for {
 		if !is_head {
@@ -247,7 +247,7 @@ func generateNode(decl *flow.LLFunc, lclMap []tree.LocalInfo_Ref, labels map[gra
 	}
 }
 
-func RetreeFunc(decl *flow.LLFunc) *tree.FuncDecl {
+func RetreeFunc(decl *flow.FlowFunc) *tree.FuncDecl {
 	funcDecl := &tree.FuncDecl{
 		Name:            decl.Name,
 		LocalInfo_Scope: &tree.LocalInfo_Scope{},
@@ -395,7 +395,7 @@ func declForType(t core.GoType) tree.Decl {
 	}
 }
 
-func generateGoFile(auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []*flow.LLFunc, typeFuncs map[core.GoType][]*flow.LLFunc, file *tree.FileAST) {
+func generateGoFile(auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []*flow.FlowFunc, typeFuncs map[core.GoType][]*flow.FlowFunc, file *tree.FileAST) {
 	file.Name = "generated_dub.go"
 
 	for _, t := range types {
@@ -425,8 +425,8 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 	}
 
 	// Bucket functions for each package.
-	packageFuncs := make([][]*flow.LLFunc, len(program.Packages))
-	typeFuncs := map[core.GoType][]*flow.LLFunc{}
+	packageFuncs := make([][]*flow.FlowFunc, len(program.Packages))
+	typeFuncs := map[core.GoType][]*flow.FlowFunc{}
 	for _, f := range program.Functions {
 		if f.Recv == flow.NoRegister {
 			pIndex := f.Package
