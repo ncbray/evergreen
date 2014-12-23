@@ -8,13 +8,12 @@ struct Register scoped {
 }
 
 struct FlowFunc scoped contains(Register) {
-  Name string
+  Function core.Function
   Recv Register
   Params []Register
   Results []Register
   CFG graph
   Ops []GoOp
-  Package core.Package
 }
 
 struct GoOp {

@@ -91,14 +91,17 @@ func regList(regMap []dst.Register_Ref, args []src.RegisterInfo_Ref) []dst.Regis
 	return out
 }
 
-func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
-	dstF := &dst.FlowFunc{
-		Name:           srcF.Name,
+func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *dst.FlowFunc) {
+	goCoreFunc := &dstcore.Function{
+		Name: srcF.Name,
+	}
+
+	goFlowFunc := &dst.FlowFunc{
 		Recv:           dst.NoRegister,
 		Register_Scope: &dst.Register_Scope{},
 	}
 
-	builder := dst.MakeGoFlowBuilder(dstF)
+	builder := dst.MakeGoFlowBuilder(goFlowFunc)
 
 	frameReg := builder.MakeRegister("frame", &dstcore.PointerType{Element: ctx.state})
 
@@ -111,19 +114,19 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 	}
 
 	// Remap parameters
-	dstF.Params = make([]dst.Register_Ref, len(srcF.Params)+1)
-	dstF.Params[0] = frameReg
+	goFlowFunc.Params = make([]dst.Register_Ref, len(srcF.Params)+1)
+	goFlowFunc.Params[0] = frameReg
 	for i, p := range srcF.Params {
-		dstF.Params[i+1] = regMap[p]
+		goFlowFunc.Params[i+1] = regMap[p]
 	}
 
 	// Create result registers
-	dstF.Results = make([]dst.Register_Ref, len(srcF.ReturnTypes))
+	goFlowFunc.Results = make([]dst.Register_Ref, len(srcF.ReturnTypes))
 	for i, rt := range srcF.ReturnTypes {
-		dstF.Results[i] = builder.MakeRegister("ret", goType(rt, ctx))
+		goFlowFunc.Results[i] = builder.MakeRegister("ret", goType(rt, ctx))
 	}
 
-	stitcher := graph.MakeFlowStitcher(srcF.CFG, dstF.CFG)
+	stitcher := graph.MakeFlowStitcher(srcF.CFG, goFlowFunc.CFG)
 
 	order, _ := graph.ReversePostorder(srcF.CFG)
 	nit := graph.OrderedIterator(order)
@@ -336,7 +339,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 		case *src.ReturnOp:
 			transferID := builder.EmitOp(&dst.Transfer{
 				Srcs: regList(regMap, op.Exprs),
-				Dsts: dstF.Results, // TODO copy?
+				Dsts: goFlowFunc.Results, // TODO copy?
 			}, 1)
 
 			if true {
@@ -353,29 +356,32 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 			panic(op)
 		}
 	}
-	return dstF
+	return goCoreFunc, goFlowFunc
 }
 
-func createTagInternal(base *srccore.StructType, parent *srccore.StructType, flowProg *dst.FlowProgram, p dstcore.Package_Ref, selfType dstcore.GoType) {
+func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goCoreProg *dstcore.CoreProgram, goFlowProg *dst.FlowProgram, p dstcore.Package_Ref, selfType dstcore.GoType) {
 	if parent == nil {
 		return
 	}
 
-	createTagInternal(base, parent.Implements, flowProg, p, selfType)
+	createTagInternal(base, parent.Implements, goCoreProg, goFlowProg, p, selfType)
 
-	tag := &dst.FlowFunc{
-		Name: "is" + parent.Name,
+	goCoreFunc := &dstcore.Function{
+		Name:    "is" + parent.Name,
+		Package: p,
+	}
+
+	goFlowFunc := &dst.FlowFunc{
 		Recv: dst.NoRegister,
 		CFG:  graph.CreateGraph(),
 		Ops: []dst.GoOp{
 			&dst.Entry{},
 			&dst.Exit{},
 		},
-		Package:        p,
 		Register_Scope: &dst.Register_Scope{},
 	}
 
-	tag.Recv = tag.Register_Scope.Register(&dst.Register{
+	goFlowFunc.Recv = goFlowFunc.Register_Scope.Register(&dst.Register{
 		Name: "node",
 		T: &dstcore.PointerType{
 			Element: selfType,
@@ -383,25 +389,26 @@ func createTagInternal(base *srccore.StructType, parent *srccore.StructType, flo
 	})
 
 	// Empty function.
-	tag.CFG.Connect(0, 0, 1)
+	goFlowFunc.CFG.Connect(0, 0, 1)
 
-	flowProg.FlowFunc_Scope.Register(tag)
+	goCoreProg.Function_Scope.Register(goCoreFunc)
+	goFlowProg.FlowFunc_Scope.Register(goFlowFunc)
 
 	// TODO attach method to type.
 }
 
 // Fake functions for enforcing type relationships.
-func createTags(program *src.DubProgram, flowProg *dst.FlowProgram, coreProg *srccore.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) {
-	for _, s := range coreProg.Structures {
+func createTags(dubCoreProg *srccore.CoreProgram, dubFlowProg *src.DubProgram, goCoreProg *dstcore.CoreProgram, goFlowProg *dst.FlowProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) {
+	for _, s := range dubCoreProg.Structures {
 		if s.IsParent || s.Implements == nil {
 			continue
 		}
 
-		pIndex := coreProg.File_Scope.Get(s.File).Package
+		pIndex := dubCoreProg.File_Scope.Get(s.File).Package
 		p := packages[pIndex]
 
 		selfType := ctx.link.GetType(s, STRUCT)
 
-		createTagInternal(s, s.Implements, flowProg, p, selfType)
+		createTagInternal(s, s.Implements, goCoreProg, goFlowProg, p, selfType)
 	}
 }

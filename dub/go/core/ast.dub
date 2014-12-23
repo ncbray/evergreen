@@ -51,10 +51,15 @@ struct BuiltinTypeIndex {
   Rune ExternalType
 }
 
+struct Function scoped {
+  Name string
+  Package Package
+}
+
 struct Package scoped {
   Path []string
   Extern bool
 }
 
-struct CoreProgram contains (Package) {
+struct CoreProgram contains (Package, Function) {
 }

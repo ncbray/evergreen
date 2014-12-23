@@ -77,16 +77,17 @@ func externGraph(coreProg *dstcore.CoreProgram) *dstcore.StructType {
 	return graphT
 }
 
-func createFuncs(program *flow.DubProgram, flowProg *dstflow.FlowProgram, coreProg *core.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []dstflow.FlowFunc_Ref {
-	flowFuncs := make([]dstflow.FlowFunc_Ref, coreProg.Function_Scope.Len())
+func createFuncs(dubCoreProg *core.CoreProgram, dubFlowProg *flow.DubProgram, goCoreProg *dstcore.CoreProgram, goFlowProg *dstflow.FlowProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []dstflow.FlowFunc_Ref {
+	flowFuncs := make([]dstflow.FlowFunc_Ref, dubCoreProg.Function_Scope.Len())
 
 	// TODO iterate over Dub funcs directly.
-	for i, p := range program.Packages {
+	for i, p := range dubFlowProg.Packages {
 		dstPkg := packages[i]
 		for _, f := range p.Funcs {
-			dstF := translateFlow(f, ctx)
-			dstF.Package = dstPkg
-			flowFuncs[f.F] = flowProg.FlowFunc_Scope.Register(dstF)
+			dstCoreFunc, dstFlowFunc := translateFlow(f, ctx)
+			dstCoreFunc.Package = dstPkg
+			goCoreProg.Function_Scope.Register(dstCoreFunc)
+			flowFuncs[f.F] = goFlowProg.FlowFunc_Scope.Register(dstFlowFunc)
 		}
 	}
 	return flowFuncs
@@ -101,7 +102,8 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	defer status.End()
 
 	dstCoreProg := &dstcore.CoreProgram{
-		Package_Scope: &dstcore.Package_Scope{},
+		Package_Scope:  &dstcore.Package_Scope{},
+		Function_Scope: &dstcore.Function_Scope{},
 	}
 
 	// Translate package identities.
@@ -135,8 +137,8 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	}
 
 	// Translate functions.
-	createFuncs(program, flowProg, coreProg, packages, ctx)
-	createTags(program, flowProg, coreProg, packages, ctx)
+	createFuncs(coreProg, program, dstCoreProg, flowProg, packages, ctx)
+	createTags(coreProg, program, dstCoreProg, flowProg, packages, ctx)
 
 	bypass := generateTreeBypass(program, coreProg, generate_tests, ctx)
 

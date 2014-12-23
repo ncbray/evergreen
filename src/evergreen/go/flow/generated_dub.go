@@ -27,13 +27,12 @@ type FlowFunc_Scope struct {
 }
 
 type FlowFunc struct {
-	Name           string
+	Function       core.Function_Ref
 	Recv           Register_Ref
 	Params         []Register_Ref
 	Results        []Register_Ref
 	CFG            *graph.Graph
 	Ops            []GoOp
-	Package        core.Package_Ref
 	Register_Scope *Register_Scope
 }
 

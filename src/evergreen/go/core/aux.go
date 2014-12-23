@@ -24,3 +24,17 @@ func (scope *Package_Scope) Register(info *Package) Package_Ref {
 func (scope *Package_Scope) Len() int {
 	return len(scope.objects)
 }
+
+func (scope *Function_Scope) Get(ref Function_Ref) *Function {
+	return scope.objects[ref]
+}
+
+func (scope *Function_Scope) Register(info *Function) Function_Ref {
+	index := Function_Ref(len(scope.objects))
+	scope.objects = append(scope.objects, info)
+	return index
+}
+
+func (scope *Function_Scope) Len() int {
+	return len(scope.objects)
+}

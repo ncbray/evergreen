@@ -247,9 +247,9 @@ func generateNode(decl *flow.FlowFunc, lclMap []tree.LocalInfo_Ref, labels map[g
 	}
 }
 
-func RetreeFunc(decl *flow.FlowFunc) *tree.FuncDecl {
+func RetreeFunc(f *core.Function, decl *flow.FlowFunc) *tree.FuncDecl {
 	funcDecl := &tree.FuncDecl{
-		Name:            decl.Name,
+		Name:            f.Name,
 		LocalInfo_Scope: &tree.LocalInfo_Scope{},
 	}
 
@@ -395,21 +395,24 @@ func declForType(t core.GoType) tree.Decl {
 	}
 }
 
-func generateGoFile(auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []*flow.FlowFunc, typeFuncs map[core.GoType][]*flow.FlowFunc, file *tree.FileAST) {
+func generateGoFile(coreProg *core.CoreProgram, flowProg *flow.FlowProgram, auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []flow.FlowFunc_Ref, typeFuncs map[core.GoType][]flow.FlowFunc_Ref, file *tree.FileAST) {
 	file.Name = "generated_dub.go"
 
 	for _, t := range types {
 		file.Decls = append(file.Decls, declForType(t))
 		more, _ := auxDeclsForStruct[t]
 		file.Decls = append(file.Decls, more...)
-		funcs := typeFuncs[t]
-		for _, f := range funcs {
-			file.Decls = append(file.Decls, RetreeFunc(f))
+		for _, fIndex := range typeFuncs[t] {
+			cf := coreProg.Function_Scope.Get(core.Function_Ref(fIndex))
+			f := flowProg.FlowFunc_Scope.Get(fIndex)
+			file.Decls = append(file.Decls, RetreeFunc(cf, f))
 		}
 	}
 
-	for _, f := range funcs {
-		file.Decls = append(file.Decls, RetreeFunc(f))
+	for _, fIndex := range funcs {
+		cf := coreProg.Function_Scope.Get(core.Function_Ref(fIndex))
+		f := flowProg.FlowFunc_Scope.Get(fIndex)
+		file.Decls = append(file.Decls, RetreeFunc(cf, f))
 	}
 }
 
@@ -425,14 +428,15 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 	}
 
 	// Bucket functions for each package.
-	packageFuncs := make([][]*flow.FlowFunc, len(program.Packages))
-	typeFuncs := map[core.GoType][]*flow.FlowFunc{}
+	packageFuncs := make([][]flow.FlowFunc_Ref, len(program.Packages))
+	typeFuncs := map[core.GoType][]flow.FlowFunc_Ref{}
 	iter := program.FlowFunc_Scope.Iter()
 	for iter.Next() {
-		_, f := iter.Value()
+		fIndex, f := iter.Value()
+		cf := coreProg.Function_Scope.Get(core.Function_Ref(fIndex))
 		if f.Recv == flow.NoRegister {
-			pIndex := f.Package
-			packageFuncs[pIndex] = append(packageFuncs[pIndex], f)
+			pIndex := cf.Package
+			packageFuncs[pIndex] = append(packageFuncs[pIndex], fIndex)
 		} else {
 			at := f.Register_Scope.Get(f.Recv).T
 			pt, ok := at.(*core.PointerType)
@@ -440,7 +444,7 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 				panic(at)
 			}
 			t := pt.Element
-			typeFuncs[t] = append(typeFuncs[t], f)
+			typeFuncs[t] = append(typeFuncs[t], fIndex)
 		}
 	}
 
@@ -462,7 +466,7 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 	}
 
 	for i, _ := range program.Packages {
-		generateGoFile(bypass.DeclsForStruct, packageTypes[i], packageFuncs[i], typeFuncs, fileDecls[i])
+		generateGoFile(coreProg, program, bypass.DeclsForStruct, packageTypes[i], packageFuncs[i], typeFuncs, fileDecls[i])
 		if bypass.Tests[i] != nil {
 			packageDecls[i].Files = append(packageDecls[i].Files, bypass.Tests[i])
 		}

@@ -75,6 +75,19 @@ type BuiltinTypeIndex struct {
 	Rune   *ExternalType
 }
 
+type Function_Ref uint32
+
+const NoFunction = ^Function_Ref(0)
+
+type Function_Scope struct {
+	objects []*Function
+}
+
+type Function struct {
+	Name    string
+	Package Package_Ref
+}
+
 type Package_Ref uint32
 
 const NoPackage = ^Package_Ref(0)
@@ -89,5 +102,6 @@ type Package struct {
 }
 
 type CoreProgram struct {
-	Package_Scope *Package_Scope
+	Package_Scope  *Package_Scope
+	Function_Scope *Function_Scope
 }

@@ -53,7 +53,7 @@ func analyizeProgram(program *flow.DubProgram) {
 	}
 }
 
-func goFlowFuncName(f *goflow.FlowFunc) string {
+func goFlowFuncName(cf *gocore.Function, f *goflow.FlowFunc) string {
 	base := "func"
 	if f.Recv != goflow.NoRegister {
 		ref := f.Register_Scope.Get(f.Recv)
@@ -68,18 +68,19 @@ func goFlowFuncName(f *goflow.FlowFunc) string {
 		}
 		base = "meth_" + st.Name
 	}
-	return base + "_" + f.Name
+	return base + "_" + cf.Name
 }
 
-func dumpFlowFuncs(goFlowProgram *goflow.FlowProgram, coreProg *gocore.CoreProgram, outputDir []string) {
+func dumpFlowFuncs(goFlowProgram *goflow.FlowProgram, goCoreProg *gocore.CoreProgram, outputDir []string) {
 	iter := goFlowProgram.FlowFunc_Scope.Iter()
 	for iter.Next() {
-		_, f := iter.Value()
+		fIndex, f := iter.Value()
+		cf := goCoreProg.Function_Scope.Get(gocore.Function_Ref(fIndex))
 		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Ops: f.Ops})
 		parts := append(outputDir, "dub_to_go")
-		p := coreProg.Package_Scope.Get(f.Package)
+		p := goCoreProg.Package_Scope.Get(cf.Package)
 		parts = append(parts, p.Path...)
-		parts = append(parts, fmt.Sprintf("%s.svg", goFlowFuncName(f)))
+		parts = append(parts, fmt.Sprintf("%s.svg", goFlowFuncName(cf, f)))
 		outfile := filepath.Join(parts...)
 		io.WriteDot(dot, outfile)
 	}
