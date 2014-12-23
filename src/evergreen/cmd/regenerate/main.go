@@ -71,8 +71,10 @@ func goFlowFuncName(f *goflow.FlowFunc) string {
 	return base + "_" + f.Name
 }
 
-func dumpFlowFuncs(flowFuncs []*goflow.FlowFunc, coreProg *gocore.CoreProgram, outputDir []string) {
-	for _, f := range flowFuncs {
+func dumpFlowFuncs(goFlowProgram *goflow.FlowProgram, coreProg *gocore.CoreProgram, outputDir []string) {
+	iter := goFlowProgram.FlowFunc_Scope.Iter()
+	for iter.Next() {
+		_, f := iter.Value()
 		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Ops: f.Ops})
 		parts := append(outputDir, "dub_to_go")
 		p := coreProg.Package_Scope.Get(f.Package)
@@ -98,13 +100,13 @@ func processProgram(status compiler.PassStatus, p compiler.LocationProvider, run
 
 	analyizeProgram(flowProgram)
 
-	flowProg, goCoreProg, bypass := golang.GenerateGo(status.Pass("dub_to_go"), flowProgram, coreProg, config.RootPackage, config.GenerateTests)
+	goFlowProg, goCoreProg, bypass := golang.GenerateGo(status.Pass("dub_to_go"), flowProgram, coreProg, config.RootPackage, config.GenerateTests)
 	if config.Dump {
-		dumpFlowFuncs(flowProg.Functions, goCoreProg, config.DumpDir)
+		dumpFlowFuncs(goFlowProg, goCoreProg, config.DumpDir)
 	}
-	prog := gotransform.FlowToTree(status.Pass("flow_to_tree"), flowProg, goCoreProg, bypass)
+	goTreeProg := gotransform.FlowToTree(status.Pass("flow_to_tree"), goFlowProg, goCoreProg, bypass)
 
-	gotree.GoProgramBackend(status.Pass("go_backend"), prog, goCoreProg, config.OutputDir, runner)
+	gotree.GoProgramBackend(status.Pass("go_backend"), goTreeProg, goCoreProg, config.OutputDir, runner)
 }
 
 func entryPoint(p compiler.LocationProvider, status compiler.PassStatus, config *RegenerateConfig) {

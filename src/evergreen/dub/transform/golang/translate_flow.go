@@ -356,10 +356,42 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 	return dstF
 }
 
-// Fake functions for enforcing type relationships.
-func createTags(program *src.DubProgram, coreProg *srccore.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []*dst.FlowFunc {
-	tags := []*dst.FlowFunc{}
+func createTagInternal(base *srccore.StructType, parent *srccore.StructType, flowProg *dst.FlowProgram, p dstcore.Package_Ref, selfType dstcore.GoType) {
+	if parent == nil {
+		return
+	}
 
+	createTagInternal(base, parent.Implements, flowProg, p, selfType)
+
+	tag := &dst.FlowFunc{
+		Name: "is" + parent.Name,
+		Recv: dst.NoRegister,
+		CFG:  graph.CreateGraph(),
+		Ops: []dst.GoOp{
+			&dst.Entry{},
+			&dst.Exit{},
+		},
+		Package:        p,
+		Register_Scope: &dst.Register_Scope{},
+	}
+
+	tag.Recv = tag.Register_Scope.Register(&dst.Register{
+		Name: "node",
+		T: &dstcore.PointerType{
+			Element: selfType,
+		},
+	})
+
+	// Empty function.
+	tag.CFG.Connect(0, 0, 1)
+
+	flowProg.FlowFunc_Scope.Register(tag)
+
+	// TODO attach method to type.
+}
+
+// Fake functions for enforcing type relationships.
+func createTags(program *src.DubProgram, flowProg *dst.FlowProgram, coreProg *srccore.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) {
 	for _, s := range coreProg.Structures {
 		if s.IsParent || s.Implements == nil {
 			continue
@@ -370,39 +402,6 @@ func createTags(program *src.DubProgram, coreProg *srccore.CoreProgram, packages
 
 		selfType := ctx.link.GetType(s, STRUCT)
 
-		parent := s.Implements
-
-		// Generate all the type tags.
-		for parent != nil {
-			tag := &dst.FlowFunc{
-				Name: "is" + parent.Name,
-				Recv: dst.NoRegister,
-				CFG:  graph.CreateGraph(),
-				Ops: []dst.GoOp{
-					&dst.Entry{},
-					&dst.Exit{},
-				},
-				Package:        p,
-				Register_Scope: &dst.Register_Scope{},
-			}
-
-			tag.Recv = tag.Register_Scope.Register(&dst.Register{
-				Name: "node",
-				T: &dstcore.PointerType{
-					Element: selfType,
-				},
-			})
-
-			// TODO attach method to type.
-
-			// Empty function.
-			tag.CFG.Connect(0, 0, 1)
-
-			// TODO more efficient reverse construction.
-			tags = append([]*dst.FlowFunc{tag}, tags...)
-
-			parent = parent.Implements
-		}
+		createTagInternal(s, s.Implements, flowProg, p, selfType)
 	}
-	return tags
 }

@@ -427,7 +427,9 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 	// Bucket functions for each package.
 	packageFuncs := make([][]*flow.FlowFunc, len(program.Packages))
 	typeFuncs := map[core.GoType][]*flow.FlowFunc{}
-	for _, f := range program.Functions {
+	iter := program.FlowFunc_Scope.Iter()
+	for iter.Next() {
+		_, f := iter.Value()
 		if f.Recv == flow.NoRegister {
 			pIndex := f.Package
 			packageFuncs[pIndex] = append(packageFuncs[pIndex], f)

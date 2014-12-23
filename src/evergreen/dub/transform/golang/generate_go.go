@@ -77,8 +77,8 @@ func externGraph(coreProg *dstcore.CoreProgram) *dstcore.StructType {
 	return graphT
 }
 
-func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []*dstflow.FlowFunc {
-	flowFuncs := make([]*dstflow.FlowFunc, coreProg.Function_Scope.Len())
+func createFuncs(program *flow.DubProgram, flowProg *dstflow.FlowProgram, coreProg *core.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []dstflow.FlowFunc_Ref {
+	flowFuncs := make([]dstflow.FlowFunc_Ref, coreProg.Function_Scope.Len())
 
 	// TODO iterate over Dub funcs directly.
 	for i, p := range program.Packages {
@@ -86,7 +86,7 @@ func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, packages 
 		for _, f := range p.Funcs {
 			dstF := translateFlow(f, ctx)
 			dstF.Package = dstPkg
-			flowFuncs[f.F] = dstF
+			flowFuncs[f.F] = flowProg.FlowFunc_Scope.Register(dstF)
 		}
 	}
 	return flowFuncs
@@ -127,19 +127,18 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	types := createTypeMapping(program, coreProg, packages, ctx.link)
 	createTypes(program, coreProg, ctx)
 
-	// Translate functions.
-	flowFuncs := createFuncs(program, coreProg, packages, ctx)
+	flowProg := &dstflow.FlowProgram{
+		Packages:       packages,
+		Types:          types,
+		Builtins:       ctx.index,
+		FlowFunc_Scope: &dstflow.FlowFunc_Scope{},
+	}
 
-	flowFuncs = append(flowFuncs, createTags(program, coreProg, packages, ctx)...)
+	// Translate functions.
+	createFuncs(program, flowProg, coreProg, packages, ctx)
+	createTags(program, flowProg, coreProg, packages, ctx)
 
 	bypass := generateTreeBypass(program, coreProg, generate_tests, ctx)
-
-	flowProg := &dstflow.FlowProgram{
-		Packages:  packages,
-		Types:     types,
-		Functions: flowFuncs,
-		Builtins:  ctx.index,
-	}
 
 	return flowProg, dstCoreProg, bypass
 }

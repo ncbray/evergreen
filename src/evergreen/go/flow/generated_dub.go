@@ -18,6 +18,14 @@ type Register struct {
 	T    core.GoType
 }
 
+type FlowFunc_Ref uint32
+
+const NoFlowFunc = ^FlowFunc_Ref(0)
+
+type FlowFunc_Scope struct {
+	objects []*FlowFunc
+}
+
 type FlowFunc struct {
 	Name           string
 	Recv           Register_Ref
@@ -184,8 +192,8 @@ func (node *Exit) isGoOp() {
 }
 
 type FlowProgram struct {
-	Packages  []core.Package_Ref
-	Functions []*FlowFunc
-	Types     []core.GoType
-	Builtins  *core.BuiltinTypeIndex
+	Packages       []core.Package_Ref
+	Types          []core.GoType
+	Builtins       *core.BuiltinTypeIndex
+	FlowFunc_Scope *FlowFunc_Scope
 }

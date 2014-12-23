@@ -20,6 +20,38 @@ func (scope *Register_Scope) Len() int {
 	return len(scope.objects)
 }
 
+func (scope *FlowFunc_Scope) Get(ref FlowFunc_Ref) *FlowFunc {
+	return scope.objects[ref]
+}
+
+func (scope *FlowFunc_Scope) Register(info *FlowFunc) FlowFunc_Ref {
+	index := FlowFunc_Ref(len(scope.objects))
+	scope.objects = append(scope.objects, info)
+	return index
+}
+
+func (scope *FlowFunc_Scope) Len() int {
+	return len(scope.objects)
+}
+
+func (scope *FlowFunc_Scope) Iter() *funcIterator {
+	return &funcIterator{scope: scope, current: -1}
+}
+
+type funcIterator struct {
+	scope   *FlowFunc_Scope
+	current int
+}
+
+func (iter *funcIterator) Next() bool {
+	iter.current += 1
+	return iter.current < len(iter.scope.objects)
+}
+
+func (iter *funcIterator) Value() (FlowFunc_Ref, *FlowFunc) {
+	return FlowFunc_Ref(iter.current), iter.scope.objects[iter.current]
+}
+
 type GoFlowBuilder struct {
 	decl *FlowFunc
 	CFG  *graph.Graph
