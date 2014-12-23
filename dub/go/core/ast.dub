@@ -51,8 +51,10 @@ struct BuiltinTypeIndex {
   Rune ExternalType
 }
 
-struct Package {
+struct Package scoped {
   Path []string
   Extern bool
-  Index int // HACK
+}
+
+struct CoreProgram contains (Package) {
 }

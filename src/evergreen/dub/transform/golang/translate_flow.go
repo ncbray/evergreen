@@ -357,7 +357,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.LLFunc {
 }
 
 // Fake functions for enforcing type relationships.
-func createTags(program *src.DubProgram, coreProg *srccore.CoreProgram, packages []*dstcore.Package, ctx *DubToGoContext) []*dst.LLFunc {
+func createTags(program *src.DubProgram, coreProg *srccore.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []*dst.LLFunc {
 	tags := []*dst.LLFunc{}
 
 	for _, s := range coreProg.Structures {

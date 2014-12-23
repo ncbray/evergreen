@@ -2,9 +2,10 @@ package tree
 
 import (
 	"evergreen/compiler"
+	"evergreen/go/core"
 )
 
-func GoProgramBackend(status compiler.PassStatus, prog *ProgramAST, srcRoot string, runner *compiler.TaskRunner) {
+func GoProgramBackend(status compiler.PassStatus, prog *ProgramAST, coreProg *core.CoreProgram, srcRoot string, runner *compiler.TaskRunner) {
 	status.Begin()
 	defer status.End()
 
@@ -12,8 +13,8 @@ func GoProgramBackend(status compiler.PassStatus, prog *ProgramAST, srcRoot stri
 	Consolidate(status.Pass("consolidate"), prog)
 
 	// Give everything names: variables, etc.
-	Nameify(status.Pass("nameify"), prog)
+	Nameify(status.Pass("nameify"), prog, coreProg)
 
 	// Generate the sources.
-	OutputProgram(status.Pass("output"), prog, srcRoot, runner)
+	OutputProgram(status.Pass("output"), prog, coreProg, srcRoot, runner)
 }

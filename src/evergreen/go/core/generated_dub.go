@@ -20,7 +20,7 @@ func (node *SliceType) isGoType() {
 
 type ExternalType struct {
 	Name    string
-	Package *Package
+	Package Package_Ref
 }
 
 func (node *ExternalType) isGoType() {
@@ -29,7 +29,7 @@ func (node *ExternalType) isGoType() {
 type TypeDefType struct {
 	Name    string
 	Type    GoType
-	Package *Package
+	Package Package_Ref
 }
 
 func (node *TypeDefType) isGoType() {
@@ -51,7 +51,7 @@ type Field struct {
 type StructType struct {
 	Name    string
 	Fields  []*Field
-	Package *Package
+	Package Package_Ref
 }
 
 func (node *StructType) isGoType() {
@@ -60,7 +60,7 @@ func (node *StructType) isGoType() {
 type InterfaceType struct {
 	Name    string
 	Fields  []*Field
-	Package *Package
+	Package Package_Ref
 }
 
 func (node *InterfaceType) isGoType() {
@@ -75,8 +75,19 @@ type BuiltinTypeIndex struct {
 	Rune   *ExternalType
 }
 
+type Package_Ref uint32
+
+const NoPackage = ^Package_Ref(0)
+
+type Package_Scope struct {
+	objects []*Package
+}
+
 type Package struct {
 	Path   []string
 	Extern bool
-	Index  int
+}
+
+type CoreProgram struct {
+	Package_Scope *Package_Scope
 }

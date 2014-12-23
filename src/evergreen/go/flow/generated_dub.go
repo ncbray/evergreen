@@ -25,7 +25,7 @@ type LLFunc struct {
 	Results        []Register_Ref
 	CFG            *graph.Graph
 	Ops            []GoOp
-	Package        *core.Package
+	Package        core.Package_Ref
 	Register_Scope *Register_Scope
 }
 
@@ -184,7 +184,7 @@ func (node *Exit) isGoOp() {
 }
 
 type FlowProgram struct {
-	Packages  []*core.Package
+	Packages  []core.Package_Ref
 	Types     []core.GoType
 	Functions []*LLFunc
 	Builtins  *core.BuiltinTypeIndex

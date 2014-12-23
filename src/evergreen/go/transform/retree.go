@@ -341,7 +341,7 @@ func pathLeaf(path []string) string {
 	return path[len(path)-1]
 }
 
-func getPackage(t core.GoType) *core.Package {
+func getPackage(t core.GoType) core.Package_Ref {
 	switch t := t.(type) {
 	case *core.StructType:
 		return t.Package
@@ -413,14 +413,14 @@ func generateGoFile(auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.
 	}
 }
 
-func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, bypass *TreeBypass) *tree.ProgramAST {
+func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg *core.CoreProgram, bypass *TreeBypass) *tree.ProgramAST {
 	status.Begin()
 	defer status.End()
 
 	// Bucket types for each package.
 	packageTypes := make([][]core.GoType, len(program.Packages))
 	for _, t := range program.Types {
-		pIndex := getPackage(t).Index
+		pIndex := getPackage(t)
 		packageTypes[pIndex] = append(packageTypes[pIndex], t)
 	}
 
@@ -429,7 +429,7 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, bypass *T
 	typeFuncs := map[core.GoType][]*flow.LLFunc{}
 	for _, f := range program.Functions {
 		if f.Recv == flow.NoRegister {
-			pIndex := f.Package.Index
+			pIndex := f.Package
 			packageFuncs[pIndex] = append(packageFuncs[pIndex], f)
 		} else {
 			at := f.Register_Scope.Get(f.Recv).T
@@ -445,7 +445,7 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, bypass *T
 	packageDecls := make([]*tree.PackageAST, len(program.Packages))
 	fileDecls := make([]*tree.FileAST, len(program.Packages))
 	for i, p := range program.Packages {
-		leaf := pathLeaf(p.Path)
+		leaf := pathLeaf(coreProg.Package_Scope.Get(p).Path)
 
 		file := &tree.FileAST{
 			Package: leaf,

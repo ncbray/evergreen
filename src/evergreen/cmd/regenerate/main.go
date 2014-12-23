@@ -71,11 +71,12 @@ func goFlowFuncName(f *goflow.LLFunc) string {
 	return base + "_" + f.Name
 }
 
-func dumpFlowFuncs(flowFuncs []*goflow.LLFunc, outputDir []string) {
+func dumpFlowFuncs(flowFuncs []*goflow.LLFunc, coreProg *gocore.CoreProgram, outputDir []string) {
 	for _, f := range flowFuncs {
 		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Ops: f.Ops})
 		parts := append(outputDir, "dub_to_go")
-		parts = append(parts, f.Package.Path...)
+		p := coreProg.Package_Scope.Get(f.Package)
+		parts = append(parts, p.Path...)
 		parts = append(parts, fmt.Sprintf("%s.svg", goFlowFuncName(f)))
 		outfile := filepath.Join(parts...)
 		io.WriteDot(dot, outfile)
@@ -97,13 +98,13 @@ func processProgram(status compiler.PassStatus, p compiler.LocationProvider, run
 
 	analyizeProgram(flowProgram)
 
-	flowProg, bypass := golang.GenerateGo(status.Pass("dub_to_go"), flowProgram, coreProg, config.RootPackage, config.GenerateTests)
+	flowProg, goCoreProg, bypass := golang.GenerateGo(status.Pass("dub_to_go"), flowProgram, coreProg, config.RootPackage, config.GenerateTests)
 	if config.Dump {
-		dumpFlowFuncs(flowProg.Functions, config.DumpDir)
+		dumpFlowFuncs(flowProg.Functions, goCoreProg, config.DumpDir)
 	}
-	prog := gotransform.FlowToTree(status.Pass("flow_to_tree"), flowProg, bypass)
+	prog := gotransform.FlowToTree(status.Pass("flow_to_tree"), flowProg, goCoreProg, bypass)
 
-	gotree.GoProgramBackend(status.Pass("go_backend"), prog, config.OutputDir, runner)
+	gotree.GoProgramBackend(status.Pass("go_backend"), prog, goCoreProg, config.OutputDir, runner)
 }
 
 func entryPoint(p compiler.LocationProvider, status compiler.PassStatus, config *RegenerateConfig) {

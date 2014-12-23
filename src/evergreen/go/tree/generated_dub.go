@@ -351,7 +351,7 @@ type FuncDecl struct {
 	Recv            *Param
 	Type            *FuncTypeRef
 	Body            []Stmt
-	Package         *core.Package
+	Package         core.Package_Ref
 	LocalInfo_Scope *LocalInfo_Scope
 }
 
@@ -411,7 +411,7 @@ type FileAST struct {
 
 type PackageAST struct {
 	Files []*FileAST
-	P     *core.Package
+	P     core.Package_Ref
 }
 
 type ProgramAST struct {

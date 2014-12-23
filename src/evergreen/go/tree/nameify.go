@@ -11,16 +11,12 @@ type FileInfo struct {
 	Package     *core.Package
 	PackageName map[*core.Package]string
 	Decl        *FuncDecl // HACK
+	CoreProg    *core.CoreProgram
 }
 
 func DefaultPackageName(pkg *core.Package) string {
 	n := len(pkg.Path)
 	return pkg.Path[n-1]
-}
-
-func IsBuiltinPackage(pkg *core.Package) bool {
-	// HACK pkg should not be nil
-	return pkg == nil || len(pkg.Path) == 0
 }
 
 func (info *FileInfo) ImportedName(pkg *core.Package) string {
@@ -33,9 +29,12 @@ func (info *FileInfo) ImportedName(pkg *core.Package) string {
 	return name
 }
 
-func (info *FileInfo) QualifyName(pkg *core.Package, name string) string {
-	if pkg != info.Package && !IsBuiltinPackage(pkg) {
-		return fmt.Sprintf("%s.%s", info.ImportedName(pkg), name)
+func (info *FileInfo) QualifyName(ref core.Package_Ref, name string) string {
+	if ref != core.NoPackage {
+		pkg := info.CoreProg.Package_Scope.Get(ref)
+		if pkg != info.Package {
+			return fmt.Sprintf("%s.%s", info.ImportedName(pkg), name)
+		}
 	}
 	return name
 }
@@ -258,12 +257,14 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 	}
 }
 
-func nameifyFile(pkg *PackageAST, file *FileAST) {
-	file.Package = pkg.P.Path[len(pkg.P.Path)-1]
+func nameifyFile(pkg *PackageAST, file *FileAST, coreProg *core.CoreProgram) {
+	p := coreProg.Package_Scope.Get(pkg.P)
+	file.Package = p.Path[len(p.Path)-1]
 
 	info := &FileInfo{
-		Package:     pkg.P,
+		Package:     p,
 		PackageName: map[*core.Package]string{},
+		CoreProg:    coreProg,
 	}
 
 	for _, decl := range file.Decls {
@@ -279,20 +280,20 @@ func nameifyFile(pkg *PackageAST, file *FileAST) {
 	}
 }
 
-func Nameify(status compiler.PassStatus, prog *ProgramAST) {
+func Nameify(status compiler.PassStatus, prog *ProgramAST, coreProg *core.CoreProgram) {
 	status.Begin()
 	defer status.End()
 
 	nameifyPrepass(prog)
 	for _, pkg := range prog.Packages {
-		p := pkg.P
+		p := coreProg.Package_Scope.Get(pkg.P)
 		pkgName := ""
 		if len(p.Path) > 0 {
 			pkgName = p.Path[len(p.Path)-1]
 		}
 		for _, file := range pkg.Files {
 			file.Package = pkgName
-			nameifyFile(pkg, file)
+			nameifyFile(pkg, file, coreProg)
 		}
 	}
 }

@@ -11,12 +11,13 @@ import (
 )
 
 type DubToGoContext struct {
-	index *dstcore.BuiltinTypeIndex
-	state *dstcore.StructType
-	graph *dstcore.StructType
-	t     *dstcore.StructType
-	link  DubToGoLinker
-	core  *core.CoreProgram
+	index   *dstcore.BuiltinTypeIndex
+	state   *dstcore.StructType
+	graph   *dstcore.StructType
+	t       *dstcore.StructType
+	link    DubToGoLinker
+	core    *core.CoreProgram
+	dstCore *dstcore.CoreProgram
 }
 
 func generateTreeForStruct(s *core.StructType, bypass *transform.TreeBypass, ctx *DubToGoContext) {
@@ -40,11 +41,11 @@ func generateTreeForStruct(s *core.StructType, bypass *transform.TreeBypass, ctx
 	}
 }
 
-func externParserRuntime() *dstcore.StructType {
-	p := &dstcore.Package{
+func externParserRuntime(coreProg *dstcore.CoreProgram) *dstcore.StructType {
+	p := coreProg.Package_Scope.Register(&dstcore.Package{
 		Extern: true,
 		Path:   []string{"evergreen", "dub", "runtime"},
-	}
+	})
 	stateT := &dstcore.StructType{
 		Name:    "State",
 		Package: p,
@@ -52,11 +53,11 @@ func externParserRuntime() *dstcore.StructType {
 	return stateT
 }
 
-func externTesting() *dstcore.StructType {
-	p := &dstcore.Package{
+func externTesting(coreProg *dstcore.CoreProgram) *dstcore.StructType {
+	p := coreProg.Package_Scope.Register(&dstcore.Package{
 		Extern: true,
 		Path:   []string{"testing"},
-	}
+	})
 	tT := &dstcore.StructType{
 		Name:    "T",
 		Package: p,
@@ -64,11 +65,11 @@ func externTesting() *dstcore.StructType {
 	return tT
 }
 
-func externGraph() *dstcore.StructType {
-	p := &dstcore.Package{
+func externGraph(coreProg *dstcore.CoreProgram) *dstcore.StructType {
+	p := coreProg.Package_Scope.Register(&dstcore.Package{
 		Extern: true,
 		Path:   []string{"evergreen", "graph"},
-	}
+	})
 	graphT := &dstcore.StructType{
 		Name:    "Graph",
 		Package: p,
@@ -76,7 +77,7 @@ func externGraph() *dstcore.StructType {
 	return graphT
 }
 
-func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, packages []*dstcore.Package, ctx *DubToGoContext) []*dstflow.LLFunc {
+func createFuncs(program *flow.DubProgram, coreProg *core.CoreProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []*dstflow.LLFunc {
 	flowFuncs := make([]*dstflow.LLFunc, coreProg.Function_Scope.Len())
 
 	// TODO iterate over Dub funcs directly.
@@ -95,27 +96,31 @@ func pathLeaf(path []string) string {
 	return path[len(path)-1]
 }
 
-func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool) (*dstflow.FlowProgram, *transform.TreeBypass) {
+func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool) (*dstflow.FlowProgram, *dstcore.CoreProgram, *transform.TreeBypass) {
 	status.Begin()
 	defer status.End()
 
-	ctx := &DubToGoContext{
-		index: makeBuiltinTypes(),
-		state: externParserRuntime(),
-		graph: externGraph(),
-		t:     externTesting(),
-		link:  makeLinker(),
-		core:  coreProg,
+	dstCoreProg := &dstcore.CoreProgram{
+		Package_Scope: &dstcore.Package_Scope{},
 	}
 
 	// Translate package identities.
-	packages := make([]*dstcore.Package, len(program.Packages))
+	packages := make([]dstcore.Package_Ref, len(program.Packages))
 	for i, dubPkg := range program.Packages {
 		path := append([]string{root}, dubPkg.Path...)
-		packages[i] = &dstcore.Package{
-			Path:  path,
-			Index: i,
-		}
+		packages[i] = dstCoreProg.Package_Scope.Register(&dstcore.Package{
+			Path: path,
+		})
+	}
+
+	ctx := &DubToGoContext{
+		index:   dstcore.MakeBuiltinTypeIndex(),
+		state:   externParserRuntime(dstCoreProg),
+		graph:   externGraph(dstCoreProg),
+		t:       externTesting(dstCoreProg),
+		link:    makeLinker(),
+		core:    coreProg,
+		dstCore: dstCoreProg,
 	}
 
 	// Translate types.
@@ -136,7 +141,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 		Builtins:  ctx.index,
 	}
 
-	return flowProg, bypass
+	return flowProg, dstCoreProg, bypass
 }
 
 func generateTreeBypass(program *flow.DubProgram, coreProg *core.CoreProgram, generate_tests bool, ctx *DubToGoContext) *transform.TreeBypass {

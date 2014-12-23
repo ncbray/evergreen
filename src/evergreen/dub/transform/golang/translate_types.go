@@ -76,17 +76,6 @@ func tagName(s *core.StructType) string {
 	return "is" + s.Name
 }
 
-func makeBuiltinTypes() *dstcore.BuiltinTypeIndex {
-	return &dstcore.BuiltinTypeIndex{
-		Int:    &dstcore.ExternalType{Name: "int"},
-		UInt32: &dstcore.ExternalType{Name: "uint32"},
-		Int64:  &dstcore.ExternalType{Name: "int64"},
-		Bool:   &dstcore.ExternalType{Name: "bool"},
-		String: &dstcore.ExternalType{Name: "string"},
-		Rune:   &dstcore.ExternalType{Name: "rune"},
-	}
-}
-
 func builtinType(t *core.BuiltinType, ctx *DubToGoContext) dstcore.GoType {
 	switch t.Name {
 	case "bool":
@@ -142,7 +131,7 @@ func goFieldType(t core.DubType, ctx *DubToGoContext) dstcore.GoType {
 	return goType(t, ctx)
 }
 
-func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, packages []*dstcore.Package, link DubToGoLinker) []dstcore.GoType {
+func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, packages []dstcore.Package_Ref, link DubToGoLinker) []dstcore.GoType {
 	types := []dstcore.GoType{}
 	for _, s := range coreProg.Structures {
 		pIndex := coreProg.File_Scope.Get(s.File).Package
