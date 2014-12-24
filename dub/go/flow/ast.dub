@@ -56,11 +56,17 @@ struct Attr implements GoOp {
   Dst Register
 }
 
-// TODO reference to function.
 struct Call implements GoOp {
-  Name string
+  Target core.Function
   Args []Register
   Dsts []Register
+}
+
+// Append is "generic" and doesn't map exactly onto a function call.
+struct Append implements GoOp {
+  Src Register
+  Args []Register
+  Dst Register
 }
 
 struct MethodCall implements GoOp {

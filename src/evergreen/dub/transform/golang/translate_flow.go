@@ -157,11 +157,11 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 		case *src.CallOp:
 			args := []dst.Register_Ref{frameReg}
 			args = append(args, regList(regMap, op.Args)...)
-			f := ctx.core.Function_Scope.Get(op.Target)
 			dstID := builder.EmitOp(&dst.Call{
-				Name: f.Name,
-				Args: args,
-				Dsts: regList(regMap, op.Dsts),
+				// HACK assumes functions are defined in the same order.
+				Target: dstcore.Function_Ref(op.Target),
+				Args:   args,
+				Dsts:   regList(regMap, op.Dsts),
 			}, 1)
 			dubFlow(ctx, builder, stitcher, frameReg, srcID, dstID)
 		case *src.ConstructOp:
@@ -330,10 +330,10 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			}, 1)
 			simpleFlow(stitcher, srcID, dstID)
 		case *src.AppendOp:
-			dstID := builder.EmitOp(&dst.Call{
-				Name: "append",
-				Args: []dst.Register_Ref{regMap[op.List], regMap[op.Value]},
-				Dsts: multiDstReg(regMap, op.Dst),
+			dstID := builder.EmitOp(&dst.Append{
+				Src:  regMap[op.List],
+				Args: []dst.Register_Ref{regMap[op.Value]},
+				Dst:  regMap[op.Dst],
 			}, 1)
 			simpleFlow(stitcher, srcID, dstID)
 		case *src.ReturnOp:

@@ -99,12 +99,21 @@ func (node *Attr) isGoOp() {
 }
 
 type Call struct {
-	Name string
-	Args []Register_Ref
-	Dsts []Register_Ref
+	Target core.Function_Ref
+	Args   []Register_Ref
+	Dsts   []Register_Ref
 }
 
 func (node *Call) isGoOp() {
+}
+
+type Append struct {
+	Src  Register_Ref
+	Args []Register_Ref
+	Dst  Register_Ref
+}
+
+func (node *Append) isGoOp() {
 }
 
 type MethodCall struct {

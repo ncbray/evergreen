@@ -90,7 +90,7 @@ func multiAssign(expr tree.Expr, lclMap []tree.LocalInfo_Ref, regs []flow.Regist
 	}
 }
 
-func generateNode(decl *flow.FlowFunc, lclMap []tree.LocalInfo_Ref, labels map[graph.NodeID]int, parent_label int, is_head bool, node graph.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
+func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree.LocalInfo_Ref, labels map[graph.NodeID]int, parent_label int, is_head bool, node graph.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
 	g := decl.CFG
 	for {
 		if !is_head {
@@ -134,10 +134,16 @@ func generateNode(decl *flow.FlowFunc, lclMap []tree.LocalInfo_Ref, labels map[g
 		case *flow.ConstantNil:
 			block = append(block, scalarAssign(&tree.NilLiteral{}, lclMap, op.Dst))
 		case *flow.Call:
+			f := coreProg.Function_Scope.Get(op.Target)
 			block = append(block, multiAssign(&tree.Call{
-				Expr: &tree.GetGlobal{Text: op.Name}, // HACK
+				Expr: &tree.GetGlobal{Text: f.Name}, // HACK
 				Args: getLocalList(lclMap, op.Args),
 			}, lclMap, op.Dsts))
+		case *flow.Append:
+			block = append(block, scalarAssign(&tree.Call{
+				Expr: &tree.GetGlobal{Text: "append"}, // HACK
+				Args: getLocalList(lclMap, append([]flow.Register_Ref{op.Src}, op.Args...)),
+			}, lclMap, op.Dst))
 		case *flow.MethodCall:
 			// TODO simple IR
 			block = append(block, multiAssign(&tree.Call{
@@ -214,8 +220,8 @@ func generateNode(decl *flow.FlowFunc, lclMap []tree.LocalInfo_Ref, labels map[g
 		case *flow.Nop:
 			// TODO
 		case *flow.Switch:
-			body, bodyFall := generateNode(decl, lclMap, labels, parent_label, false, g.GetExit(node, 0), []tree.Stmt{})
-			elseBody, elseFall := generateNode(decl, lclMap, labels, parent_label, false, g.GetExit(node, 1), []tree.Stmt{})
+			body, bodyFall := generateNode(coreProg, decl, lclMap, labels, parent_label, false, g.GetExit(node, 0), []tree.Stmt{})
+			elseBody, elseFall := generateNode(coreProg, decl, lclMap, labels, parent_label, false, g.GetExit(node, 1), []tree.Stmt{})
 			var elseStmt tree.Stmt = nil
 			if len(elseBody) > 0 && bodyFall {
 				elseStmt = &tree.BlockStmt{Body: elseBody}
@@ -247,7 +253,7 @@ func generateNode(decl *flow.FlowFunc, lclMap []tree.LocalInfo_Ref, labels map[g
 	}
 }
 
-func RetreeFunc(f *core.Function, decl *flow.FlowFunc) *tree.FuncDecl {
+func RetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.FlowFunc) *tree.FuncDecl {
 	funcDecl := &tree.FuncDecl{
 		Name:            f.Name,
 		LocalInfo_Scope: &tree.LocalInfo_Scope{},
@@ -322,7 +328,7 @@ func RetreeFunc(f *core.Function, decl *flow.FlowFunc) *tree.FuncDecl {
 			if label != 0 {
 				block = append(block, blockLabel(label))
 			}
-			block, _ = generateNode(decl, lclMap, labels, label, true, node, block)
+			block, _ = generateNode(coreProg, decl, lclMap, labels, label, true, node, block)
 			// Extend the statement list
 			stmts = append(stmts, block...)
 		}
@@ -405,14 +411,14 @@ func generateGoFile(coreProg *core.CoreProgram, flowProg *flow.FlowProgram, auxD
 		for _, fIndex := range typeFuncs[t] {
 			cf := coreProg.Function_Scope.Get(core.Function_Ref(fIndex))
 			f := flowProg.FlowFunc_Scope.Get(fIndex)
-			file.Decls = append(file.Decls, RetreeFunc(cf, f))
+			file.Decls = append(file.Decls, RetreeFunc(coreProg, cf, f))
 		}
 	}
 
 	for _, fIndex := range funcs {
 		cf := coreProg.Function_Scope.Get(core.Function_Ref(fIndex))
 		f := flowProg.FlowFunc_Scope.Get(fIndex)
-		file.Decls = append(file.Decls, RetreeFunc(cf, f))
+		file.Decls = append(file.Decls, RetreeFunc(coreProg, cf, f))
 	}
 }
 

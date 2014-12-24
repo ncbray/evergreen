@@ -62,7 +62,7 @@ func typeName(t core.GoType) string {
 	}
 }
 
-func OpToString(op GoOp) string {
+func OpToString(coreProg *core.CoreProgram, op GoOp) string {
 	switch op := op.(type) {
 	case *Entry:
 		return "entry"
@@ -87,7 +87,8 @@ func OpToString(op GoOp) string {
 	case *BinaryOp:
 		return addDst(fmt.Sprintf("%s %s %s", RegisterName(op.Left), op.Op, RegisterName(op.Right)), op.Dst)
 	case *Call:
-		return addDsts(fmt.Sprintf("%s(%s)", op.Name, registerList(op.Args)), op.Dsts)
+		f := coreProg.Function_Scope.Get(op.Target)
+		return addDsts(fmt.Sprintf("%s(%s)", f.Name, registerList(op.Args)), op.Dsts)
 	case *MethodCall:
 		return addDsts(fmt.Sprintf("%s.%s(%s)", RegisterName(op.Expr), op.Name, registerList(op.Args)), op.Dsts)
 	case *ConstructStruct:
@@ -110,7 +111,8 @@ func OpToString(op GoOp) string {
 }
 
 type DotStyler struct {
-	Ops []GoOp
+	Ops  []GoOp
+	Core *core.CoreProgram
 }
 
 func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
@@ -123,7 +125,7 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	case *Switch:
 		return fmt.Sprintf("shape=diamond,label=%#v", RegisterName(op.Cond))
 	case GoOp:
-		return fmt.Sprintf("shape=box,label=%#v", OpToString(op))
+		return fmt.Sprintf("shape=box,label=%#v", OpToString(styler.Core, op))
 	default:
 		panic(op)
 	}
