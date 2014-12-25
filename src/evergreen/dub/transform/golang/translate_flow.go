@@ -93,7 +93,8 @@ func regList(regMap []dst.Register_Ref, args []src.RegisterInfo_Ref) []dst.Regis
 
 func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *dst.FlowFunc) {
 	goCoreFunc := &dstcore.Function{
-		Name: srcF.Name,
+		Name:    srcF.Name,
+		Package: dstcore.NoPackage,
 	}
 
 	goFlowFunc := &dst.FlowFunc{
@@ -368,7 +369,7 @@ func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goC
 
 	goCoreFunc := &dstcore.Function{
 		Name:    "is" + parent.Name,
-		Package: p,
+		Package: dstcore.NoPackage,
 	}
 
 	goFlowFunc := &dst.FlowFunc{
@@ -391,8 +392,10 @@ func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goC
 	// Empty function.
 	goFlowFunc.CFG.Connect(0, 0, 1)
 
-	goCoreProg.Function_Scope.Register(goCoreFunc)
+	f := goCoreProg.Function_Scope.Register(goCoreFunc)
 	goFlowProg.FlowFunc_Scope.Register(goFlowFunc)
+
+	dstcore.InsertFunctionIntoPackage(goCoreProg, p, f)
 
 	// TODO attach method to type.
 }

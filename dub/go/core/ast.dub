@@ -59,6 +59,7 @@ struct Function scoped {
 struct Package scoped {
   Path []string
   Extern bool
+  Functions []Function
 }
 
 struct CoreProgram contains (Package, Function) {

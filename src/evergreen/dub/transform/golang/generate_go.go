@@ -85,9 +85,10 @@ func createFuncs(dubCoreProg *core.CoreProgram, dubFlowProg *flow.DubProgram, go
 		dstPkg := packages[i]
 		for _, f := range p.Funcs {
 			dstCoreFunc, dstFlowFunc := translateFlow(f, ctx)
-			dstCoreFunc.Package = dstPkg
-			goCoreProg.Function_Scope.Register(dstCoreFunc)
+			fRef := goCoreProg.Function_Scope.Register(dstCoreFunc)
 			flowFuncs[f.F] = goFlowProg.FlowFunc_Scope.Register(dstFlowFunc)
+
+			dstcore.InsertFunctionIntoPackage(goCoreProg, dstPkg, fRef)
 		}
 	}
 	return flowFuncs

@@ -97,8 +97,9 @@ type Package_Scope struct {
 }
 
 type Package struct {
-	Path   []string
-	Extern bool
+	Path      []string
+	Extern    bool
+	Functions []Function_Ref
 }
 
 type CoreProgram struct {

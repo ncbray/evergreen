@@ -38,3 +38,11 @@ func (scope *Function_Scope) Register(info *Function) Function_Ref {
 func (scope *Function_Scope) Len() int {
 	return len(scope.objects)
 }
+
+func InsertFunctionIntoPackage(coreProg *CoreProgram, pRef Package_Ref, fRef Function_Ref) {
+	p := coreProg.Package_Scope.Get(pRef)
+	f := coreProg.Function_Scope.Get(fRef)
+
+	f.Package = pRef
+	p.Functions = append(p.Functions, fRef)
+}
