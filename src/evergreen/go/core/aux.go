@@ -25,6 +25,24 @@ func (scope *Package_Scope) Len() int {
 	return len(scope.objects)
 }
 
+func (scope *Package_Scope) Iter() *packageIterator {
+	return &packageIterator{scope: scope, current: -1}
+}
+
+type packageIterator struct {
+	scope   *Package_Scope
+	current int
+}
+
+func (iter *packageIterator) Next() bool {
+	iter.current += 1
+	return iter.current < len(iter.scope.objects)
+}
+
+func (iter *packageIterator) Value() (Package_Ref, *Package) {
+	return Package_Ref(iter.current), iter.scope.objects[iter.current]
+}
+
 func (scope *Function_Scope) Get(ref Function_Ref) *Function {
 	return scope.objects[ref]
 }

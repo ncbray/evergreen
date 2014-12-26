@@ -123,7 +123,6 @@ struct Exit implements GoOp {
 }
 
 struct FlowProgram contains (FlowFunc) {
-  Packages []core.Package
   Types []core.GoType
   Builtins core.BuiltinTypeIndex
 }

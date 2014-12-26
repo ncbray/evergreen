@@ -430,7 +430,7 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 	defer status.End()
 
 	// Bucket types for each package.
-	packageTypes := make([][]core.GoType, len(program.Packages))
+	packageTypes := make([][]core.GoType, coreProg.Package_Scope.Len())
 	for _, t := range program.Types {
 		pIndex := getPackage(t)
 		packageTypes[pIndex] = append(packageTypes[pIndex], t)
@@ -452,29 +452,30 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 		}
 	}
 
-	packageDecls := make([]*tree.PackageAST, len(program.Packages))
-	fileDecls := make([]*tree.FileAST, len(program.Packages))
-	for i, p := range program.Packages {
-		leaf := pathLeaf(coreProg.Package_Scope.Get(p).Path)
-
-		file := &tree.FileAST{
+	packageDecls := []*tree.PackageAST{}
+	piter := coreProg.Package_Scope.Iter()
+	for piter.Next() {
+		p, pkg := piter.Value()
+		if pkg.Extern {
+			continue
+		}
+		leaf := pathLeaf(pkg.Path)
+		fileAST := &tree.FileAST{
 			Package: leaf,
 			Imports: []*tree.Import{},
 		}
-		fileDecls[i] = file
-		pkg := &tree.PackageAST{
-			Files: []*tree.FileAST{file},
+		fileDecls := []*tree.FileAST{fileAST}
+
+		generateGoFile(coreProg, program, bypass.DeclsForStruct, packageTypes[p], pkg.Functions, typeFuncs, fileAST)
+		if bypass.Tests[p] != nil {
+			fileDecls = append(fileDecls, bypass.Tests[p])
+		}
+
+		pkgAST := &tree.PackageAST{
+			Files: fileDecls,
 			P:     p,
 		}
-		packageDecls[i] = pkg
-	}
-
-	for i, p := range program.Packages {
-		pkg := coreProg.Package_Scope.Get(p)
-		generateGoFile(coreProg, program, bypass.DeclsForStruct, packageTypes[i], pkg.Functions, typeFuncs, fileDecls[i])
-		if bypass.Tests[i] != nil {
-			packageDecls[i].Files = append(packageDecls[i].Files, bypass.Tests[i])
-		}
+		packageDecls = append(packageDecls, pkgAST)
 	}
 
 	return &tree.ProgramAST{

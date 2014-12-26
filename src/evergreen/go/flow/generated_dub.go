@@ -200,7 +200,6 @@ func (node *Exit) isGoOp() {
 }
 
 type FlowProgram struct {
-	Packages       []core.Package_Ref
 	Types          []core.GoType
 	Builtins       *core.BuiltinTypeIndex
 	FlowFunc_Scope *FlowFunc_Scope

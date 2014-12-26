@@ -131,7 +131,6 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	createTypes(program, coreProg, ctx)
 
 	flowProg := &dstflow.FlowProgram{
-		Packages:       packages,
 		Types:          types,
 		Builtins:       ctx.index,
 		FlowFunc_Scope: &dstflow.FlowFunc_Scope{},
