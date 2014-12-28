@@ -34,6 +34,7 @@ struct StructType implements GoType {
   Name string
   Fields []Field
   Package Package
+  Methods []Function
 }
 
 struct InterfaceType implements GoType {

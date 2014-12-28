@@ -360,7 +360,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 	return goCoreFunc, goFlowFunc
 }
 
-func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goCoreProg *dstcore.CoreProgram, goFlowProg *dst.FlowProgram, p dstcore.Package_Ref, selfType dstcore.GoType) {
+func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goCoreProg *dstcore.CoreProgram, goFlowProg *dst.FlowProgram, p dstcore.Package_Ref, selfType *dstcore.StructType) {
 	if parent == nil {
 		return
 	}
@@ -395,9 +395,9 @@ func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goC
 	f := goCoreProg.Function_Scope.Register(goCoreFunc)
 	goFlowProg.FlowFunc_Scope.Register(goFlowFunc)
 
+	// Index.
 	dstcore.InsertFunctionIntoPackage(goCoreProg, p, f)
-
-	// TODO attach method to type.
+	selfType.Methods = append(selfType.Methods, f)
 }
 
 // Fake functions for enforcing type relationships.
@@ -410,7 +410,11 @@ func createTags(dubCoreProg *srccore.CoreProgram, dubFlowProg *src.DubProgram, g
 		pIndex := dubCoreProg.File_Scope.Get(s.File).Package
 		p := packages[pIndex]
 
-		selfType := ctx.link.GetType(s, STRUCT)
+		absSelfType := ctx.link.GetType(s, STRUCT)
+		selfType, ok := absSelfType.(*dstcore.StructType)
+		if !ok {
+			panic(absSelfType)
+		}
 
 		createTagInternal(s, s.Implements, goCoreProg, goFlowProg, p, selfType)
 	}

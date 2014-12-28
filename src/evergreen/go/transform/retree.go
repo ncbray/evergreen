@@ -401,17 +401,21 @@ func declForType(t core.GoType) tree.Decl {
 	}
 }
 
-func generateGoFile(coreProg *core.CoreProgram, flowProg *flow.FlowProgram, auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []core.Function_Ref, typeFuncs map[core.GoType][]flow.FlowFunc_Ref, file *tree.FileAST) {
+func generateGoFile(coreProg *core.CoreProgram, flowProg *flow.FlowProgram, auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []core.Function_Ref, file *tree.FileAST) {
 	file.Name = "generated_dub.go"
 
 	for _, t := range types {
 		file.Decls = append(file.Decls, declForType(t))
 		more, _ := auxDeclsForStruct[t]
 		file.Decls = append(file.Decls, more...)
-		for _, fIndex := range typeFuncs[t] {
-			cf := coreProg.Function_Scope.Get(core.Function_Ref(fIndex))
-			f := flowProg.FlowFunc_Scope.Get(fIndex)
-			file.Decls = append(file.Decls, RetreeFunc(coreProg, cf, f))
+
+		st, ok := t.(*core.StructType)
+		if ok {
+			for _, fIndex := range st.Methods {
+				cf := coreProg.Function_Scope.Get(fIndex)
+				f := flowProg.FlowFunc_Scope.Get(flow.FlowFunc_Ref(fIndex))
+				file.Decls = append(file.Decls, RetreeFunc(coreProg, cf, f))
+			}
 		}
 	}
 
@@ -436,22 +440,6 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 		packageTypes[pIndex] = append(packageTypes[pIndex], t)
 	}
 
-	// Bucket functions.
-	typeFuncs := map[core.GoType][]flow.FlowFunc_Ref{}
-	iter := program.FlowFunc_Scope.Iter()
-	for iter.Next() {
-		fIndex, f := iter.Value()
-		if f.Recv != flow.NoRegister {
-			at := f.Register_Scope.Get(f.Recv).T
-			pt, ok := at.(*core.PointerType)
-			if !ok {
-				panic(at)
-			}
-			t := pt.Element
-			typeFuncs[t] = append(typeFuncs[t], fIndex)
-		}
-	}
-
 	packageDecls := []*tree.PackageAST{}
 	piter := coreProg.Package_Scope.Iter()
 	for piter.Next() {
@@ -466,7 +454,7 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 		}
 		fileDecls := []*tree.FileAST{fileAST}
 
-		generateGoFile(coreProg, program, bypass.DeclsForStruct, packageTypes[p], pkg.Functions, typeFuncs, fileAST)
+		generateGoFile(coreProg, program, bypass.DeclsForStruct, packageTypes[p], pkg.Functions, fileAST)
 		if bypass.Tests[p] != nil {
 			fileDecls = append(fileDecls, bypass.Tests[p])
 		}

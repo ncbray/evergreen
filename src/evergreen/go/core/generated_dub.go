@@ -52,6 +52,7 @@ type StructType struct {
 	Name    string
 	Fields  []*Field
 	Package Package_Ref
+	Methods []Function_Ref
 }
 
 func (node *StructType) isGoType() {
