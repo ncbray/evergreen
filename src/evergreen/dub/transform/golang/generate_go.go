@@ -41,40 +41,33 @@ func generateTreeForStruct(s *core.StructType, bypass *transform.TreeBypass, ctx
 	}
 }
 
-func externParserRuntime(coreProg *dstcore.CoreProgram) *dstcore.StructType {
-	p := coreProg.Package_Scope.Register(&dstcore.Package{
+func makeExterns(goCoreProg *dstcore.CoreProgram, ctx *DubToGoContext) {
+	runtimePkg := goCoreProg.Package_Scope.Register(&dstcore.Package{
 		Extern: true,
 		Path:   []string{"evergreen", "dub", "runtime"},
 	})
-	stateT := &dstcore.StructType{
+	ctx.state = &dstcore.StructType{
 		Name:    "State",
-		Package: p,
+		Package: runtimePkg,
 	}
-	return stateT
-}
 
-func externTesting(coreProg *dstcore.CoreProgram) *dstcore.StructType {
-	p := coreProg.Package_Scope.Register(&dstcore.Package{
-		Extern: true,
-		Path:   []string{"testing"},
-	})
-	tT := &dstcore.StructType{
-		Name:    "T",
-		Package: p,
-	}
-	return tT
-}
-
-func externGraph(coreProg *dstcore.CoreProgram) *dstcore.StructType {
-	p := coreProg.Package_Scope.Register(&dstcore.Package{
+	graphPkg := goCoreProg.Package_Scope.Register(&dstcore.Package{
 		Extern: true,
 		Path:   []string{"evergreen", "graph"},
 	})
-	graphT := &dstcore.StructType{
+	ctx.graph = &dstcore.StructType{
 		Name:    "Graph",
-		Package: p,
+		Package: graphPkg,
 	}
-	return graphT
+
+	testingPkg := goCoreProg.Package_Scope.Register(&dstcore.Package{
+		Extern: true,
+		Path:   []string{"testing"},
+	})
+	ctx.t = &dstcore.StructType{
+		Name:    "T",
+		Package: testingPkg,
+	}
 }
 
 func createFuncs(dubCoreProg *core.CoreProgram, dubFlowProg *flow.DubProgram, goCoreProg *dstcore.CoreProgram, goFlowProg *dstflow.FlowProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []dstflow.FlowFunc_Ref {
@@ -118,13 +111,11 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 
 	ctx := &DubToGoContext{
 		index:   dstcore.MakeBuiltinTypeIndex(),
-		state:   externParserRuntime(dstCoreProg),
-		graph:   externGraph(dstCoreProg),
-		t:       externTesting(dstCoreProg),
 		link:    makeLinker(),
 		core:    coreProg,
 		dstCore: dstCoreProg,
 	}
+	makeExterns(dstCoreProg, ctx)
 
 	// Translate types.
 	types := createTypeMapping(program, coreProg, packages, ctx.link)
