@@ -86,14 +86,14 @@ func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
 	for changed {
 		changed = false
 		nit := OrderedIterator(order)
-		for nit.Next() {
-			n := nit.Value()
+		for nit.HasNext() {
+			n := nit.GetNext()
 			newIdom := idoms[n]
 			eit := EntryIterator(g, n)
 			// Find initial dominator.
 			if newIdom == NoNode {
-				for eit.Next() {
-					e := eit.Value()
+				for eit.HasNext() {
+					e, _ := eit.GetNext()
 					// Make the first processed node we find the inital domiator.
 					if idoms[e] != NoNode {
 						newIdom = e
@@ -102,8 +102,8 @@ func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
 				}
 			}
 			// Intersect dominators.
-			for eit.Next() {
-				e := eit.Value()
+			for eit.HasNext() {
+				e, _ := eit.GetNext()
 				// Ignore unprocessed nodes. (And by implication unreachable nodes.)
 				if idoms[e] != NoNode {
 					newIdom = intersectDom(idoms, index, newIdom, e)
@@ -124,14 +124,14 @@ func FindDominanceFrontiers(g *Graph, idoms []NodeID) [][]NodeID {
 	n := len(g.nodes)
 	frontiers := make([][]NodeID, n)
 	nit := NodeIterator(g)
-	for nit.Next() {
-		n := nit.Value()
+	for nit.HasNext() {
+		n := nit.GetNext()
 		numEntries := g.NumEntries(n)
 		if numEntries >= 2 {
 			target := idoms[n]
 			eit := EntryIterator(g, n)
-			for eit.Next() {
-				runner := eit.Value()
+			for eit.HasNext() {
+				runner, _ := eit.GetNext()
 				for runner != target {
 					frontiers[runner] = append(frontiers[runner], n)
 					runner = idoms[runner]

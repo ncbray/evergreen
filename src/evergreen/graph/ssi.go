@@ -95,8 +95,8 @@ func FindLiveVars(g *Graph, defuse *DefUseCollector) *LiveVars {
 	liveOut := make([]map[int]bool, n)
 	// Initialize with the uses for each node.
 	nit := NodeIterator(g)
-	for nit.Next() {
-		n := nit.Value()
+	for nit.HasNext() {
+		n := nit.GetNext()
 		liveIn[n] = map[int]bool{}
 		liveOut[n] = map[int]bool{}
 		for _, v := range defuse.NodeUses[n] {
@@ -109,11 +109,11 @@ func FindLiveVars(g *Graph, defuse *DefUseCollector) *LiveVars {
 		changed = false
 		// Propagate the uses backwards.
 		nit := OrderedIterator(order)
-		for nit.Next() {
-			n := nit.Value()
+		for nit.HasNext() {
+			n := nit.GetNext()
 			eit := ExitIterator(g, n)
-			for eit.Next() {
-				dst := eit.Value()
+			for eit.HasNext() {
+				_, dst := eit.GetNext()
 				// Merge sets from predecessors.
 				for v, _ := range liveIn[dst] {
 					_, exists := liveOut[n][v]
@@ -204,8 +204,9 @@ func (state *SSIState) PlacePhi(node NodeID) {
 		state.phiPlaced[node] = true
 		state.DiscoveredDef(node)
 		eit := EntryIterator(state.builder.graph, node)
-		for eit.Next() {
-			state.DiscoveredUse(eit.Value())
+		for eit.HasNext() {
+			e, _ := eit.GetNext()
+			state.DiscoveredUse(e)
 		}
 	}
 

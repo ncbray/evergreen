@@ -24,8 +24,8 @@ func drawNode(buf *bytes.Buffer, node NodeID, styler DotStyler) {
 
 func drawUnclusteredNodes(buf *bytes.Buffer, order []NodeID, styler DotStyler) {
 	nit := OrderedIterator(order)
-	for nit.Next() {
-		drawNode(buf, nit.Value(), styler)
+	for nit.HasNext() {
+		drawNode(buf, nit.GetNext(), styler)
 	}
 }
 
@@ -77,17 +77,17 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 
 	// Draw edges.
 	nit := OrderedIterator(order)
-	for nit.Next() {
-		node := nit.Value()
+	for nit.HasNext() {
+		node := nit.GetNext()
 		eit := ExitIterator(g, node)
-		for eit.Next() {
-			dst := eit.Value()
+		for eit.HasNext() {
+			flow, dst := eit.GetNext()
 			buf.WriteString("  ")
 			buf.WriteString(nodeDotID(node))
 			buf.WriteString(" -> ")
 			buf.WriteString(nodeDotID(dst))
 			buf.WriteString("[")
-			buf.WriteString(styler.EdgeStyle(node, eit.Label()))
+			buf.WriteString(styler.EdgeStyle(node, flow))
 			if index[node] >= index[dst] {
 				buf.WriteString(",weight=0")
 			}
@@ -96,8 +96,8 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 	}
 	if visualize_idoms {
 		nit := OrderedIterator(order)
-		for nit.Next() {
-			src := nit.Value()
+		for nit.HasNext() {
+			src := nit.GetNext()
 			dst := idoms[src]
 			if src != dst {
 				buf.WriteString("  ")

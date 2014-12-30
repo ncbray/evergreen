@@ -261,8 +261,8 @@ func rename(decl *LLFunc) {
 	}
 
 	nit := graph.OrderedIterator(order)
-	for nit.Next() {
-		n := nit.Value()
+	for nit.HasNext() {
+		n := nit.GetNext()
 		op := decl.Ops[n]
 		renameOp(n, op, ra)
 		_, is_copy := op.(*CopyOp)
@@ -377,11 +377,11 @@ func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 	g := decl.CFG
 	// Place the transfer functions on edges.
 	nit := graph.NodeIterator(g)
-	for nit.Next() {
-		n := nit.Value()
+	for nit.HasNext() {
+		n := nit.GetNext()
 		eit := graph.ExitIterator(g, n)
-		for eit.Next() {
-			dst := eit.Value()
+		for eit.HasNext() {
+			flow, dst := eit.GetNext()
 			phiFuncs := builder.PhiFuncs[dst]
 			if len(phiFuncs) == 0 {
 				continue
@@ -391,7 +391,7 @@ func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 				op.Srcs[j] = RegisterInfo_Ref(v)
 				op.Dsts[j] = RegisterInfo_Ref(v)
 			}
-			g.InsertAt(t, 0, eit.Edge())
+			g.InsertAt(t, 0, n, flow)
 		}
 		// Do this while the order and liveness info are still good.
 		op := decl.Ops[n]
@@ -405,8 +405,8 @@ func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 func makeDefUse(decl *LLFunc) *graph.DefUseCollector {
 	defuse := graph.CreateDefUse(len(decl.Ops), decl.RegisterInfo_Scope.Len())
 	nit := graph.NodeIterator(decl.CFG)
-	for nit.Next() {
-		n := nit.Value()
+	for nit.HasNext() {
+		n := nit.GetNext()
 		collectDefUse(decl, n, decl.Ops[n], defuse)
 	}
 	return defuse

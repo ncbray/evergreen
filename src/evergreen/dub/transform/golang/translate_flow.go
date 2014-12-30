@@ -131,8 +131,8 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 
 	order, _ := graph.ReversePostorder(srcF.CFG)
 	nit := graph.OrderedIterator(order)
-	for nit.Next() {
-		srcID := nit.Value()
+	for nit.HasNext() {
+		srcID := nit.GetNext()
 		op := srcF.Ops[srcID]
 
 		switch op := op.(type) {

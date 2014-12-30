@@ -25,8 +25,9 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 	for i, f := range program.LLFuncs {
 		lut[f.F] = i
 		it := graph.EntryIterator(f.CFG, f.CFG.Exit())
-		for it.Next() {
-			op := f.Ops[it.Value()]
+		for it.HasNext() {
+			e, _ := it.GetNext()
+			op := f.Ops[e]
 			flowExit, ok := op.(*FlowExitOp)
 			if !ok {
 				panic(op)

@@ -29,10 +29,6 @@ type node struct {
 	Id      NodeID
 }
 
-func (n *node) GetNext(flow int) *node {
-	return n.exits[flow].dst
-}
-
 func (n *node) GetExit(flow int) *edge {
 	return &n.exits[flow]
 }
@@ -201,9 +197,9 @@ func (g *Graph) Remove(n NodeID) {
 	g.nodes[n].Remove()
 }
 
-func (g *Graph) InsertAt(n NodeID, flow int, edge EdgeID) {
+func (g *Graph) InsertAt(n NodeID, flow int, existingNode NodeID, existingFlow int) {
 	node := g.nodes[n]
-	e := g.nodes[edge.node].GetExit(edge.index)
+	e := g.nodes[existingNode].GetExit(existingFlow)
 	node.InsertAt(flow, e)
 }
 
@@ -358,18 +354,19 @@ type nodeIterator struct {
 	count   int
 }
 
-func (it *nodeIterator) Next() bool {
-	it.current += 1
+func (it *nodeIterator) HasNext() bool {
 	return it.current < it.count
 }
 
-func (it *nodeIterator) Value() NodeID {
-	return NodeID(it.current)
+func (it *nodeIterator) GetNext() NodeID {
+	next := NodeID(it.current)
+	it.current += 1
+	return next
 }
 
 // The node length is intentionally snapshotted incase the iteration creates new nodes.
 func NodeIterator(g *Graph) nodeIterator {
-	return nodeIterator{count: len(g.nodes), current: -1}
+	return nodeIterator{count: len(g.nodes), current: 0}
 }
 
 type orderedNodeIterator struct {
@@ -377,17 +374,18 @@ type orderedNodeIterator struct {
 	order   []NodeID
 }
 
-func (it *orderedNodeIterator) Next() bool {
-	it.current += 1
+func (it *orderedNodeIterator) HasNext() bool {
 	return it.current < len(it.order)
 }
 
-func (it *orderedNodeIterator) Value() NodeID {
-	return it.order[it.current]
+func (it *orderedNodeIterator) GetNext() NodeID {
+	value := it.order[it.current]
+	it.current += 1
+	return value
 }
 
 func OrderedIterator(order []NodeID) orderedNodeIterator {
-	return orderedNodeIterator{order: order, current: -1}
+	return orderedNodeIterator{order: order, current: 0}
 }
 
 type entryIterator struct {
@@ -396,22 +394,18 @@ type entryIterator struct {
 	current int
 }
 
-func (it *entryIterator) Next() bool {
-	it.current += 1
+func (it *entryIterator) HasNext() bool {
 	return it.current < len(it.node.entries)
 }
 
-func (it *entryIterator) Value() NodeID {
-	return it.node.entries[it.current].src.Id
-}
-
-func (it *entryIterator) Edge() (NodeID, int) {
+func (it *entryIterator) GetNext() (NodeID, int) {
 	edge := it.node.entries[it.current]
+	it.current += 1
 	return edge.src.Id, edge.index
 }
 
 func EntryIterator(g *Graph, n NodeID) entryIterator {
-	return entryIterator{graph: g, node: g.nodes[n], current: -1}
+	return entryIterator{graph: g, node: g.nodes[n], current: 0}
 }
 
 type exitIterator struct {
@@ -420,29 +414,25 @@ type exitIterator struct {
 	current int
 }
 
-func (it *exitIterator) Next() bool {
-	it.current += 1
-	for it.current < len(it.node.exits) {
-		if it.node.exits[it.current].dst != nil {
-			return true
-		}
+func (it *exitIterator) skipDeadEdges() {
+	for it.current < len(it.node.exits) && it.node.exits[it.current].dst == nil {
 		it.current += 1
 	}
-	return false
 }
 
-func (it *exitIterator) Value() NodeID {
-	return it.node.exits[it.current].dst.Id
+func (it *exitIterator) HasNext() bool {
+	return it.current < len(it.node.exits)
 }
 
-func (it *exitIterator) Edge() EdgeID {
-	return EdgeID{node: it.node.Id, index: it.current}
-}
-
-func (it *exitIterator) Label() int {
-	return it.current
+func (it *exitIterator) GetNext() (int, NodeID) {
+	edge := it.node.exits[it.current]
+	it.current += 1
+	it.skipDeadEdges()
+	return edge.index, edge.dst.Id
 }
 
 func ExitIterator(g *Graph, n NodeID) exitIterator {
-	return exitIterator{graph: g, node: g.nodes[n], current: -1}
+	iter := exitIterator{graph: g, node: g.nodes[n], current: 0}
+	iter.skipDeadEdges()
+	return iter
 }

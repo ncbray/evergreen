@@ -27,8 +27,8 @@ func findBlockHeads(g *graph.Graph, order []graph.NodeID) ([]graph.NodeID, map[g
 	uid := 0
 
 	nit := graph.OrderedIterator(order)
-	for nit.Next() {
-		n := nit.Value()
+	for nit.HasNext() {
+		n := nit.GetNext()
 		if (n == g.Entry() || g.NumEntries(n) >= 2) && n != g.Exit() {
 			heads = append(heads, n)
 			labels[n] = uid
