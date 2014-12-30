@@ -117,6 +117,10 @@ type DotStyler struct {
 	Core *core.CoreProgram
 }
 
+func nodeLabel(node graph.NodeID, label string) string {
+	return fmt.Sprintf("[%d] %s", node, label)
+}
+
 func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	op := styler.Ops[node]
 	switch op := op.(type) {
@@ -125,9 +129,9 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	case *Exit:
 		return `shape=point,label="exit"`
 	case *Switch:
-		return fmt.Sprintf("shape=diamond,label=%#v", RegisterName(op.Cond))
+		return fmt.Sprintf("shape=diamond,label=%#v", nodeLabel(node, "?"+RegisterName(op.Cond)))
 	case GoOp:
-		return fmt.Sprintf("shape=box,label=%#v", OpToString(styler.Core, op))
+		return fmt.Sprintf("shape=box,label=%#v", nodeLabel(node, OpToString(styler.Core, op)))
 	default:
 		panic(op)
 	}

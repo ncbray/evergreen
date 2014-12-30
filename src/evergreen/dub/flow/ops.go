@@ -143,6 +143,14 @@ func opToString(coreProg *core.CoreProgram, op DubOp) string {
 	}
 }
 
+func nodeLabel(node graph.NodeID, label string) string {
+	return fmt.Sprintf("[%d] %s", node, label)
+}
+
+func flowExit(label string) string {
+	return fmt.Sprintf("shape=invtriangle,label=%#v", label)
+}
+
 func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	op := styler.Decl.Ops[node]
 	switch op := op.(type) {
@@ -151,22 +159,24 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	case *ExitOp:
 		return `shape=point,label="exit"`
 	case *FlowExitOp:
+		var label string
 		switch op.Flow {
 		case 0:
-			return `shape=invtriangle,label="n"`
+			label = "n"
 		case 1:
-			return `shape=invtriangle,label="f"`
+			label = "f"
 		case 2:
-			return `shape=invtriangle,label="e"`
+			label = "e"
 		case 3:
-			return `shape=invtriangle,label="r"`
+			label = "r"
 		default:
-			return `shape=invtriangle,label="?"`
+			label = "?"
 		}
+		return flowExit(nodeLabel(node, label))
 	case *SwitchOp:
-		return fmt.Sprintf("shape=diamond,label=%#v", registerName(op.Cond))
+		return fmt.Sprintf("shape=diamond,label=%#v", nodeLabel(node, "?"+registerName(op.Cond)))
 	case DubOp:
-		return fmt.Sprintf("shape=box,label=%#v", opToString(styler.Core, op))
+		return fmt.Sprintf("shape=box,label=%#v", nodeLabel(node, opToString(styler.Core, op)))
 	default:
 		panic(op)
 	}
