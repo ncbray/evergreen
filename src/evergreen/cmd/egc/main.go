@@ -37,7 +37,6 @@ func dumpProgram(status compiler.PassStatus, runner *compiler.TaskRunner, progra
 			outfile := filepath.Join(parts...)
 
 			runner.Run(func() {
-				// Dump flowgraph
 				io.WriteDot(dot, outfile)
 			})
 		}
@@ -72,7 +71,10 @@ func goFlowFuncName(cf *gocore.Function, f *goflow.FlowFunc) string {
 	return base + "_" + cf.Name
 }
 
-func dumpFlowFuncs(goFlowProgram *goflow.FlowProgram, goCoreProg *gocore.CoreProgram, outputDir []string) {
+func dumpFlowFuncs(status compiler.PassStatus, runner *compiler.TaskRunner, goFlowProgram *goflow.FlowProgram, goCoreProg *gocore.CoreProgram, outputDir []string) {
+	status.Begin()
+	defer status.End()
+
 	iter := goFlowProgram.FlowFunc_Scope.Iter()
 	for iter.Next() {
 		fIndex, f := iter.Value()
@@ -83,7 +85,10 @@ func dumpFlowFuncs(goFlowProgram *goflow.FlowProgram, goCoreProg *gocore.CorePro
 		parts = append(parts, p.Path...)
 		parts = append(parts, fmt.Sprintf("%s.svg", goFlowFuncName(cf, f)))
 		outfile := filepath.Join(parts...)
-		io.WriteDot(dot, outfile)
+
+		runner.Run(func() {
+			io.WriteDot(dot, outfile)
+		})
 	}
 }
 
@@ -104,7 +109,7 @@ func processProgram(status compiler.PassStatus, p compiler.LocationProvider, run
 
 	goFlowProg, goCoreProg, bypass := golang.GenerateGo(status.Pass("dub_to_go"), flowProgram, coreProg, config.RootPackage, config.GenerateTests)
 	if config.Dump {
-		dumpFlowFuncs(goFlowProg, goCoreProg, config.DumpDir)
+		dumpFlowFuncs(status.Pass("dump_go"), runner, goFlowProg, goCoreProg, config.DumpDir)
 	}
 	goTreeProg := gotransform.FlowToTree(status.Pass("flow_to_tree"), goFlowProg, goCoreProg, bypass)
 
