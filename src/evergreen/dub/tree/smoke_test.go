@@ -1,4 +1,4 @@
-package gentests
+package tree_test
 
 import (
 	"evergreen/dub/runtime"
