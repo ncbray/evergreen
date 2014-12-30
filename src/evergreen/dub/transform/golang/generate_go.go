@@ -91,7 +91,7 @@ func pathLeaf(path []string) string {
 	return path[len(path)-1]
 }
 
-func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, root string, generate_tests bool) (*dstflow.FlowProgram, *dstcore.CoreProgram, *transform.TreeBypass) {
+func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *core.CoreProgram, rootPackage []string, generate_tests bool) (*dstflow.FlowProgram, *dstcore.CoreProgram, *transform.TreeBypass) {
 	status.Begin()
 	defer status.End()
 
@@ -103,7 +103,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	// Translate package identities.
 	packages := make([]dstcore.Package_Ref, len(program.Packages))
 	for i, dubPkg := range program.Packages {
-		path := append([]string{root}, dubPkg.Path...)
+		path := append(rootPackage, dubPkg.Path...)
 		packages[i] = dstCoreProg.Package_Scope.Register(&dstcore.Package{
 			Path: path,
 		})

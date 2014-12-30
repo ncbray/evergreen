@@ -56,7 +56,7 @@ func Build(ctx *Context) {
 		return
 	}
 	ctx.Step("Building binary")
-	ctx.SimpleCommand("go", "install", "evergreen/cmd/regenerate")
+	ctx.SimpleCommand("go", "install", "evergreen/cmd/egc")
 	if ctx.Errored {
 		return
 	}
@@ -65,7 +65,7 @@ func Build(ctx *Context) {
 
 func Sync(ctx *Context) {
 	ctx.Step("Regenerating sources")
-	ctx.SimpleCommand("bin/regenerate", "-replace")
+	ctx.SimpleCommand("bin/egc", "-indir=dub", "-outdir=src", "-gopackage=evergreen")
 	if ctx.Errored {
 		return
 	}
@@ -89,7 +89,7 @@ func Test(ctx *Context) {
 		return
 	}
 	ctx.Step("Generating sources for testing")
-	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/regenerate/main.go")
+	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir=dub", "-outdir=src", "-gopackage=generated", "-gentests")
 	if ctx.Errored {
 		return
 	}

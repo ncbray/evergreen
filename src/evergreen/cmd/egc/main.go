@@ -1,4 +1,4 @@
-// Tool for regenerating checked-in sources.
+// Tool for compiling dub sources.
 package main
 
 import (
@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"time"
 )
 
@@ -86,7 +87,7 @@ func dumpFlowFuncs(goFlowProgram *goflow.FlowProgram, goCoreProg *gocore.CorePro
 	}
 }
 
-func processProgram(status compiler.PassStatus, p compiler.LocationProvider, runner *compiler.TaskRunner, config *RegenerateConfig) {
+func processProgram(status compiler.PassStatus, p compiler.LocationProvider, runner *compiler.TaskRunner, config *EGCConfig) {
 	program, coreProg := tree.DubProgramFrontend(status.Pass("dub_frontend"), p, config.InputDir)
 	if status.ShouldHalt() {
 		return
@@ -110,7 +111,7 @@ func processProgram(status compiler.PassStatus, p compiler.LocationProvider, run
 	gotree.GoProgramBackend(status.Pass("go_backend"), goTreeProg, goCoreProg, config.OutputDir, runner)
 }
 
-func entryPoint(p compiler.LocationProvider, status compiler.PassStatus, config *RegenerateConfig) {
+func entryPoint(p compiler.LocationProvider, status compiler.PassStatus, config *EGCConfig) {
 	status.Begin()
 	defer status.End()
 
@@ -120,13 +121,13 @@ func entryPoint(p compiler.LocationProvider, status compiler.PassStatus, config 
 	runner.Kill()
 }
 
-func mainLoop(config *RegenerateConfig, profiling bool) {
+func mainLoop(config *EGCConfig, profiling bool) {
 	p := compiler.MakeProvider()
 	status := compiler.MakeStatus(p)
 
 	start := time.Now()
 	for i := 0; ; i++ {
-		entryPoint(p, status.Pass("regenerate"), config)
+		entryPoint(p, status.Pass("egc"), config)
 		if profiling && time.Since(start) < time.Second*10 {
 			fmt.Println("Re-running to improve profiling data", i)
 		} else {
@@ -140,45 +141,59 @@ func mainLoop(config *RegenerateConfig, profiling bool) {
 	}
 }
 
-type RegenerateConfig struct {
+type EGCConfig struct {
 	Dump          bool
 	InputDir      string
 	OutputDir     string
-	RootPackage   string
+	RootPackage   []string
 	DumpDir       []string
 	GenerateTests bool
 	Jobs          int
 }
 
+func flagError(message string) {
+	fmt.Println(message)
+	flag.PrintDefaults()
+	os.Exit(1)
+}
+
 func main() {
-	config := &RegenerateConfig{
-		InputDir:    "dub",
-		OutputDir:   "src",
-		DumpDir:     []string{"output"},
-		RootPackage: "generated",
+	config := &EGCConfig{
+		DumpDir: []string{"output"},
 	}
 
-	var replace bool
+	var rootPackage string
 	var verbosity int
 	var cpuprofile string
 	var memprofile string
 
+	flag.StringVar(&config.InputDir, "indir", "", "Directory containing input files.")
+	flag.StringVar(&config.OutputDir, "outdir", "", "Directory to output generated files.")
+	flag.StringVar(&rootPackage, "gopackage", "", "Root package for generate sources.")
+
 	flag.BoolVar(&config.Dump, "dump", false, "Dump flowgraphs to disk.")
-	flag.BoolVar(&replace, "replace", false, "Replace the existing implementation.")
-	flag.StringVar(&cpuprofile, "cpuprofile", "", "write cpu profile to file")
-	flag.StringVar(&memprofile, "memprofile", "", "write memory profile to this file")
+	flag.BoolVar(&config.GenerateTests, "gentests", false, "Generate dub tests.")
+
+	flag.StringVar(&cpuprofile, "cpuprofile", "", "Write cpu profile to file.")
+	flag.StringVar(&memprofile, "memprofile", "", "Write memory profile to this file.")
 	flag.IntVar(&config.Jobs, "j", runtime.NumCPU(), "Number of threads.")
 	flag.IntVar(&verbosity, "v", 0, "Verbosity level.")
 
 	flag.Parse()
 
+	if config.InputDir == "" {
+		flagError("-indir is required")
+	}
+	if config.OutputDir == "" {
+		flagError("-outdir is required")
+	}
+	if rootPackage == "" {
+		flagError("-gopackage is required")
+	}
+	config.RootPackage = strings.Split(rootPackage, "/")
+
 	runtime.GOMAXPROCS(config.Jobs)
 	compiler.Verbosity = verbosity
-
-	if replace {
-		config.RootPackage = "evergreen"
-	}
-	config.GenerateTests = !replace
 
 	if cpuprofile != "" {
 		f, err := os.Create(cpuprofile)
