@@ -12,12 +12,11 @@ func (s *rpoSearch) search(n NodeID) {
 	}
 	// Prevent processing it again, the correct index will be computed later.
 	s.index[n] = 1
-	numExits := s.graph.NumExits(n)
-	for i := numExits - 1; i >= 0; i-- {
-		dst := s.graph.GetExit(n, i)
-		if dst != NoNode {
-			s.search(dst)
-		}
+
+	iter := ReverseExitIterator(s.graph, n)
+	for iter.HasNext() {
+		_, dst := iter.GetNext()
+		s.search(dst)
 	}
 	s.order = append(s.order, n)
 	// Zero is reserved, so use the actual index + 1.

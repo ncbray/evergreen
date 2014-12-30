@@ -7,6 +7,7 @@ type edge struct {
 	src   *node
 	dst   *node
 	index int
+	id    EdgeID
 }
 
 func (e *edge) attach(other *node) {
@@ -25,12 +26,12 @@ func (e *edge) detach() {
 
 type node struct {
 	entries entryList
-	exits   []edge
-	Id      NodeID
+	exits   []*edge
+	id      NodeID
 }
 
 func (n *node) GetExit(flow int) *edge {
-	return &n.exits[flow]
+	return n.exits[flow]
 }
 
 func (n *node) SetExit(flow int, other *node) {
@@ -47,14 +48,6 @@ func (n *node) RemoveExit(flow int) {
 
 func (n *node) NumExits() int {
 	return len(n.exits)
-}
-
-func (n *node) SetDefaultExits(exits []*node) {
-	for i, e := range n.exits {
-		if e.dst == nil {
-			n.SetExit(i, exits[i])
-		}
-	}
 }
 
 func (n *node) addEntry(e *edge) {
@@ -103,24 +96,6 @@ func (n *node) InsertAt(flow int, target *edge) {
 	n.addEntry(target)
 }
 
-func (n *node) Remove() {
-	for i := 0; i < len(n.exits); i++ {
-		e := n.GetExit(i)
-		// Find the active exit.
-		if e.dst == nil {
-			continue
-		}
-		// Make sure there are no other active exits.
-		for j := i + 1; j < len(n.exits); j++ {
-			if n.exits[j].dst != nil {
-				panic(n.Id)
-			}
-		}
-		e.dst.replaceEntry(e, n.popEntries())
-		break
-	}
-}
-
 func (n *node) replaceSingleEntry(target *edge, replacement *edge) {
 	n.replaceEntry(target, []*edge{replacement})
 }
@@ -151,13 +126,11 @@ type NodeID int
 
 const NoNode NodeID = ^NodeID(0)
 
-type EdgeID struct {
-	node  NodeID
-	index int
-}
+type EdgeID int
 
 type Graph struct {
 	nodes []*node
+	edges []*edge
 }
 
 func (g *Graph) Entry() NodeID {
@@ -168,14 +141,23 @@ func (g *Graph) Exit() NodeID {
 	return 1
 }
 
+func (g *Graph) createEdge(flow int) *edge {
+	id := EdgeID(len(g.edges))
+	e := &edge{index: flow, id: id}
+	g.edges = append(g.edges, e)
+	return e
+}
+
 func (g *Graph) CreateNode(exits int) NodeID {
 	id := NodeID(len(g.nodes))
 	n := &node{
-		Id:    id,
-		exits: make([]edge, exits),
+		id:    id,
+		exits: make([]*edge, exits),
 	}
 	for i := 0; i < exits; i++ {
-		n.exits[i] = edge{src: n, index: i}
+		e := g.createEdge(i)
+		e.src = n
+		n.exits[i] = e
 	}
 	g.nodes = append(g.nodes, n)
 	return id
@@ -193,8 +175,23 @@ func (g *Graph) Disconnect(src NodeID, edge int) {
 	g.nodes[src].RemoveExit(edge)
 }
 
-func (g *Graph) Remove(n NodeID) {
-	g.nodes[n].Remove()
+func (g *Graph) RemoveNode(nid NodeID) {
+	n := g.nodes[nid]
+	for i := 0; i < len(n.exits); i++ {
+		e := n.GetExit(i)
+		// Find the active exit.
+		if e.dst == nil {
+			continue
+		}
+		// Make sure there are no other active exits.
+		for j := i + 1; j < len(n.exits); j++ {
+			if n.exits[j].dst != nil {
+				panic(n.id)
+			}
+		}
+		e.dst.replaceEntry(e, n.popEntries())
+		break
+	}
 }
 
 func (g *Graph) InsertAt(n NodeID, flow int, existingNode NodeID, existingFlow int) {
@@ -208,7 +205,7 @@ func (g *Graph) NumEntries(dst NodeID) int {
 }
 
 func (g *Graph) GetEntry(dst NodeID, edge int) NodeID {
-	return g.nodes[dst].entries[edge].src.Id
+	return g.nodes[dst].entries[edge].src.id
 }
 
 func (g *Graph) NumExits(src NodeID) int {
@@ -218,7 +215,7 @@ func (g *Graph) NumExits(src NodeID) int {
 func (g *Graph) GetExit(src NodeID, edge int) NodeID {
 	next := g.nodes[src].exits[edge].dst
 	if next != nil {
-		return next.Id
+		return next.id
 	} else {
 		return NoNode
 	}
@@ -401,7 +398,7 @@ func (it *entryIterator) HasNext() bool {
 func (it *entryIterator) GetNext() (NodeID, int) {
 	edge := it.node.entries[it.current]
 	it.current += 1
-	return edge.src.Id, edge.index
+	return edge.src.id, edge.index
 }
 
 func EntryIterator(g *Graph, n NodeID) entryIterator {
@@ -415,7 +412,7 @@ type exitIterator struct {
 }
 
 func (it *exitIterator) skipDeadEdges() {
-	for it.current < len(it.node.exits) && it.node.exits[it.current].dst == nil {
+	for it.HasNext() && it.node.exits[it.current].dst == nil {
 		it.current += 1
 	}
 }
@@ -428,11 +425,41 @@ func (it *exitIterator) GetNext() (int, NodeID) {
 	edge := it.node.exits[it.current]
 	it.current += 1
 	it.skipDeadEdges()
-	return edge.index, edge.dst.Id
+	return edge.index, edge.dst.id
 }
 
 func ExitIterator(g *Graph, n NodeID) exitIterator {
 	iter := exitIterator{graph: g, node: g.nodes[n], current: 0}
+	iter.skipDeadEdges()
+	return iter
+}
+
+type reverseExitIterator struct {
+	graph   *Graph
+	node    *node
+	current int
+}
+
+func (it *reverseExitIterator) skipDeadEdges() {
+	for it.HasNext() && it.node.exits[it.current].dst == nil {
+		it.current -= 1
+	}
+}
+
+func (it *reverseExitIterator) HasNext() bool {
+	return it.current >= 0
+}
+
+func (it *reverseExitIterator) GetNext() (int, NodeID) {
+	edge := it.node.exits[it.current]
+	it.current -= 1
+	it.skipDeadEdges()
+	return edge.index, edge.dst.id
+}
+
+func ReverseExitIterator(g *Graph, n NodeID) reverseExitIterator {
+	node := g.nodes[n]
+	iter := reverseExitIterator{graph: g, node: node, current: len(node.exits) - 1}
 	iter.skipDeadEdges()
 	return iter
 }
