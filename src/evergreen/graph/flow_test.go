@@ -174,6 +174,30 @@ func TestSanity(t *testing.T) {
 	checkNodeList(idoms, []NodeID{e, n3, e, n1, n2}, t)
 }
 
+func TestDead(t *testing.T) {
+	g := CreateGraph()
+
+	e := g.Entry()
+	x := g.Exit()
+	n1 := g.CreateNode(1)
+	n2 := g.CreateNode(1)
+	n3 := g.CreateNode(1)
+	n4 := g.CreateNode(1)
+
+	g.Connect(e, 0, n1)
+	g.Connect(n1, 0, n2)
+	g.Connect(n2, 0, n3)
+	g.Connect(n3, 0, x)
+	g.Connect(n4, 0, n3)
+
+	order, index := ReversePostorder(g)
+	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
+	assert.IntListEquals(t, index, []int{0, 4, 1, 2, 3, -1})
+
+	idoms := FindDominators(g, order, index)
+	checkNodeList(idoms, []NodeID{e, n3, e, n1, n2, NoNode}, t)
+}
+
 func TestLoop(t *testing.T) {
 	g := CreateGraph()
 
@@ -193,7 +217,7 @@ func TestLoop(t *testing.T) {
 	assert.IntListEquals(t, index, []int{0, 4, 1, 2, 3})
 
 	idoms := FindDominators(g, order, index)
-	checkNodeList(idoms, []NodeID{e, e, e, n1, n2}, t)
+	checkNodeList(idoms, []NodeID{e, NoNode, e, n1, n2}, t)
 }
 
 func TestIrreducible(t *testing.T) {
@@ -230,7 +254,7 @@ func TestIrreducible(t *testing.T) {
 	assert.IntListEquals(t, index, []int{0, 7, 6, 5, 4, 3, 2, 1})
 
 	idoms := FindDominators(g, order, index)
-	checkNodeList(idoms, []NodeID{e, e, n6, n6, n6, n6, n6, e}, t)
+	checkNodeList(idoms, []NodeID{e, NoNode, n6, n6, n6, n6, n6, e}, t)
 }
 
 //   0

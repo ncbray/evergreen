@@ -78,47 +78,41 @@ func isBackedge(index []int, src NodeID, dst NodeID) bool {
 func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
 	numNodes := len(g.nodes)
 	idoms := make([]NodeID, numNodes)
-	changed := false
-	nit := OrderedIterator(order)
-	for nit.Next() {
-		n := nit.Value()
-		// If there are no forward entries into the node, assume an impossible edge.
-		new_idom := g.Entry()
-		first := true
-		eit := EntryIterator(g, n)
-		for eit.Next() {
-			e := eit.Value()
-			if !isBackedge(index, e, n) {
-				if first {
-					new_idom = e
-					first = false
-				} else {
-					new_idom = intersectDom(idoms, index, new_idom, e)
-				}
-			} else {
-				changed = true
-			}
-		}
-		idoms[n] = new_idom
+	for i := 0; i < numNodes; i++ {
+		idoms[i] = NoNode
 	}
+	idoms[g.Entry()] = g.Entry()
+	changed := true
 	for changed {
 		changed = false
 		nit := OrderedIterator(order)
 		for nit.Next() {
 			n := nit.Value()
-			numEntries := g.NumEntries(n)
-			// 0 and 1 entry nodes should be stable after the first pass.
-			if numEntries >= 2 {
-				newIdom := idoms[n]
-				eit := EntryIterator(g, n)
+			newIdom := idoms[n]
+			eit := EntryIterator(g, n)
+			// Find initial dominator.
+			if newIdom == NoNode {
 				for eit.Next() {
 					e := eit.Value()
+					// Make the first processed node we find the inital domiator.
+					if idoms[e] != NoNode {
+						newIdom = e
+						break
+					}
+				}
+			}
+			// Intersect dominators.
+			for eit.Next() {
+				e := eit.Value()
+				// Ignore unprocessed nodes. (And by implication unreachable nodes.)
+				if idoms[e] != NoNode {
 					newIdom = intersectDom(idoms, index, newIdom, e)
 				}
-				if idoms[n] != newIdom {
-					idoms[n] = newIdom
-					changed = true
-				}
+			}
+			// Update.
+			if idoms[n] != newIdom {
+				idoms[n] = newIdom
+				changed = true
 			}
 		}
 	}
