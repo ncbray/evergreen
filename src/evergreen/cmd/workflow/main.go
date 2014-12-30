@@ -97,6 +97,19 @@ func Test(ctx *Context) {
 	ctx.SimpleCommand("go", "test", "./...")
 }
 
+func Dump(ctx *Context) {
+	ctx.Step("Removing old outputs")
+	ctx.CheckError(os.RemoveAll("output"))
+	if ctx.Errored {
+		return
+	}
+	ctx.Step("Dumping graphs")
+	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir=dub", "-outdir=src", "-gopackage=generated", "-dump", "-v=1")
+	if ctx.Errored {
+		return
+	}
+}
+
 func main() {
 	ctx := &Context{
 		Modes: []*Mode{
@@ -119,6 +132,11 @@ func main() {
 				Name: "test",
 				Run:  Test,
 				Help: "Runs tests.",
+			},
+			&Mode{
+				Name: "dump",
+				Run:  Dump,
+				Help: "Dumps graphs of intermediate data structures.",
 			},
 		},
 	}

@@ -38,10 +38,6 @@ This development loop should help minimize situations where work in progress is
 lost because changes to the parser break it and prevent it from regenerating
 itself.  This is still a risk, however, so be careful.
 
-If you have graphviz installed, you can visualize the graph IR of the *.dub files:
-
-    ./bin/regenerate -dump
-
 ## Background
 
 ### Layout

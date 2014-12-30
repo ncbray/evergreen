@@ -171,7 +171,7 @@ func main() {
 	flag.StringVar(&config.OutputDir, "outdir", "", "Directory to output generated files.")
 	flag.StringVar(&rootPackage, "gopackage", "", "Root package for generate sources.")
 
-	flag.BoolVar(&config.Dump, "dump", false, "Dump flowgraphs to disk.")
+	flag.BoolVar(&config.Dump, "dump", false, "Dump flowgraphs to output/... (requires graphviz).")
 	flag.BoolVar(&config.GenerateTests, "gentests", false, "Generate dub tests.")
 
 	flag.StringVar(&cpuprofile, "cpuprofile", "", "Write cpu profile to file.")

@@ -89,6 +89,8 @@ func OpToString(coreProg *core.CoreProgram, op GoOp) string {
 	case *Call:
 		f := coreProg.Function_Scope.Get(op.Target)
 		return addDsts(fmt.Sprintf("%s(%s)", f.Name, registerList(op.Args)), op.Dsts)
+	case *Append:
+		return addDst(fmt.Sprintf("append(%s << %s)", RegisterName(op.Src), registerList(op.Args)), op.Dst)
 	case *MethodCall:
 		return addDsts(fmt.Sprintf("%s.%s(%s)", RegisterName(op.Expr), op.Name, registerList(op.Args)), op.Dsts)
 	case *ConstructStruct:
