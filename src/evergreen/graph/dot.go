@@ -14,6 +14,51 @@ type DotStyler interface {
 	EdgeStyle(node NodeID, flow int) string
 }
 
+func drawNode(buf *bytes.Buffer, node NodeID, styler DotStyler) {
+	buf.WriteString("  ")
+	buf.WriteString(nodeDotID(node))
+	buf.WriteString("[")
+	buf.WriteString(styler.NodeStyle(node))
+	buf.WriteString("];\n")
+}
+
+func drawUnclusteredNodes(buf *bytes.Buffer, order []NodeID, styler DotStyler) {
+	nit := OrderedIterator(order)
+	for nit.Next() {
+		drawNode(buf, nit.Value(), styler)
+	}
+}
+
+func drawCluster(buf *bytes.Buffer, cluster Cluster, styler DotStyler) {
+	switch cluster := cluster.(type) {
+	case *ClusterLeaf:
+		for _, n := range cluster.Nodes {
+			drawNode(buf, n, styler)
+		}
+	case *ClusterLinear:
+		for _, c := range cluster.Clusters {
+			drawCluster(buf, c, styler)
+		}
+	case *ClusterComplex:
+		buf.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Entry))
+		buf.WriteString("  color=lightgrey;\n")
+
+		drawNode(buf, cluster.Entry, styler)
+		for _, c := range cluster.Clusters {
+			drawCluster(buf, c, styler)
+		}
+
+		buf.WriteString("}\n")
+	default:
+		panic(cluster)
+	}
+}
+
+func drawClusteredNodes(buf *bytes.Buffer, g *Graph, styler DotStyler) {
+	cluster := makeCluster(g)
+	drawCluster(buf, cluster, styler)
+}
+
 func GraphToDot(g *Graph, styler DotStyler) string {
 	order, index := ReversePostorder(g)
 
@@ -23,18 +68,17 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 		idoms = FindDominators(g, order, index)
 	}
 
-	var buf bytes.Buffer
+	buf := &bytes.Buffer{}
 	buf.WriteString("digraph G {\n")
 	buf.WriteString("  nslimit = 3;\n") // Make big graphs render faster.
+
+	//drawUnclusteredNodes(buf, order, styler)
+	drawClusteredNodes(buf, g, styler)
+
+	// Draw edges.
 	nit := OrderedIterator(order)
 	for nit.Next() {
 		node := nit.Value()
-		buf.WriteString("  ")
-		buf.WriteString(nodeDotID(node))
-		buf.WriteString("[")
-		buf.WriteString(styler.NodeStyle(node))
-		buf.WriteString("];\n")
-
 		eit := ExitIterator(g, node)
 		for eit.Next() {
 			dst := eit.Value()
@@ -44,6 +88,9 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 			buf.WriteString(nodeDotID(dst))
 			buf.WriteString("[")
 			buf.WriteString(styler.EdgeStyle(node, eit.Label()))
+			if index[node] >= index[dst] {
+				buf.WriteString(",weight=0")
+			}
 			buf.WriteString("];\n")
 		}
 	}
