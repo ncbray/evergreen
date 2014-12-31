@@ -238,7 +238,7 @@ func renameOp(n graph.NodeID, data DubOp, ra *RegisterReallocator) {
 			op.Srcs[i] = ra.Get(n, src)
 		}
 		// The destinations need to be consistent based on the target
-		tgt := ra.decl.CFG.GetExit(n, 0)
+		_, tgt := ra.decl.CFG.GetUniqueExit(n)
 		for i, dst := range op.Dsts {
 			op.Dsts[i] = ra.Transfer(tgt, dst)
 		}

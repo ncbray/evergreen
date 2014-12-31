@@ -30,16 +30,8 @@ type node struct {
 	id      NodeID
 }
 
-func (n *node) GetExit(flow int) *edge {
+func (n *node) getExit(flow int) *edge {
 	return n.exits[flow]
-}
-
-func (n *node) RemoveExit(flow int) {
-	n.GetExit(flow).detach()
-}
-
-func (n *node) NumExits() int {
-	return len(n.exits)
 }
 
 func (n *node) addEntry(e *edge) {
@@ -58,14 +50,6 @@ func (n *node) popEntries() entryList {
 
 func (n *node) peekEntries() entryList {
 	return n.entries
-}
-
-func (n *node) TransferEntries(other *node) {
-	entries := n.popEntries()
-	for _, e := range entries {
-		e.dst = other
-	}
-	other.addEntries(entries)
 }
 
 func (n *node) replaceSingleEntry(target *edge, replacement *edge) {
@@ -158,7 +142,7 @@ func (g *Graph) RemoveEdge(eid EdgeID) {
 func (g *Graph) RemoveNode(nid NodeID) {
 	n := g.nodes[nid]
 	for i := 0; i < len(n.exits); i++ {
-		e := n.GetExit(i)
+		e := n.getExit(i)
 		// Find the active exit.
 		if e.dst == nil {
 			continue
@@ -192,17 +176,14 @@ func (g *Graph) HasMultipleEntries(dst NodeID) bool {
 	return len(g.nodes[dst].entries) >= 2
 }
 
-func (g *Graph) NumExits(src NodeID) int {
-	return len(g.nodes[src].exits)
-}
-
-func (g *Graph) GetExit(src NodeID, edge int) NodeID {
-	next := g.nodes[src].exits[edge].dst
-	if next != nil {
-		return next.id
-	} else {
-		return NoNode
+func (g *Graph) GetUniqueExit(src NodeID) (EdgeID, NodeID) {
+	if len(g.nodes[src].exits) == 1 {
+		e := g.nodes[src].exits[0]
+		if e.dst != nil {
+			return e.id, e.dst.id
+		}
 	}
+	return NoEdge, NoNode
 }
 
 func (g *Graph) CreateRegion(exits int) *GraphRegion {
@@ -220,7 +201,7 @@ func (g *Graph) ConnectRegion(gr *GraphRegion) {
 		g.Connect(g.IndexedExitEdge(g.Entry(), 0), g.Exit())
 	} else {
 		entry := g.nodes[g.Entry()]
-		regionHead.replaceSingleEntry(&gr.entryEdge, entry.GetExit(0))
+		regionHead.replaceSingleEntry(&gr.entryEdge, entry.getExit(0))
 		for i := 0; i < len(gr.exits); i++ {
 			if len(gr.exits[i]) > 0 {
 				gr.AttachFlow(i, g.Exit())

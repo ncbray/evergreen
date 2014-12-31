@@ -12,8 +12,8 @@ func checkEdge(e *edge, src *node, dst *node, t *testing.T) {
 	if e.dst != dst {
 		t.Errorf("Got dst of %v, expected %v", e.dst, dst)
 	}
-	if e.src.GetExit(e.index) != e {
-		t.Errorf("Inconsistent indexing for %v, found %v", e, src.GetExit(e.index))
+	if e.src.getExit(e.index) != e {
+		t.Errorf("Inconsistent indexing for %v, found %v", e, src.getExit(e.index))
 	}
 }
 

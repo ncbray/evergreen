@@ -220,8 +220,25 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 		case *flow.Nop:
 			// TODO
 		case *flow.Switch:
-			body, bodyFall := generateNode(coreProg, decl, lclMap, labels, parent_label, false, g.GetExit(node, 0), []tree.Stmt{})
-			elseBody, elseFall := generateNode(coreProg, decl, lclMap, labels, parent_label, false, g.GetExit(node, 1), []tree.Stmt{})
+			var body []tree.Stmt
+			bodyFall := false
+			var elseBody []tree.Stmt
+			elseFall := false
+
+			eit := graph.ExitIterator(g, node)
+			for eit.HasNext() {
+				e, next := eit.GetNext()
+				flow := g.EdgeFlow(e)
+				child, childFall := generateNode(coreProg, decl, lclMap, labels, parent_label, false, next, []tree.Stmt{})
+				switch flow {
+				case 0:
+					body, bodyFall = child, childFall
+				case 1:
+					elseBody, elseFall = child, childFall
+				default:
+					panic(flow)
+				}
+			}
 			var elseStmt tree.Stmt = nil
 			if len(elseBody) > 0 && bodyFall {
 				elseStmt = &tree.BlockStmt{Body: elseBody}
@@ -244,12 +261,12 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 			panic(op)
 		}
 
-		if g.NumExits(node) == 1 {
-			node = g.GetExit(node, 0)
-			is_head = false
-		} else {
+		_, next := g.GetUniqueExit(node)
+		if next == graph.NoNode {
 			panic(decl.Ops[node])
 		}
+		node = next
+		is_head = false
 	}
 }
 
@@ -315,7 +332,8 @@ func RetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.FlowFun
 	funcDecl.Type = ft
 
 	// Don't reconstruct empty functions.
-	if decl.CFG.GetExit(decl.CFG.Entry(), 0) != decl.CFG.Exit() {
+	_, first := decl.CFG.GetUniqueExit(decl.CFG.Entry())
+	if first != decl.CFG.Exit() {
 		order, _ := graph.ReversePostorder(decl.CFG)
 		heads, labels := findBlockHeads(decl.CFG, order)
 
