@@ -83,10 +83,8 @@ func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *
 	)
 
 	decide := builder.EmitOp(&flow.SwitchOp{Cond: breg})
-
 	builder.graph.ConnectEdgeExit(builder.EmitEdge(make_value, flow.NORMAL), compare)
 	builder.graph.ConnectEdgeExit(builder.EmitEdge(compare, flow.NORMAL), decide)
-
 	return make_value, decide
 }
 
@@ -123,12 +121,12 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, 
 			filters.AttachFlow(onNoMatch, minEntry)
 
 			// Match
-			builder.graph.ConnectEdgeExit(builder.EmitEdge(minDecide, 0), maxEntry)
-			filters.RegisterExit(builder.EmitEdge(maxDecide, 0), onMatch)
+			builder.graph.ConnectEdgeExit(builder.EmitEdge(minDecide, flow.COND_TRUE), maxEntry)
+			filters.RegisterExit(builder.EmitEdge(maxDecide, flow.COND_TRUE), onMatch)
 
 			// No match
-			filters.RegisterExit(builder.EmitEdge(minDecide, 1), onNoMatch)
-			filters.RegisterExit(builder.EmitEdge(maxDecide, 1), onNoMatch)
+			filters.RegisterExit(builder.EmitEdge(minDecide, flow.COND_FALSE), onNoMatch)
+			filters.RegisterExit(builder.EmitEdge(maxDecide, flow.COND_FALSE), onNoMatch)
 		} else {
 			entry, decide := makeRuneSwitch(cond, "==", flt.Min, builder)
 
@@ -136,10 +134,10 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, 
 			filters.AttachFlow(onNoMatch, entry)
 
 			// Match
-			filters.RegisterExit(builder.EmitEdge(decide, 0), onMatch)
+			filters.RegisterExit(builder.EmitEdge(decide, flow.COND_TRUE), onMatch)
 
 			// No match
-			filters.RegisterExit(builder.EmitEdge(decide, 1), onNoMatch)
+			filters.RegisterExit(builder.EmitEdge(decide, flow.COND_FALSE), onNoMatch)
 		}
 	}
 
@@ -279,11 +277,11 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		decide := builder.EmitOp(&flow.SwitchOp{Cond: cond})
 		fb.AttachFlow(flow.NORMAL, decide)
 
-		block := fb.SplitOffEdge(builder.EmitEdge(decide, 0))
+		block := fb.SplitOffEdge(builder.EmitEdge(decide, flow.COND_TRUE))
 		lowerBlock(expr.Block, builder, block)
 		fb.AbsorbExits(block)
 
-		fb.RegisterExit(builder.EmitEdge(decide, 1), flow.NORMAL)
+		fb.RegisterExit(builder.EmitEdge(decide, flow.COND_FALSE), flow.NORMAL)
 		return flow.NoRegisterInfo
 
 	case *tree.Repeat:

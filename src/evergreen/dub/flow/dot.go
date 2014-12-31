@@ -129,13 +129,13 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	case *FlowExitOp:
 		var label string
 		switch op.Flow {
-		case 0:
+		case NORMAL:
 			label = "n"
-		case 1:
+		case FAIL:
 			label = "f"
-		case 2:
+		case EXCEPTION:
 			label = "e"
-		case 3:
+		case RETURN:
 			label = "r"
 		default:
 			label = "?"
@@ -156,18 +156,18 @@ func (styler *DotStyler) EdgeStyle(node graph.NodeID, flow int) string {
 	switch op.(type) {
 	case *SwitchOp:
 		switch flow {
-		case 0:
+		case COND_TRUE:
 			color = "limegreen"
-		case 1:
+		case COND_FALSE:
 			color = "yellow"
 		}
 	case *FlowExitOp:
 		color = "gray"
 	default:
 		switch flow {
-		case 0:
+		case NORMAL:
 			color = "green"
-		case 1:
+		case FAIL:
 			color = "goldenrod"
 		}
 	}

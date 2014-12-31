@@ -10,6 +10,12 @@ const (
 	RETURN
 )
 
+const (
+	// Switches reuse standard flow enums
+	COND_TRUE  = NORMAL
+	COND_FALSE = FAIL
+)
+
 func (scope *RegisterInfo_Scope) Get(ref RegisterInfo_Ref) *RegisterInfo {
 	return scope.objects[ref]
 }

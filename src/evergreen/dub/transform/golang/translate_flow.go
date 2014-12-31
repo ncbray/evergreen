@@ -23,7 +23,7 @@ func (mapper *flowMapper) simpleExitFlow(srcID graph.NodeID, dstID graph.NodeID)
 		e, _ := eit.GetNext()
 		flow := srcG.EdgeFlow(e)
 		switch flow {
-		case 0:
+		case src.NORMAL:
 			mapper.stitcher.MapEdge(e, mapper.builder.EmitEdge(dstID, 0))
 		default:
 			panic(flow)
@@ -52,9 +52,9 @@ func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID,
 		e, _ := eit.GetNext()
 		flow := srcG.EdgeFlow(e)
 		switch flow {
-		case 0:
+		case src.NORMAL:
 			normal = e
-		case 1:
+		case src.FAIL:
 			fail = e
 		default:
 			panic(flow)
@@ -201,9 +201,9 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				e, _ := eit.GetNext()
 				flow := srcG.EdgeFlow(e)
 				switch flow {
-				case 0:
+				case src.COND_TRUE:
 					stitcher.MapEdge(e, builder.EmitEdge(dstID, 0))
-				case 1:
+				case src.COND_FALSE:
 					stitcher.MapEdge(e, builder.EmitEdge(dstID, 1))
 				default:
 					panic(flow)
