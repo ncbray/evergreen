@@ -68,14 +68,6 @@ func (n *node) peekEntries() entryList {
 	return n.entries
 }
 
-func (n *node) NumEntries() int {
-	return len(n.entries)
-}
-
-func (n *node) HasEntries() bool {
-	return len(n.entries) > 0
-}
-
 func (n *node) TransferEntries(other *node) {
 	entries := n.popEntries()
 	for _, e := range entries {
@@ -239,6 +231,11 @@ func (g *Graph) EdgeFlow(e EdgeID) int {
 	return g.edges[e].index
 }
 
+// TODO remove
+func (g *Graph) IndexedExitEdge(nid NodeID, flow int) EdgeID {
+	return g.nodes[nid].exits[flow].id
+}
+
 func CreateGraph() *Graph {
 	g := &Graph{}
 	// Entry
@@ -270,9 +267,11 @@ func (gr *GraphRegion) AttachFlow(flow int, dst NodeID) {
 	gr.exits[flow] = nil
 }
 
-func (gr *GraphRegion) RegisterExit(src NodeID, edge int, flow int) {
-	srcNode := gr.graph.nodes[src]
-	e := srcNode.GetExit(edge)
+func (gr *GraphRegion) RegisterExit(eid EdgeID, flow int) {
+	e := gr.graph.edges[eid]
+	if e.src == nil {
+		panic(e)
+	}
 	if e.dst != nil {
 		panic(e)
 	}
@@ -321,14 +320,14 @@ func (gr *GraphRegion) Splice(flow int, other *GraphRegion) {
 	}
 }
 
-func (gr *GraphRegion) SpliceToEdge(src NodeID, flow int, other *GraphRegion) {
-	srcNode := gr.graph.nodes[src]
+func (gr *GraphRegion) SpliceToEdge(eid EdgeID, other *GraphRegion) {
+	e := gr.graph.edges[eid]
 	otherHead := other.entryEdge.dst
 	if otherHead != nil {
-		otherHead.replaceSingleEntry(&other.entryEdge, srcNode.GetExit(flow))
+		otherHead.replaceSingleEntry(&other.entryEdge, e)
 		gr.absorbExits(other)
 	} else {
-		gr.RegisterExit(src, flow, other.findEntryEdge())
+		gr.RegisterExit(eid, other.findEntryEdge())
 	}
 }
 

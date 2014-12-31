@@ -40,6 +40,10 @@ func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *tes
 	}
 }
 
+func emitEdge(g *Graph, nid NodeID, flow int) EdgeID {
+	return g.IndexedExitEdge(nid, flow)
+}
+
 func TestSimpleFlow(t *testing.T) {
 	g := CreateGraph()
 	n := g.CreateNode(1)
@@ -70,7 +74,7 @@ func TestSliceEdgeEmptySplice(t *testing.T) {
 
 	assert.IntEquals(t, len(gr0.exits[0]), 0)
 	gr1.Swap(0, 1)
-	gr0.SpliceToEdge(n, 0, gr1)
+	gr0.SpliceToEdge(emitEdge(g, n, 0), gr1)
 	assert.IntEquals(t, len(gr0.exits[1]), 1)
 }
 
@@ -80,8 +84,8 @@ func TestRepeatFlow(t *testing.T) {
 
 	n := g.CreateNode(2)
 	gr.AttachFlow(0, n)
-	gr.RegisterExit(n, 0, 0)
-	gr.RegisterExit(n, 1, 1)
+	gr.RegisterExit(emitEdge(g, n, 0), 0)
+	gr.RegisterExit(emitEdge(g, n, 1), 1)
 
 	// Normal flow iterates
 	gr.AttachFlow(0, n)
@@ -107,14 +111,14 @@ func TestWhileFlow(t *testing.T) {
 	b := g.CreateNode(1)
 
 	gr.AttachFlow(0, c)
-	gr.RegisterExit(c, 0, 0)
+	gr.RegisterExit(emitEdge(g, c, 0), 0)
 
 	gr.AttachFlow(0, d)
-	gr.RegisterExit(d, 0, 0)
-	gr.RegisterExit(d, 1, 1)
+	gr.RegisterExit(emitEdge(g, d, 0), 0)
+	gr.RegisterExit(emitEdge(g, d, 1), 1)
 
 	gr.AttachFlow(0, b)
-	gr.RegisterExit(b, 0, 0)
+	gr.RegisterExit(emitEdge(g, b, 0), 0)
 
 	gr.AttachFlow(0, c)
 
