@@ -13,7 +13,7 @@ func (s *rpoSearch) search(n NodeID) {
 	// Prevent processing it again, the correct index will be computed later.
 	s.index[n] = 1
 
-	iter := ReverseExitIterator(s.graph, n)
+	iter := s.graph.ReverseExitIterator(n)
 	for iter.HasNext() {
 		_, dst := iter.GetNext()
 		s.search(dst)
@@ -88,7 +88,7 @@ func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
 		for nit.HasNext() {
 			n := nit.GetNext()
 			newIdom := idoms[n]
-			eit := EntryIterator(g, n)
+			eit := g.EntryIterator(n)
 			// Find initial dominator.
 			if newIdom == NoNode {
 				for eit.HasNext() {
@@ -122,12 +122,12 @@ func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
 func FindDominanceFrontiers(g *Graph, idoms []NodeID) [][]NodeID {
 	n := len(g.nodes)
 	frontiers := make([][]NodeID, n)
-	nit := NodeIterator(g)
+	nit := g.NodeIterator()
 	for nit.HasNext() {
 		n := nit.GetNext()
 		if g.HasMultipleEntries(n) {
 			target := idoms[n]
-			eit := EntryIterator(g, n)
+			eit := g.EntryIterator(n)
 			for eit.HasNext() {
 				runner, _ := eit.GetNext()
 				for runner != target {

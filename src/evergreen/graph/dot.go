@@ -79,7 +79,7 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 	nit := OrderedIterator(order)
 	for nit.HasNext() {
 		node := nit.GetNext()
-		eit := ExitIterator(g, node)
+		eit := g.ExitIterator(node)
 		for eit.HasNext() {
 			edge, dst := eit.GetNext()
 			buf.WriteString("  ")

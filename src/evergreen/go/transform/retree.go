@@ -225,7 +225,7 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 			var elseBody []tree.Stmt
 			elseFall := false
 
-			eit := graph.ExitIterator(g, node)
+			eit := g.ExitIterator(node)
 			for eit.HasNext() {
 				e, next := eit.GetNext()
 				flow := g.EdgeFlow(e)

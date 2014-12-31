@@ -376,10 +376,10 @@ func createTransfer(decl *LLFunc, size int) (graph.NodeID, *TransferOp) {
 func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 	g := decl.CFG
 	// Place the transfer functions on edges.
-	nit := graph.NodeIterator(g)
+	nit := g.NodeIterator()
 	for nit.HasNext() {
 		n := nit.GetNext()
-		eit := graph.ExitIterator(g, n)
+		eit := g.ExitIterator(n)
 		for eit.HasNext() {
 			edge, dst := eit.GetNext()
 			phiFuncs := builder.PhiFuncs[dst]
@@ -404,7 +404,7 @@ func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 
 func makeDefUse(decl *LLFunc) *graph.DefUseCollector {
 	defuse := graph.CreateDefUse(len(decl.Ops), decl.RegisterInfo_Scope.Len())
-	nit := graph.NodeIterator(decl.CFG)
+	nit := decl.CFG.NodeIterator()
 	for nit.HasNext() {
 		n := nit.GetNext()
 		collectDefUse(decl, n, decl.Ops[n], defuse)

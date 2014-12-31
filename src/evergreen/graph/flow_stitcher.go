@@ -39,7 +39,7 @@ func (stitcher *EdgeStitcher) setDst(original EdgeID, dstID NodeID) {
 }
 
 func (stitcher *EdgeStitcher) MapIncomingEdges(original NodeID, translated NodeID) {
-	iter := EntryIterator(stitcher.original, original)
+	iter := stitcher.original.EntryIterator(original)
 	for iter.HasNext() {
 		_, edge := iter.GetNext()
 		stitcher.setDst(edge, translated)

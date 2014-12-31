@@ -288,7 +288,7 @@ func (it *nodeIterator) GetNext() NodeID {
 }
 
 // The node length is intentionally snapshotted incase the iteration creates new nodes.
-func NodeIterator(g *Graph) nodeIterator {
+func (g *Graph) NodeIterator() nodeIterator {
 	return nodeIterator{count: len(g.nodes), current: 0}
 }
 
@@ -327,7 +327,7 @@ func (it *entryIterator) GetNext() (NodeID, EdgeID) {
 	return edge.src.id, edge.id
 }
 
-func EntryIterator(g *Graph, n NodeID) entryIterator {
+func (g *Graph) EntryIterator(n NodeID) entryIterator {
 	return entryIterator{graph: g, node: g.nodes[n], current: 0}
 }
 
@@ -354,7 +354,7 @@ func (it *exitIterator) GetNext() (EdgeID, NodeID) {
 	return edge.id, edge.dst.id
 }
 
-func ExitIterator(g *Graph, n NodeID) exitIterator {
+func (g *Graph) ExitIterator(n NodeID) exitIterator {
 	iter := exitIterator{graph: g, node: g.nodes[n], current: 0}
 	iter.skipDeadEdges()
 	return iter
@@ -383,7 +383,7 @@ func (it *reverseExitIterator) GetNext() (EdgeID, NodeID) {
 	return edge.id, edge.dst.id
 }
 
-func ReverseExitIterator(g *Graph, n NodeID) reverseExitIterator {
+func (g *Graph) ReverseExitIterator(n NodeID) reverseExitIterator {
 	node := g.nodes[n]
 	iter := reverseExitIterator{graph: g, node: node, current: len(node.exits) - 1}
 	iter.skipDeadEdges()

@@ -24,7 +24,7 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 	// Find the exit flows of every function.
 	for i, f := range program.LLFuncs {
 		lut[f.F] = i
-		it := graph.EntryIterator(f.CFG, f.CFG.Exit())
+		it := f.CFG.EntryIterator(f.CFG.Exit())
 		for it.HasNext() {
 			e, _ := it.GetNext()
 			op := f.Ops[e]
@@ -46,7 +46,7 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 					panic(op.Target)
 				}
 				n := graph.NodeID(node)
-				iter := graph.ExitIterator(g, n)
+				iter := g.ExitIterator(n)
 				for iter.HasNext() {
 					e, _ := iter.GetNext()
 					possible := flows[g.EdgeFlow(e)][tgt]

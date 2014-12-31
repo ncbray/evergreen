@@ -18,7 +18,7 @@ type flowMapper struct {
 func (mapper *flowMapper) simpleExitFlow(srcID graph.NodeID, dstID graph.NodeID) {
 	// Copy edges.
 	srcG := mapper.original
-	eit := graph.ExitIterator(srcG, srcID)
+	eit := srcG.ExitIterator(srcID)
 	for eit.HasNext() {
 		e, _ := eit.GetNext()
 		flow := srcG.EdgeFlow(e)
@@ -47,7 +47,7 @@ func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID,
 	normal := graph.NoEdge
 	fail := graph.NoEdge
 
-	eit := graph.ExitIterator(srcG, srcID)
+	eit := srcG.ExitIterator(srcID)
 	for eit.HasNext() {
 		e, _ := eit.GetNext()
 		flow := srcG.EdgeFlow(e)
@@ -196,7 +196,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			stitcher.MapIncomingEdges(srcID, dstID)
 
 			// Copy edges.
-			eit := graph.ExitIterator(srcG, srcID)
+			eit := srcG.ExitIterator(srcID)
 			for eit.HasNext() {
 				e, _ := eit.GetNext()
 				flow := srcG.EdgeFlow(e)
