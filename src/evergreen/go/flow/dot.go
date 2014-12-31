@@ -38,11 +38,14 @@ func registerList(args []Register_Ref) string {
 }
 
 func namedArgList(args []*NamedArg) string {
+	if len(args) == 0 {
+		return ""
+	}
 	names := make([]string, len(args))
 	for i, arg := range args {
-		names[i] = fmt.Sprintf("%s: %s", arg.Name, RegisterName(arg.Arg))
+		names[i] = fmt.Sprintf("        %s: %s,\\l", arg.Name, RegisterName(arg.Arg))
 	}
-	return strings.Join(names, ", ")
+	return "\\l" + strings.Join(names, "")
 }
 
 func typeName(t core.GoType) string {
@@ -98,7 +101,7 @@ func OpToString(coreProg *core.CoreProgram, op GoOp) string {
 		if op.AddrTaken {
 			prefix = "&"
 		}
-		return addDst(fmt.Sprintf("%s%s{%s}", prefix, typeName(op.Type), namedArgList(op.Args)), op.Dst)
+		return addDst(fmt.Sprintf("%s%s{%s}\\l", prefix, typeName(op.Type), namedArgList(op.Args)), op.Dst)
 	case *ConstructSlice:
 		return addDst(fmt.Sprintf("%s{%s}", typeName(op.Type), registerList(op.Args)), op.Dst)
 	case *Coerce:
@@ -121,6 +124,10 @@ func nodeLabel(node graph.NodeID, label string) string {
 	return fmt.Sprintf("[%d] %s", node, label)
 }
 
+func dotString(message string) string {
+	return fmt.Sprintf("\"%s\"", strings.Replace(message, "\"", "\\\"", -1))
+}
+
 func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	op := styler.Ops[node]
 	switch op := op.(type) {
@@ -129,9 +136,9 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	case *Exit:
 		return `shape=point,label="exit"`
 	case *Switch:
-		return fmt.Sprintf("shape=diamond,label=%#v", nodeLabel(node, "?"+RegisterName(op.Cond)))
+		return fmt.Sprintf("shape=diamond,label=%s", dotString(nodeLabel(node, "?"+RegisterName(op.Cond))))
 	case GoOp:
-		return fmt.Sprintf("shape=box,label=%#v", nodeLabel(node, OpToString(styler.Core, op)))
+		return fmt.Sprintf("shape=box,label=%s", dotString(nodeLabel(node, OpToString(styler.Core, op))))
 	default:
 		panic(op)
 	}

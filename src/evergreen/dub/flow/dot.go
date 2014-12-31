@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+func dotString(message string) string {
+	return fmt.Sprintf("\"%s\"", strings.Replace(message, "\"", "\\\"", -1))
+}
+
 func registerName(reg RegisterInfo_Ref) string {
 	if reg != NoRegisterInfo {
 		return fmt.Sprintf("r%d", reg)
@@ -24,11 +28,14 @@ func registerList(regs []RegisterInfo_Ref) string {
 }
 
 func keyValueList(args []*KeyValue) string {
+	if len(args) == 0 {
+		return ""
+	}
 	names := make([]string, len(args))
 	for i, arg := range args {
-		names[i] = fmt.Sprintf("%s: %s", arg.Key, registerName(arg.Value))
+		names[i] = fmt.Sprintf("        %s: %s,\\l", arg.Key, registerName(arg.Value))
 	}
-	return strings.Join(names, ", ")
+	return "\\l" + strings.Join(names, "")
 }
 
 func formatAssignment(op string, dst RegisterInfo_Ref) string {
@@ -73,7 +80,7 @@ func opToString(coreProg *core.CoreProgram, op DubOp) string {
 		name := coreProg.Function_Scope.Get(n.Target).Name
 		return formatMultiAssignment(fmt.Sprintf("%s(%s)", name, registerList(n.Args)), n.Dsts)
 	case *ConstructOp:
-		return formatAssignment(fmt.Sprintf("%s{%s}", core.TypeName(n.Type), keyValueList(n.Args)), n.Dst)
+		return formatAssignment(fmt.Sprintf("%s{%s}\\l", core.TypeName(n.Type), keyValueList(n.Args)), n.Dst)
 	case *ConstructListOp:
 		return formatAssignment(fmt.Sprintf("%s{%s}", core.TypeName(n.Type), registerList(n.Args)), n.Dst)
 	case *Checkpoint:
@@ -135,9 +142,9 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 		}
 		return flowExit(nodeLabel(node, label))
 	case *SwitchOp:
-		return fmt.Sprintf("shape=diamond,label=%#v", nodeLabel(node, "?"+registerName(op.Cond)))
+		return fmt.Sprintf("shape=diamond,label=%s", dotString(nodeLabel(node, "?"+registerName(op.Cond))))
 	case DubOp:
-		return fmt.Sprintf("shape=box,label=%#v", nodeLabel(node, opToString(styler.Core, op)))
+		return fmt.Sprintf("shape=box,label=%s", dotString(nodeLabel(node, opToString(styler.Core, op))))
 	default:
 		panic(op)
 	}
