@@ -70,10 +70,6 @@ func intersectDom(idoms []NodeID, index []int, n0 NodeID, n1 NodeID) NodeID {
 	return n0
 }
 
-func isBackedge(index []int, src NodeID, dst NodeID) bool {
-	return index[src] > index[dst]
-}
-
 func FindDominators(g *Graph, order []NodeID, index []int) []NodeID {
 	numNodes := len(g.nodes)
 	idoms := make([]NodeID, numNodes)
