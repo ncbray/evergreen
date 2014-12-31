@@ -391,7 +391,7 @@ func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 				op.Srcs[j] = RegisterInfo_Ref(v)
 				op.Dsts[j] = RegisterInfo_Ref(v)
 			}
-			g.InsertAt(t, 0, edge)
+			g.InsertInEdge(g.IndexedExitEdge(t, 0), edge)
 		}
 		// Do this while the order and liveness info are still good.
 		op := decl.Ops[n]

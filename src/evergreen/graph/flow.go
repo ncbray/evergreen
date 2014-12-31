@@ -76,14 +76,6 @@ func (n *node) TransferEntries(other *node) {
 	other.addEntries(entries)
 }
 
-func (n *node) InsertAt(flow int, target *edge) {
-	if target.dst != nil {
-		target.dst.replaceSingleEntry(target, n.GetExit(flow))
-	}
-	target.dst = n
-	n.addEntry(target)
-}
-
 func (n *node) replaceSingleEntry(target *edge, replacement *edge) {
 	n.replaceEntry(target, []*edge{replacement})
 }
@@ -182,8 +174,18 @@ func (g *Graph) RemoveNode(nid NodeID) {
 	}
 }
 
-func (g *Graph) InsertAt(nid NodeID, flow int, eid EdgeID) {
-	g.nodes[nid].InsertAt(flow, g.edges[eid])
+// Insert a dangling node (with a single out edge) in the middle of an existing edge.
+func (g *Graph) InsertInEdge(dangling EdgeID, existing EdgeID) {
+	replacement := g.edges[dangling]
+	target := g.edges[existing]
+	n := replacement.src
+	if target.dst != nil {
+		// Replace the exising edge with the new edge.
+		target.dst.replaceSingleEntry(target, replacement)
+	}
+	// Attach the existing edge to the dangling node.
+	target.dst = n
+	n.addEntry(target)
 }
 
 func (g *Graph) NumEntries(dst NodeID) int {
