@@ -5,16 +5,165 @@ import (
 	"testing"
 )
 
+func checkEdgeConsistency(e *edge, t *testing.T) {
+	if e.prevEntry != nil && (e.prevEntry.nextEntry != e || e.prevEntry.dst != e.dst) {
+		t.Errorf("Bad prevEntry for %#v / %#v", e, e.prevEntry)
+	}
+	if e.nextEntry != nil && (e.nextEntry.prevEntry != e || e.nextEntry.dst != e.dst) {
+		t.Errorf("Bad nextEntry for %#v / %#v", e, e.nextEntry)
+	}
+	if e.src != nil && e.src.getExit(e.index) != e {
+		t.Errorf("Bad source for %#v / %#v", e, e.src)
+	}
+}
+
+func checkEntryEdges(actual entryEdges, expected []*edge, t *testing.T) {
+	current := actual.head
+	count := 0
+	for current != nil {
+		if count < len(expected) {
+			other := expected[count]
+			if current != other {
+				t.Errorf("Expected %#v at position %d, got %#v", other, count, current)
+			}
+		}
+		checkEdgeConsistency(current, t)
+		current = current.nextEntry
+		count += 1
+	}
+	if len(expected) != count {
+		t.Errorf("Expected %d elements, got %d", len(expected), count)
+	}
+}
+
+func simpleEntry(count int) (entryEdges, []*edge) {
+	l := emptyEntry()
+	edges := make([]*edge, count)
+	for i := 0; i < count; i++ {
+		e := &edge{id: EdgeID(i)}
+		l.Append(e)
+		edges[i] = e
+	}
+	return l, edges
+}
+
+func TestEntryEdgeEmpty(t *testing.T) {
+	l := emptyEntry()
+	if l.HasMultipleEdges() {
+		t.Errorf("Should not have multiple edges.")
+	}
+	checkEntryEdges(l, []*edge{}, t)
+}
+
+func TestEntryEdgeSimple1Sanity(t *testing.T) {
+	l, e := simpleEntry(1)
+	if l.HasMultipleEdges() {
+		t.Errorf("Should not have multiple edges.")
+	}
+	checkEntryEdges(l, []*edge{e[0]}, t)
+}
+
+func TestEntryEdgeSimple2Sanity(t *testing.T) {
+	l, e := simpleEntry(2)
+	if !l.HasMultipleEdges() {
+		t.Errorf("Should have multiple edges.")
+	}
+	checkEntryEdges(l, []*edge{e[0], e[1]}, t)
+}
+
+func TestEntryEdgeSimple3Sanity(t *testing.T) {
+	l, e := simpleEntry(3)
+	if !l.HasMultipleEdges() {
+		t.Errorf("Should have multiple edges.")
+	}
+	checkEntryEdges(l, []*edge{e[0], e[1], e[2]}, t)
+}
+
+func TestEntryEdgeSimple3x1Beginning(t *testing.T) {
+	l, e := simpleEntry(3)
+	r := &edge{id: 3}
+	l.ReplaceEdge(e[0], r)
+	checkEntryEdges(l, []*edge{r, e[1], e[2]}, t)
+}
+
+func TestEntryEdgeSimple3x1Middle(t *testing.T) {
+	l, e := simpleEntry(3)
+	r := &edge{id: 3}
+	l.ReplaceEdge(e[1], r)
+	checkEntryEdges(l, []*edge{e[0], r, e[2]}, t)
+}
+
+func TestEntryEdgeSimple3x1End(t *testing.T) {
+	l, e := simpleEntry(3)
+	r := &edge{id: 3}
+	l.ReplaceEdge(e[2], r)
+	checkEntryEdges(l, []*edge{e[0], e[1], r}, t)
+}
+
+func TestEntryEdgeSimple3x0Beginning(t *testing.T) {
+	l, e := simpleEntry(3)
+	other, _ := simpleEntry(0)
+	l.ReplaceEdgeWithMultiple(e[0], other)
+	checkEntryEdges(l, []*edge{e[1], e[2]}, t)
+}
+
+func TestEntryEdgeSimple3x0Middle(t *testing.T) {
+	l, e := simpleEntry(3)
+	other, _ := simpleEntry(0)
+	l.ReplaceEdgeWithMultiple(e[1], other)
+	checkEntryEdges(l, []*edge{e[0], e[2]}, t)
+}
+
+func TestEntryEdgeSimple3x0End(t *testing.T) {
+	l, e := simpleEntry(3)
+	other, _ := simpleEntry(0)
+	l.ReplaceEdgeWithMultiple(e[2], other)
+	checkEntryEdges(l, []*edge{e[0], e[1]}, t)
+}
+
+func TestEntryEdgeSimple3x3Beginning(t *testing.T) {
+	l, e := simpleEntry(3)
+	other, f := simpleEntry(3)
+	l.ReplaceEdgeWithMultiple(e[0], other)
+	checkEntryEdges(l, []*edge{f[0], f[1], f[2], e[1], e[2]}, t)
+}
+
+func TestEntryEdgeSimple3x3Middle(t *testing.T) {
+	l, e := simpleEntry(3)
+	other, f := simpleEntry(3)
+	l.ReplaceEdgeWithMultiple(e[1], other)
+	checkEntryEdges(l, []*edge{e[0], f[0], f[1], f[2], e[2]}, t)
+}
+
+func TestEntryEdgeSimple3x3End(t *testing.T) {
+	l, e := simpleEntry(3)
+	other, f := simpleEntry(3)
+	l.ReplaceEdgeWithMultiple(e[2], other)
+	checkEntryEdges(l, []*edge{e[0], e[1], f[0], f[1], f[2]}, t)
+}
+
+func TestEntryEdgeSimple1x3(t *testing.T) {
+	l, e := simpleEntry(1)
+	other, f := simpleEntry(3)
+	l.ReplaceEdgeWithMultiple(e[0], other)
+	checkEntryEdges(l, []*edge{f[0], f[1], f[2]}, t)
+}
+
+func TestEntryEdgeSimple1x0(t *testing.T) {
+	l, e := simpleEntry(1)
+	other, _ := simpleEntry(0)
+	l.ReplaceEdgeWithMultiple(e[0], other)
+	checkEntryEdges(l, []*edge{}, t)
+}
+
 func checkEdge(e *edge, src *node, dst *node, t *testing.T) {
 	if e.src != src {
-		t.Errorf("Got src of %v, expected %v", e.src, src)
+		t.Errorf("Got src of %#v, expected %#v", e.src, src)
 	}
 	if e.dst != dst {
-		t.Errorf("Got dst of %v, expected %v", e.dst, dst)
+		t.Errorf("Got dst of %#v, expected %#v", e.dst, dst)
 	}
-	if e.src.getExit(e.index) != e {
-		t.Errorf("Inconsistent indexing for %v, found %v", e, src.getExit(e.index))
-	}
+	checkEdgeConsistency(e, t)
 }
 
 func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *testing.T) {
@@ -23,20 +172,32 @@ func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *tes
 		t.Error("Node should not be nil")
 		return
 	}
-	oentries := node.entries
-	if len(entries) != len(oentries) {
-		t.Errorf("Expected %d entries, got %d", len(entries), len(oentries))
-	} else {
-		for i, entry := range entries {
-			checkEdge(oentries[i], g.nodes[entry], node, t)
+	{
+		it := g.EntryIterator(id)
+		count := 0
+		for it.HasNext() {
+			_, e := it.GetNext()
+			if count < len(entries) {
+				checkEdge(g.edges[e], g.nodes[entries[count]], node, t)
+			}
+			count += 1
+		}
+		if len(entries) != count {
+			t.Errorf("Expected %d entries, got %d", len(entries), count)
 		}
 	}
-	numExits := len(node.exits)
-	if len(exits) != numExits {
-		t.Errorf("Expected %d exits, got %d", len(exits), numExits)
-	} else {
-		for i, exit := range exits {
-			checkEdge(node.exits[i], node, g.nodes[exit], t)
+	{
+		it := g.ExitIterator(id)
+		count := 0
+		for it.HasNext() {
+			e, _ := it.GetNext()
+			if count < len(exits) {
+				checkEdge(g.edges[e], node, g.nodes[exits[count]], t)
+			}
+			count += 1
+		}
+		if len(exits) != count {
+			t.Errorf("Expected %d entries, got %d", len(exits), count)
 		}
 	}
 }
@@ -135,6 +296,63 @@ func TestWhileFlow(t *testing.T) {
 	checkTopology(g, d, []NodeID{c}, []NodeID{b, x}, t)
 	checkTopology(g, b, []NodeID{d}, []NodeID{c}, t)
 	checkTopology(g, x, []NodeID{d}, []NodeID{}, t)
+}
+
+func TestInsertInEdge1(t *testing.T) {
+	g := CreateGraph()
+
+	e := g.Entry()
+	x := g.Exit()
+	r := g.CreateNode(1)
+
+	tgt := emitFullEdge(g, e, 0, x)
+	re := emitDanglingEdge(g, r, 0)
+
+	g.InsertInEdge(re, tgt)
+
+	checkTopology(g, e, []NodeID{}, []NodeID{r}, t)
+	checkTopology(g, r, []NodeID{e}, []NodeID{x}, t)
+	checkTopology(g, x, []NodeID{r}, []NodeID{}, t)
+}
+
+func TestInsertInEdge3(t *testing.T) {
+	g := CreateGraph()
+
+	e := g.Entry()
+	x := g.Exit()
+	n := g.CreateNode(3)
+	r := g.CreateNode(1)
+
+	emitFullEdge(g, e, 0, n)
+	emitFullEdge(g, n, 0, x)
+	tgt := emitFullEdge(g, n, 1, x)
+	emitFullEdge(g, n, 2, x)
+
+	re := emitDanglingEdge(g, r, 0)
+
+	g.InsertInEdge(re, tgt)
+
+	checkTopology(g, e, []NodeID{}, []NodeID{n}, t)
+	checkTopology(g, n, []NodeID{e}, []NodeID{x, r, x}, t)
+	checkTopology(g, r, []NodeID{n}, []NodeID{x}, t)
+	checkTopology(g, x, []NodeID{n, r, n}, []NodeID{}, t)
+}
+
+func TestKillNode1(t *testing.T) {
+	g := CreateGraph()
+
+	e := g.Entry()
+	x := g.Exit()
+	n := g.CreateNode(1)
+
+	emitFullEdge(g, e, 0, n)
+	emitFullEdge(g, n, 0, x)
+
+	g.KillNode(n)
+
+	checkTopology(g, e, []NodeID{}, []NodeID{x}, t)
+	checkTopology(g, n, []NodeID{}, []NodeID{}, t)
+	checkTopology(g, x, []NodeID{e}, []NodeID{}, t)
 }
 
 func checkNodeList(actualList []NodeID, expectedList []NodeID, t *testing.T) {
@@ -389,5 +607,4 @@ func TestDoubleDiamond(t *testing.T) {
 			[]int{},
 			[]int{1, 2},
 		})
-
 }

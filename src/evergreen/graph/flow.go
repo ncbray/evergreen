@@ -3,9 +3,13 @@ package graph
 
 type edge struct {
 	src   *node
-	dst   *node
 	index int
-	id    EdgeID
+
+	dst       *node
+	nextEntry *edge
+	prevEntry *edge
+
+	id EdgeID
 }
 
 func (e *edge) attach(other *node) {
@@ -18,77 +22,118 @@ func (e *edge) attach(other *node) {
 
 func (e *edge) detach() {
 	if e.dst != nil {
-		e.dst.replaceEntry(e, nil)
+		e.dst.replaceEntry(e, emptyEntry())
 	}
 }
 
-type entryEdges []*edge
+type entryEdges struct {
+	head *edge
+	tail *edge
+}
+
+func emptyEntry() entryEdges {
+	return entryEdges{}
+}
+
+func singleEntry(e *edge) entryEdges {
+	entry := emptyEntry()
+	entry.Append(e)
+	return entry
+}
+
+// An incomplete sanity check, this edge could still be in a list that
+// is one element long.
+func orphanedEntry(e *edge) bool {
+	return e.nextEntry == nil && e.prevEntry == nil
+}
 
 func (l *entryEdges) Append(other *edge) {
-	*l = append(*l, other)
+	if !orphanedEntry(other) {
+		panic(other)
+	}
+	if l.tail != nil {
+		other.prevEntry = l.tail
+		l.tail.nextEntry = other
+		l.tail = other
+	} else {
+		l.head = other
+		l.tail = other
+	}
 }
 
 func (l *entryEdges) Pop() entryEdges {
 	temp := *l
-	*l = entryEdges{}
+	*l = emptyEntry()
 	return temp
 }
 
-func (l *entryEdges) find(target *edge) int {
-	for i, e := range *l {
-		if e == target {
-			return i
-		}
-	}
-	panic(target)
-}
-
 func (l *entryEdges) ReplaceEdge(target *edge, replacement *edge) {
-	i := l.find(target)
-	(*l)[i] = replacement
-	replacement.dst, target.dst = target.dst, nil
+	if !orphanedEntry(replacement) {
+		panic(replacement)
+	}
+	l.ReplaceEdgeWithMultiple(target, singleEntry(replacement))
 }
 
 func (l *entryEdges) ReplaceEdgeWithMultiple(target *edge, replacements entryEdges) {
-	i := l.find(target)
-	j := i + len(replacements)
+	oldNext := target.nextEntry
+	oldPrev := target.prevEntry
+	oldDst := target.dst
 
-	old := l.Pop()
-	// Caution: splicing arrays is tricky because "append" may mutate the first argument.
-	// Avoid appending.
-	result := make(entryEdges, len(old)+len(replacements)-1)
-	copy(result[:i], old[:i])
-	copy(result[i:j], replacements)
-	copy(result[j:], old[i+1:])
-
-	// Redirect the replacement edges to the new destination.
-	dst := target.dst
+	// Disconnect the entry.
+	target.prevEntry = nil
+	target.nextEntry = nil
 	target.dst = nil
-	for _, r := range replacements {
-		r.dst = dst
-	}
 
-	// Commit.
-	*l = result
+	var newNext *edge
+	var newPrev *edge
+	if replacements.head == nil {
+		// Empty replacement.
+		newNext = oldNext
+		newPrev = oldPrev
+	} else {
+		// Real replacement.
+		newNext = replacements.head
+		newPrev = replacements.tail
+		replacements.head.prevEntry = oldPrev
+		replacements.tail.nextEntry = oldNext
+
+		// Point the replacements to the new destination.
+		current := replacements.head
+		if current.dst != oldDst {
+			for current != nil {
+				current.dst = oldDst
+				current = current.nextEntry
+			}
+		}
+	}
+	if oldPrev == nil {
+		l.head = newNext
+	} else {
+		oldPrev.nextEntry = newNext
+	}
+	if oldNext == nil {
+		l.tail = newPrev
+	} else {
+		oldNext.prevEntry = newPrev
+	}
 }
 
 func (l *entryEdges) HasMultipleEdges() bool {
-	return len(*l) >= 2
+	return l.head != l.tail
 }
 
 type entryIterator struct {
 	graph   *Graph
-	node    *node
-	current int
+	current *edge
 }
 
 func (it *entryIterator) HasNext() bool {
-	return it.current < len(it.node.entries)
+	return it.current != nil
 }
 
 func (it *entryIterator) GetNext() (NodeID, EdgeID) {
-	edge := it.node.entries[it.current]
-	it.current += 1
+	edge := it.current
+	it.current = it.current.nextEntry
 	return edge.src.id, edge.id
 }
 
@@ -253,17 +298,18 @@ func (g *Graph) KillNode(nid NodeID) {
 }
 
 // Insert a dangling node (with a single out edge) in the middle of an existing edge.
-func (g *Graph) InsertInEdge(dangling EdgeID, existing EdgeID) {
-	replacement := g.edges[dangling]
-	target := g.edges[existing]
-	n := replacement.src
-	if target.dst != nil {
+func (g *Graph) InsertInEdge(replacementID EdgeID, existingID EdgeID) {
+	replacement := g.edges[replacementID]
+	existing := g.edges[existingID]
+	insertedNode := replacement.src
+	dstNode := existing.dst
+	if dstNode != nil {
 		// Replace the exising edge with the new edge.
-		target.dst.replaceSingleEntry(target, replacement)
+		dstNode.replaceSingleEntry(existing, replacement)
 	}
 	// Attach the existing edge to the dangling node.
-	target.dst = n
-	n.addEntry(target)
+	existing.dst = insertedNode
+	insertedNode.addEntry(existing)
 }
 
 func (g *Graph) HasMultipleEntries(dst NodeID) bool {
@@ -404,7 +450,7 @@ func OrderedIterator(order []NodeID) orderedNodeIterator {
 }
 
 func (g *Graph) EntryIterator(n NodeID) entryIterator {
-	return entryIterator{graph: g, node: g.nodes[n], current: 0}
+	return entryIterator{graph: g, current: g.nodes[n].entries.head}
 }
 
 func (g *Graph) ExitIterator(n NodeID) exitIterator {
