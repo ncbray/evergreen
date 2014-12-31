@@ -90,18 +90,18 @@ func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *
 	return make_value, decide
 }
 
-func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, gr *graph.GraphRegion) flow.RegisterInfo_Ref {
+func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, fb *graph.FlowBuilder) flow.RegisterInfo_Ref {
 	// Read
 	cond := flow.NoRegisterInfo
 	if len(match.Filters) > 0 || used {
 		cond = builder.CreateRegister("c", builder.index.Rune)
 	}
 	body := builder.EmitOp(&flow.Peek{Dst: cond})
-	gr.AttachFlow(flow.NORMAL, body)
-	gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
-	gr.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
+	fb.AttachFlow(flow.NORMAL, body)
+	fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+	fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
 
-	filters := builder.graph.CreateRegion(numRegionExits)
+	filters := fb.SplitOffFlow(flow.NORMAL)
 
 	onMatch := flow.FAIL
 	onNoMatch := flow.NORMAL
@@ -156,55 +156,51 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, 
 		filters.RegisterExit(builder.EmitEdge(f, flow.FAIL), flow.FAIL)
 	}
 
-	gr.Splice(flow.NORMAL, filters)
+	fb.AbsorbExits(filters)
 	return cond
 }
 
-func lowerMatch(match tree.TextMatch, builder *dubBuilder, gr *graph.GraphRegion) {
+func lowerMatch(match tree.TextMatch, builder *dubBuilder, fb *graph.FlowBuilder) {
 	switch match := match.(type) {
 	case *tree.RuneRangeMatch:
-		lowerRuneMatch(match, false, builder, gr)
+		lowerRuneMatch(match, false, builder, fb)
 	case *tree.StringLiteralMatch:
 		// HACK desugar
 		for _, c := range []rune(match.Value) {
-			lowerRuneMatch(&tree.RuneRangeMatch{Filters: []*tree.RuneFilter{&tree.RuneFilter{Min: c, Max: c}}}, false, builder, gr)
+			lowerRuneMatch(&tree.RuneRangeMatch{Filters: []*tree.RuneFilter{&tree.RuneFilter{Min: c, Max: c}}}, false, builder, fb)
 		}
 	case *tree.MatchSequence:
 		for _, child := range match.Matches {
-			lowerMatch(child, builder, gr)
+			lowerMatch(child, builder, fb)
 		}
 	case *tree.MatchChoice:
 		checkpoint := builder.CreateCheckpointRegister()
 		head := builder.EmitOp(&flow.Checkpoint{Dst: checkpoint})
-		gr.AttachFlow(flow.NORMAL, head)
+		fb.AttachFlow(flow.NORMAL, head)
 
 		for i, child := range match.Matches {
-			block := builder.graph.CreateRegion(numRegionExits)
+			block := fb.SplitOffEdge(builder.EmitEdge(head, flow.NORMAL))
 			lowerMatch(child, builder, block)
 
 			// Recover if not the last block.
 			if i < len(match.Matches)-1 {
 				newHead := builder.EmitOp(&flow.Recover{Src: checkpoint})
 				block.AttachFlow(flow.FAIL, newHead)
-				gr.SpliceToEdge(builder.EmitEdge(head, flow.NORMAL), block)
 				head = newHead
-			} else {
-				gr.SpliceToEdge(builder.EmitEdge(head, flow.NORMAL), block)
 			}
+			fb.AbsorbExits(block)
 		}
 	case *tree.MatchRepeat:
 		// HACK unroll
 		for i := 0; i < match.Min; i++ {
-			lowerMatch(match.Match, builder, gr)
+			lowerMatch(match.Match, builder, fb)
 		}
-
-		child := builder.graph.CreateRegion(numRegionExits)
 
 		// Checkpoint
 		checkpoint := builder.CreateCheckpointRegister()
 		head := builder.EmitOp(&flow.Checkpoint{Dst: checkpoint})
-		child.AttachFlow(flow.NORMAL, head)
-		child.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, head)
+		child := fb.SplitOffEdge(builder.EmitEdge(head, flow.NORMAL))
 
 		// Handle the body
 		lowerMatch(match.Match, builder, child)
@@ -213,25 +209,20 @@ func lowerMatch(match tree.TextMatch, builder *dubBuilder, gr *graph.GraphRegion
 		child.AttachFlow(flow.NORMAL, head)
 
 		// Stop iterating on failure and recover
-		{
-			body := builder.EmitOp(&flow.Recover{Src: checkpoint})
-			child.AttachFlow(flow.FAIL, body)
-			child.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
-		}
+		recover := builder.EmitOp(&flow.Recover{Src: checkpoint})
+		child.AttachFlow(flow.FAIL, recover)
+		child.RegisterExit(builder.EmitEdge(recover, flow.NORMAL), flow.NORMAL)
 
-		gr.Splice(flow.NORMAL, child)
+		fb.AbsorbExits(child)
 	case *tree.MatchLookahead:
-		child := builder.graph.CreateRegion(numRegionExits)
-
 		checkpoint := builder.CreateCheckpointRegister()
 		head := builder.EmitOp(&flow.LookaheadBegin{Dst: checkpoint})
-		child.AttachFlow(flow.NORMAL, head)
-		child.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, head)
+		child := fb.SplitOffEdge(builder.EmitEdge(head, flow.NORMAL))
 
 		lowerMatch(match.Match, builder, child)
 
 		normal := builder.EmitOp(&flow.LookaheadEnd{Failed: false, Src: checkpoint})
-
 		fail := builder.EmitOp(&flow.LookaheadEnd{Failed: true, Src: checkpoint})
 
 		if match.Invert {
@@ -245,19 +236,19 @@ func lowerMatch(match tree.TextMatch, builder *dubBuilder, gr *graph.GraphRegion
 		child.RegisterExit(builder.EmitEdge(normal, flow.NORMAL), flow.NORMAL)
 		child.RegisterExit(builder.EmitEdge(fail, flow.FAIL), flow.FAIL)
 
-		gr.Splice(flow.NORMAL, child)
+		fb.AbsorbExits(child)
 	default:
 		panic(match)
 	}
 }
 
-func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.GraphRegion) []flow.RegisterInfo_Ref {
+func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.FlowBuilder) []flow.RegisterInfo_Ref {
 	switch expr := expr.(type) {
 
 	case *tree.Call:
 		args := make([]flow.RegisterInfo_Ref, len(expr.Args))
 		for i, arg := range expr.Args {
-			args[i] = lowerExpr(arg, builder, true, gr)
+			args[i] = lowerExpr(arg, builder, true, fb)
 		}
 		var dsts []flow.RegisterInfo_Ref
 		if used {
@@ -271,43 +262,41 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *
 			panic(expr.Target)
 		}
 		body := builder.EmitOp(&flow.CallOp{Target: target.F, Args: args, Dsts: dsts})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
-		gr.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
 
 		return dsts
 	default:
-		return []flow.RegisterInfo_Ref{lowerExpr(expr, builder, used, gr)}
+		return []flow.RegisterInfo_Ref{lowerExpr(expr, builder, used, fb)}
 	}
 }
 
-func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.GraphRegion) flow.RegisterInfo_Ref {
+func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.FlowBuilder) flow.RegisterInfo_Ref {
 	switch expr := expr.(type) {
 	case *tree.If:
-		cond := lowerExpr(expr.Expr, builder, true, gr)
+		cond := lowerExpr(expr.Expr, builder, true, fb)
 		decide := builder.EmitOp(&flow.SwitchOp{Cond: cond})
-		gr.AttachFlow(flow.NORMAL, decide)
+		fb.AttachFlow(flow.NORMAL, decide)
 
-		block := builder.graph.CreateRegion(numRegionExits)
+		block := fb.SplitOffEdge(builder.EmitEdge(decide, 0))
 		lowerBlock(expr.Block, builder, block)
+		fb.AbsorbExits(block)
 
-		gr.SpliceToEdge(builder.EmitEdge(decide, 0), block)
-		gr.RegisterExit(builder.EmitEdge(decide, 1), flow.NORMAL)
+		fb.RegisterExit(builder.EmitEdge(decide, 1), flow.NORMAL)
 		return flow.NoRegisterInfo
 
 	case *tree.Repeat:
 		// HACK unroll
 		for i := 0; i < expr.Min; i++ {
-			lowerBlock(expr.Block, builder, gr)
+			lowerBlock(expr.Block, builder, fb)
 		}
-
-		block := builder.graph.CreateRegion(numRegionExits)
 
 		// Checkpoint at head of loop
 		checkpoint := builder.CreateCheckpointRegister()
 		head := builder.EmitOp(&flow.Checkpoint{Dst: checkpoint})
-		block.AttachFlow(flow.NORMAL, head)
-		block.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, head)
+		block := fb.SplitOffEdge(builder.EmitEdge(head, flow.NORMAL))
 
 		// Handle the body
 		lowerBlock(expr.Block, builder, block)
@@ -316,13 +305,11 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		block.AttachFlow(flow.NORMAL, head)
 
 		// Stop iterating on failure and recover
-		{
-			body := builder.EmitOp(&flow.Recover{Src: checkpoint})
-			block.AttachFlow(flow.FAIL, body)
-			block.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
-		}
+		recover := builder.EmitOp(&flow.Recover{Src: checkpoint})
+		block.AttachFlow(flow.FAIL, recover)
+		block.RegisterExit(builder.EmitEdge(recover, flow.NORMAL), flow.NORMAL)
 
-		gr.Splice(flow.NORMAL, block)
+		fb.AbsorbExits(block)
 		return flow.NoRegisterInfo
 	case *tree.Choice:
 		checkpoint := flow.NoRegisterInfo
@@ -330,21 +317,19 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 			checkpoint = builder.CreateCheckpointRegister()
 		}
 		head := builder.EmitOp(&flow.Checkpoint{Dst: checkpoint})
-		gr.AttachFlow(flow.NORMAL, head)
+		fb.AttachFlow(flow.NORMAL, head)
 
 		for i, b := range expr.Blocks {
-			block := builder.graph.CreateRegion(numRegionExits)
+			block := fb.SplitOffEdge(builder.EmitEdge(head, flow.NORMAL))
 			lowerBlock(b, builder, block)
 
 			// Recover if not the last block.
 			if i < len(expr.Blocks)-1 {
 				newHead := builder.EmitOp(&flow.Recover{Src: checkpoint})
 				block.AttachFlow(flow.FAIL, newHead)
-				gr.SpliceToEdge(builder.EmitEdge(head, flow.NORMAL), block)
 				head = newHead
-			} else {
-				gr.SpliceToEdge(builder.EmitEdge(head, flow.NORMAL), block)
 			}
+			fb.AbsorbExits(block)
 		}
 		return flow.NoRegisterInfo
 
@@ -352,10 +337,8 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		// Checkpoint
 		checkpoint := builder.CreateCheckpointRegister()
 		head := builder.EmitOp(&flow.Checkpoint{Dst: checkpoint})
-		gr.AttachFlow(flow.NORMAL, head)
-		gr.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
-
-		block := builder.graph.CreateRegion(numRegionExits)
+		fb.AttachFlow(flow.NORMAL, head)
+		block := fb.SplitOffEdge(builder.EmitEdge(head, flow.NORMAL))
 
 		lowerBlock(expr.Block, builder, block)
 
@@ -365,8 +348,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 			block.RegisterExit(builder.EmitEdge(restore, flow.NORMAL), flow.NORMAL)
 		}
 
-		gr.Splice(flow.NORMAL, block)
-
+		fb.AbsorbExits(block)
 		return flow.NoRegisterInfo
 
 	case *tree.NameRef:
@@ -375,14 +357,14 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		}
 		dst := builder.CreateRegister(expr.Name.Text, builder.decl.LocalInfo_Scope.Get(expr.Local).T)
 		body := builder.EmitOp(&flow.CopyOp{Src: builder.localMap[expr.Local], Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.Assign:
 		var srcs []flow.RegisterInfo_Ref
 		if expr.Expr != nil {
-			srcs = lowerMultiValueExpr(expr.Expr, builder, true, gr)
+			srcs = lowerMultiValueExpr(expr.Expr, builder, true, fb)
 			if len(expr.Targets) != len(srcs) {
 				panic(expr.Targets)
 			}
@@ -409,8 +391,8 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 				op = builder.ZeroRegister(dst)
 			}
 			body := builder.EmitOp(op)
-			gr.AttachFlow(flow.NORMAL, body)
-			gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+			fb.AttachFlow(flow.NORMAL, body)
+			fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		}
 		// HACK should actually return a multivalue
 		if len(dsts) == 1 {
@@ -424,8 +406,8 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		}
 		dst := builder.CreateRegister("c_r", builder.index.Rune)
 		body := builder.EmitOp(&flow.ConstantRuneOp{Value: expr.Value, Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.StringLiteral:
@@ -434,8 +416,8 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		}
 		dst := builder.CreateRegister("c_s", builder.index.String)
 		body := builder.EmitOp(&flow.ConstantStringOp{Value: expr.Value, Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.IntLiteral:
@@ -444,8 +426,8 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		}
 		dst := builder.CreateRegister("c_i", builder.index.Int)
 		body := builder.EmitOp(&flow.ConstantIntOp{Value: int64(expr.Value), Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.BoolLiteral:
@@ -454,24 +436,24 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		}
 		dst := builder.CreateRegister("c_b", builder.index.Bool)
 		body := builder.EmitOp(&flow.ConstantBoolOp{Value: expr.Value, Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.Return:
 		exprs := make([]flow.RegisterInfo_Ref, len(expr.Exprs))
 		for i, e := range expr.Exprs {
-			exprs[i] = lowerExpr(e, builder, true, gr)
+			exprs[i] = lowerExpr(e, builder, true, fb)
 		}
 		body := builder.EmitOp(&flow.ReturnOp{Exprs: exprs})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.RETURN)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.RETURN)
 		return flow.NoRegisterInfo
 
 	case *tree.Fail:
 		body := builder.EmitOp(&flow.Fail{})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
 
 		return flow.NoRegisterInfo
 
@@ -482,35 +464,35 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		pos := builder.CreateRegister("pos", builder.index.Int)
 		// HACK assume checkpoint is just the index
 		head := builder.EmitOp(&flow.Checkpoint{Dst: pos})
-		gr.AttachFlow(flow.NORMAL, head)
-		gr.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, head)
+		fb.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
 		return pos
 	case *tree.BinaryOp:
-		left := lowerExpr(expr.Left, builder, true, gr)
-		right := lowerExpr(expr.Right, builder, true, gr)
+		left := lowerExpr(expr.Left, builder, true, fb)
+		right := lowerExpr(expr.Right, builder, true, fb)
 		dst := flow.NoRegisterInfo
 		if used {
 			dst = builder.CreateRegister("", expr.T)
 		}
 		body := builder.EmitOp(&flow.BinaryOp{Left: left, Op: expr.Op, Right: right, Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 	case *tree.Append:
-		l := lowerExpr(expr.List, builder, true, gr)
-		v := lowerExpr(expr.Expr, builder, true, gr)
+		l := lowerExpr(expr.List, builder, true, fb)
+		v := lowerExpr(expr.Expr, builder, true, fb)
 		dst := flow.NoRegisterInfo
 		if used {
 			dst = builder.CreateRegister("", expr.T)
 		}
 
 		body := builder.EmitOp(&flow.AppendOp{List: l, Value: v, Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.Call:
-		dsts := lowerMultiValueExpr(expr, builder, true, gr)
+		dsts := lowerMultiValueExpr(expr, builder, true, fb)
 		dst := flow.NoRegisterInfo
 		if used {
 			if len(dsts) != 1 {
@@ -525,7 +507,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		for i, arg := range expr.Args {
 			args[i] = &flow.KeyValue{
 				Key:   arg.Name.Text,
-				Value: lowerExpr(arg.Expr, builder, true, gr),
+				Value: lowerExpr(arg.Expr, builder, true, fb),
 			}
 		}
 		t := tree.ResolveType(expr.Type)
@@ -538,14 +520,14 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 			dst = builder.CreateRegister("", t)
 		}
 		body := builder.EmitOp(&flow.ConstructOp{Type: s, Args: args, Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.ConstructList:
 		args := make([]flow.RegisterInfo_Ref, len(expr.Args))
 		for i, arg := range expr.Args {
-			args[i] = lowerExpr(arg, builder, true, gr)
+			args[i] = lowerExpr(arg, builder, true, fb)
 		}
 		t := tree.ResolveType(expr.Type)
 		l, ok := t.(*core.ListType)
@@ -557,21 +539,21 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 			dst = builder.CreateRegister("", t)
 		}
 		body := builder.EmitOp(&flow.ConstructListOp{Type: l, Args: args, Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.Coerce:
 		t := tree.ResolveType(expr.Type)
-		src := lowerExpr(expr.Expr, builder, true, gr)
+		src := lowerExpr(expr.Expr, builder, true, fb)
 		dst := flow.NoRegisterInfo
 		if used {
 			dst = builder.CreateRegister("", t)
 		}
 		body := builder.EmitOp(&flow.CoerceOp{Src: src, T: t, Dst: dst})
-		gr.AttachFlow(flow.NORMAL, body)
+		fb.AttachFlow(flow.NORMAL, body)
 		// TODO can coersion fail?
-		gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.Slice:
@@ -579,10 +561,10 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		// HACK assume checkpoint is just the index
 		{
 			head := builder.EmitOp(&flow.Checkpoint{Dst: start})
-			gr.AttachFlow(flow.NORMAL, head)
-			gr.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
+			fb.AttachFlow(flow.NORMAL, head)
+			fb.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
 		}
-		lowerBlock(expr.Block, builder, gr)
+		lowerBlock(expr.Block, builder, fb)
 
 		// Create a slice
 		dst := flow.NoRegisterInfo
@@ -591,8 +573,8 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 		}
 		{
 			body := builder.EmitOp(&flow.Slice{Src: start, Dst: dst})
-			gr.AttachFlow(flow.NORMAL, body)
-			gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+			fb.AttachFlow(flow.NORMAL, body)
+			fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		}
 		return dst
 
@@ -606,33 +588,33 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, gr *graph.Grap
 			// HACK assume checkpoint is just the index
 			{
 				head := builder.EmitOp(&flow.Checkpoint{Dst: start})
-				gr.AttachFlow(flow.NORMAL, head)
-				gr.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
+				fb.AttachFlow(flow.NORMAL, head)
+				fb.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
 			}
 		}
 
-		lowerMatch(expr.Match, builder, gr)
+		lowerMatch(expr.Match, builder, fb)
 
 		// Create a slice
 		if used {
 			dst = builder.CreateRegister("slice", builder.index.String)
 			body := builder.EmitOp(&flow.Slice{Src: start, Dst: dst})
-			gr.AttachFlow(flow.NORMAL, body)
-			gr.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+			fb.AttachFlow(flow.NORMAL, body)
+			fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		}
 		return dst
 
 	case *tree.RuneMatch:
-		return lowerRuneMatch(expr.Match, used, builder, gr)
+		return lowerRuneMatch(expr.Match, used, builder, fb)
 	default:
 		panic(expr)
 	}
 
 }
 
-func lowerBlock(block []tree.ASTExpr, builder *dubBuilder, gr *graph.GraphRegion) {
+func lowerBlock(block []tree.ASTExpr, builder *dubBuilder, fb *graph.FlowBuilder) {
 	for _, expr := range block {
-		lowerExpr(expr, builder, false, gr)
+		lowerExpr(expr, builder, false, fb)
 	}
 }
 
@@ -675,20 +657,30 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 	}
 	f.ReturnTypes = types
 
-	gr := g.CreateRegion(numRegionExits)
-	lowerBlock(decl.Block, builder, gr)
-	gr.MergeFlowInto(flow.RETURN, flow.NORMAL)
+	fb := graph.CreateFlowBuilder(g, numRegionExits)
+	lowerBlock(decl.Block, builder, fb)
 
-	// TODO only connect the real exits, assert no virtual exits.
-	for i := 0; i < numRegionExits; i++ {
-		if gr.HasFlow(i) {
-			fe := builder.EmitOp(&flow.FlowExitOp{Flow: i})
-			gr.AttachFlow(i, fe)
-			gr.RegisterExit(builder.EmitEdge(fe, 0), 0)
+	// Attach flows to exit.
+	if fb.HasFlow(flow.NORMAL) || fb.HasFlow(flow.RETURN) {
+		fe := builder.EmitOp(&flow.FlowExitOp{Flow: flow.NORMAL})
+		if fb.HasFlow(flow.NORMAL) {
+			fb.AttachFlow(flow.NORMAL, fe)
 		}
+		if fb.HasFlow(flow.RETURN) {
+			fb.AttachFlow(flow.RETURN, fe)
+		}
+		g.ConnectEdgeExit(builder.EmitEdge(fe, 0), g.Exit())
 	}
 
-	g.ConnectRegion(gr)
+	if fb.HasFlow(flow.FAIL) {
+		fe := builder.EmitOp(&flow.FlowExitOp{Flow: flow.FAIL})
+		fb.AttachFlow(flow.FAIL, fe)
+		g.ConnectEdgeExit(builder.EmitEdge(fe, 0), g.Exit())
+	}
+
+	if fb.HasFlow(flow.EXCEPTION) {
+		panic("exceptions not supported, yet?")
+	}
 
 	f.CFG = g
 	f.Ops = builder.ops

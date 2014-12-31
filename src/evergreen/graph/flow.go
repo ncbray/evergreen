@@ -186,30 +186,6 @@ func (g *Graph) GetUniqueExit(src NodeID) (EdgeID, NodeID) {
 	return NoEdge, NoNode
 }
 
-func (g *Graph) CreateRegion(exits int) *GraphRegion {
-	gr := &GraphRegion{
-		graph: g,
-		exits: make([][]*edge, exits),
-	}
-	gr.exits[0] = []*edge{&gr.entryEdge}
-	return gr
-}
-
-func (g *Graph) ConnectRegion(gr *GraphRegion) {
-	regionHead := gr.entryEdge.dst
-	if regionHead == nil {
-		g.ConnectEdgeExit(g.IndexedExitEdge(g.Entry(), 0), g.Exit())
-	} else {
-		entry := g.nodes[g.Entry()]
-		regionHead.replaceSingleEntry(&gr.entryEdge, entry.getExit(0))
-		for i := 0; i < len(gr.exits); i++ {
-			if len(gr.exits[i]) > 0 {
-				gr.AttachFlow(i, g.Exit())
-			}
-		}
-	}
-}
-
 func (g *Graph) EdgeFlow(e EdgeID) int {
 	return g.edges[e].index
 }
@@ -228,97 +204,75 @@ func CreateGraph() *Graph {
 	return g
 }
 
-type GraphRegion struct {
-	graph     *Graph
-	exits     [][]*edge
-	entryEdge edge
+type FlowBuilder struct {
+	graph *Graph
+	exits [][]*edge
 }
 
-func (gr *GraphRegion) HasFlow(flow int) bool {
-	return len(gr.exits[flow]) > 0
+func CreateFlowBuilder(g *Graph, numExits int) *FlowBuilder {
+	return createFlowBuilder(g, numExits, []*edge{g.nodes[g.Entry()].exits[0]})
 }
 
-func (gr *GraphRegion) AttachFlow(flow int, dst NodeID) {
-	dstNode := gr.graph.nodes[dst]
-	if !gr.HasFlow(flow) {
+func createFlowBuilder(g *Graph, numExits int, edges []*edge) *FlowBuilder {
+	fb := &FlowBuilder{
+		graph: g,
+		exits: make([][]*edge, numExits),
+	}
+	fb.exits[0] = edges
+	return fb
+}
+
+func (fb *FlowBuilder) HasFlow(flow int) bool {
+	return len(fb.exits[flow]) > 0
+}
+
+func (fb *FlowBuilder) AttachFlow(flow int, dst NodeID) {
+	dstNode := fb.graph.nodes[dst]
+	if !fb.HasFlow(flow) {
 		panic("Tried to attach non-existant flow")
 	}
 	// TODO extend entries directly.
-	for _, e := range gr.exits[flow] {
+	for _, e := range fb.exits[flow] {
 		e.attach(dstNode)
 	}
-	gr.exits[flow] = nil
+	fb.exits[flow] = nil
 }
 
-func (gr *GraphRegion) RegisterExit(eid EdgeID, flow int) {
-	e := gr.graph.edges[eid]
+func (fb *FlowBuilder) RegisterExit(eid EdgeID, flow int) {
+	e := fb.graph.edges[eid]
 	if e.src == nil {
 		panic(e)
 	}
 	if e.dst != nil {
 		panic(e)
 	}
-	gr.exits[flow] = append(gr.exits[flow], e)
+	fb.exits[flow] = append(fb.exits[flow], e)
 }
 
-func (gr *GraphRegion) Swap(flow0 int, flow1 int) {
-	gr.exits[flow0], gr.exits[flow1] = gr.exits[flow1], gr.exits[flow0]
+func (fb *FlowBuilder) Swap(flow0 int, flow1 int) {
+	fb.exits[flow0], fb.exits[flow1] = fb.exits[flow1], fb.exits[flow0]
 }
 
-func (gr *GraphRegion) popExits(flow int) []*edge {
-	exits := gr.exits[flow]
-	gr.exits[flow] = nil
+func (fb *FlowBuilder) popExits(flow int) []*edge {
+	exits := fb.exits[flow]
+	fb.exits[flow] = nil
 	return exits
 }
 
-func (gr *GraphRegion) MergeFlowInto(srcFlow int, dstFlow int) {
-	if srcFlow != dstFlow {
-		gr.exits[dstFlow] = append(gr.exits[dstFlow], gr.popExits(srcFlow)...)
-	}
+func (fb *FlowBuilder) SplitOffFlow(flow int) *FlowBuilder {
+	return createFlowBuilder(fb.graph, len(fb.exits), fb.popExits(flow))
 }
 
-func (gr *GraphRegion) findEntryEdge() int {
-	if gr.entryEdge.dst != nil {
-		panic(gr.entryEdge.dst)
-	}
-	for i, exits := range gr.exits {
-		if len(exits) == 1 {
-			return i
-		}
-	}
-	panic(gr.exits)
+func (fb *FlowBuilder) SplitOffEdge(eid EdgeID) *FlowBuilder {
+	g := fb.graph
+	return createFlowBuilder(g, len(fb.exits), []*edge{g.edges[eid]})
 }
 
-func (gr *GraphRegion) Splice(flow int, other *GraphRegion) {
-	if !gr.HasFlow(flow) {
-		panic("Sloppy: tried to splice to nothing.")
-	}
-	otherHead := other.entryEdge.dst
-	if otherHead != nil {
-		edges := gr.popExits(flow)
-		otherHead.replaceEntry(&other.entryEdge, edges)
-		gr.absorbExits(other)
-	} else {
-		gr.MergeFlowInto(flow, other.findEntryEdge())
-	}
-}
-
-func (gr *GraphRegion) SpliceToEdge(eid EdgeID, other *GraphRegion) {
-	e := gr.graph.edges[eid]
-	otherHead := other.entryEdge.dst
-	if otherHead != nil {
-		otherHead.replaceSingleEntry(&other.entryEdge, e)
-		gr.absorbExits(other)
-	} else {
-		gr.RegisterExit(eid, other.findEntryEdge())
-	}
-}
-
-func (gr *GraphRegion) absorbExits(other *GraphRegion) {
-	for i := 0; i < len(gr.exits); i++ {
+func (fb *FlowBuilder) AbsorbExits(other *FlowBuilder) {
+	for i := 0; i < len(fb.exits); i++ {
 		otherExits := other.exits[i]
 		other.exits[i] = nil
-		gr.exits[i] = append(gr.exits[i], otherExits...)
+		fb.exits[i] = append(fb.exits[i], otherExits...)
 	}
 }
 

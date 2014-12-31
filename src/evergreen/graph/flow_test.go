@@ -64,43 +64,41 @@ func TestSimpleFlow(t *testing.T) {
 
 func TestSliceEmptySplice(t *testing.T) {
 	g := CreateGraph()
-	gr0 := g.CreateRegion(2)
-	gr1 := g.CreateRegion(2)
-	assert.IntEquals(t, len(gr0.exits[0]), 1)
-	gr1.Swap(0, 1)
-	gr0.Splice(0, gr1)
-	assert.IntEquals(t, len(gr0.exits[1]), 1)
+	fb0 := CreateFlowBuilder(g, 2)
+	assert.IntEquals(t, len(fb0.exits[0]), 1)
+	fb1 := fb0.SplitOffFlow(0)
+	fb1.Swap(0, 1)
+	fb0.AbsorbExits(fb1)
+	assert.IntEquals(t, len(fb0.exits[1]), 1)
 }
 
 func TestSliceEdgeEmptySplice(t *testing.T) {
 	g := CreateGraph()
-	gr0 := g.CreateRegion(2)
-	gr1 := g.CreateRegion(2)
+	fb0 := CreateFlowBuilder(g, 2)
 	n := g.CreateNode(1)
-	gr0.AttachFlow(0, n)
+	fb0.AttachFlow(0, n)
 
-	assert.IntEquals(t, len(gr0.exits[0]), 0)
-	gr1.Swap(0, 1)
-	gr0.SpliceToEdge(emitDanglingEdge(g, n, 0), gr1)
-	assert.IntEquals(t, len(gr0.exits[1]), 1)
+	assert.IntEquals(t, len(fb0.exits[0]), 0)
+	fb1 := fb0.SplitOffEdge(emitDanglingEdge(g, n, 0))
+	fb1.Swap(0, 1)
+	fb0.AbsorbExits(fb1)
+	assert.IntEquals(t, len(fb0.exits[1]), 1)
 }
 
 func TestRepeatFlow(t *testing.T) {
 	g := CreateGraph()
-	gr := g.CreateRegion(2)
+	fb := CreateFlowBuilder(g, 2)
 
 	n := g.CreateNode(2)
-	gr.AttachFlow(0, n)
-	gr.RegisterExit(emitDanglingEdge(g, n, 0), 0)
-	gr.RegisterExit(emitDanglingEdge(g, n, 1), 1)
+	fb.AttachFlow(0, n)
+	fb.RegisterExit(emitDanglingEdge(g, n, 0), 0)
+	fb.RegisterExit(emitDanglingEdge(g, n, 1), 1)
 
 	// Normal flow iterates
-	gr.AttachFlow(0, n)
+	fb.AttachFlow(0, n)
 
 	// Stop iterating on failure
-	gr.Swap(0, 1)
-
-	g.ConnectRegion(gr)
+	fb.AttachFlow(1, g.Exit())
 
 	e := g.Entry()
 	x := g.Exit()
@@ -112,26 +110,26 @@ func TestRepeatFlow(t *testing.T) {
 
 func TestWhileFlow(t *testing.T) {
 	g := CreateGraph()
-	gr := g.CreateRegion(2)
+	fb := CreateFlowBuilder(g, 2)
 	c := g.CreateNode(1)
 	d := g.CreateNode(2)
 	b := g.CreateNode(1)
 
-	gr.AttachFlow(0, c)
-	gr.RegisterExit(emitDanglingEdge(g, c, 0), 0)
+	fb.AttachFlow(0, c)
+	fb.RegisterExit(emitDanglingEdge(g, c, 0), 0)
 
-	gr.AttachFlow(0, d)
-	gr.RegisterExit(emitDanglingEdge(g, d, 0), 0)
-	gr.RegisterExit(emitDanglingEdge(g, d, 1), 1)
+	fb.AttachFlow(0, d)
+	fb.RegisterExit(emitDanglingEdge(g, d, 0), 0)
+	fb.RegisterExit(emitDanglingEdge(g, d, 1), 1)
 
-	gr.AttachFlow(0, b)
-	gr.RegisterExit(emitDanglingEdge(g, b, 0), 0)
+	fb.AttachFlow(0, b)
+	fb.RegisterExit(emitDanglingEdge(g, b, 0), 0)
 
-	gr.AttachFlow(0, c)
+	fb.AttachFlow(0, c)
 
-	gr.Swap(0, 1)
+	fb.Swap(0, 1)
 
-	g.ConnectRegion(gr)
+	fb.AttachFlow(0, g.Exit())
 
 	e := g.Entry()
 	x := g.Exit()
