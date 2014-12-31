@@ -5,13 +5,16 @@ type stitch struct {
 	dst NodeID
 }
 
-type FlowStitcher struct {
+// Assists creating a new graph based on the structure of an old graph.
+// Maintains a map of edges in the old graph onto edges in the new graph.
+// Defers connecting edges in the new graph until both the source and destination are known.
+type EdgeStitcher struct {
 	original   *Graph
 	translated *Graph
 	stitches   []stitch
 }
 
-func (stitcher *FlowStitcher) setSrc(original EdgeID, srcID EdgeID) {
+func (stitcher *EdgeStitcher) setSrc(original EdgeID, srcID EdgeID) {
 	current := stitcher.stitches[original].src
 	if current != NoEdge {
 		panic(current)
@@ -23,7 +26,7 @@ func (stitcher *FlowStitcher) setSrc(original EdgeID, srcID EdgeID) {
 	}
 }
 
-func (stitcher *FlowStitcher) setDst(original EdgeID, dstID NodeID) {
+func (stitcher *EdgeStitcher) setDst(original EdgeID, dstID NodeID) {
 	current := stitcher.stitches[original].dst
 	if current != NoNode {
 		panic(current)
@@ -35,7 +38,7 @@ func (stitcher *FlowStitcher) setDst(original EdgeID, dstID NodeID) {
 	}
 }
 
-func (stitcher *FlowStitcher) SetHead(original NodeID, translated NodeID) {
+func (stitcher *EdgeStitcher) MapIncomingEdges(original NodeID, translated NodeID) {
 	iter := EntryIterator(stitcher.original, original)
 	for iter.HasNext() {
 		_, edge := iter.GetNext()
@@ -43,33 +46,17 @@ func (stitcher *FlowStitcher) SetHead(original NodeID, translated NodeID) {
 	}
 }
 
-func (stitcher *FlowStitcher) Internal(src NodeID, flow int, dst NodeID) {
-	g := stitcher.translated
-	e := g.IndexedExitEdge(src, flow)
-	g.Connect(e, dst)
-}
-
-func (stitcher *FlowStitcher) SetEdge(srcID NodeID, srcFlow int, dstID NodeID, dstFlow int) {
-	original := stitcher.original.IndexedExitEdge(srcID, srcFlow)
-	translated := stitcher.translated.IndexedExitEdge(dstID, dstFlow)
+func (stitcher *EdgeStitcher) MapEdge(original EdgeID, translated EdgeID) {
 	stitcher.setSrc(original, translated)
 }
 
-func (stitcher *FlowStitcher) NumExits(srcID NodeID) int {
-	return stitcher.original.NumExits(srcID)
-}
-
-func (stitcher *FlowStitcher) GetExit(srcID NodeID, flow int) NodeID {
-	return stitcher.original.GetExit(srcID, flow)
-}
-
-func MakeFlowStitcher(original *Graph, translated *Graph) *FlowStitcher {
+func MakeEdgeStitcher(original *Graph, translated *Graph) *EdgeStitcher {
 	numStitches := original.NumEdges()
 	stitches := make([]stitch, numStitches)
 	for i := 0; i < numStitches; i++ {
 		stitches[i] = stitch{src: NoEdge, dst: NoNode}
 	}
-	return &FlowStitcher{
+	return &EdgeStitcher{
 		original:   original,
 		translated: translated,
 		stitches:   stitches,

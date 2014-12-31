@@ -8,23 +8,61 @@ import (
 	"evergreen/graph"
 )
 
-func simpleFlow(stitcher *graph.FlowStitcher, srcID graph.NodeID, dstID graph.NodeID) {
-	stitcher.SetHead(srcID, dstID)
-	stitcher.SetEdge(srcID, 0, dstID, 0)
+type flowMapper struct {
+	ctx      *DubToGoContext
+	stitcher *graph.EdgeStitcher
+	builder  *dst.GoFlowBuilder
+	original *graph.Graph
 }
 
-func dubFlow(ctx *DubToGoContext, builder *dst.GoFlowBuilder, stitcher *graph.FlowStitcher, frameRef dst.Register_Ref, srcID graph.NodeID, dstID graph.NodeID) {
-	stitcher.SetHead(srcID, dstID)
+func (mapper *flowMapper) simpleExitFlow(srcID graph.NodeID, dstID graph.NodeID) {
+	// Copy edges.
+	srcG := mapper.original
+	eit := graph.ExitIterator(srcG, srcID)
+	for eit.HasNext() {
+		e, _ := eit.GetNext()
+		flow := srcG.EdgeFlow(e)
+		switch flow {
+		case 0:
+			mapper.stitcher.MapEdge(e, mapper.builder.EmitEdge(dstID, 0))
+		default:
+			panic(flow)
+		}
+	}
+}
 
-	if stitcher.NumExits(srcID) != 2 {
-		panic(srcID)
+func (mapper *flowMapper) simpleFlow(srcID graph.NodeID, dstID graph.NodeID) {
+	mapper.stitcher.MapIncomingEdges(srcID, dstID)
+	mapper.simpleExitFlow(srcID, dstID)
+}
+
+func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID, dstID graph.NodeID) {
+	ctx := mapper.ctx
+	stitcher := mapper.stitcher
+	builder := mapper.builder
+	srcG := mapper.original
+
+	stitcher.MapIncomingEdges(srcID, dstID)
+
+	normal := graph.NoEdge
+	fail := graph.NoEdge
+
+	eit := graph.ExitIterator(srcG, srcID)
+	for eit.HasNext() {
+		e, _ := eit.GetNext()
+		flow := srcG.EdgeFlow(e)
+		switch flow {
+		case 0:
+			normal = e
+		case 1:
+			fail = e
+		default:
+			panic(flow)
+		}
 	}
 
-	normal := stitcher.GetExit(srcID, 0)
-	fail := stitcher.GetExit(srcID, 1)
-
-	if normal != graph.NoNode {
-		if fail != graph.NoNode {
+	if normal != graph.NoEdge {
+		if fail != graph.NoEdge {
 			flow := builder.MakeRegister("flow", ctx.index.Int)
 			reference := builder.MakeRegister("normal", ctx.index.Int)
 			cond := builder.MakeRegister("cond", ctx.index.Bool)
@@ -51,18 +89,18 @@ func dubFlow(ctx *DubToGoContext, builder *dst.GoFlowBuilder, stitcher *graph.Fl
 				Cond: cond,
 			}, 2)
 
-			stitcher.Internal(dstID, 0, attrID)
-			stitcher.Internal(attrID, 0, constID)
-			stitcher.Internal(constID, 0, compareID)
-			stitcher.Internal(compareID, 0, switchID)
+			builder.EmitConnection(dstID, 0, attrID)
+			builder.EmitConnection(attrID, 0, constID)
+			builder.EmitConnection(constID, 0, compareID)
+			builder.EmitConnection(compareID, 0, switchID)
 
-			stitcher.SetEdge(srcID, 0, switchID, 0)
-			stitcher.SetEdge(srcID, 1, switchID, 1)
+			stitcher.MapEdge(normal, builder.EmitEdge(switchID, 0))
+			stitcher.MapEdge(fail, builder.EmitEdge(switchID, 1))
 		} else {
-			stitcher.SetEdge(srcID, 0, dstID, 0)
+			stitcher.MapEdge(normal, builder.EmitEdge(dstID, 0))
 		}
-	} else if fail != graph.NoNode {
-		stitcher.SetEdge(srcID, 1, dstID, 0)
+	} else if fail != graph.NoEdge {
+		stitcher.MapEdge(fail, builder.EmitEdge(dstID, 0))
 	} else {
 		// Dead end should not happen?
 		panic(srcID)
@@ -127,9 +165,16 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 		goFlowFunc.Results[i] = builder.MakeRegister("ret", goType(rt, ctx))
 	}
 
-	stitcher := graph.MakeFlowStitcher(srcF.CFG, goFlowFunc.CFG)
+	srcG := srcF.CFG
+	stitcher := graph.MakeEdgeStitcher(srcG, goFlowFunc.CFG)
+	mapper := &flowMapper{
+		ctx:      ctx,
+		builder:  builder,
+		stitcher: stitcher,
+		original: srcG,
+	}
 
-	order, _ := graph.ReversePostorder(srcF.CFG)
+	order, _ := graph.ReversePostorder(srcG)
 	nit := graph.OrderedIterator(order)
 	for nit.HasNext() {
 		srcID := nit.GetNext()
@@ -139,22 +184,35 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 		case *src.EntryOp:
 			// Entry already exists
 			dstID := srcID
-			stitcher.SetEdge(srcID, 0, dstID, 0)
+			mapper.simpleExitFlow(srcID, dstID)
 		case *src.ExitOp:
 			// Exit already exists
 			dstID := srcID
-			stitcher.SetHead(srcID, dstID)
+			stitcher.MapIncomingEdges(srcID, dstID)
 		case *src.SwitchOp:
 			dstID := builder.EmitOp(&dst.Switch{
 				Cond: regMap[op.Cond],
 			}, 2)
-			stitcher.SetHead(srcID, dstID)
-			stitcher.SetEdge(srcID, 0, dstID, 0)
-			stitcher.SetEdge(srcID, 1, dstID, 1)
+			stitcher.MapIncomingEdges(srcID, dstID)
+
+			// Copy edges.
+			eit := graph.ExitIterator(srcG, srcID)
+			for eit.HasNext() {
+				e, _ := eit.GetNext()
+				flow := srcG.EdgeFlow(e)
+				switch flow {
+				case 0:
+					stitcher.MapEdge(e, builder.EmitEdge(dstID, 0))
+				case 1:
+					stitcher.MapEdge(e, builder.EmitEdge(dstID, 1))
+				default:
+					panic(flow)
+				}
+			}
 		case *src.FlowExitOp:
 			// TODO is there anything that needs to be done?
 			dstID := builder.EmitOp(&dst.Nop{}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.CallOp:
 			args := []dst.Register_Ref{frameReg}
 			args = append(args, regList(regMap, op.Args)...)
@@ -164,7 +222,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Args:   args,
 				Dsts:   regList(regMap, op.Dsts),
 			}, 1)
-			dubFlow(ctx, builder, stitcher, frameReg, srcID, dstID)
+			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.ConstructOp:
 			t := ctx.link.GetType(op.Type, STRUCT)
 			st, ok := t.(*dstcore.StructType)
@@ -208,54 +266,53 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Dst:       dstReg(regMap, op.Dst),
 			}, 1))
 
-			stitcher.SetHead(srcID, nodes[0])
+			stitcher.MapIncomingEdges(srcID, nodes[0])
 			for i := 0; i < len(nodes)-1; i++ {
-				stitcher.Internal(nodes[i], 0, nodes[i+1])
+				builder.EmitConnection(nodes[i], 0, nodes[i+1])
 			}
-
-			stitcher.SetEdge(srcID, 0, nodes[len(nodes)-1], 0)
+			mapper.simpleExitFlow(srcID, nodes[len(nodes)-1])
 		case *src.ConstructListOp:
 			dstID := builder.EmitOp(&dst.ConstructSlice{
 				Type: goSliceType(op.Type, ctx),
 				Args: regList(regMap, op.Args),
 				Dst:  dstReg(regMap, op.Dst),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.TransferOp:
 			dstID := builder.EmitOp(&dst.Transfer{
 				Srcs: regList(regMap, op.Srcs),
 				Dsts: regList(regMap, op.Dsts),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantRuneOp:
 			dstID := builder.EmitOp(&dst.ConstantRune{
 				Value: op.Value,
 				Dst:   dstReg(regMap, op.Dst),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantStringOp:
 			dstID := builder.EmitOp(&dst.ConstantString{
 				Value: op.Value,
 				Dst:   dstReg(regMap, op.Dst),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantIntOp:
 			dstID := builder.EmitOp(&dst.ConstantInt{
 				Value: op.Value,
 				Dst:   dstReg(regMap, op.Dst),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantBoolOp:
 			dstID := builder.EmitOp(&dst.ConstantBool{
 				Value: op.Value,
 				Dst:   dstReg(regMap, op.Dst),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantNilOp:
 			dstID := builder.EmitOp(&dst.ConstantNil{
 				Dst: dstReg(regMap, op.Dst),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.BinaryOp:
 			dstID := builder.EmitOp(&dst.BinaryOp{
 				Left:  regMap[op.Left],
@@ -263,47 +320,47 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Right: regMap[op.Right],
 				Dst:   dstReg(regMap, op.Dst),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.Checkpoint:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Checkpoint",
 				Dsts: multiDstReg(regMap, op.Dst),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.Fail:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Fail",
 			}, 1)
-			dubFlow(ctx, builder, stitcher, frameReg, srcID, dstID)
+			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.Recover:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Recover",
 				Args: []dst.Register_Ref{regMap[op.Src]},
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.Peek:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Peek",
 				Dsts: multiDstReg(regMap, op.Dst),
 			}, 1)
-			dubFlow(ctx, builder, stitcher, frameReg, srcID, dstID)
+			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.Consume:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Consume",
 			}, 1)
-			dubFlow(ctx, builder, stitcher, frameReg, srcID, dstID)
+			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.LookaheadBegin:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "LookaheadBegin",
 				Dsts: multiDstReg(regMap, op.Dst),
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.LookaheadEnd:
 			name := "LookaheadNormal"
 			if op.Failed {
@@ -314,7 +371,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Name: name,
 				Args: []dst.Register_Ref{regMap[op.Src]},
 			}, 1)
-			dubFlow(ctx, builder, stitcher, frameReg, srcID, dstID)
+			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.Slice:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
@@ -322,21 +379,21 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Args: []dst.Register_Ref{regMap[op.Src]},
 				Dsts: multiDstReg(regMap, op.Dst),
 			}, 1)
-			dubFlow(ctx, builder, stitcher, frameReg, srcID, dstID)
+			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.CoerceOp:
 			dstID := builder.EmitOp(&dst.Coerce{
 				Src:  regMap[op.Src],
 				Type: goType(op.T, ctx),
 				Dst:  regMap[op.Dst],
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.AppendOp:
 			dstID := builder.EmitOp(&dst.Append{
 				Src:  regMap[op.List],
 				Args: []dst.Register_Ref{regMap[op.Value]},
 				Dst:  regMap[op.Dst],
 			}, 1)
-			simpleFlow(stitcher, srcID, dstID)
+			mapper.simpleFlow(srcID, dstID)
 		case *src.ReturnOp:
 			transferID := builder.EmitOp(&dst.Transfer{
 				Srcs: regList(regMap, op.Exprs),
@@ -344,14 +401,14 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			}, 1)
 
 			if true {
-				simpleFlow(stitcher, srcID, transferID)
+				mapper.simpleFlow(srcID, transferID)
 			} else {
 
 				returnID := builder.EmitOp(&dst.Return{}, 1)
 
-				stitcher.SetHead(srcID, transferID)
-				stitcher.Internal(transferID, 0, returnID)
-				stitcher.SetEdge(srcID, 0, returnID, 0)
+				stitcher.MapIncomingEdges(srcID, transferID)
+				builder.EmitConnection(transferID, 0, returnID)
+				mapper.simpleExitFlow(srcID, returnID)
 			}
 		default:
 			panic(op)

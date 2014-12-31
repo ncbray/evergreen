@@ -70,6 +70,17 @@ func (builder *GoFlowBuilder) EmitOp(op GoOp, exit_count int) graph.NodeID {
 	return id
 }
 
+func (builder *GoFlowBuilder) EmitEdge(nid graph.NodeID, flow int) graph.EdgeID {
+	return builder.decl.CFG.IndexedExitEdge(nid, flow)
+}
+
+func (builder *GoFlowBuilder) EmitConnection(src graph.NodeID, flow int, dst graph.NodeID) graph.EdgeID {
+	g := builder.decl.CFG
+	edge := g.IndexedExitEdge(src, flow)
+	g.Connect(edge, dst)
+	return edge
+}
+
 func MakeGoFlowBuilder(decl *FlowFunc) *GoFlowBuilder {
 	decl.CFG = graph.CreateGraph()
 	decl.Ops = []GoOp{
