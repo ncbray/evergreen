@@ -61,7 +61,30 @@ func (l *entryEdges) Append(other *edge) {
 	}
 }
 
-func (l *entryEdges) Pop() entryEdges {
+func (l *entryEdges) Extend(other entryEdges) {
+	if other.HasEdges() {
+		if l.HasEdges() {
+			l.tail.nextEntry = other.head
+			other.head.prevEntry = l.tail
+			l.tail = other.tail
+		} else {
+			l.head = other.head
+			l.tail = other.tail
+		}
+	}
+}
+
+func (l *entryEdges) SetDst(n *node) {
+	current := l.head
+	if current != nil && current.dst != n {
+		for current != nil {
+			current.dst = n
+			current = current.nextEntry
+		}
+	}
+}
+
+func (l *entryEdges) Transfer() entryEdges {
 	temp := *l
 	*l = emptyEntry()
 	return temp
@@ -77,7 +100,7 @@ func (l *entryEdges) ReplaceEdge(target *edge, replacement *edge) {
 func (l *entryEdges) ReplaceEdgeWithMultiple(target *edge, replacements entryEdges) {
 	oldNext := target.nextEntry
 	oldPrev := target.prevEntry
-	oldDst := target.dst
+	dst := target.dst
 
 	// Disconnect the entry.
 	target.prevEntry = nil
@@ -86,7 +109,7 @@ func (l *entryEdges) ReplaceEdgeWithMultiple(target *edge, replacements entryEdg
 
 	var newNext *edge
 	var newPrev *edge
-	if replacements.head == nil {
+	if !replacements.HasEdges() {
 		// Empty replacement.
 		newNext = oldNext
 		newPrev = oldPrev
@@ -98,13 +121,7 @@ func (l *entryEdges) ReplaceEdgeWithMultiple(target *edge, replacements entryEdg
 		replacements.tail.nextEntry = oldNext
 
 		// Point the replacements to the new destination.
-		current := replacements.head
-		if current.dst != oldDst {
-			for current != nil {
-				current.dst = oldDst
-				current = current.nextEntry
-			}
-		}
+		replacements.SetDst(dst)
 	}
 	if oldPrev == nil {
 		l.head = newNext
@@ -116,6 +133,10 @@ func (l *entryEdges) ReplaceEdgeWithMultiple(target *edge, replacements entryEdg
 	} else {
 		oldNext.prevEntry = newPrev
 	}
+}
+
+func (l *entryEdges) HasEdges() bool {
+	return l.head != nil
 }
 
 func (l *entryEdges) HasMultipleEdges() bool {
@@ -139,7 +160,7 @@ func (it *entryIterator) GetNext() (NodeID, EdgeID) {
 
 type exitEdges []*edge
 
-func (l *exitEdges) Pop() exitEdges {
+func (l *exitEdges) Transfer() exitEdges {
 	temp := *l
 	*l = exitEdges{}
 	return temp
@@ -203,10 +224,6 @@ func (n *node) getExit(flow int) *edge {
 
 func (n *node) addEntry(e *edge) {
 	n.entries.Append(e)
-}
-
-func (n *node) popEntries() entryEdges {
-	return n.entries.Pop()
 }
 
 func (n *node) replaceSingleEntry(target *edge, replacement *edge) {
@@ -292,7 +309,7 @@ func (g *Graph) KillNode(nid NodeID) {
 				panic(n.id)
 			}
 		}
-		e.dst.replaceEntry(e, n.popEntries())
+		e.dst.replaceEntry(e, n.entries.Transfer())
 		break
 	}
 }
@@ -346,24 +363,24 @@ func CreateGraph() *Graph {
 
 type FlowBuilder struct {
 	graph *Graph
-	exits []exitEdges
+	flows []entryEdges
 }
 
 func CreateFlowBuilder(g *Graph, numExits int) *FlowBuilder {
-	return createFlowBuilder(g, numExits, exitEdges{g.nodes[g.Entry()].exits[0]})
+	return createFlowBuilder(g, numExits, singleEntry(g.nodes[g.Entry()].exits[0]))
 }
 
-func createFlowBuilder(g *Graph, numExits int, edges []*edge) *FlowBuilder {
+func createFlowBuilder(g *Graph, numExits int, edges entryEdges) *FlowBuilder {
 	fb := &FlowBuilder{
 		graph: g,
-		exits: make([]exitEdges, numExits),
+		flows: make([]entryEdges, numExits),
 	}
-	fb.exits[0] = edges
+	fb.flows[0] = edges
 	return fb
 }
 
 func (fb *FlowBuilder) HasFlow(flow int) bool {
-	return len(fb.exits[flow]) > 0
+	return fb.flows[flow].HasEdges()
 }
 
 func (fb *FlowBuilder) AttachFlow(flow int, dst NodeID) {
@@ -371,11 +388,8 @@ func (fb *FlowBuilder) AttachFlow(flow int, dst NodeID) {
 	if !fb.HasFlow(flow) {
 		panic("Tried to attach non-existant flow")
 	}
-	// TODO extend entries directly.
-	for _, e := range fb.exits[flow] {
-		e.attach(dstNode)
-	}
-	fb.exits[flow] = nil
+	fb.flows[flow].SetDst(dstNode)
+	dstNode.entries.Extend(fb.flows[flow].Transfer())
 }
 
 func (fb *FlowBuilder) RegisterExit(eid EdgeID, flow int) {
@@ -386,27 +400,20 @@ func (fb *FlowBuilder) RegisterExit(eid EdgeID, flow int) {
 	if e.dst != nil {
 		panic(e)
 	}
-	fb.exits[flow] = append(fb.exits[flow], e)
-}
-
-func (fb *FlowBuilder) popExits(flow int) exitEdges {
-	return fb.exits[flow].Pop()
+	fb.flows[flow].Append(e)
 }
 
 func (fb *FlowBuilder) SplitOffFlow(flow int) *FlowBuilder {
-	return createFlowBuilder(fb.graph, len(fb.exits), fb.popExits(flow))
+	return createFlowBuilder(fb.graph, len(fb.flows), fb.flows[flow].Transfer())
 }
 
 func (fb *FlowBuilder) SplitOffEdge(eid EdgeID) *FlowBuilder {
-	g := fb.graph
-	return createFlowBuilder(g, len(fb.exits), exitEdges{g.edges[eid]})
+	return createFlowBuilder(fb.graph, len(fb.flows), singleEntry(fb.graph.edges[eid]))
 }
 
 func (fb *FlowBuilder) AbsorbExits(other *FlowBuilder) {
-	for i := 0; i < len(fb.exits); i++ {
-		otherExits := other.exits[i]
-		other.exits[i] = nil
-		fb.exits[i] = append(fb.exits[i], otherExits...)
+	for i := 0; i < len(fb.flows); i++ {
+		fb.flows[i].Extend(other.flows[i].Transfer())
 	}
 }
 

@@ -223,14 +223,24 @@ func TestSimpleFlow(t *testing.T) {
 	checkTopology(g, g.Exit(), []NodeID{n}, []NodeID{}, t)
 }
 
+func numFlowEdges(fb *FlowBuilder, flow int) int {
+	count := 0
+	current := fb.flows[flow].head
+	for current != nil {
+		current = current.nextEntry
+		count += 1
+	}
+	return count
+}
+
 func TestSliceEmptySplice(t *testing.T) {
 	g := CreateGraph()
 	fb0 := CreateFlowBuilder(g, 2)
-	assert.IntEquals(t, len(fb0.exits[0]), 1)
+	assert.IntEquals(t, numFlowEdges(fb0, 0), 1)
 	fb1 := fb0.SplitOffFlow(0)
-	assert.IntEquals(t, len(fb0.exits[0]), 0)
+	assert.IntEquals(t, numFlowEdges(fb0, 0), 0)
 	fb0.AbsorbExits(fb1)
-	assert.IntEquals(t, len(fb0.exits[0]), 1)
+	assert.IntEquals(t, numFlowEdges(fb0, 0), 1)
 }
 
 func TestSliceEdgeEmptySplice(t *testing.T) {
@@ -239,10 +249,10 @@ func TestSliceEdgeEmptySplice(t *testing.T) {
 	n := g.CreateNode(1)
 	fb0.AttachFlow(0, n)
 
-	assert.IntEquals(t, len(fb0.exits[0]), 0)
+	assert.IntEquals(t, numFlowEdges(fb0, 0), 0)
 	fb1 := fb0.SplitOffEdge(emitDanglingEdge(g, n, 0))
 	fb0.AbsorbExits(fb1)
-	assert.IntEquals(t, len(fb0.exits[0]), 1)
+	assert.IntEquals(t, numFlowEdges(fb0, 0), 1)
 }
 
 func TestRepeatFlow(t *testing.T) {
