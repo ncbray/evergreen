@@ -67,9 +67,9 @@ func TestSliceEmptySplice(t *testing.T) {
 	fb0 := CreateFlowBuilder(g, 2)
 	assert.IntEquals(t, len(fb0.exits[0]), 1)
 	fb1 := fb0.SplitOffFlow(0)
-	fb1.Swap(0, 1)
+	assert.IntEquals(t, len(fb0.exits[0]), 0)
 	fb0.AbsorbExits(fb1)
-	assert.IntEquals(t, len(fb0.exits[1]), 1)
+	assert.IntEquals(t, len(fb0.exits[0]), 1)
 }
 
 func TestSliceEdgeEmptySplice(t *testing.T) {
@@ -80,9 +80,8 @@ func TestSliceEdgeEmptySplice(t *testing.T) {
 
 	assert.IntEquals(t, len(fb0.exits[0]), 0)
 	fb1 := fb0.SplitOffEdge(emitDanglingEdge(g, n, 0))
-	fb1.Swap(0, 1)
 	fb0.AbsorbExits(fb1)
-	assert.IntEquals(t, len(fb0.exits[1]), 1)
+	assert.IntEquals(t, len(fb0.exits[0]), 1)
 }
 
 func TestRepeatFlow(t *testing.T) {
@@ -126,10 +125,7 @@ func TestWhileFlow(t *testing.T) {
 	fb.RegisterExit(emitDanglingEdge(g, b, 0), 0)
 
 	fb.AttachFlow(0, c)
-
-	fb.Swap(0, 1)
-
-	fb.AttachFlow(0, g.Exit())
+	fb.AttachFlow(1, g.Exit())
 
 	e := g.Entry()
 	x := g.Exit()

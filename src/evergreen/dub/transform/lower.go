@@ -88,6 +88,9 @@ func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *
 	return make_value, decide
 }
 
+const CONTINUE_MATCHING = flow.NORMAL
+const STOP_MATCHING = flow.FAIL
+
 func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, fb *graph.FlowBuilder) flow.RegisterInfo_Ref {
 	// Read
 	cond := flow.NoRegisterInfo
@@ -96,18 +99,7 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, 
 	}
 	body := builder.EmitOp(&flow.Peek{Dst: cond})
 	fb.AttachFlow(flow.NORMAL, body)
-	fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
-	fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
-
-	filters := fb.SplitOffFlow(flow.NORMAL)
-
-	onMatch := flow.FAIL
-	onNoMatch := flow.NORMAL
-	if !match.Invert {
-		onMatch, onNoMatch = onNoMatch, onMatch
-		// Make sure the implicit exit points to "fail"
-		filters.Swap(flow.NORMAL, flow.FAIL)
-	}
+	filters := fb.SplitOffEdge(builder.EmitEdge(body, flow.NORMAL))
 
 	for _, flt := range match.Filters {
 		if flt.Min > flt.Max {
@@ -118,43 +110,51 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, 
 			maxEntry, maxDecide := makeRuneSwitch(cond, "<=", flt.Max, builder)
 
 			// Check only if we haven't found a match.
-			filters.AttachFlow(onNoMatch, minEntry)
+			filters.AttachFlow(CONTINUE_MATCHING, minEntry)
 
 			// Match
 			builder.graph.ConnectEdgeExit(builder.EmitEdge(minDecide, flow.COND_TRUE), maxEntry)
-			filters.RegisterExit(builder.EmitEdge(maxDecide, flow.COND_TRUE), onMatch)
+			filters.RegisterExit(builder.EmitEdge(maxDecide, flow.COND_TRUE), STOP_MATCHING)
 
 			// No match
-			filters.RegisterExit(builder.EmitEdge(minDecide, flow.COND_FALSE), onNoMatch)
-			filters.RegisterExit(builder.EmitEdge(maxDecide, flow.COND_FALSE), onNoMatch)
+			filters.RegisterExit(builder.EmitEdge(minDecide, flow.COND_FALSE), CONTINUE_MATCHING)
+			filters.RegisterExit(builder.EmitEdge(maxDecide, flow.COND_FALSE), CONTINUE_MATCHING)
 		} else {
 			entry, decide := makeRuneSwitch(cond, "==", flt.Min, builder)
 
 			// Check only if we haven't found a match.
-			filters.AttachFlow(onNoMatch, entry)
+			filters.AttachFlow(CONTINUE_MATCHING, entry)
 
 			// Match
-			filters.RegisterExit(builder.EmitEdge(decide, flow.COND_TRUE), onMatch)
+			filters.RegisterExit(builder.EmitEdge(decide, flow.COND_TRUE), STOP_MATCHING)
 
 			// No match
-			filters.RegisterExit(builder.EmitEdge(decide, flow.COND_FALSE), onNoMatch)
+			filters.RegisterExit(builder.EmitEdge(decide, flow.COND_FALSE), CONTINUE_MATCHING)
 		}
 	}
 
-	// The rune matched, consume it.
-	if filters.HasFlow(flow.NORMAL) {
-		c := builder.EmitOp(&flow.Consume{})
-		filters.AttachFlow(flow.NORMAL, c)
-		filters.RegisterExit(builder.EmitEdge(c, flow.NORMAL), flow.NORMAL)
-	}
-	// Make the fail official.
-	if filters.HasFlow(flow.FAIL) {
-		f := builder.EmitOp(&flow.Fail{})
-		filters.AttachFlow(flow.FAIL, f)
-		filters.RegisterExit(builder.EmitEdge(f, flow.FAIL), flow.FAIL)
+	normalCase := STOP_MATCHING
+	failCase := CONTINUE_MATCHING
+	if match.Invert {
+		normalCase, failCase = failCase, normalCase
 	}
 
-	fb.AbsorbExits(filters)
+	// The rune matched, consume it.
+	if filters.HasFlow(normalCase) {
+		c := builder.EmitOp(&flow.Consume{})
+		filters.AttachFlow(normalCase, c)
+		fb.RegisterExit(builder.EmitEdge(c, flow.NORMAL), flow.NORMAL)
+	}
+	// Make the fail official.
+	if filters.HasFlow(failCase) {
+		f := builder.EmitOp(&flow.Fail{})
+		filters.AttachFlow(failCase, f)
+		fb.RegisterExit(builder.EmitEdge(f, flow.FAIL), flow.FAIL)
+	}
+
+	// The peek can fail.
+	fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
+
 	return cond
 }
 

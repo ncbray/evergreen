@@ -249,10 +249,6 @@ func (fb *FlowBuilder) RegisterExit(eid EdgeID, flow int) {
 	fb.exits[flow] = append(fb.exits[flow], e)
 }
 
-func (fb *FlowBuilder) Swap(flow0 int, flow1 int) {
-	fb.exits[flow0], fb.exits[flow1] = fb.exits[flow1], fb.exits[flow0]
-}
-
 func (fb *FlowBuilder) popExits(flow int) []*edge {
 	exits := fb.exits[flow]
 	fb.exits[flow] = nil
