@@ -37,6 +37,7 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 	}
 
 	for _, f := range program.LLFuncs {
+		g := f.CFG
 		for node, op := range f.Ops {
 			switch op := op.(type) {
 			case *CallOp:
@@ -44,10 +45,13 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 				if !ok {
 					panic(op.Target)
 				}
-				for i := 0; i < numFlows; i++ {
-					possible := flows[i][tgt]
+				n := graph.NodeID(node)
+				iter := graph.ExitIterator(g, n)
+				for iter.HasNext() {
+					e, _ := iter.GetNext()
+					possible := flows[g.EdgeFlow(e)][tgt]
 					if !possible {
-						f.CFG.Disconnect(graph.NodeID(node), i)
+						g.RemoveEdge(e)
 					}
 				}
 			default:

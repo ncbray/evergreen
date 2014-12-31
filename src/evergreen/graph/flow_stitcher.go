@@ -53,8 +53,8 @@ func (stitcher *FlowStitcher) getStitch(srcID NodeID, flow int) *stitch {
 func (stitcher *FlowStitcher) SetHead(srcID NodeID, dstID NodeID) {
 	iter := EntryIterator(stitcher.original, srcID)
 	for iter.HasNext() {
-		prev, flow := iter.GetNext()
-		stitch := stitcher.getStitch(prev, flow)
+		prev, edge := iter.GetNext()
+		stitch := stitcher.getStitch(prev, stitcher.original.EdgeFlow(edge))
 		stitch.SetDst(dstID, stitcher.translated)
 	}
 }

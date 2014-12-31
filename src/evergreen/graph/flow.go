@@ -76,10 +76,6 @@ func (n *node) HasEntries() bool {
 	return len(n.entries) > 0
 }
 
-func (n *node) GetEntry(i int) *edge {
-	return n.entries[i]
-}
-
 func (n *node) TransferEntries(other *node) {
 	entries := n.popEntries()
 	for _, e := range entries {
@@ -171,8 +167,8 @@ func (g *Graph) Connect(src NodeID, edge int, dst NodeID) {
 	g.nodes[src].SetExit(edge, g.nodes[dst])
 }
 
-func (g *Graph) Disconnect(src NodeID, edge int) {
-	g.nodes[src].RemoveExit(edge)
+func (g *Graph) RemoveEdge(eid EdgeID) {
+	g.edges[eid].detach()
 }
 
 func (g *Graph) RemoveNode(nid NodeID) {
@@ -194,18 +190,12 @@ func (g *Graph) RemoveNode(nid NodeID) {
 	}
 }
 
-func (g *Graph) InsertAt(n NodeID, flow int, existingNode NodeID, existingFlow int) {
-	node := g.nodes[n]
-	e := g.nodes[existingNode].GetExit(existingFlow)
-	node.InsertAt(flow, e)
+func (g *Graph) InsertAt(nid NodeID, flow int, eid EdgeID) {
+	g.nodes[nid].InsertAt(flow, g.edges[eid])
 }
 
 func (g *Graph) NumEntries(dst NodeID) int {
 	return len(g.nodes[dst].entries)
-}
-
-func (g *Graph) GetEntry(dst NodeID, edge int) NodeID {
-	return g.nodes[dst].entries[edge].src.id
 }
 
 func (g *Graph) NumExits(src NodeID) int {
@@ -243,6 +233,10 @@ func (g *Graph) ConnectRegion(gr *GraphRegion) {
 			}
 		}
 	}
+}
+
+func (g *Graph) EdgeFlow(e EdgeID) int {
+	return g.edges[e].index
 }
 
 func CreateGraph() *Graph {
@@ -395,10 +389,10 @@ func (it *entryIterator) HasNext() bool {
 	return it.current < len(it.node.entries)
 }
 
-func (it *entryIterator) GetNext() (NodeID, int) {
+func (it *entryIterator) GetNext() (NodeID, EdgeID) {
 	edge := it.node.entries[it.current]
 	it.current += 1
-	return edge.src.id, edge.index
+	return edge.src.id, edge.id
 }
 
 func EntryIterator(g *Graph, n NodeID) entryIterator {
@@ -421,11 +415,11 @@ func (it *exitIterator) HasNext() bool {
 	return it.current < len(it.node.exits)
 }
 
-func (it *exitIterator) GetNext() (int, NodeID) {
+func (it *exitIterator) GetNext() (EdgeID, NodeID) {
 	edge := it.node.exits[it.current]
 	it.current += 1
 	it.skipDeadEdges()
-	return edge.index, edge.dst.id
+	return edge.id, edge.dst.id
 }
 
 func ExitIterator(g *Graph, n NodeID) exitIterator {
@@ -450,11 +444,11 @@ func (it *reverseExitIterator) HasNext() bool {
 	return it.current >= 0
 }
 
-func (it *reverseExitIterator) GetNext() (int, NodeID) {
+func (it *reverseExitIterator) GetNext() (EdgeID, NodeID) {
 	edge := it.node.exits[it.current]
 	it.current -= 1
 	it.skipDeadEdges()
-	return edge.index, edge.dst.id
+	return edge.id, edge.dst.id
 }
 
 func ReverseExitIterator(g *Graph, n NodeID) reverseExitIterator {

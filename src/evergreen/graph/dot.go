@@ -81,13 +81,13 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 		node := nit.GetNext()
 		eit := ExitIterator(g, node)
 		for eit.HasNext() {
-			flow, dst := eit.GetNext()
+			edge, dst := eit.GetNext()
 			buf.WriteString("  ")
 			buf.WriteString(nodeDotID(node))
 			buf.WriteString(" -> ")
 			buf.WriteString(nodeDotID(dst))
 			buf.WriteString("[")
-			buf.WriteString(styler.EdgeStyle(node, flow))
+			buf.WriteString(styler.EdgeStyle(node, g.EdgeFlow(edge)))
 			if index[node] >= index[dst] {
 				buf.WriteString(",weight=0")
 			}
