@@ -23,7 +23,7 @@ func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *tes
 		t.Error("Node should not be nil")
 		return
 	}
-	oentries := node.peekEntries()
+	oentries := node.entries
 	if len(entries) != len(oentries) {
 		t.Errorf("Expected %d entries, got %d", len(entries), len(oentries))
 	} else {
