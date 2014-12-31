@@ -77,7 +77,7 @@ func (builder *GoFlowBuilder) EmitEdge(nid graph.NodeID, flow int) graph.EdgeID 
 func (builder *GoFlowBuilder) EmitConnection(src graph.NodeID, flow int, dst graph.NodeID) graph.EdgeID {
 	g := builder.decl.CFG
 	edge := g.IndexedExitEdge(src, flow)
-	g.Connect(edge, dst)
+	g.ConnectEdgeExit(edge, dst)
 	return edge
 }
 

@@ -267,7 +267,7 @@ func rename(decl *LLFunc) {
 		renameOp(n, op, ra)
 		_, is_copy := op.(*CopyOp)
 		if is_copy {
-			decl.CFG.RemoveNode(n)
+			decl.CFG.KillNode(n)
 		}
 	}
 	decl.RegisterInfo_Scope.Replace(ra.info)
@@ -397,7 +397,7 @@ func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 		op := decl.Ops[n]
 		killUnusedOutputs(n, op, live)
 		if IsNop(op) {
-			g.RemoveNode(n)
+			g.KillNode(n)
 		}
 	}
 }

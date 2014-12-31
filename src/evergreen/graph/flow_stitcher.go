@@ -22,7 +22,7 @@ func (stitcher *EdgeStitcher) setSrc(original EdgeID, srcID EdgeID) {
 	stitcher.stitches[original].src = srcID
 	dstID := stitcher.stitches[original].dst
 	if dstID != NoNode {
-		stitcher.translated.Connect(srcID, dstID)
+		stitcher.translated.ConnectEdgeExit(srcID, dstID)
 	}
 }
 
@@ -34,7 +34,7 @@ func (stitcher *EdgeStitcher) setDst(original EdgeID, dstID NodeID) {
 	stitcher.stitches[original].dst = dstID
 	srcID := stitcher.stitches[original].src
 	if srcID != NoEdge {
-		stitcher.translated.Connect(srcID, dstID)
+		stitcher.translated.ConnectEdgeExit(srcID, dstID)
 	}
 }
 

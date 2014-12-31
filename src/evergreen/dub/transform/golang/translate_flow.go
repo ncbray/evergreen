@@ -448,7 +448,7 @@ func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goC
 
 	// Empty function.
 	g := goFlowFunc.CFG
-	g.Connect(g.IndexedExitEdge(g.Entry(), 0), g.Exit())
+	g.ConnectEdgeExit(g.IndexedExitEdge(g.Entry(), 0), g.Exit())
 
 	f := goCoreProg.Function_Scope.Register(goCoreFunc)
 	goFlowProg.FlowFunc_Scope.Register(goFlowFunc)

@@ -131,15 +131,15 @@ func (g *Graph) NumEdges() int {
 	return len(g.edges)
 }
 
-func (g *Graph) Connect(src EdgeID, dst NodeID) {
+func (g *Graph) ConnectEdgeExit(src EdgeID, dst NodeID) {
 	g.edges[src].attach(g.nodes[dst])
 }
 
-func (g *Graph) RemoveEdge(eid EdgeID) {
+func (g *Graph) KillEdge(eid EdgeID) {
 	g.edges[eid].detach()
 }
 
-func (g *Graph) RemoveNode(nid NodeID) {
+func (g *Graph) KillNode(nid NodeID) {
 	n := g.nodes[nid]
 	for i := 0; i < len(n.exits); i++ {
 		e := n.getExit(i)
@@ -198,7 +198,7 @@ func (g *Graph) CreateRegion(exits int) *GraphRegion {
 func (g *Graph) ConnectRegion(gr *GraphRegion) {
 	regionHead := gr.entryEdge.dst
 	if regionHead == nil {
-		g.Connect(g.IndexedExitEdge(g.Entry(), 0), g.Exit())
+		g.ConnectEdgeExit(g.IndexedExitEdge(g.Entry(), 0), g.Exit())
 	} else {
 		entry := g.nodes[g.Entry()]
 		regionHead.replaceSingleEntry(&gr.entryEdge, entry.getExit(0))
