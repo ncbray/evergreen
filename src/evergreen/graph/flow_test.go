@@ -31,11 +31,12 @@ func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *tes
 			checkEdge(oentries[i], g.nodes[entry], node, t)
 		}
 	}
-	if len(exits) != node.NumExits() {
-		t.Errorf("Expected %d exits, got %d", len(entries), node.NumExits())
+	numExits := len(node.exits)
+	if len(exits) != numExits {
+		t.Errorf("Expected %d exits, got %d", len(exits), numExits)
 	} else {
 		for i, exit := range exits {
-			checkEdge(node.GetExit(i), node, g.nodes[exit], t)
+			checkEdge(node.exits[i], node, g.nodes[exit], t)
 		}
 	}
 }

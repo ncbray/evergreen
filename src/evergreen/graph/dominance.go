@@ -125,8 +125,7 @@ func FindDominanceFrontiers(g *Graph, idoms []NodeID) [][]NodeID {
 	nit := NodeIterator(g)
 	for nit.HasNext() {
 		n := nit.GetNext()
-		numEntries := g.NumEntries(n)
-		if numEntries >= 2 {
+		if g.HasMultipleEntries(n) {
 			target := idoms[n]
 			eit := EntryIterator(g, n)
 			for eit.HasNext() {

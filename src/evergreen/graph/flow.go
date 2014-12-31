@@ -188,8 +188,8 @@ func (g *Graph) InsertInEdge(dangling EdgeID, existing EdgeID) {
 	n.addEntry(target)
 }
 
-func (g *Graph) NumEntries(dst NodeID) int {
-	return len(g.nodes[dst].entries)
+func (g *Graph) HasMultipleEntries(dst NodeID) bool {
+	return len(g.nodes[dst].entries) >= 2
 }
 
 func (g *Graph) NumExits(src NodeID) int {
