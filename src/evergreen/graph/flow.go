@@ -34,14 +34,6 @@ func (n *node) GetExit(flow int) *edge {
 	return n.exits[flow]
 }
 
-func (n *node) SetExit(flow int, other *node) {
-	if flow >= len(n.exits) {
-		panic(flow)
-	}
-	e := n.GetExit(flow)
-	e.attach(other)
-}
-
 func (n *node) RemoveExit(flow int) {
 	n.GetExit(flow).detach()
 }
@@ -108,6 +100,8 @@ const NoNode NodeID = ^NodeID(0)
 
 type EdgeID int
 
+const NoEdge EdgeID = ^EdgeID(0)
+
 type Graph struct {
 	nodes []*node
 	edges []*edge
@@ -143,12 +137,18 @@ func (g *Graph) CreateNode(exits int) NodeID {
 	return id
 }
 
+// Number of nodes in existance, some may be dead.
 func (g *Graph) NumNodes() int {
 	return len(g.nodes)
 }
 
-func (g *Graph) Connect(src NodeID, edge int, dst NodeID) {
-	g.nodes[src].SetExit(edge, g.nodes[dst])
+// Number of edges in existance, some may be dead.
+func (g *Graph) NumEdges() int {
+	return len(g.edges)
+}
+
+func (g *Graph) Connect(src EdgeID, dst NodeID) {
+	g.edges[src].attach(g.nodes[dst])
 }
 
 func (g *Graph) RemoveEdge(eid EdgeID) {
@@ -217,7 +217,7 @@ func (g *Graph) CreateRegion(exits int) *GraphRegion {
 func (g *Graph) ConnectRegion(gr *GraphRegion) {
 	regionHead := gr.entryEdge.dst
 	if regionHead == nil {
-		g.Connect(g.Entry(), 0, g.Exit())
+		g.Connect(g.IndexedExitEdge(g.Entry(), 0), g.Exit())
 	} else {
 		entry := g.nodes[g.Entry()]
 		regionHead.replaceSingleEntry(&gr.entryEdge, entry.GetExit(0))

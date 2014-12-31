@@ -84,8 +84,8 @@ func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *
 
 	decide := builder.EmitOp(&flow.SwitchOp{Cond: breg})
 
-	builder.graph.Connect(make_value, flow.NORMAL, compare)
-	builder.graph.Connect(compare, flow.NORMAL, decide)
+	builder.graph.Connect(builder.EmitEdge(make_value, flow.NORMAL), compare)
+	builder.graph.Connect(builder.EmitEdge(compare, flow.NORMAL), decide)
 
 	return make_value, decide
 }
@@ -123,7 +123,7 @@ func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, 
 			filters.AttachFlow(onNoMatch, minEntry)
 
 			// Match
-			builder.graph.Connect(minDecide, 0, maxEntry)
+			builder.graph.Connect(builder.EmitEdge(minDecide, 0), maxEntry)
 			filters.RegisterExit(builder.EmitEdge(maxDecide, 0), onMatch)
 
 			// No match

@@ -48,8 +48,8 @@ func emitEdge(g *Graph, nid NodeID, flow int) EdgeID {
 func TestSimpleFlow(t *testing.T) {
 	g := CreateGraph()
 	n := g.CreateNode(1)
-	g.Connect(g.Entry(), 0, n)
-	g.Connect(n, 0, g.Exit())
+	g.Connect(emitEdge(g, g.Entry(), 0), n)
+	g.Connect(emitEdge(g, n, 0), g.Exit())
 
 	checkTopology(g, g.Entry(), []NodeID{}, []NodeID{n}, t)
 	checkTopology(g, n, []NodeID{g.Entry()}, []NodeID{g.Exit()}, t)
@@ -166,10 +166,10 @@ func TestSanity(t *testing.T) {
 	n2 := g.CreateNode(1)
 	n3 := g.CreateNode(1)
 
-	g.Connect(e, 0, n1)
-	g.Connect(n1, 0, n2)
-	g.Connect(n2, 0, n3)
-	g.Connect(n3, 0, x)
+	g.Connect(emitEdge(g, e, 0), n1)
+	g.Connect(emitEdge(g, n1, 0), n2)
+	g.Connect(emitEdge(g, n2, 0), n3)
+	g.Connect(emitEdge(g, n3, 0), x)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
@@ -189,11 +189,11 @@ func TestDead(t *testing.T) {
 	n3 := g.CreateNode(1)
 	n4 := g.CreateNode(1)
 
-	g.Connect(e, 0, n1)
-	g.Connect(n1, 0, n2)
-	g.Connect(n2, 0, n3)
-	g.Connect(n3, 0, x)
-	g.Connect(n4, 0, n3)
+	g.Connect(emitEdge(g, e, 0), n1)
+	g.Connect(emitEdge(g, n1, 0), n2)
+	g.Connect(emitEdge(g, n2, 0), n3)
+	g.Connect(emitEdge(g, n3, 0), x)
+	g.Connect(emitEdge(g, n4, 0), n3)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
@@ -212,10 +212,10 @@ func TestLoop(t *testing.T) {
 	n2 := g.CreateNode(1)
 	n3 := g.CreateNode(1)
 
-	g.Connect(e, 0, n1)
-	g.Connect(n1, 0, n2)
-	g.Connect(n2, 0, n3)
-	g.Connect(n3, 0, n1)
+	g.Connect(emitEdge(g, e, 0), n1)
+	g.Connect(emitEdge(g, n1, 0), n2)
+	g.Connect(emitEdge(g, n2, 0), n3)
+	g.Connect(emitEdge(g, n3, 0), n1)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
@@ -237,22 +237,22 @@ func TestIrreducible(t *testing.T) {
 	n5 := g.CreateNode(1)
 	n6 := g.CreateNode(2)
 
-	g.Connect(e, 0, n6)
+	g.Connect(emitEdge(g, e, 0), n6)
 
-	g.Connect(n6, 0, n5)
-	g.Connect(n6, 1, n4)
+	g.Connect(emitEdge(g, n6, 0), n5)
+	g.Connect(emitEdge(g, n6, 1), n4)
 
-	g.Connect(n5, 0, n1)
+	g.Connect(emitEdge(g, n5, 0), n1)
 
-	g.Connect(n4, 0, n2)
-	g.Connect(n4, 1, n3)
+	g.Connect(emitEdge(g, n4, 0), n2)
+	g.Connect(emitEdge(g, n4, 1), n3)
 
-	g.Connect(n3, 0, n2)
+	g.Connect(emitEdge(g, n3, 0), n2)
 
-	g.Connect(n2, 0, n1)
-	g.Connect(n2, 1, n3)
+	g.Connect(emitEdge(g, n2, 0), n1)
+	g.Connect(emitEdge(g, n2, 1), n3)
 
-	g.Connect(n1, 0, n2)
+	g.Connect(emitEdge(g, n1, 0), n2)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n6, n5, n4, n3, n2, n1, x}, t)
@@ -280,16 +280,16 @@ func TestDiamond(t *testing.T) {
 	n3 := g.CreateNode(1)
 	n4 := g.CreateNode(1)
 
-	g.Connect(e, 0, n1)
+	g.Connect(emitEdge(g, e, 0), n1)
 
-	g.Connect(n1, 0, n2)
-	g.Connect(n1, 1, n3)
+	g.Connect(emitEdge(g, n1, 0), n2)
+	g.Connect(emitEdge(g, n1, 1), n3)
 
-	g.Connect(n2, 0, n4)
+	g.Connect(emitEdge(g, n2, 0), n4)
 
-	g.Connect(n3, 0, n4)
+	g.Connect(emitEdge(g, n3, 0), n4)
 
-	g.Connect(n4, 0, x)
+	g.Connect(emitEdge(g, n4, 0), x)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, n4, x}, t)
@@ -330,20 +330,20 @@ func TestDoubleDiamond(t *testing.T) {
 	n6 := g.CreateNode(1)
 	n7 := g.CreateNode(1)
 
-	g.Connect(g.Entry(), 0, n1)
+	g.Connect(emitEdge(g, g.Entry(), 0), n1)
 
-	g.Connect(n1, 0, n2)
-	g.Connect(n1, 1, n6)
+	g.Connect(emitEdge(g, n1, 0), n2)
+	g.Connect(emitEdge(g, n1, 1), n6)
 
-	g.Connect(n2, 0, n3)
-	g.Connect(n2, 1, n4)
+	g.Connect(emitEdge(g, n2, 0), n3)
+	g.Connect(emitEdge(g, n2, 1), n4)
 
-	g.Connect(n3, 0, n5)
-	g.Connect(n4, 0, n5)
-	g.Connect(n5, 0, n7)
-	g.Connect(n6, 0, n7)
+	g.Connect(emitEdge(g, n3, 0), n5)
+	g.Connect(emitEdge(g, n4, 0), n5)
+	g.Connect(emitEdge(g, n5, 0), n7)
+	g.Connect(emitEdge(g, n6, 0), n7)
 
-	g.Connect(n7, 0, g.Exit())
+	g.Connect(emitEdge(g, n7, 0), g.Exit())
 
 	builder := CreateSSIBuilder(g, &SimpleLivenessOracle{})
 
