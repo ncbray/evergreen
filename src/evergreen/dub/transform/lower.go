@@ -441,7 +441,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		}
 		body := builder.EmitOp(&flow.ReturnOp{Exprs: exprs})
 		fb.AttachFlow(flow.NORMAL, body)
-		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.RETURN)
+		fb.RegisterExit(builder.EmitEdge(body, flow.RETURN), flow.RETURN)
 		return flow.NoRegisterInfo
 
 	case *tree.Fail:
@@ -660,11 +660,14 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 	lowerBlock(decl.Block, builder, fb)
 
 	// Attach flows to exit.
-	if fb.HasFlow(flow.NORMAL) || fb.HasFlow(flow.RETURN) {
+	if fb.HasFlow(flow.NORMAL) {
+		ret := builder.EmitOp(&flow.ReturnOp{Exprs: []flow.RegisterInfo_Ref{}})
+		fb.AttachFlow(flow.NORMAL, ret)
+		fb.RegisterExit(builder.EmitEdge(ret, flow.RETURN), flow.RETURN)
+	}
+
+	if fb.HasFlow(flow.RETURN) {
 		fe := builder.EmitOp(&flow.FlowExitOp{Flow: flow.NORMAL})
-		if fb.HasFlow(flow.NORMAL) {
-			fb.AttachFlow(flow.NORMAL, fe)
-		}
 		if fb.HasFlow(flow.RETURN) {
 			fb.AttachFlow(flow.RETURN, fe)
 		}

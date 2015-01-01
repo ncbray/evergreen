@@ -170,6 +170,8 @@ func (styler *DotStyler) EdgeStyle(src graph.NodeID, e graph.EdgeID, dst graph.N
 			color = "green"
 		case FAIL:
 			color = "goldenrod"
+		case RETURN:
+			color = "navy"
 		}
 	}
 	return fmt.Sprintf("color=%s", color)

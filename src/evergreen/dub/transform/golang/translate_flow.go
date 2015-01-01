@@ -25,6 +25,9 @@ func (mapper *flowMapper) simpleExitFlow(srcID graph.NodeID, dstID graph.NodeID)
 		switch flow {
 		case src.NORMAL:
 			mapper.stitcher.MapEdge(e, mapper.builder.EmitEdge(dstID, 0))
+		case src.RETURN:
+			// HACK map return flow onto normal flow.
+			mapper.stitcher.MapEdge(e, mapper.builder.EmitEdge(dstID, 0))
 		default:
 			panic(flow)
 		}
