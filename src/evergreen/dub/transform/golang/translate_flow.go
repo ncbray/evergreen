@@ -24,10 +24,9 @@ func (mapper *flowMapper) simpleExitFlow(srcID graph.NodeID, dstID graph.NodeID)
 		flow := mapper.original.Edges[e]
 		switch flow {
 		case src.NORMAL:
-			mapper.stitcher.MapEdge(e, mapper.builder.EmitEdge(dstID, 0))
+			mapper.stitcher.MapEdge(e, mapper.builder.EmitEdge(dstID, dst.NORMAL))
 		case src.RETURN:
-			// HACK map return flow onto normal flow.
-			mapper.stitcher.MapEdge(e, mapper.builder.EmitEdge(dstID, 0))
+			mapper.stitcher.MapEdge(e, mapper.builder.EmitEdge(dstID, dst.RETURN))
 		default:
 			panic(flow)
 		}
@@ -37,6 +36,23 @@ func (mapper *flowMapper) simpleExitFlow(srcID graph.NodeID, dstID graph.NodeID)
 func (mapper *flowMapper) simpleFlow(srcID graph.NodeID, dstID graph.NodeID) {
 	mapper.stitcher.MapIncomingEdges(srcID, dstID)
 	mapper.simpleExitFlow(srcID, dstID)
+}
+
+func (mapper *flowMapper) handleFailEdge(original graph.EdgeID, translated graph.EdgeID, doesExit bool) {
+	if doesExit {
+		// This fail edge exits the function.
+		// Before translation, failiure edges are non-local flow, but after translation they are
+		// plain-old normal flow. Cap the edge with a return to exit the function with non-local
+                // flow.
+		builder := mapper.builder
+		returnNode := builder.EmitOp(&dst.Return{})
+		returnEdge := builder.EmitEdge(returnNode, dst.RETURN)
+		mapper.builder.ConnectEdgeExit(translated, returnNode)
+		mapper.stitcher.MapEdge(original, returnEdge)
+
+	} else {
+		mapper.stitcher.MapEdge(original, translated)
+	}
 }
 
 func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID, dstID graph.NodeID) {
@@ -49,16 +65,18 @@ func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID,
 
 	normal := graph.NoEdge
 	fail := graph.NoEdge
+	failExits := false
 
 	eit := srcG.ExitIterator(srcID)
 	for eit.HasNext() {
-		e, _ := eit.GetNext()
+		e, dstID := eit.GetNext()
 		flow := mapper.original.Edges[e]
 		switch flow {
 		case src.NORMAL:
 			normal = e
 		case src.FAIL:
 			fail = e
+			_, failExits = mapper.original.Ops[dstID].(*src.FlowExitOp)
 		default:
 			panic(flow)
 		}
@@ -92,18 +110,18 @@ func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID,
 				Cond: cond,
 			})
 
-			builder.EmitConnection(dstID, 0, attrID)
-			builder.EmitConnection(attrID, 0, constID)
-			builder.EmitConnection(constID, 0, compareID)
-			builder.EmitConnection(compareID, 0, switchID)
+			builder.EmitConnection(dstID, dst.NORMAL, attrID)
+			builder.EmitConnection(attrID, dst.NORMAL, constID)
+			builder.EmitConnection(constID, dst.NORMAL, compareID)
+			builder.EmitConnection(compareID, dst.NORMAL, switchID)
 
-			stitcher.MapEdge(normal, builder.EmitEdge(switchID, 0))
-			stitcher.MapEdge(fail, builder.EmitEdge(switchID, 1))
+			stitcher.MapEdge(normal, builder.EmitEdge(switchID, dst.COND_TRUE))
+			mapper.handleFailEdge(fail, builder.EmitEdge(switchID, dst.COND_FALSE), failExits)
 		} else {
-			stitcher.MapEdge(normal, builder.EmitEdge(dstID, 0))
+			stitcher.MapEdge(normal, builder.EmitEdge(dstID, dst.NORMAL))
 		}
 	} else if fail != graph.NoEdge {
-		stitcher.MapEdge(fail, builder.EmitEdge(dstID, 0))
+		mapper.handleFailEdge(fail, builder.EmitEdge(dstID, dst.NORMAL), failExits)
 	} else {
 		// Dead end should not happen?
 		panic(srcID)
@@ -169,7 +187,8 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 	}
 
 	srcG := srcF.CFG
-	stitcher := graph.MakeEdgeStitcher(srcG, goFlowFunc.CFG)
+	dstG := goFlowFunc.CFG
+	stitcher := graph.MakeEdgeStitcher(srcG, dstG)
 	mapper := &flowMapper{
 		ctx:      ctx,
 		builder:  builder,
@@ -205,17 +224,16 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				flow := mapper.original.Edges[e]
 				switch flow {
 				case src.COND_TRUE:
-					stitcher.MapEdge(e, builder.EmitEdge(dstID, 0))
+					stitcher.MapEdge(e, builder.EmitEdge(dstID, dst.COND_TRUE))
 				case src.COND_FALSE:
-					stitcher.MapEdge(e, builder.EmitEdge(dstID, 1))
+					stitcher.MapEdge(e, builder.EmitEdge(dstID, dst.COND_FALSE))
 				default:
 					panic(flow)
 				}
 			}
 		case *src.FlowExitOp:
-			// TODO is there anything that needs to be done?
-			dstID := builder.EmitOp(&dst.Nop{})
-			mapper.simpleFlow(srcID, dstID)
+			// Don't emit an op, just go straight to the exit.
+			mapper.stitcher.MapIncomingEdges(srcID, dstG.Exit())
 		case *src.CallOp:
 			args := []dst.Register_Ref{frameReg}
 			args = append(args, regList(regMap, op.Args)...)
@@ -271,7 +289,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 
 			stitcher.MapIncomingEdges(srcID, nodes[0])
 			for i := 0; i < len(nodes)-1; i++ {
-				builder.EmitConnection(nodes[i], 0, nodes[i+1])
+				builder.EmitConnection(nodes[i], dst.NORMAL, nodes[i+1])
 			}
 			mapper.simpleExitFlow(srcID, nodes[len(nodes)-1])
 		case *src.ConstructListOp:
@@ -403,16 +421,10 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Dsts: goFlowFunc.Results, // TODO copy?
 			})
 
-			if true {
-				mapper.simpleFlow(srcID, transferID)
-			} else {
-
-				returnID := builder.EmitOp(&dst.Return{})
-
-				stitcher.MapIncomingEdges(srcID, transferID)
-				builder.EmitConnection(transferID, 0, returnID)
-				mapper.simpleExitFlow(srcID, returnID)
-			}
+			stitcher.MapIncomingEdges(srcID, transferID)
+			returnID := builder.EmitOp(&dst.Return{})
+			builder.EmitConnection(transferID, dst.NORMAL, returnID)
+			mapper.simpleExitFlow(srcID, returnID)
 		default:
 			panic(op)
 		}

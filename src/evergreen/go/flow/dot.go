@@ -151,17 +151,17 @@ func (styler *DotStyler) EdgeStyle(src graph.NodeID, e graph.EdgeID, dst graph.N
 	switch op.(type) {
 	case *Switch:
 		switch flow {
-		case 0:
+		case COND_TRUE:
 			color = "limegreen"
-		case 1:
+		case COND_FALSE:
 			color = "yellow"
 		}
 	default:
 		switch flow {
-		case 0:
+		case NORMAL:
 			color = "green"
-		case 1:
-			color = "goldenrod"
+		case RETURN:
+			color = "navy"
 		}
 	}
 	return fmt.Sprintf("color=%s", color)

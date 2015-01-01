@@ -6,6 +6,15 @@ import (
 	"evergreen/graph"
 )
 
+const (
+	NORMAL = iota
+	RETURN
+)
+
+// TODO give unique values.
+const COND_TRUE = 0
+const COND_FALSE = 1
+
 func (scope *Register_Scope) Get(ref Register_Ref) *Register {
 	return scope.objects[ref]
 }
@@ -73,7 +82,6 @@ func AllocEdge(decl *FlowFunc, flow int) graph.EdgeID {
 
 type GoFlowBuilder struct {
 	decl *FlowFunc
-	CFG  *graph.Graph
 }
 
 func (builder *GoFlowBuilder) MakeRegister(name string, t core.GoType) Register_Ref {
@@ -94,6 +102,10 @@ func (builder *GoFlowBuilder) EmitConnection(src graph.NodeID, flow int, dst gra
 	e := AllocEdge(builder.decl, flow)
 	builder.decl.CFG.ConnectEdge(src, e, dst)
 	return e
+}
+
+func (builder *GoFlowBuilder) ConnectEdgeExit(e graph.EdgeID, dst graph.NodeID) {
+	builder.decl.CFG.ConnectEdgeExit(e, dst)
 }
 
 func MakeGoFlowBuilder(decl *FlowFunc) *GoFlowBuilder {
