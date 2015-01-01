@@ -132,26 +132,19 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 }
 
 func (styler *DotStyler) EdgeStyle(src graph.NodeID, e graph.EdgeID, dst graph.NodeID) string {
-	op := styler.Decl.Ops[src]
 	flow := styler.Decl.Edges[e]
 	color := "red"
-	switch op.(type) {
-	case *SwitchOp:
-		switch flow {
-		case COND_TRUE:
-			color = "limegreen"
-		case COND_FALSE:
-			color = "yellow"
-		}
-	default:
-		switch flow {
-		case NORMAL:
-			color = "green"
-		case FAIL:
-			color = "goldenrod"
-		case RETURN:
-			color = "navy"
-		}
+	switch flow {
+	case NORMAL:
+		color = "green"
+	case COND_TRUE:
+		color = "limegreen"
+	case COND_FALSE:
+		color = "yellow"
+	case FAIL:
+		color = "goldenrod"
+	case RETURN:
+		color = "navy"
 	}
 	return fmt.Sprintf("color=%s", color)
 }

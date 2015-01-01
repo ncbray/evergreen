@@ -6,19 +6,39 @@ import (
 )
 
 const (
-	// Real flows, used at runtime
 	NORMAL = iota
+	COND_TRUE
+	COND_FALSE
 	FAIL
 	EXCEPTION
-	// Virtual flows, only for graph construction
 	RETURN
+	NUM_FLOWS
 )
 
-const (
-	// Switches reuse standard flow enums
-	COND_TRUE  = NORMAL
-	COND_FALSE = FAIL
-)
+type edgeTypeInfo struct {
+	AsLocalFlow int
+}
+
+var EdgeTypeInfo = []edgeTypeInfo{
+	edgeTypeInfo{
+		AsLocalFlow: NORMAL,
+	},
+	edgeTypeInfo{
+		AsLocalFlow: COND_TRUE,
+	},
+	edgeTypeInfo{
+		AsLocalFlow: COND_FALSE,
+	},
+	edgeTypeInfo{
+		AsLocalFlow: FAIL,
+	},
+	edgeTypeInfo{
+		AsLocalFlow: EXCEPTION,
+	},
+	edgeTypeInfo{
+		AsLocalFlow: NORMAL,
+	},
+}
 
 func (scope *RegisterInfo_Scope) Get(ref RegisterInfo_Ref) *RegisterInfo {
 	return scope.objects[ref]

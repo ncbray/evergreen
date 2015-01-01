@@ -8,8 +8,6 @@ import (
 	"evergreen/graph"
 )
 
-const numRegionExits = 4
-
 type dubBuilder struct {
 	index    *tree.BuiltinTypeIndex
 	decl     *tree.FuncDecl
@@ -84,6 +82,8 @@ func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *
 	return make_value, decide
 }
 
+// TODO should be COND_TRUE and COND_FALSE, but the flow builder
+// assumes normal flow when splitting off an edge.
 const CONTINUE_MATCHING = flow.NORMAL
 const STOP_MATCHING = flow.FAIL
 
@@ -656,7 +656,7 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 	}
 	f.ReturnTypes = types
 
-	fb := graph.CreateFlowBuilder(g, entryEdge, numRegionExits)
+	fb := graph.CreateFlowBuilder(g, entryEdge, flow.NUM_FLOWS)
 	lowerBlock(decl.Block, builder, fb)
 
 	// Attach flows to exit.

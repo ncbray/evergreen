@@ -10,16 +10,11 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 	status.Begin()
 	defer status.End()
 
-	// HACK assumes a particular order of flow enums.
-	exitFlowToLocal := []int{NORMAL, FAIL, EXCEPTION, NORMAL}
-	// HACK assumes two flows.
-	numFlows := 2
-
 	// TODO use whole-program analysis to agressively find dead flows.
 	lut := map[core.Function_Ref]int{}
 
-	flows := make([][]bool, numFlows)
-	for i := 0; i < numFlows; i++ {
+	flows := make([][]bool, NUM_FLOWS)
+	for i := 0; i < NUM_FLOWS; i++ {
 		flows[i] = make([]bool, len(program.LLFuncs))
 	}
 
@@ -30,7 +25,7 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 		for it.HasNext() {
 			_, e := it.GetNext()
 			exitFlow := f.Edges[e]
-			localFlow := exitFlowToLocal[exitFlow]
+			localFlow := EdgeTypeInfo[exitFlow].AsLocalFlow
 			flows[localFlow][i] = true
 		}
 	}
