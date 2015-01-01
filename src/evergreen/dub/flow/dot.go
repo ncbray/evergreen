@@ -115,10 +115,6 @@ func nodeLabel(node graph.NodeID, label string) string {
 	return fmt.Sprintf("[%d] %s", node, label)
 }
 
-func flowExit(label string) string {
-	return fmt.Sprintf("shape=invtriangle,label=%#v", label)
-}
-
 func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	op := styler.Decl.Ops[node]
 	switch op := op.(type) {
@@ -126,21 +122,6 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 		return `shape=point,label="entry"`
 	case *ExitOp:
 		return `shape=point,label="exit"`
-	case *FlowExitOp:
-		var label string
-		switch op.Flow {
-		case NORMAL:
-			label = "n"
-		case FAIL:
-			label = "f"
-		case EXCEPTION:
-			label = "e"
-		case RETURN:
-			label = "r"
-		default:
-			label = "?"
-		}
-		return flowExit(nodeLabel(node, label))
 	case *SwitchOp:
 		return fmt.Sprintf("shape=diamond,label=%s", dotString(nodeLabel(node, "?"+registerName(op.Cond))))
 	case DubOp:
@@ -162,8 +143,6 @@ func (styler *DotStyler) EdgeStyle(src graph.NodeID, e graph.EdgeID, dst graph.N
 		case COND_FALSE:
 			color = "yellow"
 		}
-	case *FlowExitOp:
-		color = "gray"
 	default:
 		switch flow {
 		case NORMAL:

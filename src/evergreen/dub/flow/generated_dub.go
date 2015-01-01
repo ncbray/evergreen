@@ -225,13 +225,6 @@ type SwitchOp struct {
 func (node *SwitchOp) isDubOp() {
 }
 
-type FlowExitOp struct {
-	Flow int
-}
-
-func (node *FlowExitOp) isDubOp() {
-}
-
 type ExitOp struct {
 }
 

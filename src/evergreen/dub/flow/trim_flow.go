@@ -10,11 +10,13 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 	status.Begin()
 	defer status.End()
 
-	// TODO use whole-program analysis to agressively find dead flows.
-	lut := map[core.Function_Ref]int{}
-
+	// HACK assumes a particular order of flow enums.
+	exitFlowToLocal := []int{NORMAL, FAIL, EXCEPTION, NORMAL}
 	// HACK assumes two flows.
 	numFlows := 2
+
+	// TODO use whole-program analysis to agressively find dead flows.
+	lut := map[core.Function_Ref]int{}
 
 	flows := make([][]bool, numFlows)
 	for i := 0; i < numFlows; i++ {
@@ -26,16 +28,14 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 		lut[f.F] = i
 		it := f.CFG.EntryIterator(f.CFG.Exit())
 		for it.HasNext() {
-			e, _ := it.GetNext()
-			op := f.Ops[e]
-			flowExit, ok := op.(*FlowExitOp)
-			if !ok {
-				panic(op)
-			}
-			flows[flowExit.Flow][i] = true
+			_, e := it.GetNext()
+			exitFlow := f.Edges[e]
+			localFlow := exitFlowToLocal[exitFlow]
+			flows[localFlow][i] = true
 		}
 	}
 
+	// For each call site, kill edges that will not be taken in practice.
 	for _, f := range program.LLFuncs {
 		g := f.CFG
 		for node, op := range f.Ops {

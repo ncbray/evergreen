@@ -43,7 +43,7 @@ func (mapper *flowMapper) handleFailEdge(original graph.EdgeID, translated graph
 		// This fail edge exits the function.
 		// Before translation, failiure edges are non-local flow, but after translation they are
 		// plain-old normal flow. Cap the edge with a return to exit the function with non-local
-                // flow.
+		// flow.
 		builder := mapper.builder
 		returnNode := builder.EmitOp(&dst.Return{})
 		returnEdge := builder.EmitEdge(returnNode, dst.RETURN)
@@ -76,7 +76,7 @@ func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID,
 			normal = e
 		case src.FAIL:
 			fail = e
-			_, failExits = mapper.original.Ops[dstID].(*src.FlowExitOp)
+			_, failExits = mapper.original.Ops[dstID].(*src.ExitOp)
 		default:
 			panic(flow)
 		}
@@ -231,9 +231,6 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 					panic(flow)
 				}
 			}
-		case *src.FlowExitOp:
-			// Don't emit an op, just go straight to the exit.
-			mapper.stitcher.MapIncomingEdges(srcID, dstG.Exit())
 		case *src.CallOp:
 			args := []dst.Register_Ref{frameReg}
 			args = append(args, regList(regMap, op.Args)...)

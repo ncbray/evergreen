@@ -142,10 +142,6 @@ struct SwitchOp implements DubOp {
   Cond RegisterInfo
 }
 
-struct FlowExitOp implements DubOp {
-  Flow int
-}
-
 struct ExitOp implements DubOp {
 }
 

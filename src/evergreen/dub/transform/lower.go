@@ -667,22 +667,17 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 	}
 
 	if fb.HasFlow(flow.RETURN) {
-		fe := builder.EmitOp(&flow.FlowExitOp{Flow: flow.NORMAL})
-		if fb.HasFlow(flow.RETURN) {
-			fb.AttachFlow(flow.RETURN, fe)
-		}
-		g.ConnectEdgeExit(builder.EmitEdge(fe, 0), g.Exit())
+		fb.AttachFlow(flow.RETURN, g.Exit())
 	}
 
 	if fb.HasFlow(flow.FAIL) {
-		fe := builder.EmitOp(&flow.FlowExitOp{Flow: flow.FAIL})
-		fb.AttachFlow(flow.FAIL, fe)
-		g.ConnectEdgeExit(builder.EmitEdge(fe, 0), g.Exit())
+		fb.AttachFlow(flow.FAIL, g.Exit())
 	}
 
 	if fb.HasFlow(flow.EXCEPTION) {
 		panic("exceptions not supported, yet?")
 	}
+	// TODO lint other flows.
 	return f
 }
 

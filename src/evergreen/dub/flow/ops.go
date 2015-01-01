@@ -118,8 +118,6 @@ func IsNop(op DubOp) bool {
 		return false
 	case *SwitchOp:
 		return false
-	case *FlowExitOp:
-		return false
 	case *ExitOp:
 		return false
 	default:

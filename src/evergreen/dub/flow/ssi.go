@@ -23,7 +23,7 @@ func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *graph.DefU
 		for _, p := range decl.Params {
 			addDef(p, node, defuse)
 		}
-	case *FlowExitOp, *ExitOp:
+	case *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
 		addDef(op.Dst, node, defuse)
@@ -169,7 +169,7 @@ func (r *RegisterReallocator) Set(n graph.NodeID, reg RegisterInfo_Ref, name Reg
 
 func renameOp(n graph.NodeID, data DubOp, ra *RegisterReallocator) {
 	switch op := data.(type) {
-	case *EntryOp, *FlowExitOp, *ExitOp:
+	case *EntryOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
 		op.Dst = ra.MakeOutput(n, op.Dst)
@@ -275,7 +275,7 @@ func rename(decl *LLFunc) {
 
 func killUnusedOutputs(n graph.NodeID, op DubOp, live graph.LivenessOracle) {
 	switch op := op.(type) {
-	case *EntryOp, *FlowExitOp, *ExitOp:
+	case *EntryOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
 		if !live.LiveAtExit(n, int(op.Dst)) {
