@@ -228,15 +228,15 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 			eit := g.ExitIterator(node)
 			for eit.HasNext() {
 				e, next := eit.GetNext()
-				flow := decl.Edges[e]
+				flowID := decl.Edges[e]
 				child, childFall := generateNode(coreProg, decl, lclMap, labels, parent_label, false, next, []tree.Stmt{})
-				switch flow {
-				case 0:
+				switch flowID {
+				case flow.COND_TRUE:
 					body, bodyFall = child, childFall
-				case 1:
+				case flow.COND_FALSE:
 					elseBody, elseFall = child, childFall
 				default:
-					panic(flow)
+					panic(flowID)
 				}
 			}
 			var elseStmt tree.Stmt = nil

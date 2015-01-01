@@ -8,12 +8,11 @@ import (
 
 const (
 	NORMAL = iota
+	COND_TRUE
+	COND_FALSE
 	RETURN
+	NUM_FLOWS
 )
-
-// TODO give unique values.
-const COND_TRUE = 0
-const COND_FALSE = 1
 
 func (scope *Register_Scope) Get(ref Register_Ref) *Register {
 	return scope.objects[ref]
