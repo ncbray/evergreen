@@ -2,22 +2,23 @@ package flow
 
 import (
 	"evergreen/graph"
+	"evergreen/ssi"
 )
 
-func addDef(reg RegisterInfo_Ref, node graph.NodeID, defuse *graph.DefUseCollector) {
+func addDef(reg RegisterInfo_Ref, node graph.NodeID, defuse *ssi.DefUseCollector) {
 	if reg != NoRegisterInfo {
 		defuse.AddDef(node, int(reg))
 	}
 }
 
-func addUse(reg RegisterInfo_Ref, node graph.NodeID, defuse *graph.DefUseCollector) {
+func addUse(reg RegisterInfo_Ref, node graph.NodeID, defuse *ssi.DefUseCollector) {
 	if reg == NoRegisterInfo {
 		panic("Tried to use non-existant register.")
 	}
 	defuse.AddUse(node, int(reg))
 }
 
-func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *graph.DefUseCollector) {
+func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *ssi.DefUseCollector) {
 	switch op := op.(type) {
 	case *EntryOp:
 		for _, p := range decl.Params {
@@ -273,7 +274,7 @@ func rename(decl *LLFunc) {
 	decl.RegisterInfo_Scope.Replace(ra.info)
 }
 
-func killUnusedOutputs(n graph.NodeID, op DubOp, live graph.LivenessOracle) {
+func killUnusedOutputs(n graph.NodeID, op DubOp, live ssi.LivenessOracle) {
 	switch op := op.(type) {
 	case *EntryOp, *ExitOp:
 	case *Consume, *Fail:
@@ -369,7 +370,7 @@ func createTransfer(decl *LLFunc, size int) (graph.NodeID, graph.EdgeID, *Transf
 	return n, e, op
 }
 
-func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
+func place(decl *LLFunc, builder *ssi.SSIBuilder, live *ssi.LiveVars) {
 	g := decl.CFG
 	// Place the transfer functions on edges.
 	nit := g.NodeIterator()
@@ -398,8 +399,8 @@ func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 	}
 }
 
-func makeDefUse(decl *LLFunc) *graph.DefUseCollector {
-	defuse := graph.CreateDefUse(len(decl.Ops), decl.RegisterInfo_Scope.Len())
+func makeDefUse(decl *LLFunc) *ssi.DefUseCollector {
+	defuse := ssi.CreateDefUse(len(decl.Ops), decl.RegisterInfo_Scope.Len())
 	nit := decl.CFG.NodeIterator()
 	for nit.HasNext() {
 		n := nit.GetNext()
@@ -413,11 +414,11 @@ func SSI(decl *LLFunc) {
 
 	defuse := makeDefUse(decl)
 
-	live := graph.FindLiveVars(g, defuse)
+	live := ssi.FindLiveVars(g, defuse)
 
-	builder := graph.CreateSSIBuilder(g, live)
+	builder := ssi.CreateSSIBuilder(g, live)
 	for i := 0; i < decl.RegisterInfo_Scope.Len(); i++ {
-		graph.SSI(builder, i, defuse.VarDefAt[i])
+		ssi.SSI(builder, i, defuse.VarDefAt[i])
 	}
 
 	place(decl, builder, live)
