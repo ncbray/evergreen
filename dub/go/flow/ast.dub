@@ -14,6 +14,7 @@ struct FlowFunc scoped contains(Register) {
   Results []Register
   CFG graph
   Ops []GoOp
+  Edges []int
 }
 
 struct GoOp {

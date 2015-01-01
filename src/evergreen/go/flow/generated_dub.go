@@ -33,6 +33,7 @@ type FlowFunc struct {
 	Results        []Register_Ref
 	CFG            *graph.Graph
 	Ops            []GoOp
+	Edges          []int
 	Register_Scope *Register_Scope
 }
 

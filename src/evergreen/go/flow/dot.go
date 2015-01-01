@@ -116,7 +116,7 @@ func OpToString(coreProg *core.CoreProgram, op GoOp) string {
 }
 
 type DotStyler struct {
-	Ops  []GoOp
+	Func *FlowFunc
 	Core *core.CoreProgram
 }
 
@@ -129,7 +129,7 @@ func dotString(message string) string {
 }
 
 func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
-	op := styler.Ops[node]
+	op := styler.Func.Ops[node]
 	switch op := op.(type) {
 	case *Entry:
 		return `shape=point,label="entry"`
@@ -144,8 +144,9 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	}
 }
 
-func (styler *DotStyler) EdgeStyle(node graph.NodeID, flow int) string {
-	op := styler.Ops[node]
+func (styler *DotStyler) EdgeStyle(src graph.NodeID, e graph.EdgeID, dst graph.NodeID) string {
+	op := styler.Func.Ops[src]
+	flow := styler.Func.Edges[e]
 	color := "red"
 	switch op.(type) {
 	case *Switch:

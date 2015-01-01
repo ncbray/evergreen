@@ -11,7 +11,7 @@ func nodeDotID(node NodeID) string {
 
 type DotStyler interface {
 	NodeStyle(node NodeID) string
-	EdgeStyle(node NodeID, flow int) string
+	EdgeStyle(src NodeID, edge EdgeID, dst NodeID) string
 }
 
 func drawNode(buf *bytes.Buffer, node NodeID, styler DotStyler) {
@@ -87,7 +87,7 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 			buf.WriteString(" -> ")
 			buf.WriteString(nodeDotID(dst))
 			buf.WriteString("[")
-			buf.WriteString(styler.EdgeStyle(node, g.EdgeFlow(edge)))
+			buf.WriteString(styler.EdgeStyle(node, edge, dst))
 			if index[node] >= index[dst] {
 				buf.WriteString(",weight=0")
 			}

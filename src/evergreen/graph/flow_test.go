@@ -205,14 +205,14 @@ func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *tes
 	}
 }
 
-func emitDanglingEdge(g *Graph, src NodeID, flow int) EdgeID {
-	e := g.CreateEdge(flow)
+func emitDanglingEdge(g *Graph, src NodeID) EdgeID {
+	e := g.CreateEdge()
 	g.ConnectEdgeEntry(src, e)
 	return e
 }
 
-func emitFullEdge(g *Graph, src NodeID, flow int, dst NodeID) EdgeID {
-	e := g.CreateEdge(flow)
+func emitFullEdge(g *Graph, src NodeID, dst NodeID) EdgeID {
+	e := g.CreateEdge()
 	g.ConnectEdge(src, e, dst)
 	return e
 }
@@ -220,8 +220,8 @@ func emitFullEdge(g *Graph, src NodeID, flow int, dst NodeID) EdgeID {
 func TestSimpleFlow(t *testing.T) {
 	g := CreateGraph()
 	n := g.CreateNode()
-	emitFullEdge(g, g.Entry(), 0, n)
-	emitFullEdge(g, n, 0, g.Exit())
+	emitFullEdge(g, g.Entry(), n)
+	emitFullEdge(g, n, g.Exit())
 
 	checkTopology(g, g.Entry(), []NodeID{}, []NodeID{n}, t)
 	checkTopology(g, n, []NodeID{g.Entry()}, []NodeID{g.Exit()}, t)
@@ -240,7 +240,7 @@ func numFlowEdges(fb *FlowBuilder, flow int) int {
 
 func TestSliceEmptySplice(t *testing.T) {
 	g := CreateGraph()
-	fb0 := CreateFlowBuilder(g, g.CreateEdge(0), 2)
+	fb0 := CreateFlowBuilder(g, g.CreateEdge(), 2)
 	assert.IntEquals(t, numFlowEdges(fb0, 0), 1)
 	fb1 := fb0.SplitOffFlow(0)
 	assert.IntEquals(t, numFlowEdges(fb0, 0), 0)
@@ -250,12 +250,12 @@ func TestSliceEmptySplice(t *testing.T) {
 
 func TestSliceEdgeEmptySplice(t *testing.T) {
 	g := CreateGraph()
-	fb0 := CreateFlowBuilder(g, g.CreateEdge(0), 2)
+	fb0 := CreateFlowBuilder(g, g.CreateEdge(), 2)
 	n := g.CreateNode()
 	fb0.AttachFlow(0, n)
 
 	assert.IntEquals(t, numFlowEdges(fb0, 0), 0)
-	fb1 := fb0.SplitOffEdge(emitDanglingEdge(g, n, 0))
+	fb1 := fb0.SplitOffEdge(emitDanglingEdge(g, n))
 	fb0.AbsorbExits(fb1)
 	assert.IntEquals(t, numFlowEdges(fb0, 0), 1)
 }
@@ -265,15 +265,14 @@ func TestRepeatFlow(t *testing.T) {
 	e := g.Entry()
 	x := g.Exit()
 
-	entry := g.CreateEdge(0)
-	g.ConnectEdgeEntry(e, entry)
+	entry := emitDanglingEdge(g, e)
 
 	fb := CreateFlowBuilder(g, entry, 2)
 
 	n := g.CreateNode()
 	fb.AttachFlow(0, n)
-	fb.RegisterExit(emitDanglingEdge(g, n, 0), 0)
-	fb.RegisterExit(emitDanglingEdge(g, n, 1), 1)
+	fb.RegisterExit(emitDanglingEdge(g, n), 0)
+	fb.RegisterExit(emitDanglingEdge(g, n), 1)
 
 	// Normal flow iterates
 	fb.AttachFlow(0, n)
@@ -291,8 +290,7 @@ func TestWhileFlow(t *testing.T) {
 	e := g.Entry()
 	x := g.Exit()
 
-	entry := g.CreateEdge(0)
-	g.ConnectEdgeEntry(e, entry)
+	entry := emitDanglingEdge(g, e)
 
 	fb := CreateFlowBuilder(g, entry, 2)
 
@@ -301,14 +299,14 @@ func TestWhileFlow(t *testing.T) {
 	b := g.CreateNode()
 
 	fb.AttachFlow(0, c)
-	fb.RegisterExit(emitDanglingEdge(g, c, 0), 0)
+	fb.RegisterExit(emitDanglingEdge(g, c), 0)
 
 	fb.AttachFlow(0, d)
-	fb.RegisterExit(emitDanglingEdge(g, d, 0), 0)
-	fb.RegisterExit(emitDanglingEdge(g, d, 1), 1)
+	fb.RegisterExit(emitDanglingEdge(g, d), 0)
+	fb.RegisterExit(emitDanglingEdge(g, d), 1)
 
 	fb.AttachFlow(0, b)
-	fb.RegisterExit(emitDanglingEdge(g, b, 0), 0)
+	fb.RegisterExit(emitDanglingEdge(g, b), 0)
 
 	fb.AttachFlow(0, c)
 	fb.AttachFlow(1, x)
@@ -327,8 +325,8 @@ func TestInsertInEdge1(t *testing.T) {
 	x := g.Exit()
 	r := g.CreateNode()
 
-	tgt := emitFullEdge(g, e, 0, x)
-	re := emitDanglingEdge(g, r, 0)
+	tgt := emitFullEdge(g, e, x)
+	re := emitDanglingEdge(g, r)
 
 	g.InsertInEdge(re, tgt)
 
@@ -345,12 +343,12 @@ func TestInsertInEdge3(t *testing.T) {
 	n := g.CreateNode()
 	r := g.CreateNode()
 
-	emitFullEdge(g, e, 0, n)
-	emitFullEdge(g, n, 0, x)
-	tgt := emitFullEdge(g, n, 1, x)
-	emitFullEdge(g, n, 2, x)
+	emitFullEdge(g, e, n)
+	emitFullEdge(g, n, x)
+	tgt := emitFullEdge(g, n, x)
+	emitFullEdge(g, n, x)
 
-	re := emitDanglingEdge(g, r, 0)
+	re := emitDanglingEdge(g, r)
 
 	g.InsertInEdge(re, tgt)
 
@@ -367,8 +365,8 @@ func TestKillNode1(t *testing.T) {
 	x := g.Exit()
 	n := g.CreateNode()
 
-	emitFullEdge(g, e, 0, n)
-	emitFullEdge(g, n, 0, x)
+	emitFullEdge(g, e, n)
+	emitFullEdge(g, n, x)
 
 	g.KillNode(n)
 
@@ -406,10 +404,10 @@ func TestSanity(t *testing.T) {
 	n2 := g.CreateNode()
 	n3 := g.CreateNode()
 
-	emitFullEdge(g, e, 0, n1)
-	emitFullEdge(g, n1, 0, n2)
-	emitFullEdge(g, n2, 0, n3)
-	emitFullEdge(g, n3, 0, x)
+	emitFullEdge(g, e, n1)
+	emitFullEdge(g, n1, n2)
+	emitFullEdge(g, n2, n3)
+	emitFullEdge(g, n3, x)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
@@ -429,11 +427,11 @@ func TestDead(t *testing.T) {
 	n3 := g.CreateNode()
 	n4 := g.CreateNode()
 
-	emitFullEdge(g, e, 0, n1)
-	emitFullEdge(g, n1, 0, n2)
-	emitFullEdge(g, n2, 0, n3)
-	emitFullEdge(g, n3, 0, x)
-	emitFullEdge(g, n4, 0, n3)
+	emitFullEdge(g, e, n1)
+	emitFullEdge(g, n1, n2)
+	emitFullEdge(g, n2, n3)
+	emitFullEdge(g, n3, x)
+	emitFullEdge(g, n4, n3)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
@@ -452,10 +450,10 @@ func TestLoop(t *testing.T) {
 	n2 := g.CreateNode()
 	n3 := g.CreateNode()
 
-	emitFullEdge(g, e, 0, n1)
-	emitFullEdge(g, n1, 0, n2)
-	emitFullEdge(g, n2, 0, n3)
-	emitFullEdge(g, n3, 0, n1)
+	emitFullEdge(g, e, n1)
+	emitFullEdge(g, n1, n2)
+	emitFullEdge(g, n2, n3)
+	emitFullEdge(g, n3, n1)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, x}, t)
@@ -477,22 +475,22 @@ func TestIrreducible(t *testing.T) {
 	n5 := g.CreateNode()
 	n6 := g.CreateNode()
 
-	emitFullEdge(g, e, 0, n6)
+	emitFullEdge(g, e, n6)
 
-	emitFullEdge(g, n6, 0, n5)
-	emitFullEdge(g, n6, 1, n4)
+	emitFullEdge(g, n6, n5)
+	emitFullEdge(g, n6, n4)
 
-	emitFullEdge(g, n5, 0, n1)
+	emitFullEdge(g, n5, n1)
 
-	emitFullEdge(g, n4, 0, n2)
-	emitFullEdge(g, n4, 1, n3)
+	emitFullEdge(g, n4, n2)
+	emitFullEdge(g, n4, n3)
 
-	emitFullEdge(g, n3, 0, n2)
+	emitFullEdge(g, n3, n2)
 
-	emitFullEdge(g, n2, 0, n1)
-	emitFullEdge(g, n2, 1, n3)
+	emitFullEdge(g, n2, n1)
+	emitFullEdge(g, n2, n3)
 
-	emitFullEdge(g, n1, 0, n2)
+	emitFullEdge(g, n1, n2)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n6, n5, n4, n3, n2, n1, x}, t)
@@ -520,16 +518,16 @@ func TestDiamond(t *testing.T) {
 	n3 := g.CreateNode()
 	n4 := g.CreateNode()
 
-	emitFullEdge(g, e, 0, n1)
+	emitFullEdge(g, e, n1)
 
-	emitFullEdge(g, n1, 0, n2)
-	emitFullEdge(g, n1, 1, n3)
+	emitFullEdge(g, n1, n2)
+	emitFullEdge(g, n1, n3)
 
-	emitFullEdge(g, n2, 0, n4)
+	emitFullEdge(g, n2, n4)
 
-	emitFullEdge(g, n3, 0, n4)
+	emitFullEdge(g, n3, n4)
 
-	emitFullEdge(g, n4, 0, x)
+	emitFullEdge(g, n4, x)
 
 	order, index := ReversePostorder(g)
 	checkNodeList(order, []NodeID{e, n1, n2, n3, n4, x}, t)
@@ -570,20 +568,20 @@ func TestDoubleDiamond(t *testing.T) {
 	n6 := g.CreateNode()
 	n7 := g.CreateNode()
 
-	emitFullEdge(g, g.Entry(), 0, n1)
+	emitFullEdge(g, g.Entry(), n1)
 
-	emitFullEdge(g, n1, 0, n2)
-	emitFullEdge(g, n1, 1, n6)
+	emitFullEdge(g, n1, n2)
+	emitFullEdge(g, n1, n6)
 
-	emitFullEdge(g, n2, 0, n3)
-	emitFullEdge(g, n2, 1, n4)
+	emitFullEdge(g, n2, n3)
+	emitFullEdge(g, n2, n4)
 
-	emitFullEdge(g, n3, 0, n5)
-	emitFullEdge(g, n4, 0, n5)
-	emitFullEdge(g, n5, 0, n7)
-	emitFullEdge(g, n6, 0, n7)
+	emitFullEdge(g, n3, n5)
+	emitFullEdge(g, n4, n5)
+	emitFullEdge(g, n5, n7)
+	emitFullEdge(g, n6, n7)
 
-	emitFullEdge(g, n7, 0, g.Exit())
+	emitFullEdge(g, n7, g.Exit())
 
 	builder := CreateSSIBuilder(g, &SimpleLivenessOracle{})
 

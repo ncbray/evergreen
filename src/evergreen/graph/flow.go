@@ -10,8 +10,7 @@ type edge struct {
 	nextEntry *edge
 	prevEntry *edge
 
-	id   EdgeID
-	flow int
+	id EdgeID
 }
 
 func (e *edge) setExit(other *node) {
@@ -340,9 +339,9 @@ func (g *Graph) Exit() NodeID {
 	return 1
 }
 
-func (g *Graph) CreateEdge(flow int) EdgeID {
+func (g *Graph) CreateEdge() EdgeID {
 	id := EdgeID(len(g.edges))
-	e := &edge{id: id, flow: flow}
+	e := &edge{id: id}
 	g.edges = append(g.edges, e)
 	return id
 }
@@ -429,10 +428,6 @@ func (g *Graph) GetUniqueExit(src NodeID) (EdgeID, NodeID) {
 		return e.id, e.dst.id
 	}
 	return NoEdge, NoNode
-}
-
-func (g *Graph) EdgeFlow(e EdgeID) int {
-	return g.edges[e].flow
 }
 
 func CreateGraph() *Graph {

@@ -16,20 +16,14 @@ type dubBuilder struct {
 	flow     *flow.LLFunc
 	localMap []flow.RegisterInfo_Ref
 	graph    *graph.Graph
-	ops      []flow.DubOp
 }
 
 func (builder *dubBuilder) EmitOp(op flow.DubOp) graph.NodeID {
-	id := builder.graph.CreateNode()
-	if int(id) != len(builder.ops) {
-		panic(op)
-	}
-	builder.ops = append(builder.ops, op)
-	return id
+	return flow.AllocNode(builder.flow, op)
 }
 
-func (builder *dubBuilder) EmitEdge(nid graph.NodeID, flow int) graph.EdgeID {
-	e := builder.graph.CreateEdge(flow)
+func (builder *dubBuilder) EmitEdge(nid graph.NodeID, flowID int) graph.EdgeID {
+	e := flow.AllocEdge(builder.flow, flowID)
 	builder.graph.ConnectEdgeEntry(nid, e)
 	return e
 }
@@ -619,23 +613,25 @@ func lowerBlock(block []tree.ASTExpr, builder *dubBuilder, fb *graph.FlowBuilder
 }
 
 func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc) *flow.LLFunc {
+	f := funcMap[decl.F]
+
 	g := graph.CreateGraph()
 	ops := []flow.DubOp{
 		&flow.EntryOp{},
 		&flow.ExitOp{},
 	}
 
-	entryEdge := g.CreateEdge(0)
-	g.ConnectEdgeEntry(g.Entry(), entryEdge)
+	f.CFG = g
+	f.Ops = ops
 
-	f := funcMap[decl.F]
+	entryEdge := flow.AllocEdge(f, 0)
+	g.ConnectEdgeEntry(g.Entry(), entryEdge)
 
 	builder := &dubBuilder{
 		index: program.Builtins,
 		decl:  decl,
 		flow:  f,
 		graph: g,
-		ops:   ops,
 	}
 
 	// Allocate register for locals
@@ -684,9 +680,6 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 	if fb.HasFlow(flow.EXCEPTION) {
 		panic("exceptions not supported, yet?")
 	}
-
-	f.CFG = g
-	f.Ops = builder.ops
 	return f
 }
 

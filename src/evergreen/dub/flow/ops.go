@@ -1,6 +1,10 @@
 // Package flow implements a graph IR for the Dub language.
 package flow
 
+import (
+	"evergreen/graph"
+)
+
 const (
 	// Real flows, used at runtime
 	NORMAL = iota
@@ -43,6 +47,25 @@ func (scope *RegisterInfo_Scope) Remap(remap []int, count int) {
 
 func (scope *RegisterInfo_Scope) Replace(replacement []*RegisterInfo) {
 	scope.objects = replacement
+}
+
+func AllocNode(decl *LLFunc, op DubOp) graph.NodeID {
+	n := decl.CFG.CreateNode()
+	if int(n) != len(decl.Ops) {
+		panic(op)
+	}
+	decl.Ops = append(decl.Ops, op)
+	return n
+
+}
+
+func AllocEdge(decl *LLFunc, flow int) graph.EdgeID {
+	e := decl.CFG.CreateEdge()
+	if int(e) != len(decl.Edges) {
+		panic(flow)
+	}
+	decl.Edges = append(decl.Edges, flow)
+	return e
 }
 
 func IsNop(op DubOp) bool {

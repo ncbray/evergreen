@@ -79,7 +79,7 @@ func dumpFlowFuncs(status compiler.PassStatus, runner *compiler.TaskRunner, goFl
 	for iter.Next() {
 		fIndex, f := iter.Value()
 		cf := goCoreProg.Function_Scope.Get(gocore.Function_Ref(fIndex))
-		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Ops: f.Ops, Core: goCoreProg})
+		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Func: f, Core: goCoreProg})
 		parts := append(outputDir, "dub_to_go")
 		p := goCoreProg.Package_Scope.Get(cf.Package)
 		parts = append(parts, p.Path...)

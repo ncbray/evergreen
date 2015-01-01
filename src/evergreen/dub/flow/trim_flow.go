@@ -49,7 +49,7 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 				iter := g.ExitIterator(n)
 				for iter.HasNext() {
 					e, _ := iter.GetNext()
-					possible := flows[g.EdgeFlow(e)][tgt]
+					possible := flows[f.Edges[e]][tgt]
 					if !possible {
 						g.KillEdge(e)
 					}

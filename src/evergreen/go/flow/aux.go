@@ -52,6 +52,25 @@ func (iter *funcIterator) Value() (FlowFunc_Ref, *FlowFunc) {
 	return FlowFunc_Ref(iter.current), iter.scope.objects[iter.current]
 }
 
+func AllocNode(decl *FlowFunc, op GoOp) graph.NodeID {
+	n := decl.CFG.CreateNode()
+	if int(n) != len(decl.Ops) {
+		panic(op)
+	}
+	decl.Ops = append(decl.Ops, op)
+	return n
+
+}
+
+func AllocEdge(decl *FlowFunc, flow int) graph.EdgeID {
+	e := decl.CFG.CreateEdge()
+	if int(e) != len(decl.Edges) {
+		panic(flow)
+	}
+	decl.Edges = append(decl.Edges, flow)
+	return e
+}
+
 type GoFlowBuilder struct {
 	decl *FlowFunc
 	CFG  *graph.Graph
@@ -62,25 +81,18 @@ func (builder *GoFlowBuilder) MakeRegister(name string, t core.GoType) Register_
 }
 
 func (builder *GoFlowBuilder) EmitOp(op GoOp) graph.NodeID {
-	id := builder.decl.CFG.CreateNode()
-	if int(id) != len(builder.decl.Ops) {
-		panic(op)
-	}
-	builder.decl.Ops = append(builder.decl.Ops, op)
-	return id
+	return AllocNode(builder.decl, op)
 }
 
 func (builder *GoFlowBuilder) EmitEdge(nid graph.NodeID, flow int) graph.EdgeID {
-	g := builder.decl.CFG
-	e := g.CreateEdge(flow)
-	g.ConnectEdgeEntry(nid, e)
+	e := AllocEdge(builder.decl, flow)
+	builder.decl.CFG.ConnectEdgeEntry(nid, e)
 	return e
 }
 
 func (builder *GoFlowBuilder) EmitConnection(src graph.NodeID, flow int, dst graph.NodeID) graph.EdgeID {
-	g := builder.decl.CFG
-	e := g.CreateEdge(flow)
-	g.ConnectEdge(src, e, dst)
+	e := AllocEdge(builder.decl, flow)
+	builder.decl.CFG.ConnectEdge(src, e, dst)
 	return e
 }
 

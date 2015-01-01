@@ -150,8 +150,9 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	}
 }
 
-func (styler *DotStyler) EdgeStyle(node graph.NodeID, flow int) string {
-	op := styler.Decl.Ops[node]
+func (styler *DotStyler) EdgeStyle(src graph.NodeID, e graph.EdgeID, dst graph.NodeID) string {
+	op := styler.Decl.Ops[src]
+	flow := styler.Decl.Edges[e]
 	color := "red"
 	switch op.(type) {
 	case *SwitchOp:

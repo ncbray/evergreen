@@ -228,7 +228,7 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 			eit := g.ExitIterator(node)
 			for eit.HasNext() {
 				e, next := eit.GetNext()
-				flow := g.EdgeFlow(e)
+				flow := decl.Edges[e]
 				child, childFall := generateNode(coreProg, decl, lclMap, labels, parent_label, false, next, []tree.Stmt{})
 				switch flow {
 				case 0:

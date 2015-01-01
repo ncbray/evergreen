@@ -25,6 +25,7 @@ type LLFunc struct {
 	ReturnTypes        []core.DubType
 	CFG                *graph.Graph
 	Ops                []DubOp
+	Edges              []int
 	F                  core.Function_Ref
 	RegisterInfo_Scope *RegisterInfo_Scope
 }

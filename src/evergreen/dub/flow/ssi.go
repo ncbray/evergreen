@@ -359,21 +359,13 @@ func killUnusedOutputs(n graph.NodeID, op DubOp, live graph.LivenessOracle) {
 }
 
 func createTransfer(decl *LLFunc, size int) (graph.NodeID, graph.EdgeID, *TransferOp) {
-	g := decl.CFG
-	n := g.CreateNode()
-	if int(n) != len(decl.Ops) {
-		panic("desync")
-	}
-
 	op := &TransferOp{
 		Srcs: make([]RegisterInfo_Ref, size),
 		Dsts: make([]RegisterInfo_Ref, size),
 	}
-	decl.Ops = append(decl.Ops, op)
-
-	e := g.CreateEdge(0)
-	g.ConnectEdgeEntry(n, e)
-
+	n := AllocNode(decl, op)
+	e := AllocEdge(decl, 0)
+	decl.CFG.ConnectEdgeEntry(n, e)
 	return n, e, op
 }
 

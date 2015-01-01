@@ -12,16 +12,16 @@ type flowMapper struct {
 	ctx      *DubToGoContext
 	stitcher *graph.EdgeStitcher
 	builder  *dst.GoFlowBuilder
-	original *graph.Graph
+	original *src.LLFunc
 }
 
 func (mapper *flowMapper) simpleExitFlow(srcID graph.NodeID, dstID graph.NodeID) {
 	// Copy edges.
-	srcG := mapper.original
+	srcG := mapper.original.CFG
 	eit := srcG.ExitIterator(srcID)
 	for eit.HasNext() {
 		e, _ := eit.GetNext()
-		flow := srcG.EdgeFlow(e)
+		flow := mapper.original.Edges[e]
 		switch flow {
 		case src.NORMAL:
 			mapper.stitcher.MapEdge(e, mapper.builder.EmitEdge(dstID, 0))
@@ -40,7 +40,7 @@ func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID,
 	ctx := mapper.ctx
 	stitcher := mapper.stitcher
 	builder := mapper.builder
-	srcG := mapper.original
+	srcG := mapper.original.CFG
 
 	stitcher.MapIncomingEdges(srcID, dstID)
 
@@ -50,7 +50,7 @@ func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID,
 	eit := srcG.ExitIterator(srcID)
 	for eit.HasNext() {
 		e, _ := eit.GetNext()
-		flow := srcG.EdgeFlow(e)
+		flow := mapper.original.Edges[e]
 		switch flow {
 		case src.NORMAL:
 			normal = e
@@ -171,7 +171,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 		ctx:      ctx,
 		builder:  builder,
 		stitcher: stitcher,
-		original: srcG,
+		original: srcF,
 	}
 
 	order, _ := graph.ReversePostorder(srcG)
@@ -199,7 +199,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			eit := srcG.ExitIterator(srcID)
 			for eit.HasNext() {
 				e, _ := eit.GetNext()
-				flow := srcG.EdgeFlow(e)
+				flow := mapper.original.Edges[e]
 				switch flow {
 				case src.COND_TRUE:
 					stitcher.MapEdge(e, builder.EmitEdge(dstID, 0))
@@ -448,7 +448,7 @@ func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goC
 
 	// Empty function.
 	g := goFlowFunc.CFG
-	g.ConnectEdge(g.Entry(), g.CreateEdge(0), g.Exit())
+	g.ConnectEdge(g.Entry(), dst.AllocEdge(goFlowFunc, 0), g.Exit())
 
 	f := goCoreProg.Function_Scope.Register(goCoreFunc)
 	goFlowProg.FlowFunc_Scope.Register(goFlowFunc)
