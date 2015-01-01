@@ -20,7 +20,7 @@ type dubBuilder struct {
 }
 
 func (builder *dubBuilder) EmitOp(op flow.DubOp) graph.NodeID {
-	id := builder.graph.CreateNode(2)
+	id := builder.graph.CreateNode()
 	if int(id) != len(builder.ops) {
 		panic(op)
 	}
@@ -29,7 +29,9 @@ func (builder *dubBuilder) EmitOp(op flow.DubOp) graph.NodeID {
 }
 
 func (builder *dubBuilder) EmitEdge(nid graph.NodeID, flow int) graph.EdgeID {
-	return builder.graph.IndexedExitEdge(nid, flow)
+	e := builder.graph.CreateEdge(flow)
+	builder.graph.ConnectEdgeEntry(nid, e)
+	return e
 }
 
 func (builder *dubBuilder) CreateRegister(name string, t core.DubType) flow.RegisterInfo_Ref {
@@ -623,6 +625,9 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 		&flow.ExitOp{},
 	}
 
+	entryEdge := g.CreateEdge(0)
+	g.ConnectEdgeEntry(g.Entry(), entryEdge)
+
 	f := funcMap[decl.F]
 
 	builder := &dubBuilder{
@@ -655,7 +660,7 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 	}
 	f.ReturnTypes = types
 
-	fb := graph.CreateFlowBuilder(g, numRegionExits)
+	fb := graph.CreateFlowBuilder(g, entryEdge, numRegionExits)
 	lowerBlock(decl.Block, builder, fb)
 
 	// Attach flows to exit.

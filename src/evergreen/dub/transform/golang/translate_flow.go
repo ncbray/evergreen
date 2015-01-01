@@ -71,23 +71,23 @@ func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID,
 				Expr: frameRef,
 				Name: "Flow",
 				Dst:  flow,
-			}, 1)
+			})
 
 			constID := builder.EmitOp(&dst.ConstantInt{
 				Value: 0,
 				Dst:   reference,
-			}, 1)
+			})
 
 			compareID := builder.EmitOp(&dst.BinaryOp{
 				Left:  flow,
 				Op:    "==",
 				Right: reference,
 				Dst:   cond,
-			}, 1)
+			})
 
 			switchID := builder.EmitOp(&dst.Switch{
 				Cond: cond,
-			}, 2)
+			})
 
 			builder.EmitConnection(dstID, 0, attrID)
 			builder.EmitConnection(attrID, 0, constID)
@@ -182,17 +182,17 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 
 		switch op := op.(type) {
 		case *src.EntryOp:
-			// Entry already exists
+			// Entry node already exists
 			dstID := srcID
 			mapper.simpleExitFlow(srcID, dstID)
 		case *src.ExitOp:
-			// Exit already exists
+			// Exit node already exists
 			dstID := srcID
 			stitcher.MapIncomingEdges(srcID, dstID)
 		case *src.SwitchOp:
 			dstID := builder.EmitOp(&dst.Switch{
 				Cond: regMap[op.Cond],
-			}, 2)
+			})
 			stitcher.MapIncomingEdges(srcID, dstID)
 
 			// Copy edges.
@@ -211,7 +211,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			}
 		case *src.FlowExitOp:
 			// TODO is there anything that needs to be done?
-			dstID := builder.EmitOp(&dst.Nop{}, 1)
+			dstID := builder.EmitOp(&dst.Nop{})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.CallOp:
 			args := []dst.Register_Ref{frameReg}
@@ -221,7 +221,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Target: dstcore.Function_Ref(op.Target),
 				Args:   args,
 				Dsts:   regList(regMap, op.Dsts),
-			}, 1)
+			})
 			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.ConstructOp:
 			t := ctx.link.GetType(op.Type, STRUCT)
@@ -252,7 +252,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 					Type:      scopeT,
 					AddrTaken: true,
 					Dst:       scope,
-				}, 1))
+				}))
 				args = append(args, &dst.NamedArg{
 					Name: subtypeName(c, SCOPE),
 					Arg:  scope,
@@ -264,7 +264,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				AddrTaken: true,
 				Args:      args,
 				Dst:       dstReg(regMap, op.Dst),
-			}, 1))
+			}))
 
 			stitcher.MapIncomingEdges(srcID, nodes[0])
 			for i := 0; i < len(nodes)-1; i++ {
@@ -276,42 +276,42 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Type: goSliceType(op.Type, ctx),
 				Args: regList(regMap, op.Args),
 				Dst:  dstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.TransferOp:
 			dstID := builder.EmitOp(&dst.Transfer{
 				Srcs: regList(regMap, op.Srcs),
 				Dsts: regList(regMap, op.Dsts),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantRuneOp:
 			dstID := builder.EmitOp(&dst.ConstantRune{
 				Value: op.Value,
 				Dst:   dstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantStringOp:
 			dstID := builder.EmitOp(&dst.ConstantString{
 				Value: op.Value,
 				Dst:   dstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantIntOp:
 			dstID := builder.EmitOp(&dst.ConstantInt{
 				Value: op.Value,
 				Dst:   dstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantBoolOp:
 			dstID := builder.EmitOp(&dst.ConstantBool{
 				Value: op.Value,
 				Dst:   dstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantNilOp:
 			dstID := builder.EmitOp(&dst.ConstantNil{
 				Dst: dstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.BinaryOp:
 			dstID := builder.EmitOp(&dst.BinaryOp{
@@ -319,47 +319,47 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Op:    op.Op,
 				Right: regMap[op.Right],
 				Dst:   dstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.Checkpoint:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Checkpoint",
 				Dsts: multiDstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.Fail:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Fail",
-			}, 1)
+			})
 			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.Recover:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Recover",
 				Args: []dst.Register_Ref{regMap[op.Src]},
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.Peek:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Peek",
 				Dsts: multiDstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.Consume:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Consume",
-			}, 1)
+			})
 			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.LookaheadBegin:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "LookaheadBegin",
 				Dsts: multiDstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.LookaheadEnd:
 			name := "LookaheadNormal"
@@ -370,7 +370,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Expr: frameReg,
 				Name: name,
 				Args: []dst.Register_Ref{regMap[op.Src]},
-			}, 1)
+			})
 			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.Slice:
 			dstID := builder.EmitOp(&dst.MethodCall{
@@ -378,33 +378,33 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Name: "Slice",
 				Args: []dst.Register_Ref{regMap[op.Src]},
 				Dsts: multiDstReg(regMap, op.Dst),
-			}, 1)
+			})
 			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.CoerceOp:
 			dstID := builder.EmitOp(&dst.Coerce{
 				Src:  regMap[op.Src],
 				Type: goType(op.T, ctx),
 				Dst:  regMap[op.Dst],
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.AppendOp:
 			dstID := builder.EmitOp(&dst.Append{
 				Src:  regMap[op.List],
 				Args: []dst.Register_Ref{regMap[op.Value]},
 				Dst:  regMap[op.Dst],
-			}, 1)
+			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.ReturnOp:
 			transferID := builder.EmitOp(&dst.Transfer{
 				Srcs: regList(regMap, op.Exprs),
 				Dsts: goFlowFunc.Results, // TODO copy?
-			}, 1)
+			})
 
 			if true {
 				mapper.simpleFlow(srcID, transferID)
 			} else {
 
-				returnID := builder.EmitOp(&dst.Return{}, 1)
+				returnID := builder.EmitOp(&dst.Return{})
 
 				stitcher.MapIncomingEdges(srcID, transferID)
 				builder.EmitConnection(transferID, 0, returnID)
@@ -448,7 +448,7 @@ func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goC
 
 	// Empty function.
 	g := goFlowFunc.CFG
-	g.ConnectEdgeExit(g.IndexedExitEdge(g.Entry(), 0), g.Exit())
+	g.ConnectEdge(g.Entry(), g.CreateEdge(0), g.Exit())
 
 	f := goCoreProg.Function_Scope.Register(goCoreFunc)
 	goFlowProg.FlowFunc_Scope.Register(goFlowFunc)

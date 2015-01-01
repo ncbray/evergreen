@@ -358,8 +358,9 @@ func killUnusedOutputs(n graph.NodeID, op DubOp, live graph.LivenessOracle) {
 	}
 }
 
-func createTransfer(decl *LLFunc, size int) (graph.NodeID, *TransferOp) {
-	n := decl.CFG.CreateNode(1)
+func createTransfer(decl *LLFunc, size int) (graph.NodeID, graph.EdgeID, *TransferOp) {
+	g := decl.CFG
+	n := g.CreateNode()
 	if int(n) != len(decl.Ops) {
 		panic("desync")
 	}
@@ -370,7 +371,10 @@ func createTransfer(decl *LLFunc, size int) (graph.NodeID, *TransferOp) {
 	}
 	decl.Ops = append(decl.Ops, op)
 
-	return n, op
+	e := g.CreateEdge(0)
+	g.ConnectEdgeEntry(n, e)
+
+	return n, e, op
 }
 
 func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
@@ -386,12 +390,12 @@ func place(decl *LLFunc, builder *graph.SSIBuilder, live *graph.LiveVars) {
 			if len(phiFuncs) == 0 {
 				continue
 			}
-			t, op := createTransfer(decl, len(phiFuncs))
+			_, te, op := createTransfer(decl, len(phiFuncs))
 			for j, v := range phiFuncs {
 				op.Srcs[j] = RegisterInfo_Ref(v)
 				op.Dsts[j] = RegisterInfo_Ref(v)
 			}
-			g.InsertInEdge(g.IndexedExitEdge(t, 0), edge)
+			g.InsertInEdge(te, edge)
 		}
 		// Do this while the order and liveness info are still good.
 		op := decl.Ops[n]

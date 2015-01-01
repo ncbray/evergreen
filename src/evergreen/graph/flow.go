@@ -2,27 +2,40 @@
 package graph
 
 type edge struct {
-	src   *node
-	index int
+	src      *node
+	nextExit *edge
+	prevExit *edge
 
 	dst       *node
 	nextEntry *edge
 	prevEntry *edge
 
-	id EdgeID
+	id   EdgeID
+	flow int
 }
 
-func (e *edge) attach(other *node) {
+func (e *edge) setExit(other *node) {
 	if e.dst != nil {
 		panic(e)
 	}
 	e.dst = other
-	other.addEntry(e)
+	other.entries.Append(e)
+}
+
+func (e *edge) setEntry(other *node) {
+	if e.src != nil {
+		panic(e)
+	}
+	e.src = other
+	other.exits.Append(e)
 }
 
 func (e *edge) detach() {
+	if e.src != nil {
+		e.src.exits.Remove(e)
+	}
 	if e.dst != nil {
-		e.dst.replaceEntry(e, emptyEntry())
+		e.dst.entries.Remove(e)
 	}
 }
 
@@ -64,8 +77,8 @@ func (l *entryEdges) Append(other *edge) {
 func (l *entryEdges) Extend(other entryEdges) {
 	if other.HasEdges() {
 		if l.HasEdges() {
-			l.tail.nextEntry = other.head
 			other.head.prevEntry = l.tail
+			l.tail.nextEntry = other.head
 			l.tail = other.tail
 		} else {
 			l.head = other.head
@@ -88,6 +101,27 @@ func (l *entryEdges) Transfer() entryEdges {
 	temp := *l
 	*l = emptyEntry()
 	return temp
+}
+
+func (l *entryEdges) Remove(target *edge) {
+	oldNext := target.nextEntry
+	oldPrev := target.prevEntry
+
+	// Disconnect the entry.
+	target.prevEntry = nil
+	target.nextEntry = nil
+	target.dst = nil
+
+	if oldPrev == nil {
+		l.head = oldNext
+	} else {
+		oldPrev.nextEntry = oldNext
+	}
+	if oldNext == nil {
+		l.tail = oldPrev
+	} else {
+		oldNext.prevEntry = oldPrev
+	}
 }
 
 func (l *entryEdges) ReplaceEdge(target *edge, replacement *edge) {
@@ -155,75 +189,126 @@ func (it *entryIterator) HasNext() bool {
 func (it *entryIterator) GetNext() (NodeID, EdgeID) {
 	edge := it.current
 	it.current = it.current.nextEntry
-	return edge.src.id, edge.id
+	n := NoNode
+	if edge.src != nil {
+		n = edge.src.id
+	}
+	return n, edge.id
 }
 
-type exitEdges []*edge
+type exitEdges struct {
+	head *edge
+	tail *edge
+}
 
-func (l *exitEdges) Transfer() exitEdges {
-	temp := *l
-	*l = exitEdges{}
-	return temp
+func emptyExit() exitEdges {
+	return exitEdges{}
+}
+
+// An incomplete sanity check, this edge could still be in a list that
+// is one element long.
+func orphanedExit(e *edge) bool {
+	return e.nextExit == nil && e.prevExit == nil
+}
+
+func (l *exitEdges) Append(other *edge) {
+	if !orphanedEntry(other) {
+		panic(other)
+	}
+	if l.tail != nil {
+		other.prevExit = l.tail
+		l.tail.nextExit = other
+		l.tail = other
+	} else {
+		l.head = other
+		l.tail = other
+	}
+}
+
+func (l *exitEdges) Extend(other exitEdges) {
+	if other.HasEdges() {
+		if l.HasEdges() {
+			other.head.prevExit = l.tail
+			l.tail.nextExit = other.head
+			l.tail = other.tail
+		} else {
+			l.head = other.head
+			l.tail = other.tail
+		}
+	}
+}
+
+func (l *exitEdges) Remove(target *edge) {
+	oldNext := target.nextExit
+	oldPrev := target.prevExit
+
+	// Disconnect the exit.
+	target.prevExit = nil
+	target.nextExit = nil
+	target.src = nil
+
+	if oldPrev == nil {
+		l.head = oldNext
+	} else {
+		oldPrev.nextExit = oldNext
+	}
+	if oldNext == nil {
+		l.tail = oldPrev
+	} else {
+		oldNext.prevExit = oldPrev
+	}
+}
+
+func (l *exitEdges) HasEdges() bool {
+	return l.head != nil
+}
+
+func (l *exitEdges) HasMultipleEdges() bool {
+	return l.head != l.tail
 }
 
 type exitIterator struct {
 	graph   *Graph
-	node    *node
-	current int
-}
-
-func (it *exitIterator) skipDeadEdges() {
-	for it.HasNext() && it.node.exits[it.current].dst == nil {
-		it.current += 1
-	}
+	current *edge
 }
 
 func (it *exitIterator) HasNext() bool {
-	return it.current < len(it.node.exits)
+	return it.current != nil
 }
 
 func (it *exitIterator) GetNext() (EdgeID, NodeID) {
-	edge := it.node.exits[it.current]
-	it.current += 1
-	it.skipDeadEdges()
-	return edge.id, edge.dst.id
+	edge := it.current
+	it.current = edge.nextExit
+	n := NoNode
+	if edge.dst != nil {
+		n = edge.dst.id
+	}
+	return edge.id, n
 }
 
 type reverseExitIterator struct {
 	graph   *Graph
-	node    *node
-	current int
-}
-
-func (it *reverseExitIterator) skipDeadEdges() {
-	for it.HasNext() && it.node.exits[it.current].dst == nil {
-		it.current -= 1
-	}
+	current *edge
 }
 
 func (it *reverseExitIterator) HasNext() bool {
-	return it.current >= 0
+	return it.current != nil
 }
 
 func (it *reverseExitIterator) GetNext() (EdgeID, NodeID) {
-	edge := it.node.exits[it.current]
-	it.current -= 1
-	it.skipDeadEdges()
-	return edge.id, edge.dst.id
+	edge := it.current
+	it.current = edge.prevExit
+	n := NoNode
+	if edge.dst != nil {
+		n = edge.dst.id
+	}
+	return edge.id, n
 }
 
 type node struct {
 	entries entryEdges
 	exits   exitEdges
 	id      NodeID
-}
-
-func (n *node) getExit(flow int) *edge {
-	return n.exits[flow]
-}
-
-func (n *node) addEntry(e *edge) {
-	n.entries.Append(e)
 }
 
 func (n *node) replaceSingleEntry(target *edge, replacement *edge) {
@@ -255,23 +340,19 @@ func (g *Graph) Exit() NodeID {
 	return 1
 }
 
-func (g *Graph) createEdge(flow int) *edge {
+func (g *Graph) CreateEdge(flow int) EdgeID {
 	id := EdgeID(len(g.edges))
-	e := &edge{index: flow, id: id}
+	e := &edge{id: id, flow: flow}
 	g.edges = append(g.edges, e)
-	return e
+	return id
 }
 
-func (g *Graph) CreateNode(exits int) NodeID {
+func (g *Graph) CreateNode() NodeID {
 	id := NodeID(len(g.nodes))
 	n := &node{
-		id:    id,
-		exits: make(exitEdges, exits),
-	}
-	for i := 0; i < exits; i++ {
-		e := g.createEdge(i)
-		e.src = n
-		n.exits[i] = e
+		id:      id,
+		entries: emptyEntry(),
+		exits:   emptyExit(),
 	}
 	g.nodes = append(g.nodes, n)
 	return id
@@ -287,31 +368,40 @@ func (g *Graph) NumEdges() int {
 	return len(g.edges)
 }
 
-func (g *Graph) ConnectEdgeExit(src EdgeID, dst NodeID) {
-	g.edges[src].attach(g.nodes[dst])
+func (g *Graph) ConnectEdge(src NodeID, e EdgeID, dst NodeID) {
+	tgt := g.edges[e]
+	tgt.setEntry(g.nodes[src])
+	tgt.setExit(g.nodes[dst])
+}
+
+func (g *Graph) ConnectEdgeEntry(src NodeID, e EdgeID) {
+	g.edges[e].setEntry(g.nodes[src])
+}
+
+func (g *Graph) ConnectEdgeExit(e EdgeID, dst NodeID) {
+	g.edges[e].setExit(g.nodes[dst])
 }
 
 func (g *Graph) KillEdge(eid EdgeID) {
 	g.edges[eid].detach()
 }
 
+func getUniqueExit(exits exitEdges) *edge {
+	if exits.head == exits.tail {
+		// Note: could be nil
+		return exits.head
+	}
+	return nil
+}
+
 func (g *Graph) KillNode(nid NodeID) {
 	n := g.nodes[nid]
-	for i := 0; i < len(n.exits); i++ {
-		e := n.getExit(i)
-		// Find the active exit.
-		if e.dst == nil {
-			continue
-		}
-		// Make sure there are no other active exits.
-		for j := i + 1; j < len(n.exits); j++ {
-			if n.exits[j].dst != nil {
-				panic(n.id)
-			}
-		}
-		e.dst.replaceEntry(e, n.entries.Transfer())
-		break
+	singleEdge := getUniqueExit(n.exits)
+	if singleEdge == nil {
+		panic(n.id)
 	}
+	singleEdge.dst.replaceEntry(singleEdge, n.entries.Transfer())
+	n.exits.Remove(singleEdge)
 }
 
 // Insert a dangling node (with a single out edge) in the middle of an existing edge.
@@ -326,7 +416,7 @@ func (g *Graph) InsertInEdge(replacementID EdgeID, existingID EdgeID) {
 	}
 	// Attach the existing edge to the dangling node.
 	existing.dst = insertedNode
-	insertedNode.addEntry(existing)
+	insertedNode.entries.Append(existing)
 }
 
 func (g *Graph) HasMultipleEntries(dst NodeID) bool {
@@ -334,30 +424,23 @@ func (g *Graph) HasMultipleEntries(dst NodeID) bool {
 }
 
 func (g *Graph) GetUniqueExit(src NodeID) (EdgeID, NodeID) {
-	if len(g.nodes[src].exits) == 1 {
-		e := g.nodes[src].exits[0]
-		if e.dst != nil {
-			return e.id, e.dst.id
-		}
+	e := getUniqueExit(g.nodes[src].exits)
+	if e != nil && e.dst != nil {
+		return e.id, e.dst.id
 	}
 	return NoEdge, NoNode
 }
 
 func (g *Graph) EdgeFlow(e EdgeID) int {
-	return g.edges[e].index
-}
-
-// TODO remove
-func (g *Graph) IndexedExitEdge(nid NodeID, flow int) EdgeID {
-	return g.nodes[nid].exits[flow].id
+	return g.edges[e].flow
 }
 
 func CreateGraph() *Graph {
 	g := &Graph{}
 	// Entry
-	g.CreateNode(1)
+	g.CreateNode()
 	// Exit
-	g.CreateNode(0)
+	g.CreateNode()
 	return g
 }
 
@@ -366,8 +449,8 @@ type FlowBuilder struct {
 	flows []entryEdges
 }
 
-func CreateFlowBuilder(g *Graph, numExits int) *FlowBuilder {
-	return createFlowBuilder(g, numExits, singleEntry(g.nodes[g.Entry()].exits[0]))
+func CreateFlowBuilder(g *Graph, e EdgeID, numExits int) *FlowBuilder {
+	return createFlowBuilder(g, numExits, singleEntry(g.edges[e]))
 }
 
 func createFlowBuilder(g *Graph, numExits int, edges entryEdges) *FlowBuilder {
@@ -461,14 +544,11 @@ func (g *Graph) EntryIterator(n NodeID) entryIterator {
 }
 
 func (g *Graph) ExitIterator(n NodeID) exitIterator {
-	iter := exitIterator{graph: g, node: g.nodes[n], current: 0}
-	iter.skipDeadEdges()
+	iter := exitIterator{graph: g, current: g.nodes[n].exits.head}
 	return iter
 }
 
 func (g *Graph) ReverseExitIterator(n NodeID) reverseExitIterator {
-	node := g.nodes[n]
-	iter := reverseExitIterator{graph: g, node: node, current: len(node.exits) - 1}
-	iter.skipDeadEdges()
+	iter := reverseExitIterator{graph: g, current: g.nodes[n].exits.tail}
 	return iter
 }

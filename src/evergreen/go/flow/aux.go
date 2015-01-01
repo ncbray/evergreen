@@ -61,8 +61,8 @@ func (builder *GoFlowBuilder) MakeRegister(name string, t core.GoType) Register_
 	return builder.decl.Register_Scope.Register(&Register{Name: name, T: t})
 }
 
-func (builder *GoFlowBuilder) EmitOp(op GoOp, exit_count int) graph.NodeID {
-	id := builder.decl.CFG.CreateNode(exit_count)
+func (builder *GoFlowBuilder) EmitOp(op GoOp) graph.NodeID {
+	id := builder.decl.CFG.CreateNode()
 	if int(id) != len(builder.decl.Ops) {
 		panic(op)
 	}
@@ -71,14 +71,17 @@ func (builder *GoFlowBuilder) EmitOp(op GoOp, exit_count int) graph.NodeID {
 }
 
 func (builder *GoFlowBuilder) EmitEdge(nid graph.NodeID, flow int) graph.EdgeID {
-	return builder.decl.CFG.IndexedExitEdge(nid, flow)
+	g := builder.decl.CFG
+	e := g.CreateEdge(flow)
+	g.ConnectEdgeEntry(nid, e)
+	return e
 }
 
 func (builder *GoFlowBuilder) EmitConnection(src graph.NodeID, flow int, dst graph.NodeID) graph.EdgeID {
 	g := builder.decl.CFG
-	edge := g.IndexedExitEdge(src, flow)
-	g.ConnectEdgeExit(edge, dst)
-	return edge
+	e := g.CreateEdge(flow)
+	g.ConnectEdge(src, e, dst)
+	return e
 }
 
 func MakeGoFlowBuilder(decl *FlowFunc) *GoFlowBuilder {
