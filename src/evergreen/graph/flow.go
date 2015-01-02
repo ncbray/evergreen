@@ -193,7 +193,7 @@ func orphanedExit(g *Graph, eid EdgeID) bool {
 }
 
 func (l *exitEdges) Append(g *Graph, other EdgeID) {
-	if !orphanedEntry(g, other) {
+	if !orphanedExit(g, other) {
 		panic(other)
 	}
 	if l.tail != NoEdge {
@@ -356,6 +356,15 @@ func (g *Graph) ConnectEdgeEntry(src NodeID, e EdgeID) {
 	g.setEdgeEntry(src, e)
 }
 
+func (g *Graph) MoveEdgeEntry(src NodeID, e EdgeID) {
+	original := g.edges[e].src
+	if original != NoNode {
+		g.nodes[original].exits.Remove(g, e)
+	}
+	g.edges[e].src = src
+	g.nodes[src].exits.Append(g, e)
+}
+
 func (g *Graph) ConnectEdgeExit(e EdgeID, dst NodeID) {
 	g.setEdgeExit(e, dst)
 }
@@ -418,6 +427,14 @@ func (g *Graph) GetUniqueExit(src NodeID) (EdgeID, NodeID) {
 
 func (g *Graph) extendEntries(n NodeID, entries entryEdges) {
 	g.nodes[n].entries.Extend(g, entries)
+}
+
+func (g *Graph) Copy() *Graph {
+	return &Graph{
+		// Idiomatic array copying.
+		nodes: append([]node(nil), g.nodes...),
+		edges: append([]edge(nil), g.edges...),
+	}
 }
 
 func CreateGraph() *Graph {

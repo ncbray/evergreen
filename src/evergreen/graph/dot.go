@@ -121,17 +121,31 @@ func drawLinearNodes(drawer *dotDrawer, nodes []NodeID, styler DotStyler) {
 
 func drawCluster(drawer *dotDrawer, cluster Cluster, styler DotStyler) {
 	switch cluster := cluster.(type) {
+	case *ClusterLeaf:
+		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		drawer.WriteString("  labeljust=l;\n")
+		drawer.WriteString(fmt.Sprintf("  label=\"leaf %d\";\n", len(cluster.Nodes)))
+		drawer.WriteString("  color=lightgrey;\n")
+		drawLinearNodes(drawer, cluster.Nodes, styler)
+		drawer.WriteString("}\n")
 	case *ClusterLinear:
 		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
 		drawer.WriteString("  labeljust=l;\n")
-		drawer.WriteString("  label=linear;\n")
+		drawer.WriteString(fmt.Sprintf("  label=\"linear %d\";\n", len(cluster.Clusters)))
 		drawer.WriteString("  color=lightgrey;\n")
-
-		drawLinearNodes(drawer, cluster.Nodes, styler)
 		for _, c := range cluster.Clusters {
 			drawCluster(drawer, c, styler)
 		}
-
+		drawer.WriteString("}\n")
+	case *ClusterSwitch:
+		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		drawer.WriteString("  labeljust=l;\n")
+		drawer.WriteString(fmt.Sprintf("  label=\"switch %d\";\n", len(cluster.Children)))
+		drawer.WriteString("  color=lightgrey;\n")
+		drawCluster(drawer, cluster.Cond, styler)
+		for _, c := range cluster.Children {
+			drawCluster(drawer, c, styler)
+		}
 		drawer.WriteString("}\n")
 	case *ClusterLoop:
 		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
@@ -143,7 +157,7 @@ func drawCluster(drawer *dotDrawer, cluster Cluster, styler DotStyler) {
 	case *ClusterComplex:
 		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
 		drawer.WriteString("  labeljust=l;\n")
-		drawer.WriteString("  label=complex;\n")
+		drawer.WriteString(fmt.Sprintf("  label=\"complex %d\";\n", len(cluster.Clusters)))
 		drawer.WriteString("  color=lightgrey;\n")
 
 		for _, c := range cluster.Clusters {
