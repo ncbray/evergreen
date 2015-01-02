@@ -29,6 +29,10 @@ func dumpProgram(status compiler.PassStatus, runner *compiler.TaskRunner, progra
 
 	for _, dubPkg := range program.Packages {
 		for _, f := range dubPkg.Funcs {
+			// Don't output empty functions.
+			if f.CFG.NumNodes() <= 2 {
+				continue
+			}
 			styler := &flow.DotStyler{Decl: f, Core: program.Core}
 			dot := graph.GraphToDot(f.CFG, styler)
 			parts := append(outputDir, "dub_frontend")
@@ -78,6 +82,10 @@ func dumpFlowFuncs(status compiler.PassStatus, runner *compiler.TaskRunner, goFl
 	iter := goFlowProgram.FlowFunc_Scope.Iter()
 	for iter.Next() {
 		fIndex, f := iter.Value()
+		// Don't output empty functions.
+		if f.CFG.NumNodes() <= 2 {
+			continue
+		}
 		cf := goCoreProg.Function_Scope.Get(gocore.Function_Ref(fIndex))
 		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Func: f, Core: goCoreProg})
 		parts := append(outputDir, "dub_to_go")
