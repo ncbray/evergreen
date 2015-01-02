@@ -148,3 +148,8 @@ func (styler *DotStyler) EdgeStyle(src graph.NodeID, e graph.EdgeID, dst graph.N
 	}
 	return fmt.Sprintf("color=%s", color)
 }
+
+func (styler *DotStyler) IsLocalFlow(e graph.EdgeID) bool {
+	flow := styler.Decl.Edges[e]
+	return EdgeTypeInfo[flow].IsLocalFlow
+}

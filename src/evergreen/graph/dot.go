@@ -12,6 +12,7 @@ func nodeDotID(node NodeID) string {
 type DotStyler interface {
 	NodeStyle(node NodeID) string
 	EdgeStyle(src NodeID, edge EdgeID, dst NodeID) string
+	IsLocalFlow(edge EdgeID) bool
 }
 
 func drawNode(buf *bytes.Buffer, node NodeID, styler DotStyler) {
@@ -31,19 +32,33 @@ func drawUnclusteredNodes(buf *bytes.Buffer, order []NodeID, styler DotStyler) {
 
 func drawCluster(buf *bytes.Buffer, cluster Cluster, styler DotStyler) {
 	switch cluster := cluster.(type) {
-	case *ClusterLeaf:
+	case *ClusterLinear:
+		buf.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		buf.WriteString("  labeljust=l;\n")
+		buf.WriteString("  label=linear;\n")
+		buf.WriteString("  color=lightgrey;\n")
+
 		for _, n := range cluster.Nodes {
 			drawNode(buf, n, styler)
 		}
-	case *ClusterLinear:
 		for _, c := range cluster.Clusters {
 			drawCluster(buf, c, styler)
 		}
+
+		buf.WriteString("}\n")
+	case *ClusterLoop:
+		buf.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		buf.WriteString("  labeljust=l;\n")
+		buf.WriteString("  label=loop;\n")
+		buf.WriteString("  color=lightgrey;\n")
+		drawCluster(buf, cluster.Body, styler)
+		buf.WriteString("}\n")
 	case *ClusterComplex:
-		buf.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Entry))
+		buf.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		buf.WriteString("  labeljust=l;\n")
+		buf.WriteString("  label=complex;\n")
 		buf.WriteString("  color=lightgrey;\n")
 
-		drawNode(buf, cluster.Entry, styler)
 		for _, c := range cluster.Clusters {
 			drawCluster(buf, c, styler)
 		}
@@ -55,7 +70,7 @@ func drawCluster(buf *bytes.Buffer, cluster Cluster, styler DotStyler) {
 }
 
 func drawClusteredNodes(buf *bytes.Buffer, g *Graph, styler DotStyler) {
-	cluster := makeCluster(g)
+	cluster := makeCluster(g, styler)
 	drawCluster(buf, cluster, styler)
 }
 

@@ -25,7 +25,7 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 		for it.HasNext() {
 			_, e := it.GetNext()
 			exitFlow := f.Edges[e]
-			localFlow := EdgeTypeInfo[exitFlow].AsLocalFlow
+			localFlow := EdgeTypeInfo[exitFlow].AsInlinedFlow
 			flows[localFlow][i] = true
 		}
 	}

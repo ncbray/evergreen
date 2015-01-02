@@ -16,27 +16,34 @@ const (
 )
 
 type edgeTypeInfo struct {
-	AsLocalFlow int
+	IsLocalFlow   bool
+	AsInlinedFlow int
 }
 
 var EdgeTypeInfo = []edgeTypeInfo{
 	edgeTypeInfo{
-		AsLocalFlow: NORMAL,
+		IsLocalFlow:   true,
+		AsInlinedFlow: NORMAL,
 	},
 	edgeTypeInfo{
-		AsLocalFlow: COND_TRUE,
+		IsLocalFlow:   true,
+		AsInlinedFlow: COND_TRUE,
 	},
 	edgeTypeInfo{
-		AsLocalFlow: COND_FALSE,
+		IsLocalFlow:   true,
+		AsInlinedFlow: COND_FALSE,
 	},
 	edgeTypeInfo{
-		AsLocalFlow: FAIL,
+		IsLocalFlow:   false,
+		AsInlinedFlow: FAIL,
 	},
 	edgeTypeInfo{
-		AsLocalFlow: EXCEPTION,
+		IsLocalFlow:   false,
+		AsInlinedFlow: EXCEPTION,
 	},
 	edgeTypeInfo{
-		AsLocalFlow: NORMAL,
+		IsLocalFlow:   false,
+		AsInlinedFlow: NORMAL,
 	},
 }
 
