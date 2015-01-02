@@ -1,6 +1,19 @@
 // Package graph implements a directed graph and common operations on directed graphs.
 package graph
 
+type NodeID uint32
+
+const NoNode NodeID = ^NodeID(0)
+
+type EdgeID uint32
+
+const NoEdge EdgeID = ^EdgeID(0)
+
+type node struct {
+	entries entryEdges
+	exits   exitEdges
+}
+
 type edge struct {
 	src      NodeID
 	nextExit EdgeID
@@ -264,19 +277,6 @@ func (it *reverseExitIterator) GetNext() (EdgeID, NodeID) {
 	it.current = it.graph.edges[edge].prevExit
 	return edge, it.graph.edges[edge].dst
 }
-
-type node struct {
-	entries entryEdges
-	exits   exitEdges
-}
-
-type NodeID int
-
-const NoNode NodeID = ^NodeID(0)
-
-type EdgeID int
-
-const NoEdge EdgeID = ^EdgeID(0)
 
 type Graph struct {
 	nodes []node
