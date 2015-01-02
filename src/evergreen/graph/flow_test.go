@@ -7,32 +7,45 @@ import (
 
 func checkEdgeConsistency(g *Graph, eid EdgeID, t *testing.T) {
 	e := g.edges[eid]
-	if e.prevEntry != nil && (e.prevEntry.nextEntry != e || e.prevEntry.dst != e.dst) {
-		t.Errorf("Bad prevEntry for %#v / %#v", e, e.prevEntry)
+	if e.prevEntry != NoEdge {
+		other := g.edges[e.prevEntry]
+		if other.nextEntry != eid || other.dst != e.dst {
+			t.Errorf("Bad prevEntry for %d / %d (%d / %#v / %#v)", eid, e.prevEntry, other.nextEntry, e.dst, other.dst)
+		}
 	}
-	if e.nextEntry != nil && (e.nextEntry.prevEntry != e || e.nextEntry.dst != e.dst) {
-		t.Errorf("Bad nextEntry for %#v / %#v", e, e.nextEntry)
+	if e.nextEntry != NoEdge {
+		other := g.edges[e.nextEntry]
+		if other.prevEntry != eid || other.dst != e.dst {
+			t.Errorf("Bad nextEntry for %d / %d (%d / %#v / %#v)", eid, e.nextEntry, other.prevEntry, e.dst, other.dst)
+
+		}
 	}
-	if e.prevExit != nil && (e.prevExit.nextExit != e || e.prevExit.src != e.src) {
-		t.Errorf("Bad prevExit for %#v / %#v", e, e.prevExit)
+	if e.prevExit != NoEdge {
+		other := g.edges[e.prevExit]
+		if other.nextExit != eid || other.src != e.src {
+			t.Errorf("Bad prevExit for %d / %d (%d / %#v / %#v)", eid, e.prevExit, other.nextExit, e.src, other.src)
+		}
 	}
-	if e.nextExit != nil && (e.nextExit.prevExit != e || e.nextExit.src != e.src) {
-		t.Errorf("Bad nextExit for %#v / %#v", e, e.nextExit)
+	if e.nextExit != NoEdge {
+		other := g.edges[e.nextExit]
+		if other.prevExit != eid || other.src != e.src {
+			t.Errorf("Bad nextExit for %d / %d (%d / %#v / %#v)", eid, e.nextExit, other.prevExit, e.src, other.src)
+		}
 	}
 }
 
 func checkEntryEdges(g *Graph, actual entryEdges, expected []EdgeID, t *testing.T) {
 	current := actual.head
 	count := 0
-	for current != nil {
+	for current != NoEdge {
 		if count < len(expected) {
 			other := expected[count]
-			if current.id != other {
+			if current != other {
 				t.Errorf("Expected %#v at position %d, got %#v", other, count, current)
 			}
 		}
-		checkEdgeConsistency(g, current.id, t)
-		current = current.nextEntry
+		checkEdgeConsistency(g, current, t)
+		current = g.edges[current].nextEntry
 		count += 1
 	}
 	if len(expected) != count {
@@ -244,8 +257,8 @@ func TestSimpleFlow(t *testing.T) {
 func numFlowEdges(fb *FlowBuilder, flow int) int {
 	count := 0
 	current := fb.flows[flow].head
-	for current != nil {
-		current = current.nextEntry
+	for current != NoEdge {
+		current = fb.graph.edges[current].nextEntry
 		count += 1
 	}
 	return count
