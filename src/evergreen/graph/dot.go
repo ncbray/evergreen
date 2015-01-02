@@ -3,6 +3,7 @@ package graph
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 )
 
 func nodeDotID(node NodeID) string {
@@ -10,68 +11,154 @@ func nodeDotID(node NodeID) string {
 }
 
 type DotStyler interface {
+	BlockLabel(node NodeID) (string, bool)
 	NodeStyle(node NodeID) string
 	EdgeStyle(src NodeID, edge EdgeID, dst NodeID) string
 	IsLocalFlow(edge EdgeID) bool
 }
 
-func drawNode(buf *bytes.Buffer, node NodeID, styler DotStyler) {
-	buf.WriteString("  ")
-	buf.WriteString(nodeDotID(node))
-	buf.WriteString("[")
-	buf.WriteString(styler.NodeStyle(node))
-	buf.WriteString("];\n")
+type edgePort struct {
+	node NodeID
+	port string
 }
 
-func drawUnclusteredNodes(buf *bytes.Buffer, order []NodeID, styler DotStyler) {
-	nit := OrderedIterator(order)
-	for nit.HasNext() {
-		drawNode(buf, nit.GetNext(), styler)
+type dotDrawer struct {
+	buf        *bytes.Buffer
+	edgePorts  []edgePort
+	fuseLinear bool
+}
+
+func (drawer *dotDrawer) WriteString(message string) {
+	drawer.buf.WriteString(message)
+}
+
+func (drawer *dotDrawer) WriteNode(nid NodeID, style string) {
+	drawer.WriteString("  ")
+	drawer.WriteString(nodeDotID(nid))
+	drawer.WriteString("[")
+	drawer.WriteString(style)
+	drawer.WriteString("];\n")
+}
+
+func (drawer *dotDrawer) GetEdgePort(nid NodeID) string {
+	port := drawer.edgePorts[nid]
+	if port.port == "" {
+		return nodeDotID(nid)
+	} else {
+		return nodeDotID(port.node) + ":" + port.port
 	}
 }
 
-func drawCluster(buf *bytes.Buffer, cluster Cluster, styler DotStyler) {
+func (drawer *dotDrawer) IsSquashedEdge(src NodeID, dst NodeID) bool {
+	sp := drawer.edgePorts[src]
+	dp := drawer.edgePorts[dst]
+	return sp.port != "" && dp.port != "" && sp.node == dp.node
+}
+
+func (drawer *dotDrawer) WriteEdge(src NodeID, dst NodeID, style string) {
+	if drawer.IsSquashedEdge(src, dst) {
+		return
+	}
+	drawer.WriteString("  ")
+	drawer.WriteString(drawer.GetEdgePort(src))
+	drawer.WriteString(" -> ")
+	drawer.WriteString(drawer.GetEdgePort(dst))
+	drawer.WriteString("[")
+	drawer.WriteString(style)
+	drawer.WriteString("];\n")
+}
+
+func drawNode(drawer *dotDrawer, node NodeID, styler DotStyler) {
+	drawer.WriteNode(node, styler.NodeStyle(node))
+}
+
+func drawUnclusteredNodes(drawer *dotDrawer, order []NodeID, styler DotStyler) {
+	nit := OrderedIterator(order)
+	for nit.HasNext() {
+		drawNode(drawer, nit.GetNext(), styler)
+	}
+}
+
+var dotEscape = regexp.MustCompile("([\\\\\"\\[\\]<>{}|])")
+var newline = regexp.MustCompile("\n")
+
+func EscapeDotString(message string) string {
+	return newline.ReplaceAllString(dotEscape.ReplaceAllString(message, "\\$1"), "\\l")
+}
+
+func dotString(message string) string {
+	return fmt.Sprintf("\"%s\"", EscapeDotString(message))
+}
+
+func drawLinearNodes(drawer *dotDrawer, nodes []NodeID, styler DotStyler) {
+	head := NoNode
+	text := ""
+	flush := func() {
+		if head != NoNode {
+			style := fmt.Sprintf("shape=record,label=\"{%s}\"", text)
+			drawer.WriteNode(head, style)
+			text = ""
+			head = NoNode
+		}
+	}
+	for _, n := range nodes {
+		label, ok := styler.BlockLabel(n)
+		if ok && drawer.fuseLinear {
+			if head == NoNode {
+				head = n
+			} else {
+				text += "|"
+			}
+			text += "<" + nodeDotID(n) + ">" + EscapeDotString(label)
+			drawer.edgePorts[n] = edgePort{node: head, port: nodeDotID(n)}
+		} else {
+			flush()
+			drawNode(drawer, n, styler)
+		}
+	}
+	flush()
+}
+
+func drawCluster(drawer *dotDrawer, cluster Cluster, styler DotStyler) {
 	switch cluster := cluster.(type) {
 	case *ClusterLinear:
-		buf.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
-		buf.WriteString("  labeljust=l;\n")
-		buf.WriteString("  label=linear;\n")
-		buf.WriteString("  color=lightgrey;\n")
+		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		drawer.WriteString("  labeljust=l;\n")
+		drawer.WriteString("  label=linear;\n")
+		drawer.WriteString("  color=lightgrey;\n")
 
-		for _, n := range cluster.Nodes {
-			drawNode(buf, n, styler)
-		}
+		drawLinearNodes(drawer, cluster.Nodes, styler)
 		for _, c := range cluster.Clusters {
-			drawCluster(buf, c, styler)
+			drawCluster(drawer, c, styler)
 		}
 
-		buf.WriteString("}\n")
+		drawer.WriteString("}\n")
 	case *ClusterLoop:
-		buf.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
-		buf.WriteString("  labeljust=l;\n")
-		buf.WriteString("  label=loop;\n")
-		buf.WriteString("  color=lightgrey;\n")
-		drawCluster(buf, cluster.Body, styler)
-		buf.WriteString("}\n")
+		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		drawer.WriteString("  labeljust=l;\n")
+		drawer.WriteString("  label=loop;\n")
+		drawer.WriteString("  color=lightgrey;\n")
+		drawCluster(drawer, cluster.Body, styler)
+		drawer.WriteString("}\n")
 	case *ClusterComplex:
-		buf.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
-		buf.WriteString("  labeljust=l;\n")
-		buf.WriteString("  label=complex;\n")
-		buf.WriteString("  color=lightgrey;\n")
+		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		drawer.WriteString("  labeljust=l;\n")
+		drawer.WriteString("  label=complex;\n")
+		drawer.WriteString("  color=lightgrey;\n")
 
 		for _, c := range cluster.Clusters {
-			drawCluster(buf, c, styler)
+			drawCluster(drawer, c, styler)
 		}
 
-		buf.WriteString("}\n")
+		drawer.WriteString("}\n")
 	default:
 		panic(cluster)
 	}
 }
 
-func drawClusteredNodes(buf *bytes.Buffer, g *Graph, styler DotStyler) {
+func drawClusteredNodes(drawer *dotDrawer, g *Graph, styler DotStyler) {
 	cluster := makeCluster(g, styler)
-	drawCluster(buf, cluster, styler)
+	drawCluster(drawer, cluster, styler)
 }
 
 func GraphToDot(g *Graph, styler DotStyler) string {
@@ -83,12 +170,13 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 		idoms = FindDominators(g, order, index)
 	}
 
-	buf := &bytes.Buffer{}
-	buf.WriteString("digraph G {\n")
-	buf.WriteString("  nslimit = 3;\n") // Make big graphs render faster.
+	drawer := &dotDrawer{buf: &bytes.Buffer{}, edgePorts: make([]edgePort, g.NumNodes()), fuseLinear: true}
 
-	//drawUnclusteredNodes(buf, order, styler)
-	drawClusteredNodes(buf, g, styler)
+	drawer.WriteString("digraph G {\n")
+	drawer.WriteString("  nslimit = 3;\n") // Make big graphs render faster.
+
+	//drawUnclusteredNodes(drawer, order, styler)
+	drawClusteredNodes(drawer, g, styler)
 
 	// Draw edges.
 	nit := OrderedIterator(order)
@@ -97,16 +185,11 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 		eit := g.ExitIterator(node)
 		for eit.HasNext() {
 			edge, dst := eit.GetNext()
-			buf.WriteString("  ")
-			buf.WriteString(nodeDotID(node))
-			buf.WriteString(" -> ")
-			buf.WriteString(nodeDotID(dst))
-			buf.WriteString("[")
-			buf.WriteString(styler.EdgeStyle(node, edge, dst))
+			style := styler.EdgeStyle(node, edge, dst)
 			if index[node] >= index[dst] {
-				buf.WriteString(",weight=0")
+				style += ",weight=0"
 			}
-			buf.WriteString("];\n")
+			drawer.WriteEdge(node, dst, style)
 		}
 	}
 	if visualize_idoms {
@@ -115,16 +198,10 @@ func GraphToDot(g *Graph, styler DotStyler) string {
 			src := nit.GetNext()
 			dst := idoms[src]
 			if src != dst {
-				buf.WriteString("  ")
-				buf.WriteString(nodeDotID(src))
-				buf.WriteString(" -> ")
-				buf.WriteString(nodeDotID(dst))
-				buf.WriteString("[")
-				buf.WriteString("style=dotted")
-				buf.WriteString("];\n")
+				drawer.WriteEdge(src, dst, "style=dotted")
 			}
 		}
 	}
-	buf.WriteString("}\n")
-	return buf.String()
+	drawer.WriteString("}\n")
+	return drawer.buf.String()
 }

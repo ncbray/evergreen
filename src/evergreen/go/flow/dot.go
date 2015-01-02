@@ -43,9 +43,9 @@ func namedArgList(args []*NamedArg) string {
 	}
 	names := make([]string, len(args))
 	for i, arg := range args {
-		names[i] = fmt.Sprintf("        %s: %s,\\l", arg.Name, RegisterName(arg.Arg))
+		names[i] = fmt.Sprintf("        %s: %s,\n", arg.Name, RegisterName(arg.Arg))
 	}
-	return "\\l" + strings.Join(names, "")
+	return "\n" + strings.Join(names, "")
 }
 
 func typeName(t core.GoType) string {
@@ -65,7 +65,7 @@ func typeName(t core.GoType) string {
 	}
 }
 
-func OpToString(coreProg *core.CoreProgram, op GoOp) string {
+func opToString(coreProg *core.CoreProgram, op GoOp) string {
 	switch op := op.(type) {
 	case *Entry:
 		return "entry"
@@ -101,7 +101,7 @@ func OpToString(coreProg *core.CoreProgram, op GoOp) string {
 		if op.AddrTaken {
 			prefix = "&"
 		}
-		return addDst(fmt.Sprintf("%s%s{%s}\\l", prefix, typeName(op.Type), namedArgList(op.Args)), op.Dst)
+		return addDst(fmt.Sprintf("%s%s{%s}\n", prefix, typeName(op.Type), namedArgList(op.Args)), op.Dst)
 	case *ConstructSlice:
 		return addDst(fmt.Sprintf("%s{%s}", typeName(op.Type), registerList(op.Args)), op.Dst)
 	case *Coerce:
@@ -125,7 +125,7 @@ func nodeLabel(node graph.NodeID, label string) string {
 }
 
 func dotString(message string) string {
-	return fmt.Sprintf("\"%s\"", strings.Replace(message, "\"", "\\\"", -1))
+	return fmt.Sprintf("\"%s\"", graph.EscapeDotString(message))
 }
 
 func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
@@ -138,7 +138,7 @@ func (styler *DotStyler) NodeStyle(node graph.NodeID) string {
 	case *Switch:
 		return fmt.Sprintf("shape=diamond,label=%s", dotString(nodeLabel(node, "?"+RegisterName(op.Cond))))
 	case GoOp:
-		return fmt.Sprintf("shape=box,label=%s", dotString(nodeLabel(node, OpToString(styler.Core, op))))
+		return fmt.Sprintf("shape=box,label=%s", dotString(nodeLabel(node, opToString(styler.Core, op))))
 	default:
 		panic(op)
 	}
@@ -158,6 +158,18 @@ func (styler *DotStyler) EdgeStyle(src graph.NodeID, e graph.EdgeID, dst graph.N
 		color = "navy"
 	}
 	return fmt.Sprintf("color=%s", color)
+}
+
+func (styler *DotStyler) BlockLabel(node graph.NodeID) (string, bool) {
+	op := styler.Func.Ops[node]
+	switch op := op.(type) {
+	case *Entry, *Exit, *Switch:
+		return "", false
+	case GoOp:
+		return nodeLabel(node, opToString(styler.Core, op)), true
+	default:
+		panic(op)
+	}
 }
 
 func (styler *DotStyler) IsLocalFlow(e graph.EdgeID) bool {
