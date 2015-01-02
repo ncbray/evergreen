@@ -5,7 +5,8 @@ import (
 	"testing"
 )
 
-func checkEdgeConsistency(e *edge, t *testing.T) {
+func checkEdgeConsistency(g *Graph, eid EdgeID, t *testing.T) {
+	e := g.edges[eid]
 	if e.prevEntry != nil && (e.prevEntry.nextEntry != e || e.prevEntry.dst != e.dst) {
 		t.Errorf("Bad prevEntry for %#v / %#v", e, e.prevEntry)
 	}
@@ -20,17 +21,17 @@ func checkEdgeConsistency(e *edge, t *testing.T) {
 	}
 }
 
-func checkEntryEdges(actual entryEdges, expected []*edge, t *testing.T) {
+func checkEntryEdges(g *Graph, actual entryEdges, expected []EdgeID, t *testing.T) {
 	current := actual.head
 	count := 0
 	for current != nil {
 		if count < len(expected) {
 			other := expected[count]
-			if current != other {
+			if current.id != other {
 				t.Errorf("Expected %#v at position %d, got %#v", other, count, current)
 			}
 		}
-		checkEdgeConsistency(current, t)
+		checkEdgeConsistency(g, current.id, t)
 		current = current.nextEntry
 		count += 1
 	}
@@ -39,149 +40,161 @@ func checkEntryEdges(actual entryEdges, expected []*edge, t *testing.T) {
 	}
 }
 
-func simpleEntry(count int) (entryEdges, []*edge) {
+func simpleEntry(g *Graph, count int) (entryEdges, []EdgeID) {
 	l := emptyEntry()
-	edges := make([]*edge, count)
+	edges := make([]EdgeID, count)
 	for i := 0; i < count; i++ {
-		e := &edge{id: EdgeID(i)}
-		l.Append(e)
+		e := g.CreateEdge()
+		l.Append(g, e)
 		edges[i] = e
 	}
 	return l, edges
 }
 
 func TestEntryEdgeEmpty(t *testing.T) {
+	g := CreateGraph()
 	l := emptyEntry()
 	if l.HasMultipleEdges() {
 		t.Errorf("Should not have multiple edges.")
 	}
-	checkEntryEdges(l, []*edge{}, t)
+	checkEntryEdges(g, l, []EdgeID{}, t)
 }
 
 func TestEntryEdgeSimple1Sanity(t *testing.T) {
-	l, e := simpleEntry(1)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 1)
 	if l.HasMultipleEdges() {
 		t.Errorf("Should not have multiple edges.")
 	}
-	checkEntryEdges(l, []*edge{e[0]}, t)
+	checkEntryEdges(g, l, []EdgeID{e[0]}, t)
 }
 
 func TestEntryEdgeSimple2Sanity(t *testing.T) {
-	l, e := simpleEntry(2)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 2)
 	if !l.HasMultipleEdges() {
 		t.Errorf("Should have multiple edges.")
 	}
-	checkEntryEdges(l, []*edge{e[0], e[1]}, t)
+	checkEntryEdges(g, l, []EdgeID{e[0], e[1]}, t)
 }
 
 func TestEntryEdgeSimple3Sanity(t *testing.T) {
-	l, e := simpleEntry(3)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
 	if !l.HasMultipleEdges() {
 		t.Errorf("Should have multiple edges.")
 	}
-	checkEntryEdges(l, []*edge{e[0], e[1], e[2]}, t)
+	checkEntryEdges(g, l, []EdgeID{e[0], e[1], e[2]}, t)
 }
 
 func TestEntryEdgeSimple3x1Beginning(t *testing.T) {
-	l, e := simpleEntry(3)
-	r := &edge{id: 3}
-	l.ReplaceEdge(e[0], r)
-	checkEntryEdges(l, []*edge{r, e[1], e[2]}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
+	r := g.CreateEdge()
+	l.ReplaceEdge(g, e[0], r)
+	checkEntryEdges(g, l, []EdgeID{r, e[1], e[2]}, t)
 }
 
 func TestEntryEdgeSimple3x1Middle(t *testing.T) {
-	l, e := simpleEntry(3)
-	r := &edge{id: 3}
-	l.ReplaceEdge(e[1], r)
-	checkEntryEdges(l, []*edge{e[0], r, e[2]}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
+	r := g.CreateEdge()
+	l.ReplaceEdge(g, e[1], r)
+	checkEntryEdges(g, l, []EdgeID{e[0], r, e[2]}, t)
 }
 
 func TestEntryEdgeSimple3x1End(t *testing.T) {
-	l, e := simpleEntry(3)
-	r := &edge{id: 3}
-	l.ReplaceEdge(e[2], r)
-	checkEntryEdges(l, []*edge{e[0], e[1], r}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
+	r := g.CreateEdge()
+	l.ReplaceEdge(g, e[2], r)
+	checkEntryEdges(g, l, []EdgeID{e[0], e[1], r}, t)
 }
 
 func TestEntryEdgeSimple3x0Beginning(t *testing.T) {
-	l, e := simpleEntry(3)
-	other, _ := simpleEntry(0)
-	l.ReplaceEdgeWithMultiple(e[0], other)
-	checkEntryEdges(l, []*edge{e[1], e[2]}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
+	other, _ := simpleEntry(g, 0)
+	l.ReplaceEdgeWithMultiple(g, e[0], other)
+	checkEntryEdges(g, l, []EdgeID{e[1], e[2]}, t)
 }
 
 func TestEntryEdgeSimple3x0Middle(t *testing.T) {
-	l, e := simpleEntry(3)
-	other, _ := simpleEntry(0)
-	l.ReplaceEdgeWithMultiple(e[1], other)
-	checkEntryEdges(l, []*edge{e[0], e[2]}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
+	other, _ := simpleEntry(g, 0)
+	l.ReplaceEdgeWithMultiple(g, e[1], other)
+	checkEntryEdges(g, l, []EdgeID{e[0], e[2]}, t)
 }
 
 func TestEntryEdgeSimple3x0End(t *testing.T) {
-	l, e := simpleEntry(3)
-	other, _ := simpleEntry(0)
-	l.ReplaceEdgeWithMultiple(e[2], other)
-	checkEntryEdges(l, []*edge{e[0], e[1]}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
+	other, _ := simpleEntry(g, 0)
+	l.ReplaceEdgeWithMultiple(g, e[2], other)
+	checkEntryEdges(g, l, []EdgeID{e[0], e[1]}, t)
 }
 
 func TestEntryEdgeSimple3x3Beginning(t *testing.T) {
-	l, e := simpleEntry(3)
-	other, f := simpleEntry(3)
-	l.ReplaceEdgeWithMultiple(e[0], other)
-	checkEntryEdges(l, []*edge{f[0], f[1], f[2], e[1], e[2]}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
+	other, f := simpleEntry(g, 3)
+	l.ReplaceEdgeWithMultiple(g, e[0], other)
+	checkEntryEdges(g, l, []EdgeID{f[0], f[1], f[2], e[1], e[2]}, t)
 }
 
 func TestEntryEdgeSimple3x3Middle(t *testing.T) {
-	l, e := simpleEntry(3)
-	other, f := simpleEntry(3)
-	l.ReplaceEdgeWithMultiple(e[1], other)
-	checkEntryEdges(l, []*edge{e[0], f[0], f[1], f[2], e[2]}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
+	other, f := simpleEntry(g, 3)
+	l.ReplaceEdgeWithMultiple(g, e[1], other)
+	checkEntryEdges(g, l, []EdgeID{e[0], f[0], f[1], f[2], e[2]}, t)
 }
 
 func TestEntryEdgeSimple3x3End(t *testing.T) {
-	l, e := simpleEntry(3)
-	other, f := simpleEntry(3)
-	l.ReplaceEdgeWithMultiple(e[2], other)
-	checkEntryEdges(l, []*edge{e[0], e[1], f[0], f[1], f[2]}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 3)
+	other, f := simpleEntry(g, 3)
+	l.ReplaceEdgeWithMultiple(g, e[2], other)
+	checkEntryEdges(g, l, []EdgeID{e[0], e[1], f[0], f[1], f[2]}, t)
 }
 
 func TestEntryEdgeSimple1x3(t *testing.T) {
-	l, e := simpleEntry(1)
-	other, f := simpleEntry(3)
-	l.ReplaceEdgeWithMultiple(e[0], other)
-	checkEntryEdges(l, []*edge{f[0], f[1], f[2]}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 1)
+	other, f := simpleEntry(g, 3)
+	l.ReplaceEdgeWithMultiple(g, e[0], other)
+	checkEntryEdges(g, l, []EdgeID{f[0], f[1], f[2]}, t)
 }
 
 func TestEntryEdgeSimple1x0(t *testing.T) {
-	l, e := simpleEntry(1)
-	other, _ := simpleEntry(0)
-	l.ReplaceEdgeWithMultiple(e[0], other)
-	checkEntryEdges(l, []*edge{}, t)
+	g := CreateGraph()
+	l, e := simpleEntry(g, 1)
+	other, _ := simpleEntry(g, 0)
+	l.ReplaceEdgeWithMultiple(g, e[0], other)
+	checkEntryEdges(g, l, []EdgeID{}, t)
 }
 
-func checkEdge(e *edge, src *node, dst *node, t *testing.T) {
-	if e.src != src {
-		t.Errorf("Got src of %#v, expected %#v", e.src, src)
+func checkEdge(g *Graph, e EdgeID, src NodeID, dst NodeID, t *testing.T) {
+	actual := g.EdgeEntry(e)
+	if actual != src {
+		t.Errorf("Got src of %#v, expected %#v", actual, src)
 	}
-	if e.dst != dst {
-		t.Errorf("Got dst of %#v, expected %#v", e.dst, dst)
+	actual = g.EdgeExit(e)
+	if actual != dst {
+		t.Errorf("Got dst of %#v, expected %#v", actual, dst)
 	}
-	checkEdgeConsistency(e, t)
+	checkEdgeConsistency(g, e, t)
 }
 
-func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *testing.T) {
-	node := g.nodes[id]
-	if node == nil {
-		t.Error("Node should not be nil")
-		return
-	}
+func checkTopology(g *Graph, nid NodeID, entries []NodeID, exits []NodeID, t *testing.T) {
 	{
-		it := g.EntryIterator(id)
+		it := g.EntryIterator(nid)
 		count := 0
 		for it.HasNext() {
 			_, e := it.GetNext()
 			if count < len(entries) {
-				checkEdge(g.edges[e], g.nodes[entries[count]], node, t)
+				checkEdge(g, e, entries[count], nid, t)
 			}
 			count += 1
 		}
@@ -190,12 +203,12 @@ func checkTopology(g *Graph, id NodeID, entries []NodeID, exits []NodeID, t *tes
 		}
 	}
 	{
-		it := g.ExitIterator(id)
+		it := g.ExitIterator(nid)
 		count := 0
 		for it.HasNext() {
 			e, _ := it.GetNext()
 			if count < len(exits) {
-				checkEdge(g.edges[e], node, g.nodes[exits[count]], t)
+				checkEdge(g, e, nid, exits[count], t)
 			}
 			count += 1
 		}

@@ -13,31 +13,6 @@ type edge struct {
 	id EdgeID
 }
 
-func (e *edge) setExit(other *node) {
-	if e.dst != nil {
-		panic(e)
-	}
-	e.dst = other
-	other.entries.Append(e)
-}
-
-func (e *edge) setEntry(other *node) {
-	if e.src != nil {
-		panic(e)
-	}
-	e.src = other
-	other.exits.Append(e)
-}
-
-func (e *edge) detach() {
-	if e.src != nil {
-		e.src.exits.Remove(e)
-	}
-	if e.dst != nil {
-		e.dst.entries.Remove(e)
-	}
-}
-
 type entryEdges struct {
 	head *edge
 	tail *edge
@@ -47,33 +22,35 @@ func emptyEntry() entryEdges {
 	return entryEdges{}
 }
 
-func singleEntry(e *edge) entryEdges {
+func singleEntry(g *Graph, eid EdgeID) entryEdges {
 	entry := emptyEntry()
-	entry.Append(e)
+	entry.Append(g, eid)
 	return entry
 }
 
 // An incomplete sanity check, this edge could still be in a list that
 // is one element long.
-func orphanedEntry(e *edge) bool {
+func orphanedEntry(g *Graph, eid EdgeID) bool {
+	e := g.edges[eid]
 	return e.nextEntry == nil && e.prevEntry == nil
 }
 
-func (l *entryEdges) Append(other *edge) {
-	if !orphanedEntry(other) {
+func (l *entryEdges) Append(g *Graph, other EdgeID) {
+	if !orphanedEntry(g, other) {
 		panic(other)
 	}
+	e := g.edges[other]
 	if l.tail != nil {
-		other.prevEntry = l.tail
-		l.tail.nextEntry = other
-		l.tail = other
+		e.prevEntry = l.tail
+		l.tail.nextEntry = e
+		l.tail = e
 	} else {
-		l.head = other
-		l.tail = other
+		l.head = e
+		l.tail = e
 	}
 }
 
-func (l *entryEdges) Extend(other entryEdges) {
+func (l *entryEdges) Extend(g *Graph, other entryEdges) {
 	if other.HasEdges() {
 		if l.HasEdges() {
 			other.head.prevEntry = l.tail
@@ -86,7 +63,11 @@ func (l *entryEdges) Extend(other entryEdges) {
 	}
 }
 
-func (l *entryEdges) SetDst(n *node) {
+func (l *entryEdges) SetDst(g *Graph, nid NodeID) {
+	var n *node
+	if nid != NoNode {
+		n = g.nodes[nid]
+	}
 	current := l.head
 	if current != nil && current.dst != n {
 		for current != nil {
@@ -102,14 +83,16 @@ func (l *entryEdges) Transfer() entryEdges {
 	return temp
 }
 
-func (l *entryEdges) Remove(target *edge) {
-	oldNext := target.nextEntry
-	oldPrev := target.prevEntry
+func (l *entryEdges) Remove(g *Graph, target EdgeID) {
+	e := g.edges[target]
+
+	oldNext := e.nextEntry
+	oldPrev := e.prevEntry
 
 	// Disconnect the entry.
-	target.prevEntry = nil
-	target.nextEntry = nil
-	target.dst = nil
+	e.prevEntry = nil
+	e.nextEntry = nil
+	e.dst = nil
 
 	if oldPrev == nil {
 		l.head = oldNext
@@ -123,22 +106,24 @@ func (l *entryEdges) Remove(target *edge) {
 	}
 }
 
-func (l *entryEdges) ReplaceEdge(target *edge, replacement *edge) {
-	if !orphanedEntry(replacement) {
+func (l *entryEdges) ReplaceEdge(g *Graph, target EdgeID, replacement EdgeID) {
+	if !orphanedEntry(g, replacement) {
 		panic(replacement)
 	}
-	l.ReplaceEdgeWithMultiple(target, singleEntry(replacement))
+	l.ReplaceEdgeWithMultiple(g, target, singleEntry(g, replacement))
 }
 
-func (l *entryEdges) ReplaceEdgeWithMultiple(target *edge, replacements entryEdges) {
-	oldNext := target.nextEntry
-	oldPrev := target.prevEntry
-	dst := target.dst
+func (l *entryEdges) ReplaceEdgeWithMultiple(g *Graph, target EdgeID, replacements entryEdges) {
+	e := g.edges[target]
+
+	oldNext := e.nextEntry
+	oldPrev := e.prevEntry
+	dst := e.dst
 
 	// Disconnect the entry.
-	target.prevEntry = nil
-	target.nextEntry = nil
-	target.dst = nil
+	e.prevEntry = nil
+	e.nextEntry = nil
+	e.dst = nil
 
 	var newNext *edge
 	var newPrev *edge
@@ -154,7 +139,7 @@ func (l *entryEdges) ReplaceEdgeWithMultiple(target *edge, replacements entryEdg
 		replacements.tail.nextEntry = oldNext
 
 		// Point the replacements to the new destination.
-		replacements.SetDst(dst)
+		replacements.SetDst(g, nodeToID(dst))
 	}
 	if oldPrev == nil {
 		l.head = newNext
@@ -188,11 +173,7 @@ func (it *entryIterator) HasNext() bool {
 func (it *entryIterator) GetNext() (NodeID, EdgeID) {
 	edge := it.current
 	it.current = it.current.nextEntry
-	n := NoNode
-	if edge.src != nil {
-		n = edge.src.id
-	}
-	return n, edge.id
+	return nodeToID(edge.src), edge.id
 }
 
 type exitEdges struct {
@@ -206,25 +187,27 @@ func emptyExit() exitEdges {
 
 // An incomplete sanity check, this edge could still be in a list that
 // is one element long.
-func orphanedExit(e *edge) bool {
+func orphanedExit(g *Graph, eid EdgeID) bool {
+	e := g.edges[eid]
 	return e.nextExit == nil && e.prevExit == nil
 }
 
-func (l *exitEdges) Append(other *edge) {
-	if !orphanedEntry(other) {
+func (l *exitEdges) Append(g *Graph, other EdgeID) {
+	if !orphanedEntry(g, other) {
 		panic(other)
 	}
+	e := g.edges[other]
 	if l.tail != nil {
-		other.prevExit = l.tail
-		l.tail.nextExit = other
-		l.tail = other
+		e.prevExit = l.tail
+		l.tail.nextExit = e
+		l.tail = e
 	} else {
-		l.head = other
-		l.tail = other
+		l.head = e
+		l.tail = e
 	}
 }
 
-func (l *exitEdges) Extend(other exitEdges) {
+func (l *exitEdges) Extend(g *Graph, other exitEdges) {
 	if other.HasEdges() {
 		if l.HasEdges() {
 			other.head.prevExit = l.tail
@@ -237,14 +220,16 @@ func (l *exitEdges) Extend(other exitEdges) {
 	}
 }
 
-func (l *exitEdges) Remove(target *edge) {
-	oldNext := target.nextExit
-	oldPrev := target.prevExit
+func (l *exitEdges) Remove(g *Graph, target EdgeID) {
+	e := g.edges[target]
+
+	oldNext := e.nextExit
+	oldPrev := e.prevExit
 
 	// Disconnect the exit.
-	target.prevExit = nil
-	target.nextExit = nil
-	target.src = nil
+	e.prevExit = nil
+	e.nextExit = nil
+	e.src = nil
 
 	if oldPrev == nil {
 		l.head = oldNext
@@ -278,11 +263,7 @@ func (it *exitIterator) HasNext() bool {
 func (it *exitIterator) GetNext() (EdgeID, NodeID) {
 	edge := it.current
 	it.current = edge.nextExit
-	n := NoNode
-	if edge.dst != nil {
-		n = edge.dst.id
-	}
-	return edge.id, n
+	return edge.id, nodeToID(edge.dst)
 }
 
 type reverseExitIterator struct {
@@ -297,11 +278,7 @@ func (it *reverseExitIterator) HasNext() bool {
 func (it *reverseExitIterator) GetNext() (EdgeID, NodeID) {
 	edge := it.current
 	it.current = edge.prevExit
-	n := NoNode
-	if edge.dst != nil {
-		n = edge.dst.id
-	}
-	return edge.id, n
+	return edge.id, nodeToID(edge.dst)
 }
 
 type node struct {
@@ -310,12 +287,20 @@ type node struct {
 	id      NodeID
 }
 
-func (n *node) replaceSingleEntry(target *edge, replacement *edge) {
-	n.entries.ReplaceEdge(target, replacement)
+func nodeToID(n *node) NodeID {
+	if n != nil {
+		return n.id
+	} else {
+		return NoNode
+	}
 }
 
-func (n *node) replaceEntry(target *edge, replacements entryEdges) {
-	n.entries.ReplaceEdgeWithMultiple(target, replacements)
+func edgeToID(e *edge) EdgeID {
+	if e != nil {
+		return e.id
+	} else {
+		return NoEdge
+	}
 }
 
 type NodeID int
@@ -367,40 +352,73 @@ func (g *Graph) NumEdges() int {
 	return len(g.edges)
 }
 
+func (g *Graph) EdgeEntry(e EdgeID) NodeID {
+	return nodeToID(g.edges[e].src)
+}
+
+func (g *Graph) EdgeExit(e EdgeID) NodeID {
+	return nodeToID(g.edges[e].dst)
+}
+
+func (g *Graph) setEdgeExit(eid EdgeID, nid NodeID) {
+	e := g.edges[eid]
+	if e.dst != nil {
+		panic(e)
+	}
+	dst := g.nodes[nid]
+	e.dst = dst
+	dst.entries.Append(g, eid)
+}
+
+func (g *Graph) setEdgeEntry(nid NodeID, eid EdgeID) {
+	e := g.edges[eid]
+	if e.src != nil {
+		panic(e)
+	}
+	src := g.nodes[nid]
+	e.src = src
+	src.exits.Append(g, eid)
+}
+
 func (g *Graph) ConnectEdge(src NodeID, e EdgeID, dst NodeID) {
-	tgt := g.edges[e]
-	tgt.setEntry(g.nodes[src])
-	tgt.setExit(g.nodes[dst])
+	g.setEdgeEntry(src, e)
+	g.setEdgeExit(e, dst)
 }
 
 func (g *Graph) ConnectEdgeEntry(src NodeID, e EdgeID) {
-	g.edges[e].setEntry(g.nodes[src])
+	g.setEdgeEntry(src, e)
 }
 
 func (g *Graph) ConnectEdgeExit(e EdgeID, dst NodeID) {
-	g.edges[e].setExit(g.nodes[dst])
+	g.setEdgeExit(e, dst)
 }
 
 func (g *Graph) KillEdge(eid EdgeID) {
-	g.edges[eid].detach()
+	e := g.edges[eid]
+	if e.src != nil {
+		e.src.exits.Remove(g, eid)
+	}
+	if e.dst != nil {
+		e.dst.entries.Remove(g, eid)
+	}
 }
 
-func getUniqueExit(exits exitEdges) *edge {
+func getUniqueExit(exits exitEdges) EdgeID {
 	if exits.head == exits.tail {
-		// Note: could be nil
-		return exits.head
+		return edgeToID(exits.head)
 	}
-	return nil
+	return NoEdge
 }
 
 func (g *Graph) KillNode(nid NodeID) {
 	n := g.nodes[nid]
 	singleEdge := getUniqueExit(n.exits)
-	if singleEdge == nil {
+	if singleEdge == NoEdge {
 		panic(n.id)
 	}
-	singleEdge.dst.replaceEntry(singleEdge, n.entries.Transfer())
-	n.exits.Remove(singleEdge)
+	dst := g.edges[singleEdge].dst
+	dst.entries.ReplaceEdgeWithMultiple(g, singleEdge, n.entries.Transfer())
+	n.exits.Remove(g, singleEdge)
 }
 
 // Insert a dangling node (with a single out edge) in the middle of an existing edge.
@@ -411,11 +429,11 @@ func (g *Graph) InsertInEdge(replacementID EdgeID, existingID EdgeID) {
 	dstNode := existing.dst
 	if dstNode != nil {
 		// Replace the exising edge with the new edge.
-		dstNode.replaceSingleEntry(existing, replacement)
+		dstNode.entries.ReplaceEdge(g, existingID, replacementID)
 	}
 	// Attach the existing edge to the dangling node.
 	existing.dst = insertedNode
-	insertedNode.entries.Append(existing)
+	insertedNode.entries.Append(g, existingID)
 }
 
 func (g *Graph) HasMultipleEntries(dst NodeID) bool {
@@ -424,10 +442,17 @@ func (g *Graph) HasMultipleEntries(dst NodeID) bool {
 
 func (g *Graph) GetUniqueExit(src NodeID) (EdgeID, NodeID) {
 	e := getUniqueExit(g.nodes[src].exits)
-	if e != nil && e.dst != nil {
-		return e.id, e.dst.id
+	if e != NoEdge {
+		dst := g.EdgeExit(e)
+		if dst != NoNode {
+			return e, dst
+		}
 	}
 	return NoEdge, NoNode
+}
+
+func (g *Graph) extendEntries(n NodeID, entries entryEdges) {
+	g.nodes[n].entries.Extend(g, entries)
 }
 
 func CreateGraph() *Graph {
@@ -445,7 +470,7 @@ type FlowBuilder struct {
 }
 
 func CreateFlowBuilder(g *Graph, e EdgeID, numExits int) *FlowBuilder {
-	return createFlowBuilder(g, numExits, singleEntry(g.edges[e]))
+	return createFlowBuilder(g, numExits, singleEntry(g, e))
 }
 
 func createFlowBuilder(g *Graph, numExits int, edges entryEdges) *FlowBuilder {
@@ -462,23 +487,24 @@ func (fb *FlowBuilder) HasFlow(flow int) bool {
 }
 
 func (fb *FlowBuilder) AttachFlow(flow int, dst NodeID) {
-	dstNode := fb.graph.nodes[dst]
 	if !fb.HasFlow(flow) {
 		panic("Tried to attach non-existant flow")
 	}
-	fb.flows[flow].SetDst(dstNode)
-	dstNode.entries.Extend(fb.flows[flow].Transfer())
+	g := fb.graph
+	fb.flows[flow].SetDst(g, dst)
+	g.extendEntries(dst, fb.flows[flow].Transfer())
 }
 
 func (fb *FlowBuilder) RegisterExit(eid EdgeID, flow int) {
-	e := fb.graph.edges[eid]
+	g := fb.graph
+	e := g.edges[eid]
 	if e.src == nil {
 		panic(e)
 	}
 	if e.dst != nil {
 		panic(e)
 	}
-	fb.flows[flow].Append(e)
+	fb.flows[flow].Append(g, eid)
 }
 
 func (fb *FlowBuilder) SplitOffFlow(flow int) *FlowBuilder {
@@ -486,12 +512,12 @@ func (fb *FlowBuilder) SplitOffFlow(flow int) *FlowBuilder {
 }
 
 func (fb *FlowBuilder) SplitOffEdge(eid EdgeID) *FlowBuilder {
-	return createFlowBuilder(fb.graph, len(fb.flows), singleEntry(fb.graph.edges[eid]))
+	return createFlowBuilder(fb.graph, len(fb.flows), singleEntry(fb.graph, eid))
 }
 
 func (fb *FlowBuilder) AbsorbExits(other *FlowBuilder) {
 	for i := 0; i < len(fb.flows); i++ {
-		fb.flows[i].Extend(other.flows[i].Transfer())
+		fb.flows[i].Extend(fb.graph, other.flows[i].Transfer())
 	}
 }
 
