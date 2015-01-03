@@ -132,16 +132,12 @@ type clusterBuilder struct {
 	ready   []Candidate
 	pending []Candidate
 
-	hasLoopEdge  bool
-	hasCrossEdge bool
+	isLoop                bool
+	numBackedgesRemaining int
 }
 
 func (cb *clusterBuilder) considerNext(src NodeID, dst NodeID) {
-	if src == dst {
-		cb.hasLoopEdge = true
-	} else if src != cb.idoms[dst] {
-		cb.hasCrossEdge = true
-	} else if cb.cluster[dst] != nil {
+	if src == cb.idoms[dst] && cb.cluster[dst] != nil {
 		candidate := Candidate{
 			Node:    dst,
 			Cluster: cb.cluster[dst],
@@ -160,8 +156,13 @@ func (cb *clusterBuilder) popReady() []Candidate {
 func (cb *clusterBuilder) contract(dst NodeID) {
 	xit := cb.graph.ExitIterator(dst)
 	for xit.HasNext() {
-		e, _ := xit.GetNext()
-		cb.graph.MoveEdgeEntry(cb.currentHead, e)
+		e, dst := xit.GetNext()
+		if dst == cb.currentHead {
+			cb.graph.KillEdge(e)
+			cb.numBackedgesRemaining -= 1
+		} else {
+			cb.graph.MoveEdgeEntry(cb.currentHead, e)
+		}
 	}
 	eit := cb.graph.EntryIterator(dst)
 	for eit.HasNext() {
@@ -205,8 +206,22 @@ func (cb *clusterBuilder) BeginNode(head NodeID) {
 	cb.currentCluster = &ClusterLeaf{Head: head, Nodes: []NodeID{head}}
 	cb.ready = []Candidate{}
 	cb.pending = []Candidate{}
-	cb.hasLoopEdge = false
-	cb.hasCrossEdge = false
+
+	cb.isLoop = false
+	cb.numBackedgesRemaining = 0
+
+	// Look for backedges
+	it := cb.graph.EntryIterator(head)
+	for it.HasNext() {
+		src, e := it.GetNext()
+		if src == head {
+			cb.graph.KillEdge(e)
+			cb.isLoop = true
+		} else if cb.idoms[src] == head {
+			cb.numBackedgesRemaining += 1
+			cb.isLoop = true
+		}
+	}
 	cb.ScanExits(head)
 }
 
@@ -228,7 +243,7 @@ func mergeLoop(cb *clusterBuilder) {
 			cb.graph.KillEdge(e)
 		}
 	}
-	cb.hasLoopEdge = false
+	cb.isLoop = false
 	cb.currentCluster = &ClusterLoop{Head: src, Body: cb.currentCluster}
 }
 
@@ -311,14 +326,18 @@ func mergeSwitch(cb *clusterBuilder) {
 }
 
 func merge(cb *clusterBuilder) bool {
+	if cb.isLoop && cb.numBackedgesRemaining == 0 {
+		mergeLoop(cb)
+	}
 	if len(cb.ready) == 0 {
 		if len(cb.pending) != 0 {
 			mergeIrreducible(cb)
-		} else if cb.hasLoopEdge {
-			// TODO merge loop ASAP
-			mergeLoop(cb)
 		} else {
 			// No more children to merge.
+			// If we didn't collapse the loop, something is wrong.
+			if cb.numBackedgesRemaining != 0 {
+				panic(cb.currentHead)
+			}
 			return false
 		}
 	} else if len(cb.ready) == 1 {
