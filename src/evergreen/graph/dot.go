@@ -142,7 +142,6 @@ func drawCluster(drawer *dotDrawer, cluster Cluster, styler DotStyler) {
 		drawer.WriteString("  labeljust=l;\n")
 		drawer.WriteString(fmt.Sprintf("  label=\"switch %d\";\n", len(cluster.Children)))
 		drawer.WriteString("  color=lightgrey;\n")
-		drawCluster(drawer, cluster.Cond, styler)
 		for _, c := range cluster.Children {
 			drawCluster(drawer, c, styler)
 		}

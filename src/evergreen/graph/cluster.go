@@ -43,7 +43,6 @@ func (cluster *ClusterLinear) Dump(margin string) {
 
 type ClusterSwitch struct {
 	Head     NodeID
-	Cond     Cluster
 	Children []Cluster
 }
 
@@ -53,7 +52,6 @@ func (cluster *ClusterSwitch) isCluster() {
 func (cluster *ClusterSwitch) Dump(margin string) {
 	fmt.Printf("%sswitch %d\n", margin, cluster.Head)
 	childMargin := margin + ".   "
-	cluster.Cond.Dump(childMargin)
 	for _, c := range cluster.Children {
 		c.Dump(childMargin)
 	}
@@ -258,19 +256,11 @@ func makeLinear(head NodeID, src Cluster, dst Cluster) Cluster {
 			dst.Head = head
 			dst.Clusters[0] = makeLinear(head, src, dst.Clusters[0])
 			return dst
-		case *ClusterSwitch:
-			dst.Head = head
-			dst.Cond = makeLinear(head, src, dst.Cond)
-			return dst
 		}
 	case *ClusterLinear:
 		switch dst := dst.(type) {
 		case *ClusterLinear:
 			src.Clusters = append(src.Clusters, dst.Clusters...)
-		case *ClusterSwitch:
-			dst.Head = head
-			dst.Cond = makeLinear(head, src, dst.Cond)
-			return dst
 		default:
 			src.Clusters = append(src.Clusters, dst)
 		}
@@ -292,11 +282,10 @@ func mergeLinear(cb *clusterBuilder) {
 
 	if candidate.CrossEdgeIn {
 		// If there's a cross edge pointing to this node, merging it into a linear block would cause problems.
-		cb.currentCluster = &ClusterSwitch{
+		cb.currentCluster = makeLinear(cb.currentHead, cb.currentCluster, &ClusterSwitch{
 			Head:     cb.currentHead,
-			Cond:     cb.currentCluster,
 			Children: []Cluster{candidate.Cluster},
-		}
+		})
 	} else {
 		cb.currentCluster = makeLinear(cb.currentHead, cb.currentCluster, candidate.Cluster)
 	}
@@ -314,11 +303,10 @@ func mergeSwitch(cb *clusterBuilder) {
 		children[i] = ready[i].Cluster
 	}
 
-	cb.currentCluster = &ClusterSwitch{
+	cb.currentCluster = makeLinear(cb.currentHead, cb.currentCluster, &ClusterSwitch{
 		Head:     cb.currentHead,
-		Cond:     cb.currentCluster,
 		Children: children,
-	}
+	})
 
 	//cb.currentCluster.Dump("")
 	cb.PromotePending()
