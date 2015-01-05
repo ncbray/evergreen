@@ -410,8 +410,12 @@ func (g *Graph) InsertInEdge(replacement EdgeID, existing EdgeID) {
 	g.nodes[insertedNode].entries.Append(g, existing)
 }
 
-func (g *Graph) HasMultipleEntries(dst NodeID) bool {
-	return g.nodes[dst].entries.HasMultipleEdges()
+func (g *Graph) HasMultipleEntries(node NodeID) bool {
+	return g.nodes[node].entries.HasMultipleEdges()
+}
+
+func (g *Graph) HasMultipleExits(node NodeID) bool {
+	return g.nodes[node].exits.HasMultipleEdges()
 }
 
 func (g *Graph) GetUniqueExit(src NodeID) (EdgeID, NodeID) {

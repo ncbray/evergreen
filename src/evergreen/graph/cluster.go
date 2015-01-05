@@ -2,11 +2,13 @@ package graph
 
 import (
 	"fmt"
+	"strings"
 )
 
 type Cluster interface {
 	isCluster()
 	Dump(margin string)
+	DumpShort() string
 }
 
 type ClusterLeaf struct {
@@ -25,6 +27,14 @@ func (cluster *ClusterLeaf) Dump(margin string) {
 	}
 }
 
+func (cluster *ClusterLeaf) DumpShort() string {
+	text := make([]string, len(cluster.Nodes))
+	for i, n := range cluster.Nodes {
+		text[i] = fmt.Sprintf("%d", n)
+	}
+	return fmt.Sprintf("(%s)", strings.Join(text, " "))
+}
+
 type ClusterLinear struct {
 	Head     NodeID
 	Clusters []Cluster
@@ -39,6 +49,14 @@ func (cluster *ClusterLinear) Dump(margin string) {
 	for _, c := range cluster.Clusters {
 		c.Dump(childMargin)
 	}
+}
+
+func (cluster *ClusterLinear) DumpShort() string {
+	text := make([]string, len(cluster.Clusters))
+	for i, c := range cluster.Clusters {
+		text[i] = c.DumpShort()
+	}
+	return fmt.Sprintf("[%s]", strings.Join(text, " "))
 }
 
 type ClusterSwitch struct {
@@ -57,6 +75,14 @@ func (cluster *ClusterSwitch) Dump(margin string) {
 	}
 }
 
+func (cluster *ClusterSwitch) DumpShort() string {
+	text := make([]string, len(cluster.Children))
+	for i, c := range cluster.Children {
+		text[i] = c.DumpShort()
+	}
+	return fmt.Sprintf("<%s>", strings.Join(text, " "))
+}
+
 type ClusterLoop struct {
 	Head NodeID
 	Body Cluster
@@ -71,31 +97,8 @@ func (cluster *ClusterLoop) Dump(margin string) {
 	cluster.Body.Dump(childMargin)
 }
 
-type ClusterComplex struct {
-	Head     NodeID
-	Clusters []Cluster
-}
-
-func (cluster *ClusterComplex) isCluster() {
-}
-
-func (cluster *ClusterComplex) Dump(margin string) {
-	fmt.Printf("%scomplex %d\n", margin, cluster.Head)
-	childMargin := margin + ".   "
-	for _, c := range cluster.Clusters {
-		c.Dump(childMargin)
-	}
-}
-
-func isLoopHead(g *Graph, n NodeID, index []int) bool {
-	it := g.EntryIterator(n)
-	for it.HasNext() {
-		src, _ := it.GetNext()
-		if index[src] >= index[n] {
-			return true
-		}
-	}
-	return false
+func (cluster *ClusterLoop) DumpShort() string {
+	return fmt.Sprintf("{%s}", cluster.Body.DumpShort())
 }
 
 type Candidate struct {
@@ -120,29 +123,31 @@ func isUniqueSource(g *Graph, src NodeID, dst NodeID, idoms []NodeID) bool {
 	return true
 }
 
+type nodeInfo struct {
+	cluster            Cluster
+	incomingCrossEdges int
+	crossEdgeSource    bool
+	mergePoint         bool
+	splitPoint         bool
+}
+
+type edgeInfo struct {
+	crossEdge bool
+	backEdge  bool
+}
+
 type clusterBuilder struct {
-	graph          *Graph
-	cluster        []Cluster
-	idoms          []NodeID
+	graph    *Graph
+	idoms    []NodeID
+	nodeInfo []nodeInfo
+	edgeInfo []edgeInfo
+
 	currentHead    NodeID
 	currentCluster Cluster
-
-	ready   []Candidate
-	pending []Candidate
+	ready          []Candidate
 
 	isLoop                bool
 	numBackedgesRemaining int
-}
-
-func (cb *clusterBuilder) considerNext(src NodeID, dst NodeID) {
-	if src == cb.idoms[dst] && cb.cluster[dst] != nil {
-		candidate := Candidate{
-			Node:    dst,
-			Cluster: cb.cluster[dst],
-		}
-		cb.cluster[dst] = nil
-		cb.enqueue(candidate)
-	}
 }
 
 func (cb *clusterBuilder) popReady() []Candidate {
@@ -151,18 +156,65 @@ func (cb *clusterBuilder) popReady() []Candidate {
 	return ready
 }
 
-func (cb *clusterBuilder) contract(dst NodeID) {
-	xit := cb.graph.ExitIterator(dst)
-	for xit.HasNext() {
-		e, dst := xit.GetNext()
-		if dst == cb.currentHead {
-			cb.graph.KillEdge(e)
-			cb.numBackedgesRemaining -= 1
-		} else {
-			cb.graph.MoveEdgeEntry(cb.currentHead, e)
+func (cb *clusterBuilder) consider(child NodeID, cross bool) bool {
+	// If this (potentially transitive) child has no cross edges, it can be
+	// infered that it is dominated by the current head.
+	if cb.nodeInfo[child].incomingCrossEdges == 0 {
+		unique := isUniqueSource(cb.graph, cb.currentHead, child, cb.idoms)
+		if !unique {
+			panic(child)
 		}
+		cluster := cb.nodeInfo[child].cluster
+		if cluster == nil {
+			panic(child)
+		}
+		cb.nodeInfo[child].cluster = nil
+		cb.ready = append(cb.ready, Candidate{
+			Node:        child,
+			Cluster:     cluster,
+			CrossEdgeIn: cross,
+		})
+		return true
 	}
-	eit := cb.graph.EntryIterator(dst)
+	return false
+}
+
+func (cb *clusterBuilder) contract(target NodeID) {
+	head := cb.currentHead
+	xit := cb.graph.ExitIterator(target)
+	for xit.HasNext() {
+		e, child := xit.GetNext()
+		if head == child {
+			cb.numBackedgesRemaining -= 1
+			// Will become a trivial backedge, kill rather than moving.
+			cb.graph.KillEdge(e)
+			continue
+		} else if head == cb.idoms[child] {
+			// This move will eliminate a cross edge.
+			cb.nodeInfo[child].incomingCrossEdges -= 1
+
+			// HACK
+			cb.graph.MoveEdgeEntry(head, e)
+
+			if cb.consider(child, true) {
+				cb.graph.KillEdge(e)
+				continue
+			}
+		} else if target == cb.idoms[child] {
+			cb.idoms[child] = head
+
+			// HACK
+			cb.graph.MoveEdgeEntry(head, e)
+
+			if cb.consider(child, true) {
+				cb.graph.KillEdge(e)
+				continue
+			}
+		}
+		cb.graph.MoveEdgeEntry(head, e)
+	}
+	// All of the entries should be dead after contraction.
+	eit := cb.graph.EntryIterator(target)
 	for eit.HasNext() {
 		src, e := eit.GetNext()
 		if src != cb.currentHead {
@@ -170,66 +222,64 @@ func (cb *clusterBuilder) contract(dst NodeID) {
 		}
 		cb.graph.KillEdge(e)
 	}
-
 }
 
-func (cb *clusterBuilder) enqueue(candidate Candidate) {
-	if isUniqueSource(cb.graph, cb.currentHead, candidate.Node, cb.idoms) {
-		cb.ready = append(cb.ready, candidate)
-	} else {
-		// If the node is not immediately ready, there must be a cross edge pointing to it.
-		candidate.CrossEdgeIn = true
-		cb.pending = append(cb.pending, candidate)
-	}
-}
-
-func (cb *clusterBuilder) PromotePending() {
-	pending := cb.pending
-	cb.pending = []Candidate{}
-	for _, p := range pending {
-		cb.enqueue(p)
-	}
-}
-
-func (cb *clusterBuilder) ScanExits(src NodeID) {
-	it := cb.graph.ExitIterator(src)
-	for it.HasNext() {
-		_, dst := it.GetNext()
-		cb.considerNext(src, dst)
-	}
-}
-
-func (cb *clusterBuilder) BeginNode(head NodeID) {
+func (cb *clusterBuilder) InitNode(head NodeID) {
 	cb.currentHead = head
 	cb.currentCluster = &ClusterLeaf{Head: head, Nodes: []NodeID{head}}
-	cb.ready = []Candidate{}
-	cb.pending = []Candidate{}
 
 	cb.isLoop = false
 	cb.numBackedgesRemaining = 0
 
-	// Look for backedges
+	entryCount := 0
 	it := cb.graph.EntryIterator(head)
 	for it.HasNext() {
 		src, e := it.GetNext()
+		if cb.idoms[src] == NoNode {
+			// Unreachable.
+			cb.graph.KillEdge(e)
+			continue
+		}
+		entryCount += 1
 		if src == head {
+			// Kill trivial backedges so that we don't need to
+			// consider them again.
 			cb.graph.KillEdge(e)
 			cb.isLoop = true
 		} else if cb.idoms[src] == head {
+			// Non-trivial backedge.
+			cb.edgeInfo[e].backEdge = true
 			cb.numBackedgesRemaining += 1
 			cb.isLoop = true
+		} else if cb.idoms[head] != src {
+			// Cross edge.
+			cb.edgeInfo[e].crossEdge = true
+			cb.nodeInfo[src].crossEdgeSource = true
+			cb.nodeInfo[head].incomingCrossEdges += 1
 		}
 	}
-	cb.ScanExits(head)
+
+	cb.nodeInfo[head].mergePoint = entryCount > 1
+
+	// TODO not quite right.
+	cb.nodeInfo[head].splitPoint = cb.graph.HasMultipleExits(head)
+}
+
+func (cb *clusterBuilder) BeginNode() {
+	head := cb.currentHead
+	// Enqueue ready nodes for processing.
+	cb.ready = []Candidate{}
+	xit := cb.graph.ExitIterator(head)
+	for xit.HasNext() {
+		_, dst := xit.GetNext()
+		if head == cb.idoms[dst] {
+			cb.consider(dst, false)
+		}
+	}
 }
 
 func (cb *clusterBuilder) EndNode() {
-	cb.cluster[cb.currentHead] = cb.currentCluster
-}
-
-func mergeIrreducible(cb *clusterBuilder) {
-	// TODO implement
-	panic("irreducible graph merging not implemented.")
+	cb.nodeInfo[cb.currentHead].cluster = cb.currentCluster
 }
 
 func mergeLoop(cb *clusterBuilder) {
@@ -245,16 +295,30 @@ func mergeLoop(cb *clusterBuilder) {
 	cb.currentCluster = &ClusterLoop{Head: src, Body: cb.currentCluster}
 }
 
-func makeLinear(head NodeID, src Cluster, dst Cluster) Cluster {
+func (cb *clusterBuilder) makeLinear(head NodeID, src Cluster, dst Cluster) Cluster {
 	switch src := src.(type) {
 	case *ClusterLeaf:
 		switch dst := dst.(type) {
 		case *ClusterLeaf:
-			src.Nodes = append(src.Nodes, dst.Nodes...)
-			return src
+			if !cb.nodeInfo[src.Nodes[len(src.Nodes)-1]].splitPoint && !cb.nodeInfo[dst.Nodes[0]].mergePoint {
+				src.Nodes = append(src.Nodes, dst.Nodes...)
+				return src
+			}
 		case *ClusterLinear:
 			dst.Head = head
-			dst.Clusters[0] = makeLinear(head, src, dst.Clusters[0])
+
+			first := dst.Clusters[0]
+			switch first := first.(type) {
+			case *ClusterLeaf:
+				if !cb.nodeInfo[first.Head].mergePoint {
+					first.Head = head
+					first.Nodes = append(src.Nodes, first.Nodes...)
+					return dst
+				}
+
+			}
+			// Just put it at the front.
+			dst.Clusters = append([]Cluster{src}, dst.Clusters...)
 			return dst
 		}
 	case *ClusterLinear:
@@ -280,19 +344,15 @@ func mergeLinear(cb *clusterBuilder) {
 	candidate := ready[0]
 	cb.contract(candidate.Node)
 
-	if candidate.CrossEdgeIn {
+	if candidate.CrossEdgeIn && false {
 		// If there's a cross edge pointing to this node, merging it into a linear block would cause problems.
-		cb.currentCluster = makeLinear(cb.currentHead, cb.currentCluster, &ClusterSwitch{
+		cb.currentCluster = cb.makeLinear(cb.currentHead, cb.currentCluster, &ClusterSwitch{
 			Head:     cb.currentHead,
 			Children: []Cluster{candidate.Cluster},
 		})
 	} else {
-		cb.currentCluster = makeLinear(cb.currentHead, cb.currentCluster, candidate.Cluster)
+		cb.currentCluster = cb.makeLinear(cb.currentHead, cb.currentCluster, candidate.Cluster)
 	}
-
-	//cb.currentCluster.Dump("")
-	cb.PromotePending()
-	cb.ScanExits(cb.currentHead)
 }
 
 func mergeSwitch(cb *clusterBuilder) {
@@ -303,31 +363,33 @@ func mergeSwitch(cb *clusterBuilder) {
 		children[i] = ready[i].Cluster
 	}
 
-	cb.currentCluster = makeLinear(cb.currentHead, cb.currentCluster, &ClusterSwitch{
+	cb.currentCluster = cb.makeLinear(cb.currentHead, cb.currentCluster, &ClusterSwitch{
 		Head:     cb.currentHead,
 		Children: children,
 	})
-
-	//cb.currentCluster.Dump("")
-	cb.PromotePending()
-	cb.ScanExits(cb.currentHead)
 }
 
 func merge(cb *clusterBuilder) bool {
+	head := cb.currentHead
 	if cb.isLoop && cb.numBackedgesRemaining == 0 {
 		mergeLoop(cb)
 	}
 	if len(cb.ready) == 0 {
-		if len(cb.pending) != 0 {
-			mergeIrreducible(cb)
-		} else {
-			// No more children to merge.
-			// If we didn't collapse the loop, something is wrong.
-			if cb.numBackedgesRemaining != 0 {
-				panic(cb.currentHead)
+		xit := cb.graph.ExitIterator(head)
+		// Check for irreducible graphs.
+		for xit.HasNext() {
+			_, dst := xit.GetNext()
+			if head == cb.idoms[dst] {
+				// TODO support irreducible graphs.
+				panic("Irreducible graph")
 			}
-			return false
 		}
+		// No more children to merge.
+		// If we didn't collapse the loop, something is wrong.
+		if cb.numBackedgesRemaining != 0 {
+			panic(head)
+		}
+		return false
 	} else if len(cb.ready) == 1 {
 		mergeLinear(cb)
 	} else {
@@ -336,17 +398,65 @@ func merge(cb *clusterBuilder) bool {
 	return true
 }
 
-func makeCluster(g *Graph, styler DotStyler) Cluster {
-	order, index := ReversePostorder(g)
-	cb := &clusterBuilder{
-		graph:   g.Copy(),
-		cluster: make([]Cluster, g.NumNodes()),
-		idoms:   FindDominators(g, order, index),
-	}
+// TODO incrementalize into one pass.
+func gatherInfo(cb *clusterBuilder, order []NodeID) {
+	g := cb.graph
+	idoms := cb.idoms
 
 	for j := len(order) - 1; j >= 0; j-- {
 		n := order[j]
-		cb.BeginNode(n)
+		if idoms[n] == NoNode {
+			// Dead node.
+			continue
+		}
+
+		numEntries := 0
+		eit := g.EntryIterator(n)
+		for eit.HasNext() {
+			src, e := eit.GetNext()
+			if idoms[src] == NoNode {
+				g.KillEdge(e)
+				continue
+			}
+
+			numEntries += 1
+		}
+
+		numExits := 0
+		xit := g.ExitIterator(n)
+		for xit.HasNext() {
+			e, dst := xit.GetNext()
+			if idoms[dst] == NoNode {
+				g.KillEdge(e)
+				continue
+			}
+
+			numExits += 1
+		}
+
+	}
+}
+
+func makeCluster(g *Graph) Cluster {
+	order, index := ReversePostorder(g)
+	cb := &clusterBuilder{
+		graph:    g.Copy(),
+		idoms:    FindDominators(g, order, index),
+		nodeInfo: make([]nodeInfo, g.NumNodes()),
+		edgeInfo: make([]edgeInfo, g.NumEdges()),
+	}
+
+	gatherInfo(cb, order)
+
+	for j := len(order) - 1; j >= 0; j-- {
+		head := order[j]
+		cb.InitNode(head)
+		// Defer processing nodes with cross edges.
+		if cb.nodeInfo[head].crossEdgeSource {
+			cb.nodeInfo[head].cluster = &ClusterLeaf{Head: head, Nodes: []NodeID{head}}
+			continue
+		}
+		cb.BeginNode()
 		for {
 			if !merge(cb) {
 				break
@@ -354,7 +464,8 @@ func makeCluster(g *Graph, styler DotStyler) Cluster {
 		}
 		cb.EndNode()
 	}
-	//cluster[0].Dump("")
+	result := cb.nodeInfo[g.Entry()].cluster
+	//result.Dump("")
 	//fmt.Println()
-	return cb.cluster[g.Entry()]
+	return result
 }

@@ -153,24 +153,13 @@ func drawCluster(drawer *dotDrawer, cluster Cluster, styler DotStyler) {
 		drawer.WriteString("  color=lightgrey;\n")
 		drawCluster(drawer, cluster.Body, styler)
 		drawer.WriteString("}\n")
-	case *ClusterComplex:
-		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
-		drawer.WriteString("  labeljust=l;\n")
-		drawer.WriteString(fmt.Sprintf("  label=\"complex %d\";\n", len(cluster.Clusters)))
-		drawer.WriteString("  color=lightgrey;\n")
-
-		for _, c := range cluster.Clusters {
-			drawCluster(drawer, c, styler)
-		}
-
-		drawer.WriteString("}\n")
 	default:
 		panic(cluster)
 	}
 }
 
 func drawClusteredNodes(drawer *dotDrawer, g *Graph, styler DotStyler) {
-	cluster := makeCluster(g, styler)
+	cluster := makeCluster(g)
 	drawCluster(drawer, cluster, styler)
 }
 
