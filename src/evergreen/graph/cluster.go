@@ -469,3 +469,116 @@ func makeCluster(g *Graph) Cluster {
 	//fmt.Println()
 	return result
 }
+
+type lfNodeInfo struct {
+	// Node properties
+	containingHead NodeID
+	isHead         bool
+	isIrreducible  bool
+	live           bool
+}
+
+type loopFinder struct {
+	graph        *Graph
+	node         []lfNodeInfo
+	depth        []int
+	currentDepth int
+}
+
+func (lf *loopFinder) beginTraversingNode(n NodeID) {
+	lf.currentDepth += 1
+	lf.depth[n] = lf.currentDepth
+	lf.node[n].containingHead = NoNode
+	lf.node[n].live = true
+}
+
+func (lf *loopFinder) endTraversingNode(n NodeID) {
+	lf.currentDepth -= 1
+	lf.depth[n] = 0
+}
+
+func (lf *loopFinder) isUnprocessed(n NodeID) bool {
+	return !lf.node[n].live
+}
+
+func (lf *loopFinder) isBeingProcessed(dst NodeID) bool {
+	return lf.depth[dst] > 0
+}
+
+func (lf *loopFinder) markLoopHeader(child NodeID, head NodeID) {
+	if child == head {
+		// Trivial loop.
+		return
+	}
+	childHead := lf.node[child].containingHead
+	for childHead != NoNode {
+		if childHead == head {
+			return
+		}
+		if lf.depth[childHead] < lf.depth[head] {
+			// Found a closer head for this child, adopt it.
+			lf.node[child].containingHead = head
+			child, head = head, childHead
+		} else {
+			child = childHead
+		}
+		childHead = lf.node[child].containingHead
+	}
+	lf.node[child].containingHead = head
+}
+
+func (lf *loopFinder) process(n NodeID) {
+	lf.beginTraversingNode(n)
+	xit := lf.graph.ExitIterator(n)
+	for xit.HasNext() {
+		_, next := xit.GetNext()
+		if lf.isUnprocessed(next) {
+			// Forward edge.
+			lf.process(next)
+
+			// Propagage loop headers upwards.
+			head := lf.node[next].containingHead
+			if head != NoNode {
+				lf.markLoopHeader(n, head)
+			}
+		} else if lf.isBeingProcessed(next) {
+			// Back edge.
+			lf.node[next].isHead = true
+			lf.markLoopHeader(n, next)
+		} else {
+			// Cross edge.
+			if lf.node[next].containingHead != NoNode {
+				// Propagate loop header from cross edge.
+				otherHead := lf.node[next].containingHead
+				if lf.isBeingProcessed(otherHead) {
+					lf.markLoopHeader(n, otherHead)
+				} else {
+					lf.node[otherHead].isIrreducible = true
+					// TODO mark edge reentry.
+					// Find and mark the common loop head.
+					otherHead = lf.node[otherHead].containingHead
+					for otherHead != NoNode {
+						if lf.isBeingProcessed(otherHead) {
+							lf.markLoopHeader(n, otherHead)
+							break
+						}
+						otherHead = lf.node[otherHead].containingHead
+					}
+				}
+			}
+		}
+	}
+	lf.endTraversingNode(n)
+}
+
+func findLoops(g *Graph) []lfNodeInfo {
+	numNodes := g.NumNodes()
+	lf := &loopFinder{
+		graph: g.Copy(),
+		node:  make([]lfNodeInfo, numNodes),
+		depth: make([]int, numNodes),
+	}
+
+	lf.process(g.Entry())
+	return lf.node
+}
