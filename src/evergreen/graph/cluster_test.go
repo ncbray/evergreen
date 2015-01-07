@@ -230,3 +230,131 @@ func TestInnerOuter(t *testing.T) {
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0 2) <(3) (4 5)> (6) (1)]")
 }
+
+func assertNodeInfos(actual []lfNodeInfo, expected []lfNodeInfo, t *testing.T) {
+	assert.IntEquals(t, len(actual), len(expected))
+
+	for i := 0; i < len(expected); i++ {
+		a := actual[i]
+		e := expected[i]
+		if a.containingHead != e.containingHead {
+			t.Errorf("%d loop head: %v vs %v", i, a.containingHead, e.containingHead)
+		}
+		if a.isHead != e.isHead {
+			t.Errorf("%d is head: %v vs %v", i, a.isHead, e.isHead)
+		}
+		if a.isIrreducible != e.isIrreducible {
+			t.Errorf("%d is irreducible: %v vs %v", i, a.isIrreducible, e.isIrreducible)
+		}
+	}
+}
+
+func TestForwardEdgeLoop(t *testing.T) {
+	g := CreateGraph()
+	e := g.Entry()
+	x := g.Exit()
+	n1 := g.CreateNode()
+	n2 := g.CreateNode()
+	n3 := g.CreateNode()
+	n4 := g.CreateNode()
+
+	emitFullEdge(g, e, n1)
+	emitFullEdge(g, n1, n2)
+	emitFullEdge(g, n1, n3)
+
+	emitFullEdge(g, n2, n3)
+	emitFullEdge(g, n2, x)
+
+	emitFullEdge(g, n3, n4)
+
+	emitFullEdge(g, n4, n2)
+
+	info := findLoops(g)
+
+	assertNodeInfos(info, []lfNodeInfo{
+		// e
+		lfNodeInfo{
+			containingHead: NoNode,
+		},
+		// x
+		lfNodeInfo{
+			containingHead: NoNode,
+		},
+		// n1
+		lfNodeInfo{
+			containingHead: NoNode,
+		},
+		// n2
+		lfNodeInfo{
+			containingHead: NoNode,
+			isHead:         true,
+			isIrreducible:  true,
+		},
+		// n3
+		lfNodeInfo{
+			containingHead: n2,
+		},
+		// n4
+		lfNodeInfo{
+			containingHead: n2,
+		},
+	}, t)
+}
+
+func TestClassicIrreducible(t *testing.T) {
+	g := CreateGraph()
+	e := g.Entry()
+	x := g.Exit()
+	n1 := g.CreateNode()
+	n2 := g.CreateNode()
+	n3 := g.CreateNode()
+	n4 := g.CreateNode()
+
+	emitFullEdge(g, e, n1)
+	emitFullEdge(g, e, n4)
+
+	emitFullEdge(g, n1, n2)
+
+	emitFullEdge(g, n2, n3)
+	emitFullEdge(g, n2, n1)
+	emitFullEdge(g, n2, x)
+
+	emitFullEdge(g, n3, n4)
+	emitFullEdge(g, n3, n2)
+	emitFullEdge(g, n3, x)
+
+	emitFullEdge(g, n4, n3)
+
+	info := findLoops(g)
+
+	assertNodeInfos(info, []lfNodeInfo{
+		// e
+		lfNodeInfo{
+			containingHead: NoNode,
+		},
+		// x
+		lfNodeInfo{
+			containingHead: NoNode,
+		},
+		// n1
+		lfNodeInfo{
+			containingHead: NoNode,
+			isHead:         true,
+		},
+		// n2
+		lfNodeInfo{
+			containingHead: n1,
+			isHead:         true,
+		},
+		// n3
+		lfNodeInfo{
+			containingHead: n2,
+			isHead:         true,
+			isIrreducible:  true,
+		},
+		// n4
+		lfNodeInfo{
+			containingHead: n3,
+		},
+	}, t)
+}
