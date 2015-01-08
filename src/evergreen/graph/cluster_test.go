@@ -134,6 +134,9 @@ func TestLadder3(t *testing.T) {
 
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) (3) <(4) (5)> (1)]")
+
+	info := findLoops(g)
+	makeCluster2(g, info)
 }
 
 func TestLadderSkip(t *testing.T) {
@@ -201,6 +204,9 @@ func TestCrossEdgeToLoop(t *testing.T) {
 
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) {(3 4)}]")
+
+	info := findLoops(g)
+	makeCluster2(g, info)
 }
 
 func TestInnerOuter(t *testing.T) {
@@ -229,6 +235,47 @@ func TestInnerOuter(t *testing.T) {
 
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0 2) <(3) (4 5)> (6) (1)]")
+}
+
+func Test2Levelif(t *testing.T) {
+	g := CreateGraph()
+	e := g.Entry()
+	x := g.Exit()
+	n1 := g.CreateNode()
+	n2 := g.CreateNode()
+	n3 := g.CreateNode()
+	n4 := g.CreateNode()
+	n5 := g.CreateNode()
+	n6 := g.CreateNode()
+	n7 := g.CreateNode()
+	n8 := g.CreateNode()
+
+	emitFullEdge(g, e, n1)
+	emitFullEdge(g, e, n2)
+
+	emitFullEdge(g, n1, n3)
+	emitFullEdge(g, n1, n4)
+
+	emitFullEdge(g, n2, n5)
+	emitFullEdge(g, n2, n6)
+
+	emitFullEdge(g, n3, n7)
+
+	emitFullEdge(g, n4, n7)
+
+	emitFullEdge(g, n5, n8)
+
+	emitFullEdge(g, n6, n8)
+
+	emitFullEdge(g, n7, x)
+
+	emitFullEdge(g, n8, x)
+
+	cluster := makeCluster(g)
+	assert.StringEquals(t, cluster.DumpShort(), "[(0) <[(2) <(4) (5)> (8)] [(3) <(6) (7)> (9)]> (1)]")
+
+	info := findLoops(g)
+	makeCluster2(g, info)
 }
 
 func assertNodeInfos(actual []lfNodeInfo, expected []lfNodeInfo, t *testing.T) {

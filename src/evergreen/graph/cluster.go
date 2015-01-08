@@ -582,3 +582,84 @@ func findLoops(g *Graph) []lfNodeInfo {
 	lf.process(g.Entry())
 	return lf.node
 }
+
+func uniqueEntry(g *Graph, src NodeID, dst NodeID, nodes []lfNodeInfo) bool {
+	eit := g.EntryIterator(dst)
+	for eit.HasNext() {
+		prev, e := eit.GetNext()
+		if nodes[prev].live {
+			if prev != src {
+				return false
+			}
+		} else {
+			g.KillEdge(e)
+		}
+	}
+	return true
+}
+
+func contract(g *Graph, head NodeID, loop NodeID, nodes []lfNodeInfo, clusters []Cluster) {
+	//var current Cluster = &ClusterLeaf{
+	//	Nodes: []NodeID{head},
+	//}
+	current := clusters[head]
+	clusters[head] = nil
+	for {
+		ready := []NodeID{}
+		xit := g.ExitIterator(head)
+		for xit.HasNext() {
+			e, child := xit.GetNext()
+			if child == head {
+				g.KillEdge(e)
+				continue
+			} else if nodes[child].containingHead != loop {
+				continue
+			} else if nodes[child].isHead {
+				contract(g, child, child, nodes, clusters)
+				nodes[child].isHead = false
+			}
+			if clusters[child] != nil {
+				if uniqueEntry(g, head, child, nodes) {
+					ready = append(ready, child)
+					clusters[child] = nil
+				}
+			}
+		}
+		fmt.Println(head, loop, ready)
+		if len(ready) > 0 {
+			for _, child := range ready {
+				eit := g.EntryIterator(child)
+				for eit.HasNext() {
+					_, e := eit.GetNext()
+					g.KillEdge(e)
+				}
+				xit := g.ExitIterator(child)
+				for xit.HasNext() {
+					e, _ := xit.GetNext()
+					g.MoveEdgeEntry(head, e)
+				}
+			}
+		} else {
+			break
+		}
+	}
+	clusters[head] = current
+}
+
+func makeCluster2(g *Graph, nodes []lfNodeInfo) {
+	clusters := make([]Cluster, g.NumNodes())
+	for i := 0; i < g.NumNodes(); i++ {
+		if !nodes[i].live {
+			continue
+		}
+		clusters[i] = &ClusterLeaf{
+			Nodes: []NodeID{NodeID(i)},
+		}
+	}
+	entry := g.Entry()
+	if nodes[entry].isHead {
+		contract(g.Copy(), entry, entry, nodes, clusters)
+		nodes[entry].isHead = false
+	}
+	contract(g.Copy(), entry, NoNode, nodes, clusters)
+}
