@@ -5,6 +5,47 @@ import (
 	"testing"
 )
 
+func assertNodeInfos(actual []lfNodeInfo, expected []lfNodeInfo, t *testing.T) {
+	assert.IntEquals(t, len(actual), len(expected))
+
+	for i := 0; i < len(expected); i++ {
+		a := actual[i]
+		e := expected[i]
+		if a.idom != e.idom {
+			t.Errorf("%d idom: %v vs %v", i, a.idom, e.idom)
+		}
+		if a.loopHead != e.loopHead {
+			t.Errorf("%d loop head: %v vs %v", i, a.loopHead, e.loopHead)
+		}
+		if a.isHead != e.isHead {
+			t.Errorf("%d is head: %v vs %v", i, a.isHead, e.isHead)
+		}
+		if a.isIrreducible != e.isIrreducible {
+			t.Errorf("%d is irreducible: %v vs %v", i, a.isIrreducible, e.isIrreducible)
+		}
+	}
+}
+
+func assertNodeList(actual []NodeID, expected []NodeID, t *testing.T) {
+	assert.IntEquals(t, len(actual), len(expected))
+
+	for i := 0; i < len(expected); i++ {
+		if actual[i] != expected[i] {
+			t.Errorf("%d: %v vs %v", i, actual[i], expected[i])
+		}
+	}
+}
+
+func assertEdgeTypeList(actual []EdgeType, expected []EdgeType, t *testing.T) {
+	assert.IntEquals(t, len(actual), len(expected))
+
+	for i := 0; i < len(expected); i++ {
+		if actual[i] != expected[i] {
+			t.Errorf("%d: %v vs %v", i, actual[i], expected[i])
+		}
+	}
+}
+
 func TestLinear(t *testing.T) {
 	g := CreateGraph()
 	e := g.Entry()
@@ -135,8 +176,8 @@ func TestLadder3(t *testing.T) {
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) (3) <(4) (5)> (1)]")
 
-	info := findLoops(g)
-	makeCluster2(g, info)
+	info, edges, postorder := analyzeStructure(g)
+	makeCluster2(g, info, edges, postorder)
 }
 
 func TestLadderSkip(t *testing.T) {
@@ -205,8 +246,8 @@ func TestCrossEdgeToLoop(t *testing.T) {
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) {(3 4)}]")
 
-	info := findLoops(g)
-	makeCluster2(g, info)
+	info, edges, postorder := analyzeStructure(g)
+	makeCluster2(g, info, edges, postorder)
 }
 
 func TestInnerOuter(t *testing.T) {
@@ -274,26 +315,77 @@ func Test2Levelif(t *testing.T) {
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) <[(2) <(4) (5)> (8)] [(3) <(6) (7)> (9)]> (1)]")
 
-	info := findLoops(g)
-	makeCluster2(g, info)
-}
+	info, edges, postorder := analyzeStructure(g)
 
-func assertNodeInfos(actual []lfNodeInfo, expected []lfNodeInfo, t *testing.T) {
-	assert.IntEquals(t, len(actual), len(expected))
+	assertNodeInfos(info, []lfNodeInfo{
+		// e
+		lfNodeInfo{
+			idom:     e,
+			loopHead: NoNode,
+		},
+		// x
+		lfNodeInfo{
+			idom:     e,
+			loopHead: NoNode,
+		},
+		// n1
+		lfNodeInfo{
+			idom:     e,
+			loopHead: NoNode,
+		},
+		// n2
+		lfNodeInfo{
+			idom:     e,
+			loopHead: NoNode,
+		},
+		// n3
+		lfNodeInfo{
+			idom:     n1,
+			loopHead: NoNode,
+		},
+		// n4
+		lfNodeInfo{
+			idom:     n1,
+			loopHead: NoNode,
+		},
+		// n5
+		lfNodeInfo{
+			idom:     n2,
+			loopHead: NoNode,
+		},
+		// n6
+		lfNodeInfo{
+			idom:     n2,
+			loopHead: NoNode,
+		},
+		// n7
+		lfNodeInfo{
+			idom:     n1,
+			loopHead: NoNode,
+		},
+		// n8
+		lfNodeInfo{
+			idom:     n2,
+			loopHead: NoNode,
+		},
+	}, t)
 
-	for i := 0; i < len(expected); i++ {
-		a := actual[i]
-		e := expected[i]
-		if a.containingHead != e.containingHead {
-			t.Errorf("%d loop head: %v vs %v", i, a.containingHead, e.containingHead)
-		}
-		if a.isHead != e.isHead {
-			t.Errorf("%d is head: %v vs %v", i, a.isHead, e.isHead)
-		}
-		if a.isIrreducible != e.isIrreducible {
-			t.Errorf("%d is irreducible: %v vs %v", i, a.isIrreducible, e.isIrreducible)
-		}
-	}
+	assertEdgeTypeList(edges, []EdgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, CROSS, FORWARD, CROSS, FORWARD, CROSS}, t)
+
+	assertNodeList(postorder, []NodeID{
+		x,
+		n7,
+		n3,
+		n4,
+		n1,
+		n8,
+		n5,
+		n6,
+		n2,
+		e,
+	}, t)
+
+	makeCluster2(g, info, edges, postorder)
 }
 
 func TestForwardEdgeLoop(t *testing.T) {
@@ -316,35 +408,52 @@ func TestForwardEdgeLoop(t *testing.T) {
 
 	emitFullEdge(g, n4, n2)
 
-	info := findLoops(g)
+	info, edges, postorder := analyzeStructure(g)
 
 	assertNodeInfos(info, []lfNodeInfo{
 		// e
 		lfNodeInfo{
-			containingHead: NoNode,
+			idom:     e,
+			loopHead: NoNode,
 		},
 		// x
 		lfNodeInfo{
-			containingHead: NoNode,
+			idom:     n2,
+			loopHead: NoNode,
 		},
 		// n1
 		lfNodeInfo{
-			containingHead: NoNode,
+			idom:     e,
+			loopHead: NoNode,
 		},
 		// n2
 		lfNodeInfo{
-			containingHead: NoNode,
-			isHead:         true,
-			isIrreducible:  true,
+			idom:          n1,
+			loopHead:      NoNode,
+			isHead:        true,
+			isIrreducible: true,
 		},
 		// n3
 		lfNodeInfo{
-			containingHead: n2,
+			idom:     n1,
+			loopHead: n2,
 		},
 		// n4
 		lfNodeInfo{
-			containingHead: n2,
+			idom:     n3,
+			loopHead: n2,
 		},
+	}, t)
+
+	assertEdgeTypeList(edges, []EdgeType{FORWARD, FORWARD, REENTRY, FORWARD, FORWARD, FORWARD, BACKWARD}, t)
+
+	assertNodeList(postorder, []NodeID{
+		n4,
+		n3,
+		x,
+		n2,
+		n1,
+		e,
 	}, t)
 }
 
@@ -372,36 +481,53 @@ func TestClassicIrreducible(t *testing.T) {
 
 	emitFullEdge(g, n4, n3)
 
-	info := findLoops(g)
+	info, edges, postorder := analyzeStructure(g)
 
 	assertNodeInfos(info, []lfNodeInfo{
 		// e
 		lfNodeInfo{
-			containingHead: NoNode,
+			loopHead: NoNode,
+			idom:     e,
 		},
 		// x
 		lfNodeInfo{
-			containingHead: NoNode,
+			idom:     e,
+			loopHead: NoNode,
 		},
 		// n1
 		lfNodeInfo{
-			containingHead: NoNode,
-			isHead:         true,
+			idom:     e,
+			loopHead: NoNode,
+			isHead:   true,
 		},
 		// n2
 		lfNodeInfo{
-			containingHead: n1,
-			isHead:         true,
+			idom:     e,
+			loopHead: n1,
+			isHead:   true,
 		},
 		// n3
 		lfNodeInfo{
-			containingHead: n2,
-			isHead:         true,
-			isIrreducible:  true,
+			idom:          e,
+			loopHead:      n2,
+			isHead:        true,
+			isIrreducible: true,
 		},
 		// n4
 		lfNodeInfo{
-			containingHead: n3,
+			idom:     e,
+			loopHead: n3,
 		},
+	}, t)
+
+	assertEdgeTypeList(edges, []EdgeType{FORWARD, REENTRY, FORWARD, FORWARD, BACKWARD, CROSS, FORWARD, BACKWARD, FORWARD, BACKWARD}, t)
+
+	assertNodeList(postorder, []NodeID{
+		n4,
+		x,
+		n3,
+		n2,
+		n1,
+		e,
 	}, t)
 }
