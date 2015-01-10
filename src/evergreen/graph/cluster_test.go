@@ -107,6 +107,9 @@ func TestClusterDiamond(t *testing.T) {
 
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0 2) <(3) (4)> (5 1)]")
+
+	info, edges, postorder := analyzeStructure(g)
+	makeCluster2(g, info, edges, postorder)
 }
 
 func TestClusterCross(t *testing.T) {

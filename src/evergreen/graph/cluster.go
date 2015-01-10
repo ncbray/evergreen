@@ -700,26 +700,42 @@ func contractLoop(g *Graph, n NodeID) {
 	}
 }
 
-func appendCluster(src Cluster, dst Cluster) Cluster {
+func appendCluster(src Cluster, dst Cluster, singleEntry bool) Cluster {
 	switch src := src.(type) {
+	case *ClusterLeaf:
+		switch dst := dst.(type) {
+		case *ClusterLeaf:
+			if singleEntry {
+				src.Nodes = append(src.Nodes, dst.Nodes...)
+				return src
+			}
+		case *ClusterLinear:
+			if singleEntry {
+				other, ok := dst.Clusters[0].(*ClusterLeaf)
+				if ok {
+					other.Nodes = append(src.Nodes, other.Nodes...)
+					return dst
+				}
+			}
+			dst.Clusters = append([]Cluster{src}, dst.Clusters...)
+			return dst
+		}
 	case *ClusterLinear:
 		switch dst := dst.(type) {
 		case *ClusterLinear:
 			src.Clusters = append(src.Clusters, dst.Clusters...)
 			return src
-		default:
-			src.Clusters = append(src.Clusters, dst)
-			return src
 		}
+		src.Clusters = append(src.Clusters, dst)
+		return src
 	default:
 		switch dst := dst.(type) {
 		case *ClusterLinear:
 			dst.Clusters = append([]Cluster{src}, dst.Clusters...)
 			return dst
-		default:
-			return &ClusterLinear{Clusters: []Cluster{src, dst}}
 		}
 	}
+	return &ClusterLinear{Clusters: []Cluster{src, dst}}
 }
 
 func makeCluster2(g *Graph, nodes []lfNodeInfo, edges []EdgeType, postorder []NodeID) {
@@ -758,9 +774,10 @@ func makeCluster2(g *Graph, nodes []lfNodeInfo, edges []EdgeType, postorder []No
 			fmt.Println(n, ready)
 			if len(ready) > 0 {
 				if len(ready) > 1 {
-					cluster = appendCluster(cluster, &ClusterSwitch{Children: readyClusters})
+					cluster = appendCluster(cluster, &ClusterSwitch{Children: readyClusters}, false)
 				} else {
-					cluster = appendCluster(cluster, readyClusters[0])
+					singleEntry := !g.HasMultipleEntries(ready[0])
+					cluster = appendCluster(cluster, readyClusters[0], singleEntry)
 				}
 				for _, dst := range ready {
 					contract(g, n, dst, nodes)
