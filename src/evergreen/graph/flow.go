@@ -186,6 +186,12 @@ func emptyExit() exitEdges {
 	return exitEdges{head: NoEdge, tail: NoEdge}
 }
 
+func singleExit(g *Graph, eid EdgeID) exitEdges {
+	exit := emptyExit()
+	exit.Append(g, eid)
+	return exit
+}
+
 // An incomplete sanity check, this edge could still be in a list that
 // is one element long.
 func orphanedExit(g *Graph, eid EdgeID) bool {
@@ -219,6 +225,22 @@ func (l *exitEdges) Extend(g *Graph, other exitEdges) {
 	}
 }
 
+func (l *exitEdges) SetSrc(g *Graph, n NodeID) {
+	current := l.head
+	if current != NoEdge && g.edges[current].src != n {
+		for current != NoEdge {
+			g.edges[current].src = n
+			current = g.edges[current].nextExit
+		}
+	}
+}
+
+func (l *exitEdges) Transfer() exitEdges {
+	temp := *l
+	*l = emptyExit()
+	return temp
+}
+
 func (l *exitEdges) Remove(g *Graph, target EdgeID) {
 	oldNext := g.edges[target].nextExit
 	oldPrev := g.edges[target].prevExit
@@ -237,6 +259,51 @@ func (l *exitEdges) Remove(g *Graph, target EdgeID) {
 		l.tail = oldPrev
 	} else {
 		g.edges[oldNext].prevExit = oldPrev
+	}
+}
+
+func (l *exitEdges) ReplaceEdge(g *Graph, target EdgeID, replacement EdgeID) {
+	if !orphanedExit(g, replacement) {
+		panic(replacement)
+	}
+	l.ReplaceEdgeWithMultiple(g, target, singleExit(g, replacement))
+}
+
+func (l *exitEdges) ReplaceEdgeWithMultiple(g *Graph, target EdgeID, replacements exitEdges) {
+	oldNext := g.edges[target].nextExit
+	oldPrev := g.edges[target].prevExit
+	src := g.edges[target].src
+
+	// Disconnect the entry.
+	g.edges[target].prevExit = NoEdge
+	g.edges[target].nextExit = NoEdge
+	g.edges[target].src = NoNode
+
+	var newNext EdgeID
+	var newPrev EdgeID
+	if !replacements.HasEdges() {
+		// Empty replacement.
+		newNext = oldNext
+		newPrev = oldPrev
+	} else {
+		// Real replacement.
+		newNext = replacements.head
+		newPrev = replacements.tail
+		g.edges[replacements.head].prevExit = oldPrev
+		g.edges[replacements.tail].nextExit = oldNext
+
+		// Point the replacements to the new destination.
+		replacements.SetSrc(g, src)
+	}
+	if oldPrev == NoEdge {
+		l.head = newNext
+	} else {
+		g.edges[oldPrev].nextExit = newNext
+	}
+	if oldNext == NoEdge {
+		l.tail = newPrev
+	} else {
+		g.edges[oldNext].prevExit = newPrev
 	}
 }
 
@@ -408,6 +475,11 @@ func (g *Graph) InsertInEdge(replacement EdgeID, existing EdgeID) {
 	// Attach the existing edge to the dangling node.
 	g.edges[existing].dst = insertedNode
 	g.nodes[insertedNode].entries.Append(g, existing)
+}
+
+func (g *Graph) ReplaceEdgeWithExits(target EdgeID, replacement NodeID) {
+	src := g.edges[target].src
+	g.nodes[src].exits.ReplaceEdgeWithMultiple(g, target, g.nodes[replacement].exits.Transfer())
 }
 
 func (g *Graph) HasMultipleEntries(node NodeID) bool {

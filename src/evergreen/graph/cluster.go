@@ -671,22 +671,21 @@ func uniqueEntry(g *Graph, src NodeID, dst NodeID) bool {
 }
 
 func contract(g *Graph, src NodeID, dst NodeID, nodes []lfNodeInfo) {
-	// TODO preserve edge order.
-
+	transferedExits := false
 	eit := g.EntryIterator(dst)
 	for eit.HasNext() {
 		prev, e := eit.GetNext()
 		if prev != src {
 			panic(prev)
 		}
+		if !transferedExits {
+			g.ReplaceEdgeWithExits(e, dst)
+			transferedExits = true
+		}
 		g.KillEdge(e)
 	}
-
-	xit := g.ExitIterator(dst)
-	for xit.HasNext() {
-		e, _ := xit.GetNext()
-		g.MoveEdgeEntry(src, e)
-		// TODO update idoms?
+	if !transferedExits {
+		panic(dst)
 	}
 }
 

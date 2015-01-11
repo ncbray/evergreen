@@ -53,8 +53,38 @@ func checkEntryEdges(g *Graph, actual entryEdges, expected []EdgeID, t *testing.
 	}
 }
 
+func checkExitEdges(g *Graph, actual exitEdges, expected []EdgeID, t *testing.T) {
+	current := actual.head
+	count := 0
+	for current != NoEdge {
+		if count < len(expected) {
+			other := expected[count]
+			if current != other {
+				t.Errorf("Expected %#v at position %d, got %#v", other, count, current)
+			}
+		}
+		checkEdgeConsistency(g, current, t)
+		current = g.edges[current].nextExit
+		count += 1
+	}
+	if len(expected) != count {
+		t.Errorf("Expected %d elements, got %d", len(expected), count)
+	}
+}
+
 func simpleEntry(g *Graph, count int) (entryEdges, []EdgeID) {
 	l := emptyEntry()
+	edges := make([]EdgeID, count)
+	for i := 0; i < count; i++ {
+		e := g.CreateEdge()
+		l.Append(g, e)
+		edges[i] = e
+	}
+	return l, edges
+}
+
+func simpleExit(g *Graph, count int) (exitEdges, []EdgeID) {
+	l := emptyExit()
 	edges := make([]EdgeID, count)
 	for i := 0; i < count; i++ {
 		e := g.CreateEdge()
@@ -186,6 +216,121 @@ func TestEntryEdgeSimple1x0(t *testing.T) {
 	other, _ := simpleEntry(g, 0)
 	l.ReplaceEdgeWithMultiple(g, e[0], other)
 	checkEntryEdges(g, l, []EdgeID{}, t)
+}
+
+func TestExitEdgeSimple1Sanity(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 1)
+	if l.HasMultipleEdges() {
+		t.Errorf("Should not have multiple edges.")
+	}
+	checkExitEdges(g, l, []EdgeID{e[0]}, t)
+}
+
+func TestExitEdgeSimple2Sanity(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 2)
+	if !l.HasMultipleEdges() {
+		t.Errorf("Should have multiple edges.")
+	}
+	checkExitEdges(g, l, []EdgeID{e[0], e[1]}, t)
+}
+
+func TestExitEdgeSimple3Sanity(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	if !l.HasMultipleEdges() {
+		t.Errorf("Should have multiple edges.")
+	}
+	checkExitEdges(g, l, []EdgeID{e[0], e[1], e[2]}, t)
+}
+
+func TestExitEdgeSimple3x1Beginning(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	r := g.CreateEdge()
+	l.ReplaceEdge(g, e[0], r)
+	checkExitEdges(g, l, []EdgeID{r, e[1], e[2]}, t)
+}
+
+func TestExitEdgeSimple3x1Middle(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	r := g.CreateEdge()
+	l.ReplaceEdge(g, e[1], r)
+	checkExitEdges(g, l, []EdgeID{e[0], r, e[2]}, t)
+}
+
+func TestExitEdgeSimple3x1End(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	r := g.CreateEdge()
+	l.ReplaceEdge(g, e[2], r)
+	checkExitEdges(g, l, []EdgeID{e[0], e[1], r}, t)
+}
+
+func TestExitEdgeSimple3x0Beginning(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	other, _ := simpleExit(g, 0)
+	l.ReplaceEdgeWithMultiple(g, e[0], other)
+	checkExitEdges(g, l, []EdgeID{e[1], e[2]}, t)
+}
+
+func TestExitEdgeSimple3x0Middle(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	other, _ := simpleExit(g, 0)
+	l.ReplaceEdgeWithMultiple(g, e[1], other)
+	checkExitEdges(g, l, []EdgeID{e[0], e[2]}, t)
+}
+
+func TestExitEdgeSimple3x0End(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	other, _ := simpleExit(g, 0)
+	l.ReplaceEdgeWithMultiple(g, e[2], other)
+	checkExitEdges(g, l, []EdgeID{e[0], e[1]}, t)
+}
+
+func TestExitEdgeSimple3x3Beginning(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	other, f := simpleExit(g, 3)
+	l.ReplaceEdgeWithMultiple(g, e[0], other)
+	checkExitEdges(g, l, []EdgeID{f[0], f[1], f[2], e[1], e[2]}, t)
+}
+
+func TestExitEdgeSimple3x3Middle(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	other, f := simpleExit(g, 3)
+	l.ReplaceEdgeWithMultiple(g, e[1], other)
+	checkExitEdges(g, l, []EdgeID{e[0], f[0], f[1], f[2], e[2]}, t)
+}
+
+func TestExitEdgeSimple3x3End(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 3)
+	other, f := simpleExit(g, 3)
+	l.ReplaceEdgeWithMultiple(g, e[2], other)
+	checkExitEdges(g, l, []EdgeID{e[0], e[1], f[0], f[1], f[2]}, t)
+}
+
+func TestExitEdgeSimple1x3(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 1)
+	other, f := simpleExit(g, 3)
+	l.ReplaceEdgeWithMultiple(g, e[0], other)
+	checkExitEdges(g, l, []EdgeID{f[0], f[1], f[2]}, t)
+}
+
+func TestExitEdgeSimple1x0(t *testing.T) {
+	g := CreateGraph()
+	l, e := simpleExit(g, 1)
+	other, _ := simpleExit(g, 0)
+	l.ReplaceEdgeWithMultiple(g, e[0], other)
+	checkExitEdges(g, l, []EdgeID{}, t)
 }
 
 func checkEdge(g *Graph, e EdgeID, src NodeID, dst NodeID, t *testing.T) {
