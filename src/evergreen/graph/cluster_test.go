@@ -391,6 +391,78 @@ func Test2Levelif(t *testing.T) {
 	makeCluster2(g, info, edges, postorder)
 }
 
+func TestDualLoop(t *testing.T) {
+	g := CreateGraph()
+	e := g.Entry()
+	x := g.Exit()
+	n1 := g.CreateNode()
+	n2 := g.CreateNode()
+	n3 := g.CreateNode()
+	n4 := g.CreateNode()
+
+	emitFullEdge(g, e, n1)
+
+	emitFullEdge(g, n1, n2)
+	emitFullEdge(g, n1, x)
+
+	emitFullEdge(g, n2, n3)
+	emitFullEdge(g, n2, n4)
+
+	emitFullEdge(g, n3, n2)
+
+	emitFullEdge(g, n4, n1)
+
+	info, edges, postorder := analyzeStructure(g)
+
+	assertNodeInfos(info, []lfNodeInfo{
+		// e
+		lfNodeInfo{
+			idom:     e,
+			loopHead: NoNode,
+		},
+		// x
+		lfNodeInfo{
+			idom:     n1,
+			loopHead: NoNode,
+		},
+		// n1
+		lfNodeInfo{
+			idom:     e,
+			loopHead: NoNode,
+			isHead:   true,
+		},
+		// n2
+		lfNodeInfo{
+			idom:     n1,
+			loopHead: n1,
+			isHead:   true,
+		},
+		// n3
+		lfNodeInfo{
+			idom:     n2,
+			loopHead: n2,
+		},
+		// n4
+		lfNodeInfo{
+			idom:     n2,
+			loopHead: n1,
+		},
+	}, t)
+
+	assertEdgeTypeList(edges, []EdgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, BACKWARD, BACKWARD}, t)
+
+	assertNodeList(postorder, []NodeID{
+		n3,
+		n4,
+		n2,
+		x,
+		n1,
+		e,
+	}, t)
+
+	makeCluster2(g, info, edges, postorder)
+}
+
 func TestForwardEdgeLoop(t *testing.T) {
 	g := CreateGraph()
 	e := g.Entry()

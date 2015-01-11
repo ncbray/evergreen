@@ -700,42 +700,100 @@ func contractLoop(g *Graph, n NodeID) {
 	}
 }
 
-func appendCluster(src Cluster, dst Cluster, singleEntry bool) Cluster {
-	switch src := src.(type) {
-	case *ClusterLeaf:
-		switch dst := dst.(type) {
+func appendCluster(src Cluster, dst Cluster, shouldFuse bool) Cluster {
+	if shouldFuse {
+		switch src := src.(type) {
 		case *ClusterLeaf:
-			if singleEntry {
+			switch dst := dst.(type) {
+			case *ClusterLeaf:
 				src.Nodes = append(src.Nodes, dst.Nodes...)
 				return src
-			}
-		case *ClusterLinear:
-			if singleEntry {
+			case *ClusterLinear:
 				other, ok := dst.Clusters[0].(*ClusterLeaf)
 				if ok {
 					other.Nodes = append(src.Nodes, other.Nodes...)
 					return dst
 				}
+				dst.Clusters = append([]Cluster{src}, dst.Clusters...)
+				return dst
 			}
-			dst.Clusters = append([]Cluster{src}, dst.Clusters...)
-			return dst
-		}
-	case *ClusterLinear:
-		switch dst := dst.(type) {
 		case *ClusterLinear:
-			src.Clusters = append(src.Clusters, dst.Clusters...)
+			switch dst := dst.(type) {
+			case *ClusterLinear:
+				src.Clusters = append(src.Clusters, dst.Clusters...)
+				return src
+			}
+			src.Clusters = append(src.Clusters, dst)
 			return src
+		default:
+			switch dst := dst.(type) {
+			case *ClusterLinear:
+				dst.Clusters = append([]Cluster{src}, dst.Clusters...)
+				return dst
+			}
 		}
-		src.Clusters = append(src.Clusters, dst)
-		return src
-	default:
-		switch dst := dst.(type) {
+	} else {
+		switch src := src.(type) {
 		case *ClusterLinear:
-			dst.Clusters = append([]Cluster{src}, dst.Clusters...)
-			return dst
+			src.Clusters = append(src.Clusters, dst)
+			return src
 		}
 	}
 	return &ClusterLinear{Clusters: []Cluster{src, dst}}
+}
+
+func isClusterHead(g *Graph, src NodeID, nodes []lfNodeInfo, edges []EdgeType) bool {
+	xit := g.ExitIterator(src)
+	for xit.HasNext() {
+		e, dst := xit.GetNext()
+		if edges[e] != BACKWARD && nodes[dst].idom != src {
+			return false
+		}
+	}
+	return true
+}
+
+func clusterRegion(g *Graph, n NodeID, currentHead NodeID, cluster Cluster, clusters []Cluster, nodes []lfNodeInfo, edges []EdgeType) Cluster {
+	for {
+		fmt.Println(cluster.DumpShort())
+
+		ready := []NodeID{}
+		readyClusters := []Cluster{}
+		//readyEdges := []EdgeID{}
+		//pendingEdges := []EdgeID{}
+		numExits := 0
+		xit := g.ExitIterator(n)
+		for xit.HasNext() {
+			e, dst := xit.GetNext()
+			numExits += 1
+			if nodes[dst].loopHead != currentHead {
+				continue
+			}
+			if edges[e] == BACKWARD {
+				continue
+			}
+			if uniqueEntry(g, n, dst) {
+				if clusters[dst] != nil {
+					ready = append(ready, dst)
+					readyClusters = append(readyClusters, clusters[dst])
+					clusters[dst] = nil
+				}
+			}
+		}
+		fmt.Println(n, ready)
+		if len(ready) > 0 {
+			if len(ready) > 1 {
+				cluster = appendCluster(cluster, &ClusterSwitch{Children: readyClusters}, false)
+			} else {
+				cluster = appendCluster(cluster, readyClusters[0], numExits == 1)
+			}
+			for _, dst := range ready {
+				contract(g, n, dst, nodes)
+			}
+		} else {
+			return cluster
+		}
+	}
 }
 
 func makeCluster2(g *Graph, nodes []lfNodeInfo, edges []EdgeType, postorder []NodeID) {
@@ -747,52 +805,13 @@ func makeCluster2(g *Graph, nodes []lfNodeInfo, edges []EdgeType, postorder []No
 		var cluster Cluster = &ClusterLeaf{
 			Nodes: []NodeID{n},
 		}
-		currentHead := nodes[n].loopHead
 		if nodes[n].isHead {
-			currentHead = n
+			cluster = clusterRegion(g, n, n, cluster, clusters, nodes, edges)
+			contractLoop(g, n)
+			cluster = &ClusterLoop{Body: cluster}
 		}
-		for {
-			fmt.Println(cluster.DumpShort())
-
-			ready := []NodeID{}
-			readyClusters := []Cluster{}
-			xit := g.ExitIterator(n)
-			for xit.HasNext() {
-				e, dst := xit.GetNext()
-				if nodes[dst].loopHead != currentHead {
-					continue
-				}
-				if edges[e] == BACKWARD {
-					continue
-				}
-				if clusters[dst] != nil && uniqueEntry(g, n, dst) {
-					ready = append(ready, dst)
-					readyClusters = append(readyClusters, clusters[dst])
-					clusters[dst] = nil
-				}
-			}
-			fmt.Println(n, ready)
-			if len(ready) > 0 {
-				if len(ready) > 1 {
-					cluster = appendCluster(cluster, &ClusterSwitch{Children: readyClusters}, false)
-				} else {
-					singleEntry := !g.HasMultipleEntries(ready[0])
-					cluster = appendCluster(cluster, readyClusters[0], singleEntry)
-				}
-				for _, dst := range ready {
-					contract(g, n, dst, nodes)
-				}
-			} else {
-				if currentHead == n {
-					fmt.Println("loop done")
-					contractLoop(g, n)
-					cluster = &ClusterLoop{Body: cluster}
-					currentHead = nodes[n].loopHead
-					continue
-				} else {
-					break
-				}
-			}
+		if isClusterHead(g, n, nodes, edges) {
+			cluster = clusterRegion(g, n, nodes[n].loopHead, cluster, clusters, nodes, edges)
 		}
 		clusters[n] = cluster
 	}
