@@ -26,6 +26,13 @@ type dotDrawer struct {
 	buf        *bytes.Buffer
 	edgePorts  []edgePort
 	fuseLinear bool
+	uid        int
+}
+
+func (drawer *dotDrawer) getUID() int {
+	temp := drawer.uid
+	drawer.uid += 1
+	return temp
 }
 
 func (drawer *dotDrawer) WriteString(message string) {
@@ -122,14 +129,14 @@ func drawLinearNodes(drawer *dotDrawer, nodes []NodeID, styler DotStyler) {
 func drawCluster(drawer *dotDrawer, cluster Cluster, styler DotStyler) {
 	switch cluster := cluster.(type) {
 	case *ClusterLeaf:
-		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", drawer.getUID()))
 		drawer.WriteString("  labeljust=l;\n")
 		drawer.WriteString(fmt.Sprintf("  label=\"leaf %d\";\n", len(cluster.Nodes)))
 		drawer.WriteString("  color=lightgrey;\n")
 		drawLinearNodes(drawer, cluster.Nodes, styler)
 		drawer.WriteString("}\n")
 	case *ClusterLinear:
-		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", drawer.getUID()))
 		drawer.WriteString("  labeljust=l;\n")
 		drawer.WriteString(fmt.Sprintf("  label=\"linear %d\";\n", len(cluster.Clusters)))
 		drawer.WriteString("  color=lightgrey;\n")
@@ -138,7 +145,7 @@ func drawCluster(drawer *dotDrawer, cluster Cluster, styler DotStyler) {
 		}
 		drawer.WriteString("}\n")
 	case *ClusterSwitch:
-		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", drawer.getUID()))
 		drawer.WriteString("  labeljust=l;\n")
 		drawer.WriteString(fmt.Sprintf("  label=\"switch %d\";\n", len(cluster.Children)))
 		drawer.WriteString("  color=lightgrey;\n")
@@ -147,7 +154,7 @@ func drawCluster(drawer *dotDrawer, cluster Cluster, styler DotStyler) {
 		}
 		drawer.WriteString("}\n")
 	case *ClusterLoop:
-		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", cluster.Head))
+		drawer.WriteString(fmt.Sprintf("subgraph cluster_%d {\n", drawer.getUID()))
 		drawer.WriteString("  labeljust=l;\n")
 		drawer.WriteString("  label=loop;\n")
 		drawer.WriteString("  color=lightgrey;\n")

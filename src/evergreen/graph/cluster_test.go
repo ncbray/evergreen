@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func assertNodeInfos(actual []lfNodeInfo, expected []lfNodeInfo, t *testing.T) {
+func assertNodeInfos(actual []nodeInfo, expected []nodeInfo, t *testing.T) {
 	assert.IntEquals(t, len(actual), len(expected))
 
 	for i := 0; i < len(expected); i++ {
@@ -36,7 +36,7 @@ func assertNodeList(actual []NodeID, expected []NodeID, t *testing.T) {
 	}
 }
 
-func assertEdgeTypeList(actual []EdgeType, expected []EdgeType, t *testing.T) {
+func assertEdgeTypeList(actual []edgeType, expected []edgeType, t *testing.T) {
 	assert.IntEquals(t, len(actual), len(expected))
 
 	for i := 0; i < len(expected); i++ {
@@ -278,7 +278,7 @@ func TestInnerOuter(t *testing.T) {
 	emitFullEdge(g, n5, x)
 
 	cluster := makeCluster(g)
-	assert.StringEquals(t, cluster.DumpShort(), "[(0 2) <(3) (4 5)> (6) (1)]")
+	assert.StringEquals(t, cluster.DumpShort(), "[(0) [(2) <(3) (4 5)>] (6) (1)]")
 }
 
 func Test2Levelif(t *testing.T) {
@@ -320,60 +320,60 @@ func Test2Levelif(t *testing.T) {
 
 	info, edges, postorder := analyzeStructure(g)
 
-	assertNodeInfos(info, []lfNodeInfo{
+	assertNodeInfos(info, []nodeInfo{
 		// e
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 		},
 		// x
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 		},
 		// n1
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 		},
 		// n2
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 		},
 		// n3
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n1,
 			loopHead: NoNode,
 		},
 		// n4
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n1,
 			loopHead: NoNode,
 		},
 		// n5
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n2,
 			loopHead: NoNode,
 		},
 		// n6
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n2,
 			loopHead: NoNode,
 		},
 		// n7
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n1,
 			loopHead: NoNode,
 		},
 		// n8
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n2,
 			loopHead: NoNode,
 		},
 	}, t)
 
-	assertEdgeTypeList(edges, []EdgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, CROSS, FORWARD, CROSS, FORWARD, CROSS}, t)
+	assertEdgeTypeList(edges, []edgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, CROSS, FORWARD, CROSS, FORWARD, CROSS}, t)
 
 	assertNodeList(postorder, []NodeID{
 		x,
@@ -414,42 +414,42 @@ func TestDualLoop(t *testing.T) {
 
 	info, edges, postorder := analyzeStructure(g)
 
-	assertNodeInfos(info, []lfNodeInfo{
+	assertNodeInfos(info, []nodeInfo{
 		// e
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 		},
 		// x
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n1,
 			loopHead: NoNode,
 		},
 		// n1
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 			isHead:   true,
 		},
 		// n2
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n1,
 			loopHead: n1,
 			isHead:   true,
 		},
 		// n3
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n2,
 			loopHead: n2,
 		},
 		// n4
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n2,
 			loopHead: n1,
 		},
 	}, t)
 
-	assertEdgeTypeList(edges, []EdgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, BACKWARD, BACKWARD}, t)
+	assertEdgeTypeList(edges, []edgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, BACKWARD, BACKWARD}, t)
 
 	assertNodeList(postorder, []NodeID{
 		n3,
@@ -485,42 +485,42 @@ func TestForwardEdgeLoop(t *testing.T) {
 
 	info, edges, postorder := analyzeStructure(g)
 
-	assertNodeInfos(info, []lfNodeInfo{
+	assertNodeInfos(info, []nodeInfo{
 		// e
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 		},
 		// x
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n2,
 			loopHead: NoNode,
 		},
 		// n1
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 		},
 		// n2
-		lfNodeInfo{
+		nodeInfo{
 			idom:          n1,
 			loopHead:      NoNode,
 			isHead:        true,
 			isIrreducible: true,
 		},
 		// n3
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n1,
 			loopHead: n2,
 		},
 		// n4
-		lfNodeInfo{
+		nodeInfo{
 			idom:     n3,
 			loopHead: n2,
 		},
 	}, t)
 
-	assertEdgeTypeList(edges, []EdgeType{FORWARD, FORWARD, REENTRY, FORWARD, FORWARD, FORWARD, BACKWARD}, t)
+	assertEdgeTypeList(edges, []edgeType{FORWARD, FORWARD, REENTRY, FORWARD, FORWARD, FORWARD, BACKWARD}, t)
 
 	assertNodeList(postorder, []NodeID{
 		n4,
@@ -558,44 +558,44 @@ func TestClassicIrreducible(t *testing.T) {
 
 	info, edges, postorder := analyzeStructure(g)
 
-	assertNodeInfos(info, []lfNodeInfo{
+	assertNodeInfos(info, []nodeInfo{
 		// e
-		lfNodeInfo{
+		nodeInfo{
 			loopHead: NoNode,
 			idom:     e,
 		},
 		// x
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 		},
 		// n1
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: NoNode,
 			isHead:   true,
 		},
 		// n2
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: n1,
 			isHead:   true,
 		},
 		// n3
-		lfNodeInfo{
+		nodeInfo{
 			idom:          e,
 			loopHead:      n2,
 			isHead:        true,
 			isIrreducible: true,
 		},
 		// n4
-		lfNodeInfo{
+		nodeInfo{
 			idom:     e,
 			loopHead: n3,
 		},
 	}, t)
 
-	assertEdgeTypeList(edges, []EdgeType{FORWARD, REENTRY, FORWARD, FORWARD, BACKWARD, CROSS, FORWARD, BACKWARD, FORWARD, BACKWARD}, t)
+	assertEdgeTypeList(edges, []edgeType{FORWARD, REENTRY, FORWARD, FORWARD, BACKWARD, CROSS, FORWARD, BACKWARD, FORWARD, BACKWARD}, t)
 
 	assertNodeList(postorder, []NodeID{
 		n4,
