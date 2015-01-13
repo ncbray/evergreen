@@ -138,11 +138,13 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 			block = append(block, multiAssign(&tree.Call{
 				Expr: &tree.GetGlobal{Text: f.Name}, // HACK
 				Args: getLocalList(lclMap, op.Args),
+				F:    op.Target,
 			}, lclMap, op.Dsts))
 		case *flow.Append:
 			block = append(block, scalarAssign(&tree.Call{
 				Expr: &tree.GetGlobal{Text: "append"}, // HACK
 				Args: getLocalList(lclMap, append([]flow.Register_Ref{op.Src}, op.Args...)),
+				F:    core.NoFunction,
 			}, lclMap, op.Dst))
 		case *flow.MethodCall:
 			// TODO simple IR
@@ -152,6 +154,7 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 					Text: op.Name,
 				},
 				Args: getLocalList(lclMap, op.Args),
+				F:    core.NoFunction,
 			}, lclMap, op.Dsts))
 		case *flow.Transfer:
 			srcs := []tree.Expr{}

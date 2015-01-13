@@ -126,6 +126,7 @@ struct Index implements Expr {
 struct Call implements Expr {
   Expr Expr
   Args []Expr
+  F core.Function
 }
 
 struct TypeAssert implements Expr {

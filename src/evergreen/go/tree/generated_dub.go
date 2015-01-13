@@ -246,6 +246,7 @@ func (node *Index) isExpr() {
 type Call struct {
 	Expr Expr
 	Args []Expr
+	F    core.Function_Ref
 }
 
 func (node *Call) isStmt() {

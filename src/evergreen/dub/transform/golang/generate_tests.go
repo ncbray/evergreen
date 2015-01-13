@@ -3,6 +3,7 @@ package golang
 import (
 	"evergreen/dub/core"
 	"evergreen/dub/tree"
+	dstcore "evergreen/go/core"
 	dst "evergreen/go/tree"
 	"fmt"
 )
@@ -64,6 +65,7 @@ func (ctx *testingContext) makeFatalTest(cond dst.Expr, f string, args ...dst.Ex
 			&dst.Call{
 				Expr: attr(ctx.funcDecl.MakeGetLocal(ctx.tInfo), "Fatalf"),
 				Args: wrapped,
+				F:    dstcore.NoFunction,
 			},
 		},
 	}
@@ -75,6 +77,7 @@ func makeLen(expr dst.Expr) dst.Expr {
 		Args: []dst.Expr{
 			expr,
 		},
+		F: dstcore.NoFunction,
 	}
 }
 
@@ -251,6 +254,7 @@ func generateExpr(ctx *testingContext, expr tree.ASTExpr) dst.Expr {
 		return &dst.Call{
 			Expr: glbl(expr.Name.Text),
 			Args: args,
+			F:    dstcore.NoFunction,
 		}
 	case *tree.StringLiteral:
 		return strLiteral(expr.Value)
@@ -305,6 +309,7 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 				Args: []dst.Expr{
 					strLiteral(tst.Input),
 				},
+				F: dstcore.NoFunction,
 			},
 		},
 	})
@@ -333,6 +338,7 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 			attr(ctx.GetState(), "Index"),
 			&dst.Call{
 				Expr: attr(ctx.GetState(), "Deepest"),
+				F:    dstcore.NoFunction,
 			},
 		))
 	}

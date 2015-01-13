@@ -90,6 +90,12 @@ func nameifyExpr(expr Expr, info *FileInfo) {
 		nameifyExpr(expr.Left, info)
 		nameifyExpr(expr.Right, info)
 	case *Call:
+		if expr.F != core.NoFunction {
+			f := info.CoreProg.Function_Scope.Get(expr.F)
+			expr.Expr = &GetGlobal{
+				Text: info.QualifyName(f.Package, f.Name),
+			}
+		}
 		nameifyExpr(expr.Expr, info)
 		for _, e := range expr.Args {
 			nameifyExpr(e, info)
