@@ -6,6 +6,14 @@ import (
 	"regexp"
 )
 
+const (
+	NORMAL_EDGE_COLOR = "green"
+	TRUE_EDGE_COLOR   = "limegreen"
+	FALSE_EDGE_COLOR  = "yellow"
+	FAIL_EDGE_COLOR   = "goldenrod"
+	RETURN_EDGE_COLOR = "navy"
+)
+
 func nodeDotID(node NodeID) string {
 	return fmt.Sprintf("n%d", node)
 }
