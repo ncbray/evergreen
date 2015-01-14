@@ -14,7 +14,6 @@ type DotStyler interface {
 	BlockLabel(node NodeID) (string, bool)
 	NodeStyle(node NodeID) string
 	EdgeStyle(src NodeID, edge EdgeID, dst NodeID) string
-	IsLocalFlow(edge EdgeID) bool
 }
 
 type edgePort struct {

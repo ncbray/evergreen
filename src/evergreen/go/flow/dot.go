@@ -171,8 +171,3 @@ func (styler *DotStyler) BlockLabel(node graph.NodeID) (string, bool) {
 		panic(op)
 	}
 }
-
-func (styler *DotStyler) IsLocalFlow(e graph.EdgeID) bool {
-	flow := styler.Func.Edges[e]
-	return flow == NORMAL || flow == COND_TRUE || flow == COND_FALSE
-}
