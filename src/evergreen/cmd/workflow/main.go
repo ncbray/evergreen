@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
+
+var outdir = "output"
 
 type Mode struct {
 	Name string
@@ -37,6 +40,17 @@ func (ctx *Context) SimpleCommand(name string, args ...string) {
 	full = append(full, args...)
 	fmt.Println(strings.Join(full, " "))
 	cmd := exec.Command(name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	ctx.CheckError(cmd.Run())
+}
+
+func (ctx *Context) EnvCommand(env []string, name string, args ...string) {
+	full := []string{name}
+	full = append(full, args...)
+	fmt.Println(strings.Join(full, " "))
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(env, os.Environ()...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	ctx.CheckError(cmd.Run())
@@ -99,7 +113,7 @@ func Test(ctx *Context) {
 
 func Dump(ctx *Context) {
 	ctx.Step("Removing old outputs")
-	ctx.CheckError(os.RemoveAll("output"))
+	ctx.CheckError(os.RemoveAll(outdir))
 	if ctx.Errored {
 		return
 	}
@@ -107,6 +121,33 @@ func Dump(ctx *Context) {
 	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir=dub", "-outdir=src", "-gopackage=generated", "-dump", "-v=1")
 	if ctx.Errored {
 		return
+	}
+}
+
+func Crossbuild(ctx *Context) {
+	builddir := filepath.Join(outdir, "crossbuild")
+	ctx.Step("Building binary")
+	ctx.EnvCommand(
+		[]string{"GOOS=linux", "GOARCH=arm", "GOARM=7"},
+		"go", "build", "-o", filepath.Join(builddir, "egc"), "evergreen/cmd/egc")
+	if ctx.Errored {
+		return
+	}
+	ctx.Step("Copying sources")
+	ctx.SimpleCommand("cp", "-r", "dub", builddir)
+	if ctx.Errored {
+		return
+	}
+	host_var := "CROSSBUILD_HOST"
+	host := os.Getenv(host_var)
+	if host != "" {
+		ctx.Step("Uploading")
+		ctx.SimpleCommand("scp", "-r", builddir, host+":~/crossbuild")
+		ctx.Step("Profiling")
+		ctx.SimpleCommand("ssh", host, "cd crossbuild;./egc -indir dub -outdir output -gopackage generated -cpuprofile=egc_cpu.prof")
+		ctx.SimpleCommand("scp", host+":~/crossbuild/egc_cpu.prof", builddir)
+	} else {
+		fmt.Printf("%s not specified, skipping upload.\n", host_var)
 	}
 }
 
@@ -137,6 +178,11 @@ func main() {
 				Name: "dump",
 				Run:  Dump,
 				Help: "Dumps graphs of intermediate data structures.",
+			},
+			&Mode{
+				Name: "crossbuild",
+				Run:  Crossbuild,
+				Help: "Build for ARM Linux.",
 			},
 		},
 	}
