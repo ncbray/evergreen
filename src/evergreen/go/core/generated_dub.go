@@ -68,12 +68,13 @@ func (node *InterfaceType) isGoType() {
 }
 
 type BuiltinTypeIndex struct {
-	Int    *ExternalType
-	UInt32 *ExternalType
-	Int64  *ExternalType
-	Bool   *ExternalType
-	String *ExternalType
-	Rune   *ExternalType
+	Int     *ExternalType
+	UInt32  *ExternalType
+	Int64   *ExternalType
+	Float32 *ExternalType
+	Bool    *ExternalType
+	String  *ExternalType
+	Rune    *ExternalType
 }
 
 type Function_Ref uint32

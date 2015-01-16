@@ -267,17 +267,7 @@ struct Package {
   P core.Package
 }
 
-struct BuiltinTypeIndex {
-  String core.BuiltinType
-  Rune core.BuiltinType
-  Int core.BuiltinType
-  Int64 core.BuiltinType
-  Bool core.BuiltinType
-  Graph core.BuiltinType
-  Nil core.NilType
-}
-
 struct Program {
-  Builtins BuiltinTypeIndex
+  Builtins core.BuiltinTypeIndex
   Packages []Package
 }

@@ -47,6 +47,7 @@ struct BuiltinTypeIndex {
   Int ExternalType
   UInt32 ExternalType
   Int64 ExternalType
+  Float32 ExternalType
   Bool ExternalType
   String ExternalType
   Rune ExternalType

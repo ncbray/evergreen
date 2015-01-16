@@ -81,6 +81,17 @@ type Function struct {
 	File File_Ref
 }
 
+type BuiltinTypeIndex struct {
+	String  *BuiltinType
+	Rune    *BuiltinType
+	Int     *BuiltinType
+	Int64   *BuiltinType
+	Float32 *BuiltinType
+	Bool    *BuiltinType
+	Graph   *BuiltinType
+	Nil     *NilType
+}
+
 type CoreProgram struct {
 	Structures     []*StructType
 	Package_Scope  *Package_Scope

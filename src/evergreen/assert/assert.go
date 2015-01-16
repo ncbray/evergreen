@@ -11,6 +11,12 @@ func IntEquals(t *testing.T, actual int, expected int) {
 	}
 }
 
+func Float32Equals(t *testing.T, actual float32, expected float32) {
+	if actual != expected {
+		t.Fatalf("%#v != %#v", actual, expected)
+	}
+}
+
 func StringEquals(t *testing.T, actual string, expected string) {
 	if actual != expected {
 		t.Fatalf("%#v != %#v", actual, expected)

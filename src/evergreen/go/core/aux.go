@@ -2,12 +2,13 @@ package core
 
 func MakeBuiltinTypeIndex() *BuiltinTypeIndex {
 	return &BuiltinTypeIndex{
-		Int:    &ExternalType{Name: "int", Package: NoPackage},
-		UInt32: &ExternalType{Name: "uint32", Package: NoPackage},
-		Int64:  &ExternalType{Name: "int64", Package: NoPackage},
-		Bool:   &ExternalType{Name: "bool", Package: NoPackage},
-		String: &ExternalType{Name: "string", Package: NoPackage},
-		Rune:   &ExternalType{Name: "rune", Package: NoPackage},
+		Int:     &ExternalType{Name: "int", Package: NoPackage},
+		UInt32:  &ExternalType{Name: "uint32", Package: NoPackage},
+		Int64:   &ExternalType{Name: "int64", Package: NoPackage},
+		Float32: &ExternalType{Name: "float32", Package: NoPackage},
+		Bool:    &ExternalType{Name: "bool", Package: NoPackage},
+		String:  &ExternalType{Name: "string", Package: NoPackage},
+		Rune:    &ExternalType{Name: "rune", Package: NoPackage},
 	}
 }
 

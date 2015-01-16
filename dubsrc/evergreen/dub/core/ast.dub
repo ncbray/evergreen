@@ -42,6 +42,17 @@ struct Function scoped {
   File File
 }
 
+struct BuiltinTypeIndex {
+  String BuiltinType
+  Rune BuiltinType
+  Int BuiltinType
+  Int64 BuiltinType
+  Float32 BuiltinType
+  Bool BuiltinType
+  Graph BuiltinType
+  Nil NilType
+}
+
 struct CoreProgram contains (Package, File, Function) {
   Structures []StructType
 }

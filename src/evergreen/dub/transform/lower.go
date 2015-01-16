@@ -9,7 +9,7 @@ import (
 )
 
 type dubBuilder struct {
-	index    *tree.BuiltinTypeIndex
+	index    *core.BuiltinTypeIndex
 	decl     *tree.FuncDecl
 	flow     *flow.LLFunc
 	localMap []flow.RegisterInfo_Ref

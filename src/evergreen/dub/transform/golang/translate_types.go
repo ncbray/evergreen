@@ -86,6 +86,8 @@ func builtinType(t *core.BuiltinType, ctx *DubToGoContext) dstcore.GoType {
 		return ctx.index.UInt32
 	case "int64":
 		return ctx.index.Int64
+	case "float32":
+		return ctx.index.Float32
 	case "rune":
 		return ctx.index.Rune
 	case "string":

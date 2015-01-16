@@ -120,6 +120,49 @@ func scalarReturn(t core.DubType) []core.DubType {
 	return []core.DubType{t}
 }
 
+// TODO rewrite binary op to explicitly promote types.
+// TODO do not promote ints to floats.
+func binaryOpType(ctx *semanticPassContext, lt *core.BuiltinType, op string, rt *core.BuiltinType) (*core.BuiltinType, bool) {
+	builtins := ctx.Program.Index
+	switch op {
+	case "+", "-", "*", "/":
+		switch lt {
+		case builtins.Int:
+			switch rt {
+			case builtins.Int:
+				return builtins.Int, true
+			case builtins.Float32:
+				return builtins.Float32, true
+			}
+		case builtins.Float32:
+			switch rt {
+			case builtins.Int:
+				return builtins.Float32, true
+			case builtins.Float32:
+				return builtins.Float32, true
+			}
+		}
+	case "<", "<=", ">", ">=", "==", "!=":
+		switch lt {
+		case builtins.Int:
+			switch rt {
+			case builtins.Int:
+				return builtins.Bool, true
+			case builtins.Float32:
+				return builtins.Bool, true
+			}
+		case builtins.Float32:
+			switch rt {
+			case builtins.Int:
+				return builtins.Bool, true
+			case builtins.Float32:
+				return builtins.Bool, true
+			}
+		}
+	}
+	return nil, false
+}
+
 func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) []core.DubType {
 	switch expr := expr.(type) {
 	case *Repeat:
@@ -152,13 +195,15 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		if !ok {
 			panic(r)
 		}
-		sig := fmt.Sprintf("%s%s%s", lt.Name, expr.Op, rt.Name)
-		t, ok := ctx.Program.BinaryOps[sig].(core.DubType)
-		if !ok {
-			panic(sig)
+		t, ok := binaryOpType(ctx, lt, expr.Op, rt)
+		if ok {
+			expr.T = t
+		} else {
+			expr.T = unresolvedType
+			sig := fmt.Sprintf("%s%s%s", lt.Name, expr.Op, rt.Name)
+			ctx.Status.GlobalError(fmt.Sprintf("unsupported binary op %s", sig))
 		}
-		expr.T = t
-		return scalarReturn(t)
+		return scalarReturn(expr.T)
 	case *NameRef:
 		name := expr.Name.Text
 		info, found := scope.localInfo(name)
@@ -487,8 +532,7 @@ func semanticTestPass(ctx *semanticPassContext, tst *Test) {
 }
 
 type ProgramScope struct {
-	Index     *BuiltinTypeIndex
-	BinaryOps map[string]core.DubType
+	Index *core.BuiltinTypeIndex
 }
 
 type namedElement interface {
@@ -583,15 +627,16 @@ func ReturnTypes(node ASTCallable) []core.DubType {
 	}
 }
 
-func MakeBuiltinTypeIndex() *BuiltinTypeIndex {
-	return &BuiltinTypeIndex{
-		String: &core.BuiltinType{Name: "string"},
-		Rune:   &core.BuiltinType{Name: "rune"},
-		Int:    &core.BuiltinType{Name: "int"},
-		Int64:  &core.BuiltinType{Name: "int64"},
-		Bool:   &core.BuiltinType{Name: "bool"},
-		Graph:  &core.BuiltinType{Name: "graph"},
-		Nil:    &core.NilType{},
+func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
+	return &core.BuiltinTypeIndex{
+		String:  &core.BuiltinType{Name: "string"},
+		Rune:    &core.BuiltinType{Name: "rune"},
+		Int:     &core.BuiltinType{Name: "int"},
+		Int64:   &core.BuiltinType{Name: "int64"},
+		Float32: &core.BuiltinType{Name: "float32"},
+		Bool:    &core.BuiltinType{Name: "bool"},
+		Graph:   &core.BuiltinType{Name: "graph"},
+		Nil:     &core.NilType{},
 	}
 }
 
@@ -600,11 +645,12 @@ var BuiltinTypeNames = []string{
 	"rune",
 	"int",
 	"int64",
+	"float32",
 	"bool",
 	"graph",
 }
 
-func GetBuiltinType(index *BuiltinTypeIndex, name string) (core.DubType, bool) {
+func GetBuiltinType(index *core.BuiltinTypeIndex, name string) (core.DubType, bool) {
 	switch name {
 	case "string":
 		return index.String, true
@@ -614,6 +660,8 @@ func GetBuiltinType(index *BuiltinTypeIndex, name string) (core.DubType, bool) {
 		return index.Int, true
 	case "int64":
 		return index.Int64, true
+	case "float32":
+		return index.Float32, true
 	case "bool":
 		return index.Bool, true
 	case "graph":
@@ -623,39 +671,10 @@ func GetBuiltinType(index *BuiltinTypeIndex, name string) (core.DubType, bool) {
 	}
 }
 
-var binaryOps = []string{
-	"int+int:int",
-	"int-int:int",
-	"int*int:int",
-	"int/int:int",
-	"int<int:bool",
-	"int<=int:bool",
-	"int>int:bool",
-	"int>=int:bool",
-	"int==int:bool",
-	"int!=int:bool",
-}
-
 func MakeProgramScope(program *Program) *ProgramScope {
 	programScope := &ProgramScope{
-		BinaryOps: map[string]core.DubType{},
-		Index:     program.Builtins,
+		Index: program.Builtins,
 	}
-
-	for _, desc := range binaryOps {
-		for i := 0; i < len(desc); i++ {
-			if desc[i] == ':' {
-				expr := desc[:i]
-				out := desc[i+1:]
-				outT, ok := GetBuiltinType(program.Builtins, out)
-				if !ok {
-					panic(desc)
-				}
-				programScope.BinaryOps[expr] = outT
-			}
-		}
-	}
-
 	return programScope
 }
 

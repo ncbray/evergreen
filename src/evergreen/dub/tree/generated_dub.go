@@ -400,18 +400,8 @@ type Package struct {
 	P     core.Package_Ref
 }
 
-type BuiltinTypeIndex struct {
-	String *core.BuiltinType
-	Rune   *core.BuiltinType
-	Int    *core.BuiltinType
-	Int64  *core.BuiltinType
-	Bool   *core.BuiltinType
-	Graph  *core.BuiltinType
-	Nil    *core.NilType
-}
-
 type Program struct {
-	Builtins *BuiltinTypeIndex
+	Builtins *core.BuiltinTypeIndex
 	Packages []*Package
 }
 
