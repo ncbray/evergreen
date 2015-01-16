@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+var dubsrc = "dubsrc"
+
 var outdir = "output"
 
 type Mode struct {
@@ -79,7 +81,7 @@ func Build(ctx *Context) {
 
 func Sync(ctx *Context) {
 	ctx.Step("Regenerating sources")
-	ctx.SimpleCommand("bin/egc", "-indir=dub", "-outdir=src", "-gopackage=evergreen")
+	ctx.SimpleCommand("bin/egc", "-indir="+filepath.Join(dubsrc, "evergreen"), "-outdir=src", "-gopackage=evergreen")
 	if ctx.Errored {
 		return
 	}
@@ -103,7 +105,7 @@ func Test(ctx *Context) {
 		return
 	}
 	ctx.Step("Generating sources for testing")
-	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir=dub", "-outdir=src", "-gopackage=generated", "-gentests")
+	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir="+filepath.Join(dubsrc, "evergreen"), "-outdir=src", "-gopackage=generated", "-gentests")
 	if ctx.Errored {
 		return
 	}
@@ -118,7 +120,7 @@ func Dump(ctx *Context) {
 		return
 	}
 	ctx.Step("Dumping graphs")
-	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir=dub", "-outdir=src", "-gopackage=generated", "-dump", "-v=1")
+	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir="+filepath.Join(dubsrc, "evergreen"), "-outdir=src", "-gopackage=generated", "-dump", "-v=1")
 	if ctx.Errored {
 		return
 	}
@@ -134,7 +136,7 @@ func Crossbuild(ctx *Context) {
 		return
 	}
 	ctx.Step("Copying sources")
-	ctx.SimpleCommand("cp", "-r", "dub", builddir)
+	ctx.SimpleCommand("cp", "-r", filepath.Join(dubsrc, "evergreen"), builddir)
 	if ctx.Errored {
 		return
 	}
@@ -144,7 +146,7 @@ func Crossbuild(ctx *Context) {
 		ctx.Step("Uploading")
 		ctx.SimpleCommand("scp", "-r", builddir, host+":~/crossbuild")
 		ctx.Step("Profiling")
-		ctx.SimpleCommand("ssh", host, "cd crossbuild;./egc -indir dub -outdir output -gopackage generated -cpuprofile=egc_cpu.prof")
+		ctx.SimpleCommand("ssh", host, "cd crossbuild;./egc -indir evergreen -outdir output -gopackage generated -cpuprofile=egc_cpu.prof")
 		ctx.SimpleCommand("scp", host+":~/crossbuild/egc_cpu.prof", builddir)
 	} else {
 		fmt.Printf("%s not specified, skipping upload.\n", host_var)
