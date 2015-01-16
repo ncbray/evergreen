@@ -109,6 +109,10 @@ func Test(ctx *Context) {
 	if ctx.Errored {
 		return
 	}
+	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir="+filepath.Join(dubsrc, "playground"), "-outdir=src", "-gopackage=generated/playground", "-gentests")
+	if ctx.Errored {
+		return
+	}
 	ctx.Step("Running tests")
 	ctx.SimpleCommand("go", "test", "./...")
 }
