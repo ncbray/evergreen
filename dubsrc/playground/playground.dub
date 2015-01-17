@@ -2,6 +2,10 @@ func Add(a int, b int) int {
   return a + b;
 }
 
+func CoerceFraction() float32 {
+  return coerce(float32, 5) / coerce(float32, 8);
+}
+
 func Blend(x float32, y float32, amt float32) float32 {
-  return (1 - amt) * x + amt * y;
+  return (coerce(float32, 1) - amt) * x + amt * y;
 }

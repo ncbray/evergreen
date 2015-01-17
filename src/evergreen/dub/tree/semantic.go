@@ -123,7 +123,6 @@ func scalarReturn(t core.DubType) []core.DubType {
 }
 
 // TODO rewrite binary op to explicitly promote types.
-// TODO do not promote ints to floats.
 func binaryOpType(ctx *semanticPassContext, lt *core.BuiltinType, op string, rt *core.BuiltinType) (*core.BuiltinType, bool) {
 	builtins := ctx.Program.Index
 	switch op {
@@ -133,13 +132,9 @@ func binaryOpType(ctx *semanticPassContext, lt *core.BuiltinType, op string, rt 
 			switch rt {
 			case builtins.Int:
 				return builtins.Int, true
-			case builtins.Float32:
-				return builtins.Float32, true
 			}
 		case builtins.Float32:
 			switch rt {
-			case builtins.Int:
-				return builtins.Float32, true
 			case builtins.Float32:
 				return builtins.Float32, true
 			}
@@ -150,13 +145,9 @@ func binaryOpType(ctx *semanticPassContext, lt *core.BuiltinType, op string, rt 
 			switch rt {
 			case builtins.Int:
 				return builtins.Bool, true
-			case builtins.Float32:
-				return builtins.Bool, true
 			}
 		case builtins.Float32:
 			switch rt {
-			case builtins.Int:
-				return builtins.Bool, true
 			case builtins.Float32:
 				return builtins.Bool, true
 			}
