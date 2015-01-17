@@ -29,6 +29,8 @@ func childScope(scope *semanticScope) *semanticScope {
 
 var unresolvedType core.DubType = nil
 
+var unresolvedScalar = []core.DubType{unresolvedType}
+
 func TypeMatches(actual core.DubType, expected core.DubType, exact bool) bool {
 	if actual == unresolvedType || expected == unresolvedType {
 		return true
@@ -185,7 +187,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		l := scalarSemanticExprPass(ctx, decl, expr.Left, scope)
 		r := scalarSemanticExprPass(ctx, decl, expr.Right, scope)
 		if l == nil || r == nil {
-			return nil
+			return unresolvedScalar
 		}
 		lt, ok := l.(*core.BuiltinType)
 		if !ok {
@@ -274,12 +276,12 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		fd, ok := ctx.Module.Namespace[name]
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return scalarReturn(unresolvedType)
+			return unresolvedScalar
 		}
 		f, ok := AsFunc(fd)
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("%#v is not callable", name))
-			return scalarReturn(unresolvedType)
+			return unresolvedScalar
 		}
 		for _, e := range expr.Args {
 			// TODO check argument types
