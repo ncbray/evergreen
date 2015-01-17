@@ -129,6 +129,7 @@ struct DestructureList implements Destructure {
 struct If implements ASTExpr {
   Expr ASTExpr
   Block []ASTExpr
+  Else []ASTExpr
 }
 
 struct Repeat implements ASTExpr {

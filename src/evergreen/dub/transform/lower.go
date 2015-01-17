@@ -277,7 +277,10 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		lowerBlock(expr.Block, builder, block)
 		fb.AbsorbExits(block)
 
-		fb.RegisterExit(builder.EmitEdge(decide, flow.COND_FALSE), flow.NORMAL)
+		block = fb.SplitOffEdge(builder.EmitEdge(decide, flow.COND_FALSE))
+		lowerBlock(expr.Else, builder, block)
+		fb.AbsorbExits(block)
+
 		return flow.NoRegisterInfo
 
 	case *tree.Repeat:

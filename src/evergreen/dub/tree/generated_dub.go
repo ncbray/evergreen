@@ -197,6 +197,7 @@ func (node *DestructureList) isDestructure() {
 type If struct {
 	Expr  ASTExpr
 	Block []ASTExpr
+	Else  []ASTExpr
 }
 
 func (node *If) isASTExpr() {
@@ -3725,6 +3726,14 @@ func ParseCompoundStatement(frame *runtime.State) (ret ASTExpr) {
 	var c27 rune
 	var r7 ASTExpr
 	var r8 []ASTExpr
+	var r9 []ASTExpr
+	var checkpoint2 int
+	var c28 rune
+	var c29 rune
+	var c30 rune
+	var c31 rune
+	var r10 []ASTExpr
+	var else_ []ASTExpr
 	checkpoint0 = frame.Checkpoint()
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
@@ -4057,8 +4066,56 @@ block6:
 							S(frame)
 							r8 = ParseCodeBlock(frame)
 							if frame.Flow == 0 {
-								ret = &If{Expr: r7, Block: r8}
-								return
+								r9 = []ASTExpr{}
+								checkpoint2 = frame.Checkpoint()
+								S(frame)
+								c28 = frame.Peek()
+								if frame.Flow == 0 {
+									if c28 == 'e' {
+										frame.Consume()
+										c29 = frame.Peek()
+										if frame.Flow == 0 {
+											if c29 == 'l' {
+												frame.Consume()
+												c30 = frame.Peek()
+												if frame.Flow == 0 {
+													if c30 == 's' {
+														frame.Consume()
+														c31 = frame.Peek()
+														if frame.Flow == 0 {
+															if c31 == 'e' {
+																frame.Consume()
+																EndKeyword(frame)
+																if frame.Flow == 0 {
+																	S(frame)
+																	r10 = ParseCodeBlock(frame)
+																	if frame.Flow == 0 {
+																		else_ = r10
+																		goto block8
+																	}
+																	goto block7
+																}
+																goto block7
+															}
+															frame.Fail()
+															goto block7
+														}
+														goto block7
+													}
+													frame.Fail()
+													goto block7
+												}
+												goto block7
+											}
+											frame.Fail()
+											goto block7
+										}
+										goto block7
+									}
+									frame.Fail()
+									goto block7
+								}
+								goto block7
 							}
 							return
 						}
@@ -4074,6 +4131,13 @@ block6:
 		frame.Fail()
 		return
 	}
+	return
+block7:
+	frame.Recover(checkpoint2)
+	else_ = r9
+	goto block8
+block8:
+	ret = &If{Expr: r7, Block: r8, Else: else_}
 	return
 }
 

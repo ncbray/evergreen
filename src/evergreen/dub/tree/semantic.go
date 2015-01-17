@@ -173,6 +173,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		semanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO check condition type
 		semanticBlockPass(ctx, decl, expr.Block, childScope(scope))
+		semanticBlockPass(ctx, decl, expr.Else, childScope(scope))
 		return nil
 	case *BinaryOp:
 		l := scalarSemanticExprPass(ctx, decl, expr.Left, scope)

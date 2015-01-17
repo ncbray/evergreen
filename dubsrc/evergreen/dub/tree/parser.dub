@@ -45,8 +45,9 @@ func ParseNumericLiteral() ASTExpr{
   };
   if divisor > 1 {
     return Float32Literal{Text: text, Value: coerce(float32, value) / coerce(float32, divisor)};
+  } else {
+    return IntLiteral{Text: text, Value: value};
   }
-  return IntLiteral{Text: text, Value: value};
 }
 
 func EscapedChar() rune {
@@ -579,7 +580,15 @@ func ParseCompoundStatement() ASTExpr {
     expr := ParseExpr();
     S();
     block := ParseCodeBlock();
-    return If{Expr: expr, Block: block};
+    else_ := []ASTExpr{};
+    question {
+      S();
+      /"else"/;
+      EndKeyword();
+      S();
+      else_ = ParseCodeBlock();
+    }
+    return If{Expr: expr, Block: block, Else: else_};
   }
 }
 
