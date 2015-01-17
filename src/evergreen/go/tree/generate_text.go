@@ -54,6 +54,8 @@ func GeneratePrecExpr(gen *textGenerator, expr Expr) (string, int) {
 	switch expr := expr.(type) {
 	case *IntLiteral:
 		return strconv.Itoa(expr.Value), operandPrec
+	case *Float32Literal:
+		return strconv.FormatFloat(float64(expr.Value), 'g', -1, 32), operandPrec
 	case *BoolLiteral:
 		if expr.Value {
 			return "true", operandPrec

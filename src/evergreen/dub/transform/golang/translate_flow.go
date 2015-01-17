@@ -320,6 +320,12 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				Dst:   dstReg(regMap, op.Dst),
 			})
 			mapper.simpleFlow(srcID, dstID)
+		case *src.ConstantFloat32Op:
+			dstID := builder.EmitOp(&dst.ConstantFloat32{
+				Value: op.Value,
+				Dst:   dstReg(regMap, op.Dst),
+			})
+			mapper.simpleFlow(srcID, dstID)
 		case *src.ConstantBoolOp:
 			dstID := builder.EmitOp(&dst.ConstantBool{
 				Value: op.Value,

@@ -66,6 +66,14 @@ type ConstantIntOp struct {
 func (node *ConstantIntOp) isDubOp() {
 }
 
+type ConstantFloat32Op struct {
+	Value float32
+	Dst   RegisterInfo_Ref
+}
+
+func (node *ConstantFloat32Op) isDubOp() {
+}
+
 type ConstantBoolOp struct {
 	Value bool
 	Dst   RegisterInfo_Ref

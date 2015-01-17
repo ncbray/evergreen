@@ -61,6 +61,11 @@ struct IntLiteral implements ASTExpr {
   Value int
 }
 
+struct Float32Literal implements ASTExpr {
+  Text string
+  Value float32
+}
+
 struct BoolLiteral implements ASTExpr {
   Text string
   Value bool

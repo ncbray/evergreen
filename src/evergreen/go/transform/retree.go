@@ -127,6 +127,10 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 			block = append(block, scalarAssign(&tree.IntLiteral{
 				Value: int(op.Value),
 			}, lclMap, op.Dst))
+		case *flow.ConstantFloat32:
+			block = append(block, scalarAssign(&tree.Float32Literal{
+				Value: op.Value,
+			}, lclMap, op.Dst))
 		case *flow.ConstantBool:
 			block = append(block, scalarAssign(&tree.BoolLiteral{
 				Value: op.Value,

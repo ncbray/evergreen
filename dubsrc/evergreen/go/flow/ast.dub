@@ -29,6 +29,11 @@ struct ConstantInt implements GoOp {
   Dst Register
 }
 
+struct ConstantFloat32 implements GoOp {
+  Value float32
+  Dst Register
+}
+
 struct ConstantBool implements GoOp {
   Value bool
   Dst Register

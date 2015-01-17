@@ -79,6 +79,8 @@ func opToString(coreProg *core.CoreProgram, op GoOp) string {
 		return addDst("nil", op.Dst)
 	case *ConstantInt:
 		return addDst(fmt.Sprintf("%v", op.Value), op.Dst)
+	case *ConstantFloat32:
+		return addDst(fmt.Sprintf("%v", op.Value), op.Dst)
 	case *ConstantBool:
 		return addDst(fmt.Sprintf("%v", op.Value), op.Dst)
 	case *ConstantRune:

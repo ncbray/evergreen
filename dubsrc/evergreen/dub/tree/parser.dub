@@ -26,15 +26,27 @@ func Ident() Id {
   return Id{Pos: p, Text: text};
 }
 
-func DecodeInt() (int, string) {
-    var value int;
-    text := slice {
+func ParseNumericLiteral() ASTExpr{
+  var value int;
+  divisor := 1;
+  text := slice {
+    plus {
+      digit := coerce(int, $[0-9]) - coerce(int, '0');
+      value = value * 10 + digit;
+    }
+    question {
+      /[.]/;
       plus {
-        digit := coerce(int, $[0-9]) - coerce(int, '0');
-        value = value * 10 + digit;
+	digit = coerce(int, $[0-9]) - coerce(int, '0');
+	value = value * 10 + digit;
+	divisor = divisor * 10;
       }
-    };
-    return value, text;
+    }
+  };
+  if divisor > 1 {
+    return Float32Literal{Text: text, Value: coerce(float32, value) / coerce(float32, divisor)};
+  }
+  return IntLiteral{Text: text, Value: value};
 }
 
 func EscapedChar() rune {
@@ -132,8 +144,7 @@ func Literal() ASTExpr {
   } or {
     return ParseStringLiteral();
   } or {
-    value, text := DecodeInt();
-    return IntLiteral{Text: text, Value: value};
+    return ParseNumericLiteral();
   } or {
     value, text := DecodeBool();
     return BoolLiteral{Text: text, Value: value};

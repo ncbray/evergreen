@@ -69,6 +69,16 @@ func (node *IntLiteral) isStmt() {
 func (node *IntLiteral) isExpr() {
 }
 
+type Float32Literal struct {
+	Value float32
+}
+
+func (node *Float32Literal) isStmt() {
+}
+
+func (node *Float32Literal) isExpr() {
+}
+
 type BoolLiteral struct {
 	Value bool
 }

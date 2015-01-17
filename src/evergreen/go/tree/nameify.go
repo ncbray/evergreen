@@ -121,7 +121,7 @@ func nameifyExpr(expr Expr, info *FileInfo) {
 		for _, e := range expr.Args {
 			nameifyExpr(e, info)
 		}
-	case *IntLiteral, *BoolLiteral, *StringLiteral, *RuneLiteral, *NilLiteral:
+	case *IntLiteral, *Float32Literal, *BoolLiteral, *StringLiteral, *RuneLiteral, *NilLiteral:
 		// Leaf
 	default:
 		panic(expr)

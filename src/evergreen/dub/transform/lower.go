@@ -424,6 +424,16 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
+	case *tree.Float32Literal:
+		if !used {
+			return flow.NoRegisterInfo
+		}
+		dst := builder.CreateRegister("c_f", builder.index.Float32)
+		body := builder.EmitOp(&flow.ConstantFloat32Op{Value: expr.Value, Dst: dst})
+		fb.AttachFlow(flow.NORMAL, body)
+		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		return dst
+
 	case *tree.BoolLiteral:
 		if !used {
 			return flow.NoRegisterInfo

@@ -7,5 +7,5 @@ func CoerceFraction() float32 {
 }
 
 func Blend(x float32, y float32, amt float32) float32 {
-  return (coerce(float32, 1) - amt) * x + amt * y;
+  return (1.0 - amt) * x + amt * y;
 }

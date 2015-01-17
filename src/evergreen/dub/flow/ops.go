@@ -113,6 +113,8 @@ func IsNop(op DubOp) bool {
 		return op.Dst == NoRegisterInfo
 	case *ConstantIntOp:
 		return op.Dst == NoRegisterInfo
+	case *ConstantFloat32Op:
+		return op.Dst == NoRegisterInfo
 	case *ConstantBoolOp:
 		return op.Dst == NoRegisterInfo
 	case *ConstantNilOp:

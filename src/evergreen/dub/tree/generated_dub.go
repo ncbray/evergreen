@@ -93,6 +93,14 @@ type IntLiteral struct {
 func (node *IntLiteral) isASTExpr() {
 }
 
+type Float32Literal struct {
+	Text  string
+	Value float32
+}
+
+func (node *Float32Literal) isASTExpr() {
+}
+
 type BoolLiteral struct {
 	Text  string
 	Value bool
@@ -1510,16 +1518,30 @@ block31:
 	return
 }
 
-func DecodeInt(frame *runtime.State) (ret0 int, ret1 string) {
+func ParseNumericLiteral(frame *runtime.State) (ret ASTExpr) {
 	var value0 int
+	var c_i int
 	var pos int
 	var c0 rune
 	var r0 int
 	var value1 int
-	var checkpoint int
+	var checkpoint0 int
 	var c1 rune
 	var r1 int
+	var checkpoint1 int
+	var c2 rune
+	var c3 rune
+	var r2 int
+	var value2 int
+	var divisor0 int
+	var checkpoint2 int
+	var c4 rune
+	var r3 int
+	var value3 int
+	var divisor1 int
+	var slice string
 	value0 = 0
+	c_i = 1
 	pos = frame.Checkpoint()
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
@@ -1530,13 +1552,13 @@ func DecodeInt(frame *runtime.State) (ret0 int, ret1 string) {
 				value1 = value0*10 + r0
 				goto block1
 			}
-			goto block4
+			goto block10
 		}
-		goto block4
+		goto block10
 	}
 	return
 block1:
-	checkpoint = frame.Checkpoint()
+	checkpoint0 = frame.Checkpoint()
 	c1 = frame.Peek()
 	if frame.Flow == 0 {
 		if c1 >= '0' {
@@ -1555,10 +1577,70 @@ block2:
 	frame.Fail()
 	goto block3
 block3:
-	frame.Recover(checkpoint)
-	ret0, ret1 = value1, frame.Slice(pos)
-	return
+	frame.Recover(checkpoint0)
+	checkpoint1 = frame.Checkpoint()
+	c2 = frame.Peek()
+	if frame.Flow == 0 {
+		if c2 == '.' {
+			frame.Consume()
+			c3 = frame.Peek()
+			if frame.Flow == 0 {
+				if c3 >= '0' {
+					if c3 <= '9' {
+						frame.Consume()
+						r2 = int(c3) - int('0')
+						value2, divisor0 = value1*10+r2, c_i*10
+						goto block4
+					}
+					goto block7
+				}
+				goto block7
+			}
+			goto block8
+		}
+		frame.Fail()
+		goto block8
+	}
+	goto block8
 block4:
+	checkpoint2 = frame.Checkpoint()
+	c4 = frame.Peek()
+	if frame.Flow == 0 {
+		if c4 >= '0' {
+			if c4 <= '9' {
+				frame.Consume()
+				r3 = int(c4) - int('0')
+				value2, divisor0 = value2*10+r3, divisor0*10
+				goto block4
+			}
+			goto block5
+		}
+		goto block5
+	}
+	goto block6
+block5:
+	frame.Fail()
+	goto block6
+block6:
+	frame.Recover(checkpoint2)
+	value3, divisor1 = value2, divisor0
+	goto block9
+block7:
+	frame.Fail()
+	goto block8
+block8:
+	frame.Recover(checkpoint1)
+	value3, divisor1 = value1, c_i
+	goto block9
+block9:
+	slice = frame.Slice(pos)
+	if divisor1 > 1 {
+		ret = &Float32Literal{Text: slice, Value: float32(value3) / float32(divisor1)}
+		return
+	}
+	ret = &IntLiteral{Text: slice, Value: value3}
+	return
+block10:
 	frame.Fail()
 	return
 }
@@ -1974,10 +2056,9 @@ func Literal(frame *runtime.State) (ret ASTExpr) {
 	var r0 rune
 	var r1 string
 	var r2 *StringLiteral
-	var r3 int
-	var r4 string
-	var r5 bool
-	var r6 string
+	var r3 ASTExpr
+	var r4 bool
+	var r5 string
 	var c0 rune
 	var c1 rune
 	var c2 rune
@@ -1994,15 +2075,15 @@ func Literal(frame *runtime.State) (ret ASTExpr) {
 		return
 	}
 	frame.Recover(checkpoint)
-	r3, r4 = DecodeInt(frame)
+	r3 = ParseNumericLiteral(frame)
 	if frame.Flow == 0 {
-		ret = &IntLiteral{Text: r4, Value: r3}
+		ret = r3
 		return
 	}
 	frame.Recover(checkpoint)
-	r5, r6 = DecodeBool(frame)
+	r4, r5 = DecodeBool(frame)
 	if frame.Flow == 0 {
-		ret = &BoolLiteral{Text: r6, Value: r5}
+		ret = &BoolLiteral{Text: r5, Value: r4}
 		return
 	}
 	frame.Recover(checkpoint)

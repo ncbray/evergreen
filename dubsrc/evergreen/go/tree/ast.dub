@@ -44,6 +44,10 @@ struct IntLiteral implements Expr {
   Value int
 }
 
+struct Float32Literal implements Expr {
+  Value float32
+}
+
 struct BoolLiteral implements Expr {
   Value bool
 }

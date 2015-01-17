@@ -56,6 +56,14 @@ type ConstantInt struct {
 func (node *ConstantInt) isGoOp() {
 }
 
+type ConstantFloat32 struct {
+	Value float32
+	Dst   Register_Ref
+}
+
+func (node *ConstantFloat32) isGoOp() {
+}
+
 type ConstantBool struct {
 	Value bool
 	Dst   Register_Ref

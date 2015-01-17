@@ -41,6 +41,11 @@ struct ConstantIntOp implements DubOp {
   Dst RegisterInfo
 }
 
+struct ConstantFloat32Op implements DubOp {
+  Value float32
+  Dst RegisterInfo
+}
+
 struct ConstantBoolOp implements DubOp {
   Value bool
   Dst RegisterInfo

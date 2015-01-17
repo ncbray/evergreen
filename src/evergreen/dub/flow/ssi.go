@@ -38,6 +38,8 @@ func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *ssi.DefUse
 		addDef(op.Dst, node, defuse)
 	case *ConstantIntOp:
 		addDef(op.Dst, node, defuse)
+	case *ConstantFloat32Op:
+		addDef(op.Dst, node, defuse)
 	case *ConstantBoolOp:
 		addDef(op.Dst, node, defuse)
 	case *ConstantNilOp:
@@ -184,6 +186,8 @@ func renameOp(n graph.NodeID, data DubOp, ra *RegisterReallocator) {
 		op.Dst = ra.MakeOutput(n, op.Dst)
 	case *ConstantIntOp:
 		op.Dst = ra.MakeOutput(n, op.Dst)
+	case *ConstantFloat32Op:
+		op.Dst = ra.MakeOutput(n, op.Dst)
 	case *ConstantBoolOp:
 		op.Dst = ra.MakeOutput(n, op.Dst)
 	case *ConstantNilOp:
@@ -299,6 +303,10 @@ func killUnusedOutputs(n graph.NodeID, op DubOp, live ssi.LivenessOracle) {
 			op.Dst = NoRegisterInfo
 		}
 	case *ConstantIntOp:
+		if !live.LiveAtExit(n, int(op.Dst)) {
+			op.Dst = NoRegisterInfo
+		}
+	case *ConstantFloat32Op:
 		if !live.LiveAtExit(n, int(op.Dst)) {
 			op.Dst = NoRegisterInfo
 		}

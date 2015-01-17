@@ -37,7 +37,7 @@ func defUseExpr(expr Expr, du *defUse) {
 	switch expr := expr.(type) {
 	case *GetLocal:
 		du.GetLocalInfo(expr.Info).Uses += 1
-	case *IntLiteral, *RuneLiteral, *BoolLiteral, *StringLiteral, *NilLiteral, *GetGlobal:
+	case *IntLiteral, *Float32Literal, *RuneLiteral, *BoolLiteral, *StringLiteral, *NilLiteral, *GetGlobal:
 		// Leaf
 	case *UnaryExpr:
 		defUseExpr(expr.Expr, du)
@@ -186,7 +186,7 @@ func consolidateExpr(expr Expr, du *defUse, out []Stmt) (Expr, []Stmt) {
 	switch expr := expr.(type) {
 	case *GetLocal:
 		return pullLocal(expr, du, out)
-	case *IntLiteral, *RuneLiteral, *BoolLiteral, *StringLiteral, *NilLiteral, *GetGlobal:
+	case *IntLiteral, *Float32Literal, *RuneLiteral, *BoolLiteral, *StringLiteral, *NilLiteral, *GetGlobal:
 		// Leaf
 	case *UnaryExpr:
 		expr.Expr, out = consolidateExpr(expr.Expr, du, out)

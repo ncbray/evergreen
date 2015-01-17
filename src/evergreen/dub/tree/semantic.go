@@ -238,6 +238,8 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		return scalarReturn(ctx.Program.Index.String)
 	case *IntLiteral:
 		return scalarReturn(ctx.Program.Index.Int)
+	case *Float32Literal:
+		return scalarReturn(ctx.Program.Index.Float32)
 	case *BoolLiteral:
 		return scalarReturn(ctx.Program.Index.Bool)
 	case *NilLiteral:

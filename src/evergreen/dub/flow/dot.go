@@ -68,6 +68,8 @@ func opToString(coreProg *core.CoreProgram, op DubOp) string {
 		return formatAssignment("nil", n.Dst)
 	case *ConstantIntOp:
 		return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
+	case *ConstantFloat32Op:
+		return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
 	case *ConstantBoolOp:
 		return formatAssignment(fmt.Sprintf("%v", n.Value), n.Dst)
 	case *ConstantRuneOp:
