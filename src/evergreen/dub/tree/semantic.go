@@ -281,7 +281,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			// TODO check argument types
 			scalarSemanticExprPass(ctx, decl, e, scope)
 		}
-		types := ReturnTypes(f)
+		types := ReturnTypes(ctx, f)
 		expr.Target = f
 		expr.T = types
 		return types
@@ -552,13 +552,13 @@ func AsType(node namedElement) (core.DubType, bool) {
 }
 
 type NamedCallable struct {
-	Func ASTCallable
+	Func core.Callable
 }
 
 func (element *NamedCallable) isNamedElement() {
 }
 
-func AsFunc(node namedElement) (ASTCallable, bool) {
+func AsFunc(node namedElement) (core.Callable, bool) {
 	switch node := node.(type) {
 	case *NamedCallable:
 		return node.Func, true
@@ -610,11 +610,12 @@ func ResolveType(ref ASTTypeRef) core.DubType {
 	}
 }
 
-func ReturnTypes(node ASTCallable) []core.DubType {
+func ReturnTypes(ctx *semanticPassContext, node core.Callable) []core.DubType {
 	switch node := node.(type) {
-	case *FuncDecl:
-		types := make([]core.DubType, len(node.ReturnTypes))
-		for i, t := range node.ReturnTypes {
+	case *core.CallableFunction:
+		f := ctx.Functions[node.Func]
+		types := make([]core.DubType, len(f.ReturnTypes))
+		for i, t := range f.ReturnTypes {
 			types[i] = ResolveType(t)
 		}
 		return types
@@ -680,6 +681,7 @@ type semanticPassContext struct {
 	ModuleContexts []*semanticPassContext
 	Status         compiler.PassStatus
 	Core           *core.CoreProgram
+	Functions      []*FuncDecl
 }
 
 func resolveImport(ctx *semanticPassContext, imp *ImportDecl) {
@@ -720,13 +722,19 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 				if exists {
 					ctx.Status.LocationError(decl.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
 				} else {
-					ctx.Module.Namespace[name] = &NamedCallable{Func: decl}
+					f := &core.Function{
+						Name: name,
+						File: file.F,
+					}
+					decl.F = ctx.Core.Function_Scope.Register(f)
+					ctx.Functions = append(ctx.Functions, decl)
+
+					ctx.Module.Namespace[name] = &NamedCallable{
+						Func: &core.CallableFunction{
+							Func: decl.F,
+						},
+					}
 				}
-				f := &core.Function{
-					Name: name,
-					File: file.F,
-				}
-				decl.F = ctx.Core.Function_Scope.Register(f)
 			case *StructDecl:
 				name := decl.Name.Text
 				_, exists := ctx.Module.Namespace[name]

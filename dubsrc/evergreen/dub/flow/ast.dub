@@ -69,7 +69,7 @@ struct BinaryOp implements DubOp {
 }
 
 struct CallOp implements DubOp {
-  Target core.Function
+  Target core.Callable
   Args []RegisterInfo
   Dsts []RegisterInfo
 }

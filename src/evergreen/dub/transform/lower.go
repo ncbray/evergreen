@@ -251,11 +251,7 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *
 				dsts[i] = builder.CreateRegister("", t)
 			}
 		}
-		target, ok := expr.Target.(*tree.FuncDecl)
-		if !ok {
-			panic(expr.Target)
-		}
-		body := builder.EmitOp(&flow.CallOp{Target: target.F, Args: args, Dsts: dsts})
+		body := builder.EmitOp(&flow.CallOp{Target: expr.Target, Args: args, Dsts: dsts})
 		fb.AttachFlow(flow.NORMAL, body)
 		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)

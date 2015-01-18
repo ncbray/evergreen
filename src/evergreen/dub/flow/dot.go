@@ -58,6 +58,15 @@ type DotStyler struct {
 	Core *core.CoreProgram
 }
 
+func callableName(coreProg *core.CoreProgram, c core.Callable) string {
+	switch c := c.(type) {
+	case *core.CallableFunction:
+		return coreProg.Function_Scope.Get(c.Func).Name
+	default:
+		panic(c)
+	}
+}
+
 func opToString(coreProg *core.CoreProgram, op DubOp) string {
 	switch n := op.(type) {
 	case *CoerceOp:
@@ -79,7 +88,7 @@ func opToString(coreProg *core.CoreProgram, op DubOp) string {
 	case *BinaryOp:
 		return formatAssignment(fmt.Sprintf("%s %s %s", registerName(n.Left), n.Op, registerName(n.Right)), n.Dst)
 	case *CallOp:
-		name := coreProg.Function_Scope.Get(n.Target).Name
+		name := callableName(coreProg, n.Target)
 		return formatMultiAssignment(fmt.Sprintf("%s(%s)", name, registerList(n.Args)), n.Dsts)
 	case *ConstructOp:
 		return formatAssignment(fmt.Sprintf("%s{%s}\n", core.TypeName(n.Type), keyValueList(n.Args)), n.Dst)

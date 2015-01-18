@@ -184,7 +184,7 @@ struct Coerce implements ASTExpr {
 struct Call implements ASTExpr {
   Name Id
   Args []ASTExpr
-  Target ASTCallable
+  Target core.Callable
   T []core.DubType
 }
 
@@ -225,9 +225,6 @@ struct StructDecl implements ASTDecl {
   T core.StructType
 }
 
-struct ASTCallable implements ASTDecl {
-}
-
 struct LocalInfo scoped {
   Name string
   T core.DubType
@@ -238,7 +235,7 @@ struct Param {
   Type ASTTypeRef
 }
 
-struct FuncDecl contains(LocalInfo) implements ASTCallable {
+struct FuncDecl contains(LocalInfo) implements ASTDecl {
   Name Id
   Params []Param
   ReturnTypes []ASTTypeRef

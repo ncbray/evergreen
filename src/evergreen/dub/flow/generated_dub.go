@@ -109,7 +109,7 @@ func (node *BinaryOp) isDubOp() {
 }
 
 type CallOp struct {
-	Target core.Function_Ref
+	Target core.Callable
 	Args   []RegisterInfo_Ref
 	Dsts   []RegisterInfo_Ref
 }

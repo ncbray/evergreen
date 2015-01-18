@@ -232,11 +232,18 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				}
 			}
 		case *src.CallOp:
+			var tgt srccore.Function_Ref
+			switch c := op.Target.(type) {
+			case *srccore.CallableFunction:
+				tgt = c.Func
+			default:
+				panic(op.Target)
+			}
 			args := []dst.Register_Ref{frameReg}
 			args = append(args, regList(regMap, op.Args)...)
 			dstID := builder.EmitOp(&dst.Call{
 				// HACK assumes functions are defined in the same order.
-				Target: dstcore.Function_Ref(op.Target),
+				Target: dstcore.Function_Ref(tgt),
 				Args:   args,
 				Dsts:   regList(regMap, op.Dsts),
 			})

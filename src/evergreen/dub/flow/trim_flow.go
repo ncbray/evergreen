@@ -36,8 +36,15 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 		for node, op := range f.Ops {
 			switch op := op.(type) {
 			case *CallOp:
-				tgt, ok := lut[op.Target]
-				if !ok {
+				var tgt int
+				switch c := op.Target.(type) {
+				case *core.CallableFunction:
+					var ok bool
+					tgt, ok = lut[c.Func]
+					if !ok {
+						panic(c.Func)
+					}
+				default:
 					panic(op.Target)
 				}
 				n := graph.NodeID(node)

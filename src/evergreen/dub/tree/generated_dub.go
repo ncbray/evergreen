@@ -282,7 +282,7 @@ func (node *Coerce) isASTExpr() {
 type Call struct {
 	Name   *Id
 	Args   []ASTExpr
-	Target ASTCallable
+	Target core.Callable
 	T      []core.DubType
 }
 
@@ -344,11 +344,6 @@ type StructDecl struct {
 func (node *StructDecl) isASTDecl() {
 }
 
-type ASTCallable interface {
-	isASTCallable()
-	isASTDecl()
-}
-
 type LocalInfo_Ref uint32
 
 const NoLocalInfo = ^LocalInfo_Ref(0)
@@ -377,9 +372,6 @@ type FuncDecl struct {
 }
 
 func (node *FuncDecl) isASTDecl() {
-}
-
-func (node *FuncDecl) isASTCallable() {
 }
 
 type Test struct {

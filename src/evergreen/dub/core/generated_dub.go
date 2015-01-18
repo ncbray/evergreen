@@ -81,6 +81,28 @@ type Function struct {
 	File File_Ref
 }
 
+type IntrinsticFunction struct {
+	Name string
+}
+
+type Callable interface {
+	isCallable()
+}
+
+type CallableFunction struct {
+	Func Function_Ref
+}
+
+func (node *CallableFunction) isCallable() {
+}
+
+type CallableIntrinstic struct {
+	Func *IntrinsticFunction
+}
+
+func (node *CallableIntrinstic) isCallable() {
+}
+
 type BuiltinTypeIndex struct {
 	String  *BuiltinType
 	Rune    *BuiltinType
