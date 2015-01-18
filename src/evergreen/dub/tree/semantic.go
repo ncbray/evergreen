@@ -346,23 +346,18 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) core.DubType {
 	switch node := node.(type) {
 	case *TypeRef:
-		var t core.DubType
 		name := node.Name.Text
-		d, ok := ctx.Module.Namespace[name]
-		if ok {
-			t, ok = AsType(d)
-			if !ok {
-				ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
-				node.T = unresolvedType
-				return unresolvedType
-			}
-		} else {
-			t, ok = GetBuiltinType(ctx.Program.Index, name)
-			if !ok {
-				ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-				node.T = unresolvedType
-				return unresolvedType
-			}
+		d, ok := resolve(ctx, name)
+		if !ok {
+			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
+			node.T = unresolvedType
+			return unresolvedType
+		}
+		t, ok := AsType(d)
+		if !ok {
+			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
+			node.T = unresolvedType
+			return unresolvedType
 		}
 		node.T = t
 		return t
@@ -655,35 +650,36 @@ func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
 	}
 }
 
-func GetBuiltinType(index *core.BuiltinTypeIndex, name string) (core.DubType, bool) {
-	switch name {
-	case "string":
-		return index.String, true
-	case "rune":
-		return index.Rune, true
-	case "int":
-		return index.Int, true
-	case "int64":
-		return index.Int64, true
-	case "float32":
-		return index.Float32, true
-	case "bool":
-		return index.Bool, true
-	case "graph":
-		return index.Graph, true
-	default:
-		return nil, false
+func addIntrinsticFunction(f *core.IntrinsicFunction, namespace map[string]namedElement) {
+	namespace[f.Name] = &NamedCallable{
+		Func: f,
+	}
+}
+
+func addBuiltinType(t *core.BuiltinType, namespace map[string]namedElement) {
+	namespace[t.Name] = &NamedType{
+		T: t,
 	}
 }
 
 func MakeProgramScope(program *Program) *ProgramScope {
+	ns := map[string]namedElement{}
 	programScope := &ProgramScope{
 		Index:     program.Builtins,
-		Namespace: map[string]namedElement{},
+		Namespace: ns,
 	}
-	programScope.Namespace["append"] = &NamedCallable{
-		Func: program.Builtins.Append,
-	}
+	builtins := program.Builtins
+
+	addBuiltinType(builtins.String, ns)
+	addBuiltinType(builtins.Rune, ns)
+	addBuiltinType(builtins.Int, ns)
+	addBuiltinType(builtins.Int64, ns)
+	addBuiltinType(builtins.Float32, ns)
+	addBuiltinType(builtins.Bool, ns)
+	addBuiltinType(builtins.Graph, ns)
+
+	addIntrinsticFunction(builtins.Append, ns)
+
 	return programScope
 }
 
