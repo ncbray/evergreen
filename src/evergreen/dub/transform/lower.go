@@ -239,7 +239,7 @@ func getPossibleFlows(c core.Callable, builtins *core.BuiltinTypeIndex) (bool, b
 	switch c := c.(type) {
 	case *core.IntrinsicFunction:
 		switch c {
-		case builtins.Append, builtins.Position:
+		case builtins.Append, builtins.Position, builtins.Slice:
 			return true, false
 		default:
 			panic(c)
@@ -555,53 +555,40 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
-	case *tree.Slice:
-		start := builder.CreateRegister("pos", builder.index.Int)
-		// HACK assume checkpoint is just the index
-		{
-			head := builder.EmitOp(&flow.Checkpoint{Dst: start})
-			fb.AttachFlow(flow.NORMAL, head)
-			fb.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
-		}
-		lowerBlock(expr.Block, builder, fb)
-
-		// Create a slice
-		var dst *flow.RegisterInfo
-		if used {
-			dst = builder.CreateRegister("slice", builder.index.String)
-		}
-		{
-			body := builder.EmitOp(&flow.Slice{Src: start, Dst: dst})
-			fb.AttachFlow(flow.NORMAL, body)
-			fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
-		}
-		return dst
-
 	case *tree.StringMatch:
-		var dst *flow.RegisterInfo
-		var start *flow.RegisterInfo
+		var begin *flow.RegisterInfo
 
 		// Checkpoint
 		if used {
-			start = builder.CreateRegister("pos", builder.index.Int)
+			begin = builder.CreateRegister("begin", builder.index.Int)
 			// HACK assume checkpoint is just the index
-			{
-				head := builder.EmitOp(&flow.Checkpoint{Dst: start})
-				fb.AttachFlow(flow.NORMAL, head)
-				fb.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
-			}
+			check := builder.EmitOp(&flow.Checkpoint{Dst: begin})
+			fb.AttachFlow(flow.NORMAL, check)
+			fb.RegisterExit(builder.EmitEdge(check, flow.NORMAL), flow.NORMAL)
 		}
 
 		lowerMatch(expr.Match, builder, fb)
 
 		// Create a slice
 		if used {
-			dst = builder.CreateRegister("slice", builder.index.String)
-			body := builder.EmitOp(&flow.Slice{Src: start, Dst: dst})
-			fb.AttachFlow(flow.NORMAL, body)
-			fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+			end := builder.CreateRegister("end", builder.index.Int)
+			// HACK assume checkpoint is just the index
+			check := builder.EmitOp(&flow.Checkpoint{Dst: end})
+			fb.AttachFlow(flow.NORMAL, check)
+			fb.RegisterExit(builder.EmitEdge(check, flow.NORMAL), flow.NORMAL)
+
+			dst := builder.CreateRegister("slice", builder.index.String)
+			slice := builder.EmitOp(&flow.CallOp{
+				Target: builder.index.Slice,
+				Args:   []*flow.RegisterInfo{begin, end},
+				Dsts:   []*flow.RegisterInfo{dst},
+			})
+			fb.AttachFlow(flow.NORMAL, slice)
+			fb.RegisterExit(builder.EmitEdge(slice, flow.NORMAL), flow.NORMAL)
+			return dst
+		} else {
+			return nil
 		}
-		return dst
 
 	case *tree.RuneMatch:
 		return lowerRuneMatch(expr.Match, used, builder, fb)

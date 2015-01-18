@@ -238,9 +238,6 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			semanticTargetPass(ctx, decl, target, t[i], expr.Define, scope)
 		}
 		return t
-	case *Slice:
-		semanticBlockPass(ctx, decl, expr.Block, scope)
-		return scalarReturn(ctx.Program.Index.String)
 	case *StringMatch:
 		return scalarReturn(ctx.Program.Index.String)
 	case *RuneMatch:
@@ -633,6 +630,11 @@ func ReturnTypes(ctx *semanticPassContext, node core.Callable, args []core.DubTy
 				panic(args)
 			}
 			return []core.DubType{builtins.Int}
+		case ctx.Program.Index.Slice:
+			if len(args) != 2 {
+				panic(args)
+			}
+			return []core.DubType{builtins.String}
 		default:
 			panic(node)
 		}
@@ -653,6 +655,7 @@ func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
 		Nil:      &core.NilType{},
 		Append:   &core.IntrinsicFunction{Name: "append"},
 		Position: &core.IntrinsicFunction{Name: "position"},
+		Slice:    &core.IntrinsicFunction{Name: "slice"},
 	}
 }
 
@@ -686,6 +689,7 @@ func MakeProgramScope(program *Program) *ProgramScope {
 
 	addIntrinsticFunction(builtins.Append, ns)
 	addIntrinsticFunction(builtins.Position, ns)
+	addIntrinsticFunction(builtins.Slice, ns)
 
 	return programScope
 }

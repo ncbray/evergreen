@@ -29,20 +29,21 @@ func Ident() Id {
 func ParseNumericLiteral() ASTExpr{
   var value int;
   divisor := 1;
-  text := slice {
+  begin := position();
+  plus {
+    digit := coerce(int, $[0-9]) - coerce(int, '0');
+    value = value * 10 + digit;
+  }
+  question {
+    /[.]/;
     plus {
-      digit := coerce(int, $[0-9]) - coerce(int, '0');
+      digit = coerce(int, $[0-9]) - coerce(int, '0');
       value = value * 10 + digit;
+      divisor = divisor * 10;
     }
-    question {
-      /[.]/;
-      plus {
-	digit = coerce(int, $[0-9]) - coerce(int, '0');
-	value = value * 10 + digit;
-	divisor = divisor * 10;
-      }
-    }
-  };
+  }
+  end := position();
+  text := slice(begin, end);
   if divisor > 1 {
     return Float32Literal{Text: text, Value: coerce(float32, value) / coerce(float32, divisor)};
   } else {
@@ -101,41 +102,39 @@ func DecodeString() string {
 
 func DecodeRune() (rune, string) {
   var value rune;
-  text := slice {
-    /[']/;
-    choose {
-      value = $[^\\'];
-    } or {
-      /[\\]/;
-      value = EscapedChar();
-    }
-    /[']/;
-  };
-  return value, text;
+  begin := position();
+  /[']/;
+  choose {
+    value = $[^\\'];
+  } or {
+    /[\\]/;
+    value = EscapedChar();
+  }
+  /[']/;
+  end := position();
+  return value, slice(begin, end);
 }
 
 func DecodeBool() (bool, string) {
   var value bool;
-  text := slice {
-    choose {
-      /"true"/;
-      value = true;
-    } or {
-      /"false"/;
-      value = false;
-    }
-    EndKeyword();
-  };
-  return value, text;
+  begin := position();
+  choose {
+    /"true"/;
+    value = true;
+  } or {
+    /"false"/;
+    value = false;
+  }
+  EndKeyword();
+  end := position();
+  return value, slice(begin, end);
 }
 
 func ParseStringLiteral() StringLiteral {
-  p := position();
-  var value string;
-  text := slice {
-    value = DecodeString();
-  };
-  return StringLiteral{Pos: p, Text: text, Value: value};
+  begin := position();
+  value := DecodeString();
+  end := position();
+  return StringLiteral{Pos: begin, Text: slice(begin, end), Value: value};
 }
 
 func Literal() ASTExpr {
@@ -426,13 +425,6 @@ func ParseReturnTypeList() []ASTTypeRef {
 func PrimaryExpr() ASTExpr {
   choose {
     return Literal();
-  } or {
-    // Slice is currently the only expression containing a code block.
-    /"slice"/;
-    EndKeyword();
-    S();
-    block := ParseCodeBlock();
-    return Slice{Block: block};
   } or {
     /"coerce"/;
     EndKeyword();

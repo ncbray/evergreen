@@ -54,8 +54,8 @@ func (state *State) Consume() {
 	state.Index += 1
 }
 
-func (state *State) Slice(start int) string {
-	return string(state.Stream[start-state.Offset : state.Index])
+func (state *State) Slice(start int, end int) string {
+	return string(state.Stream[start-state.Offset : end-state.Offset])
 }
 
 func (state *State) Fail() {

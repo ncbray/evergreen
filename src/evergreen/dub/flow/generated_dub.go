@@ -168,14 +168,6 @@ type LookaheadEnd struct {
 func (node *LookaheadEnd) isDubOp() {
 }
 
-type Slice struct {
-	Src *RegisterInfo
-	Dst *RegisterInfo
-}
-
-func (node *Slice) isDubOp() {
-}
-
 type ReturnOp struct {
 	Exprs []*RegisterInfo
 }

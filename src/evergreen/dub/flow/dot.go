@@ -104,8 +104,6 @@ func opToString(coreProg *core.CoreProgram, op DubOp) string {
 		return formatAssignment("<lookahead begin>", n.Dst)
 	case *LookaheadEnd:
 		return fmt.Sprintf("<lookahead end> %v %s", n.Failed, registerName(n.Src))
-	case *Slice:
-		return formatAssignment(fmt.Sprintf("<slice> %s", registerName(n.Src)), n.Dst)
 	case *ReturnOp:
 		return fmt.Sprintf("<return> %s", registerList(n.Exprs))
 	case *Fail:

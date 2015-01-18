@@ -225,13 +225,6 @@ type Optional struct {
 func (node *Optional) isASTExpr() {
 }
 
-type Slice struct {
-	Block []ASTExpr
-}
-
-func (node *Slice) isASTExpr() {
-}
-
 type Assign struct {
 	Expr    ASTExpr
 	Targets []ASTExpr
@@ -649,7 +642,7 @@ func Ident(frame *runtime.State) (ret *Id) {
 	var c74 rune
 	var checkpoint2 int
 	var c75 rune
-	var pos int
+	var begin int
 	var c76 rune
 	var checkpoint3 int
 	var c77 rune
@@ -1422,7 +1415,7 @@ block21:
 	return
 block22:
 	frame.LookaheadNormal(checkpoint0)
-	pos = frame.Checkpoint()
+	begin = frame.Checkpoint()
 	c76 = frame.Peek()
 	if frame.Flow == 0 {
 		if c76 >= 'a' {
@@ -1491,42 +1484,42 @@ block30:
 	goto block31
 block31:
 	frame.Recover(checkpoint3)
-	ret = &Id{Pos: r, Text: frame.Slice(pos)}
+	ret = &Id{Pos: r, Text: frame.Slice(begin, frame.Checkpoint())}
 	return
 }
 
 func ParseNumericLiteral(frame *runtime.State) (ret ASTExpr) {
 	var value0 int
 	var c_i int
-	var pos int
-	var c0 rune
 	var r0 int
+	var c0 rune
+	var r1 int
 	var value1 int
 	var checkpoint0 int
 	var c1 rune
-	var r1 int
+	var r2 int
 	var checkpoint1 int
 	var c2 rune
 	var c3 rune
-	var r2 int
+	var r3 int
 	var value2 int
 	var divisor0 int
 	var checkpoint2 int
 	var c4 rune
-	var r3 int
+	var r4 int
 	var value3 int
 	var divisor1 int
-	var slice string
+	var r5 string
 	value0 = 0
 	c_i = 1
-	pos = frame.Checkpoint()
+	r0 = frame.Checkpoint()
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
 		if c0 >= '0' {
 			if c0 <= '9' {
 				frame.Consume()
-				r0 = int(c0) - int('0')
-				value1 = value0*10 + r0
+				r1 = int(c0) - int('0')
+				value1 = value0*10 + r1
 				goto block1
 			}
 			goto block10
@@ -1541,8 +1534,8 @@ block1:
 		if c1 >= '0' {
 			if c1 <= '9' {
 				frame.Consume()
-				r1 = int(c1) - int('0')
-				value1 = value1*10 + r1
+				r2 = int(c1) - int('0')
+				value1 = value1*10 + r2
 				goto block1
 			}
 			goto block2
@@ -1565,8 +1558,8 @@ block3:
 				if c3 >= '0' {
 					if c3 <= '9' {
 						frame.Consume()
-						r2 = int(c3) - int('0')
-						value2, divisor0 = value1*10+r2, c_i*10
+						r3 = int(c3) - int('0')
+						value2, divisor0 = value1*10+r3, c_i*10
 						goto block4
 					}
 					goto block7
@@ -1586,8 +1579,8 @@ block4:
 		if c4 >= '0' {
 			if c4 <= '9' {
 				frame.Consume()
-				r3 = int(c4) - int('0')
-				value2, divisor0 = value2*10+r3, divisor0*10
+				r4 = int(c4) - int('0')
+				value2, divisor0 = value2*10+r4, divisor0*10
 				goto block4
 			}
 			goto block5
@@ -1610,12 +1603,12 @@ block8:
 	value3, divisor1 = value1, c_i
 	goto block9
 block9:
-	slice = frame.Slice(pos)
+	r5 = frame.Slice(r0, frame.Checkpoint())
 	if divisor1 > 1 {
-		ret = &Float32Literal{Text: slice, Value: float32(value3) / float32(divisor1)}
+		ret = &Float32Literal{Text: r5, Value: float32(value3) / float32(divisor1)}
 		return
 	}
-	ret = &IntLiteral{Text: slice, Value: value3}
+	ret = &IntLiteral{Text: r5, Value: value3}
 	return
 block10:
 	frame.Fail()
@@ -1837,15 +1830,15 @@ block4:
 }
 
 func DecodeRune(frame *runtime.State) (ret0 rune, ret1 string) {
-	var pos int
+	var r0 int
 	var c0 rune
 	var checkpoint int
 	var c1 rune
 	var value rune
 	var c2 rune
-	var r rune
+	var r1 rune
 	var c3 rune
-	pos = frame.Checkpoint()
+	r0 = frame.Checkpoint()
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
 		if c0 == '\'' {
@@ -1878,9 +1871,9 @@ block2:
 	if frame.Flow == 0 {
 		if c2 == '\\' {
 			frame.Consume()
-			r = EscapedChar(frame)
+			r1 = EscapedChar(frame)
 			if frame.Flow == 0 {
-				value = r
+				value = r1
 				goto block3
 			}
 			return
@@ -1894,7 +1887,7 @@ block3:
 	if frame.Flow == 0 {
 		if c3 == '\'' {
 			frame.Consume()
-			ret0, ret1 = value, frame.Slice(pos)
+			ret0, ret1 = value, frame.Slice(r0, frame.Checkpoint())
 			return
 		}
 		frame.Fail()
@@ -1904,7 +1897,7 @@ block3:
 }
 
 func DecodeBool(frame *runtime.State) (ret0 bool, ret1 string) {
-	var pos int
+	var r int
 	var checkpoint int
 	var c0 rune
 	var c1 rune
@@ -1916,7 +1909,7 @@ func DecodeBool(frame *runtime.State) (ret0 bool, ret1 string) {
 	var c6 rune
 	var c7 rune
 	var c8 rune
-	pos = frame.Checkpoint()
+	r = frame.Checkpoint()
 	checkpoint = frame.Checkpoint()
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
@@ -2008,7 +2001,7 @@ block1:
 block2:
 	EndKeyword(frame)
 	if frame.Flow == 0 {
-		ret0, ret1 = value, frame.Slice(pos)
+		ret0, ret1 = value, frame.Slice(r, frame.Checkpoint())
 		return
 	}
 	return
@@ -2016,13 +2009,11 @@ block2:
 
 func ParseStringLiteral(frame *runtime.State) (ret *StringLiteral) {
 	var r0 int
-	var pos int
 	var r1 string
 	r0 = frame.Checkpoint()
-	pos = frame.Checkpoint()
 	r1 = DecodeString(frame)
 	if frame.Flow == 0 {
-		ret = &StringLiteral{Pos: r0, Text: frame.Slice(pos), Value: r1}
+		ret = &StringLiteral{Pos: r0, Text: frame.Slice(r0, frame.Checkpoint()), Value: r1}
 		return
 	}
 	return
@@ -2097,11 +2088,11 @@ func Literal(frame *runtime.State) (ret ASTExpr) {
 
 func BinaryOperator(frame *runtime.State) (ret0 string, ret1 int) {
 	var checkpoint0 int
-	var pos0 int
+	var begin0 int
 	var c0 rune
-	var pos1 int
+	var begin1 int
 	var c1 rune
-	var pos2 int
+	var begin2 int
 	var checkpoint1 int
 	var c2 rune
 	var checkpoint2 int
@@ -2109,7 +2100,7 @@ func BinaryOperator(frame *runtime.State) (ret0 string, ret1 int) {
 	var c4 rune
 	var c5 rune
 	checkpoint0 = frame.Checkpoint()
-	pos0 = frame.Checkpoint()
+	begin0 = frame.Checkpoint()
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
 		if c0 == '*' {
@@ -2127,11 +2118,11 @@ func BinaryOperator(frame *runtime.State) (ret0 string, ret1 int) {
 	goto block2
 block1:
 	frame.Consume()
-	ret0, ret1 = frame.Slice(pos0), 5
+	ret0, ret1 = frame.Slice(begin0, frame.Checkpoint()), 5
 	return
 block2:
 	frame.Recover(checkpoint0)
-	pos1 = frame.Checkpoint()
+	begin1 = frame.Checkpoint()
 	c1 = frame.Peek()
 	if frame.Flow == 0 {
 		if c1 == '+' {
@@ -2146,11 +2137,11 @@ block2:
 	goto block4
 block3:
 	frame.Consume()
-	ret0, ret1 = frame.Slice(pos1), 4
+	ret0, ret1 = frame.Slice(begin1, frame.Checkpoint()), 4
 	return
 block4:
 	frame.Recover(checkpoint0)
-	pos2 = frame.Checkpoint()
+	begin2 = frame.Checkpoint()
 	checkpoint1 = frame.Checkpoint()
 	c2 = frame.Peek()
 	if frame.Flow == 0 {
@@ -2207,7 +2198,7 @@ block8:
 	}
 	return
 block9:
-	ret0, ret1 = frame.Slice(pos2), 3
+	ret0, ret1 = frame.Slice(begin2, frame.Checkpoint()), 3
 	return
 }
 
@@ -3068,36 +3059,30 @@ func PrimaryExpr(frame *runtime.State) (ret ASTExpr) {
 	var c2 rune
 	var c3 rune
 	var c4 rune
-	var r1 []ASTExpr
 	var c5 rune
 	var c6 rune
+	var r1 ASTTypeRef
 	var c7 rune
+	var r2 ASTExpr
 	var c8 rune
+	var r3 *Id
 	var c9 rune
+	var r4 []ASTExpr
 	var c10 rune
+	var r5 ASTTypeRef
 	var c11 rune
-	var r2 ASTTypeRef
+	var r6 []*NamedExpr
 	var c12 rune
-	var r3 ASTExpr
+	var r7 *ListTypeRef
 	var c13 rune
-	var r4 *Id
+	var r8 []ASTExpr
 	var c14 rune
-	var r5 []ASTExpr
+	var r9 *StringMatch
+	var r10 *RuneMatch
 	var c15 rune
-	var r6 ASTTypeRef
+	var r11 ASTExpr
 	var c16 rune
-	var r7 []*NamedExpr
-	var c17 rune
-	var r8 *ListTypeRef
-	var c18 rune
-	var r9 []ASTExpr
-	var c19 rune
-	var r10 *StringMatch
-	var r11 *RuneMatch
-	var c20 rune
-	var r12 ASTExpr
-	var c21 rune
-	var r13 *NameRef
+	var r12 *NameRef
 	checkpoint = frame.Checkpoint()
 	r0 = Literal(frame)
 	if frame.Flow == 0 {
@@ -3107,32 +3092,76 @@ func PrimaryExpr(frame *runtime.State) (ret ASTExpr) {
 	frame.Recover(checkpoint)
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
-		if c0 == 's' {
+		if c0 == 'c' {
 			frame.Consume()
 			c1 = frame.Peek()
 			if frame.Flow == 0 {
-				if c1 == 'l' {
+				if c1 == 'o' {
 					frame.Consume()
 					c2 = frame.Peek()
 					if frame.Flow == 0 {
-						if c2 == 'i' {
+						if c2 == 'e' {
 							frame.Consume()
 							c3 = frame.Peek()
 							if frame.Flow == 0 {
-								if c3 == 'c' {
+								if c3 == 'r' {
 									frame.Consume()
 									c4 = frame.Peek()
 									if frame.Flow == 0 {
-										if c4 == 'e' {
+										if c4 == 'c' {
 											frame.Consume()
-											EndKeyword(frame)
+											c5 = frame.Peek()
 											if frame.Flow == 0 {
-												S(frame)
-												r1 = ParseCodeBlock(frame)
-												if frame.Flow == 0 {
-													ret = &Slice{Block: r1}
-													return
+												if c5 == 'e' {
+													frame.Consume()
+													EndKeyword(frame)
+													if frame.Flow == 0 {
+														S(frame)
+														c6 = frame.Peek()
+														if frame.Flow == 0 {
+															if c6 == '(' {
+																frame.Consume()
+																S(frame)
+																r1 = ParseTypeRef(frame)
+																if frame.Flow == 0 {
+																	S(frame)
+																	c7 = frame.Peek()
+																	if frame.Flow == 0 {
+																		if c7 == ',' {
+																			frame.Consume()
+																			S(frame)
+																			r2 = ParseExpr(frame)
+																			if frame.Flow == 0 {
+																				S(frame)
+																				c8 = frame.Peek()
+																				if frame.Flow == 0 {
+																					if c8 == ')' {
+																						frame.Consume()
+																						ret = &Coerce{Type: r1, Expr: r2}
+																						return
+																					}
+																					frame.Fail()
+																					goto block1
+																				}
+																				goto block1
+																			}
+																			goto block1
+																		}
+																		frame.Fail()
+																		goto block1
+																	}
+																	goto block1
+																}
+																goto block1
+															}
+															frame.Fail()
+															goto block1
+														}
+														goto block1
+													}
+													goto block1
 												}
+												frame.Fail()
 												goto block1
 											}
 											goto block1
@@ -3163,123 +3192,51 @@ func PrimaryExpr(frame *runtime.State) (ret ASTExpr) {
 	goto block1
 block1:
 	frame.Recover(checkpoint)
-	c5 = frame.Peek()
+	r3 = Ident(frame)
 	if frame.Flow == 0 {
-		if c5 == 'c' {
-			frame.Consume()
-			c6 = frame.Peek()
-			if frame.Flow == 0 {
-				if c6 == 'o' {
-					frame.Consume()
-					c7 = frame.Peek()
-					if frame.Flow == 0 {
-						if c7 == 'e' {
-							frame.Consume()
-							c8 = frame.Peek()
-							if frame.Flow == 0 {
-								if c8 == 'r' {
-									frame.Consume()
-									c9 = frame.Peek()
-									if frame.Flow == 0 {
-										if c9 == 'c' {
-											frame.Consume()
-											c10 = frame.Peek()
-											if frame.Flow == 0 {
-												if c10 == 'e' {
-													frame.Consume()
-													EndKeyword(frame)
-													if frame.Flow == 0 {
-														S(frame)
-														c11 = frame.Peek()
-														if frame.Flow == 0 {
-															if c11 == '(' {
-																frame.Consume()
-																S(frame)
-																r2 = ParseTypeRef(frame)
-																if frame.Flow == 0 {
-																	S(frame)
-																	c12 = frame.Peek()
-																	if frame.Flow == 0 {
-																		if c12 == ',' {
-																			frame.Consume()
-																			S(frame)
-																			r3 = ParseExpr(frame)
-																			if frame.Flow == 0 {
-																				S(frame)
-																				c13 = frame.Peek()
-																				if frame.Flow == 0 {
-																					if c13 == ')' {
-																						frame.Consume()
-																						ret = &Coerce{Type: r2, Expr: r3}
-																						return
-																					}
-																					frame.Fail()
-																					goto block2
-																				}
-																				goto block2
-																			}
-																			goto block2
-																		}
-																		frame.Fail()
-																		goto block2
-																	}
-																	goto block2
-																}
-																goto block2
-															}
-															frame.Fail()
-															goto block2
-														}
-														goto block2
-													}
-													goto block2
-												}
-												frame.Fail()
-												goto block2
-											}
-											goto block2
-										}
-										frame.Fail()
-										goto block2
-									}
-									goto block2
-								}
-								frame.Fail()
-								goto block2
-							}
-							goto block2
-						}
-						frame.Fail()
-						goto block2
+		S(frame)
+		c9 = frame.Peek()
+		if frame.Flow == 0 {
+			if c9 == '(' {
+				frame.Consume()
+				S(frame)
+				r4 = ParseExprList(frame)
+				S(frame)
+				c10 = frame.Peek()
+				if frame.Flow == 0 {
+					if c10 == ')' {
+						frame.Consume()
+						ret = &Call{Name: r3, Args: r4}
+						return
 					}
+					frame.Fail()
 					goto block2
 				}
-				frame.Fail()
 				goto block2
 			}
+			frame.Fail()
 			goto block2
 		}
-		frame.Fail()
 		goto block2
 	}
 	goto block2
 block2:
 	frame.Recover(checkpoint)
-	r4 = Ident(frame)
+	r5 = ParseStructTypeRef(frame)
 	if frame.Flow == 0 {
 		S(frame)
-		c14 = frame.Peek()
+		c11 = frame.Peek()
 		if frame.Flow == 0 {
-			if c14 == '(' {
+			if c11 == '{' {
 				frame.Consume()
 				S(frame)
-				r5 = ParseExprList(frame)
+				r6 = ParseNamedExprList(frame)
 				S(frame)
-				c15 = frame.Peek()
+				c12 = frame.Peek()
 				if frame.Flow == 0 {
-					if c15 == ')' {
+					if c12 == '}' {
 						frame.Consume()
-						ret = &Call{Name: r4, Args: r5}
+						ret = &Construct{Type: r5, Args: r6}
 						return
 					}
 					frame.Fail()
@@ -3295,21 +3252,21 @@ block2:
 	goto block3
 block3:
 	frame.Recover(checkpoint)
-	r6 = ParseStructTypeRef(frame)
+	r7 = ParseListTypeRef(frame)
 	if frame.Flow == 0 {
 		S(frame)
-		c16 = frame.Peek()
+		c13 = frame.Peek()
 		if frame.Flow == 0 {
-			if c16 == '{' {
+			if c13 == '{' {
 				frame.Consume()
 				S(frame)
-				r7 = ParseNamedExprList(frame)
+				r8 = ParseExprList(frame)
 				S(frame)
-				c17 = frame.Peek()
+				c14 = frame.Peek()
 				if frame.Flow == 0 {
-					if c17 == '}' {
+					if c14 == '}' {
 						frame.Consume()
-						ret = &Construct{Type: r6, Args: r7}
+						ret = &ConstructList{Type: r7, Args: r8}
 						return
 					}
 					frame.Fail()
@@ -3325,21 +3282,31 @@ block3:
 	goto block4
 block4:
 	frame.Recover(checkpoint)
-	r8 = ParseListTypeRef(frame)
+	r9 = StringMatchExpr(frame)
 	if frame.Flow == 0 {
-		S(frame)
-		c18 = frame.Peek()
-		if frame.Flow == 0 {
-			if c18 == '{' {
-				frame.Consume()
+		ret = r9
+		return
+	}
+	frame.Recover(checkpoint)
+	r10 = RuneMatchExpr(frame)
+	if frame.Flow == 0 {
+		ret = r10
+		return
+	}
+	frame.Recover(checkpoint)
+	c15 = frame.Peek()
+	if frame.Flow == 0 {
+		if c15 == '(' {
+			frame.Consume()
+			S(frame)
+			r11 = ParseExpr(frame)
+			if frame.Flow == 0 {
 				S(frame)
-				r9 = ParseExprList(frame)
-				S(frame)
-				c19 = frame.Peek()
+				c16 = frame.Peek()
 				if frame.Flow == 0 {
-					if c19 == '}' {
+					if c16 == ')' {
 						frame.Consume()
-						ret = &ConstructList{Type: r8, Args: r9}
+						ret = r11
 						return
 					}
 					frame.Fail()
@@ -3347,57 +3314,17 @@ block4:
 				}
 				goto block5
 			}
-			frame.Fail()
 			goto block5
 		}
+		frame.Fail()
 		goto block5
 	}
 	goto block5
 block5:
 	frame.Recover(checkpoint)
-	r10 = StringMatchExpr(frame)
+	r12 = ParseNameRef(frame)
 	if frame.Flow == 0 {
-		ret = r10
-		return
-	}
-	frame.Recover(checkpoint)
-	r11 = RuneMatchExpr(frame)
-	if frame.Flow == 0 {
-		ret = r11
-		return
-	}
-	frame.Recover(checkpoint)
-	c20 = frame.Peek()
-	if frame.Flow == 0 {
-		if c20 == '(' {
-			frame.Consume()
-			S(frame)
-			r12 = ParseExpr(frame)
-			if frame.Flow == 0 {
-				S(frame)
-				c21 = frame.Peek()
-				if frame.Flow == 0 {
-					if c21 == ')' {
-						frame.Consume()
-						ret = r12
-						return
-					}
-					frame.Fail()
-					goto block6
-				}
-				goto block6
-			}
-			goto block6
-		}
-		frame.Fail()
-		goto block6
-	}
-	goto block6
-block6:
-	frame.Recover(checkpoint)
-	r13 = ParseNameRef(frame)
-	if frame.Flow == 0 {
-		ret = r13
+		ret = r12
 		return
 	}
 	return
@@ -4967,7 +4894,7 @@ func ParseFuncDecl(frame *runtime.State) (ret *FuncDecl) {
 
 func ParseMatchState(frame *runtime.State) (ret string) {
 	var checkpoint0 int
-	var pos int
+	var begin int
 	var checkpoint1 int
 	var c0 rune
 	var c1 rune
@@ -4981,7 +4908,7 @@ func ParseMatchState(frame *runtime.State) (ret string) {
 	var c9 rune
 	var slice string
 	checkpoint0 = frame.Checkpoint()
-	pos = frame.Checkpoint()
+	begin = frame.Checkpoint()
 	checkpoint1 = frame.Checkpoint()
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
@@ -5078,7 +5005,7 @@ block1:
 	}
 	goto block3
 block2:
-	slice = frame.Slice(pos)
+	slice = frame.Slice(begin, frame.Checkpoint())
 	EndKeyword(frame)
 	if frame.Flow == 0 {
 		ret = slice

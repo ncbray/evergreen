@@ -156,8 +156,6 @@ func IsNop(op DubOp) bool {
 		return op.Dst == nil
 	case *CallOp:
 		return len(op.Dsts) == 0 && !MayHaveSideEffects(op.Target)
-	case *Slice:
-		return op.Dst == nil
 	case *BinaryOp:
 		return op.Dst == nil
 	case *CopyOp:

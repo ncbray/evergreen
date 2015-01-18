@@ -444,16 +444,3 @@ test ConstructList ParseExpr() "[]Foo{ 1 }"
       }
     }
   }
-
-test Slice ParseStatement() "a := slice { 1; } ;"
-  Assign {
-    Expr: Slice{
-      Block: []ASTExpr{
-        IntLiteral {
-          Value: 1
-        }
-      }
-    }
-    Targets: []ASTExpr{NameRef{Name: Id{Text: "a"}}}
-    Define: true
-  }

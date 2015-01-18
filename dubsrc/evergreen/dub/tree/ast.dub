@@ -145,10 +145,6 @@ struct Optional implements ASTExpr {
   Block []ASTExpr
 }
 
-struct Slice implements ASTExpr {
-  Block []ASTExpr
-}
-
 struct Assign implements ASTExpr {
   Expr ASTExpr
   Targets []ASTExpr

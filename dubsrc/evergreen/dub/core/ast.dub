@@ -60,6 +60,7 @@ struct BuiltinTypeIndex {
   Nil NilType
   Append IntrinsicFunction
   Position IntrinsicFunction
+  Slice IntrinsicFunction
 }
 
 struct CoreProgram contains (Package, File, Function) {

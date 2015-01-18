@@ -108,11 +108,6 @@ struct LookaheadEnd implements DubOp {
   Src RegisterInfo
 }
 
-struct Slice implements DubOp {
-  Src RegisterInfo
-  Dst RegisterInfo
-}
-
 struct ReturnOp implements DubOp {
   Exprs []RegisterInfo
 }

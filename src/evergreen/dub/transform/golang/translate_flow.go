@@ -266,6 +266,14 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 						Dsts: mappedDsts,
 					})
 					mapper.dubFlow(frameReg, srcID, dstID)
+				case ctx.core.Builtins.Slice:
+					dstID := builder.EmitOp(&dst.MethodCall{
+						Expr: frameReg,
+						Name: "Slice",
+						Args: mappedArgs,
+						Dsts: mappedDsts,
+					})
+					mapper.dubFlow(frameReg, srcID, dstID)
 				default:
 					panic(c)
 				}
@@ -425,14 +433,6 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 				Expr: frameReg,
 				Name: name,
 				Args: []*dst.Register{regMap[op.Src.Index]},
-			})
-			mapper.dubFlow(frameReg, srcID, dstID)
-		case *src.Slice:
-			dstID := builder.EmitOp(&dst.MethodCall{
-				Expr: frameReg,
-				Name: "Slice",
-				Args: []*dst.Register{regMap[op.Src.Index]},
-				Dsts: multiDstReg(regMap, op.Dst),
 			})
 			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.CoerceOp:

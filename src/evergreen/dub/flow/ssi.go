@@ -51,9 +51,6 @@ func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *ssi.DefUse
 		for _, dst := range op.Dsts {
 			addDef(dst, node, defuse)
 		}
-	case *Slice:
-		addUse(op.Src, node, defuse)
-		addDef(op.Dst, node, defuse)
 	case *BinaryOp:
 		addUse(op.Left, node, defuse)
 		addUse(op.Right, node, defuse)
@@ -197,9 +194,6 @@ func renameOp(n graph.NodeID, data DubOp, ra *RegisterReallocator) {
 		for i, dst := range op.Dsts {
 			op.Dsts[i] = ra.MakeOutput(n, dst)
 		}
-	case *Slice:
-		op.Src = ra.Get(n, op.Src)
-		op.Dst = ra.MakeOutput(n, op.Dst)
 	case *BinaryOp:
 		op.Left = ra.Get(n, op.Left)
 		op.Right = ra.Get(n, op.Right)
@@ -330,10 +324,6 @@ func killUnusedOutputs(n graph.NodeID, op DubOp, live ssi.LivenessOracle) {
 		}
 		if !anyLive {
 			op.Dsts = []*RegisterInfo{}
-		}
-	case *Slice:
-		if deadAtExit(live, n, op.Dst) {
-			op.Dst = nil
 		}
 	case *BinaryOp:
 		if deadAtExit(live, n, op.Dst) {

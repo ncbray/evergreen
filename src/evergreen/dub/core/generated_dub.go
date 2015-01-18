@@ -103,6 +103,7 @@ type BuiltinTypeIndex struct {
 	Nil      *NilType
 	Append   *IntrinsicFunction
 	Position *IntrinsicFunction
+	Slice    *IntrinsicFunction
 }
 
 type CoreProgram struct {
