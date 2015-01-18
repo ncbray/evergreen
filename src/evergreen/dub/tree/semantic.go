@@ -637,6 +637,7 @@ func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
 		Bool:    &core.BuiltinType{Name: "bool"},
 		Graph:   &core.BuiltinType{Name: "graph"},
 		Nil:     &core.NilType{},
+		Append:  &core.IntrinsicFunction{Name: "append"},
 	}
 }
 
@@ -797,6 +798,7 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 
 	programScope := MakeProgramScope(program)
 	coreProg := &core.CoreProgram{
+		Builtins:       program.Builtins,
 		Package_Scope:  &core.Package_Scope{},
 		File_Scope:     &core.File_Scope{},
 		Function_Scope: &core.Function_Scope{},

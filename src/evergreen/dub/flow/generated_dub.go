@@ -176,15 +176,6 @@ type Slice struct {
 func (node *Slice) isDubOp() {
 }
 
-type AppendOp struct {
-	List  *RegisterInfo
-	Value *RegisterInfo
-	Dst   *RegisterInfo
-}
-
-func (node *AppendOp) isDubOp() {
-}
-
 type ReturnOp struct {
 	Exprs []*RegisterInfo
 }

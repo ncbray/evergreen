@@ -44,17 +44,16 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 					if !ok {
 						panic(c)
 					}
-				default:
-					panic(op.Target)
-				}
-				n := graph.NodeID(node)
-				iter := g.ExitIterator(n)
-				for iter.HasNext() {
-					e, _ := iter.GetNext()
-					possible := flows[f.Edges[e]][tgt]
-					if !possible {
-						g.KillEdge(e)
+					iter := g.ExitIterator(graph.NodeID(node))
+					for iter.HasNext() {
+						e, _ := iter.GetNext()
+						possible := flows[f.Edges[e]][tgt]
+						if !possible {
+							g.KillEdge(e)
+						}
 					}
+				default:
+					// TODO trim other callable types?
 				}
 			default:
 			}

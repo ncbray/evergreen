@@ -113,12 +113,6 @@ struct Slice implements DubOp {
   Dst RegisterInfo
 }
 
-struct AppendOp implements DubOp {
-  List RegisterInfo
-  Value RegisterInfo
-  Dst RegisterInfo
-}
-
 struct ReturnOp implements DubOp {
   Exprs []RegisterInfo
 }

@@ -228,21 +228,36 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 				}
 			}
 		case *src.CallOp:
-			var tgt *srccore.Function
+			mappedArgs := regList(regMap, op.Args)
+			mappedDsts := regList(regMap, op.Dsts)
 			switch c := op.Target.(type) {
 			case *srccore.Function:
-				tgt = c
+				args := []*dst.Register{frameReg}
+				args = append(args, mappedArgs...)
+				dstID := builder.EmitOp(&dst.Call{
+					Target: ctx.functionMap[c.Index],
+					Args:   args,
+					Dsts:   mappedDsts,
+				})
+				mapper.dubFlow(frameReg, srcID, dstID)
+			case *srccore.IntrinsicFunction:
+				switch c {
+				case ctx.core.Builtins.Append:
+					if len(mappedArgs) != 2 || len(mappedDsts) != 1 {
+						panic(op)
+					}
+					dstID := builder.EmitOp(&dst.Append{
+						Src:  mappedArgs[0],
+						Args: []*dst.Register{mappedArgs[1]},
+						Dst:  mappedDsts[0],
+					})
+					mapper.dubFlow(frameReg, srcID, dstID)
+				default:
+					panic(c)
+				}
 			default:
 				panic(op.Target)
 			}
-			args := []*dst.Register{frameReg}
-			args = append(args, regList(regMap, op.Args)...)
-			dstID := builder.EmitOp(&dst.Call{
-				Target: ctx.functionMap[tgt.Index],
-				Args:   args,
-				Dsts:   regList(regMap, op.Dsts),
-			})
-			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.ConstructOp:
 			t := ctx.link.GetType(op.Type, STRUCT)
 			st, ok := t.(*dstcore.StructType)
@@ -410,13 +425,6 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 			dstID := builder.EmitOp(&dst.Coerce{
 				Src:  regMap[op.Src.Index],
 				Type: goType(op.T, ctx),
-				Dst:  regMap[op.Dst.Index],
-			})
-			mapper.simpleFlow(srcID, dstID)
-		case *src.AppendOp:
-			dstID := builder.EmitOp(&dst.Append{
-				Src:  regMap[op.List.Index],
-				Args: []*dst.Register{regMap[op.Value.Index]},
 				Dst:  regMap[op.Dst.Index],
 			})
 			mapper.simpleFlow(srcID, dstID)

@@ -58,10 +58,6 @@ func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *ssi.DefUse
 		addUse(op.Left, node, defuse)
 		addUse(op.Right, node, defuse)
 		addDef(op.Dst, node, defuse)
-	case *AppendOp:
-		addUse(op.List, node, defuse)
-		addUse(op.Value, node, defuse)
-		addDef(op.Dst, node, defuse)
 	case *CopyOp:
 		addUse(op.Src, node, defuse)
 		addDef(op.Dst, node, defuse)
@@ -208,10 +204,6 @@ func renameOp(n graph.NodeID, data DubOp, ra *RegisterReallocator) {
 		op.Left = ra.Get(n, op.Left)
 		op.Right = ra.Get(n, op.Right)
 		op.Dst = ra.MakeOutput(n, op.Dst)
-	case *AppendOp:
-		op.List = ra.Get(n, op.List)
-		op.Value = ra.Get(n, op.Value)
-		op.Dst = ra.MakeOutput(n, op.Dst)
 	case *CopyOp:
 		// Copy propagation
 		op.Src = ra.Get(n, op.Src)
@@ -344,10 +336,6 @@ func killUnusedOutputs(n graph.NodeID, op DubOp, live ssi.LivenessOracle) {
 			op.Dst = nil
 		}
 	case *BinaryOp:
-		if deadAtExit(live, n, op.Dst) {
-			op.Dst = nil
-		}
-	case *AppendOp:
 		if deadAtExit(live, n, op.Dst) {
 			op.Dst = nil
 		}

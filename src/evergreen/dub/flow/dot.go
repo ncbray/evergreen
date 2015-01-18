@@ -62,6 +62,8 @@ func callableName(coreProg *core.CoreProgram, c core.Callable) string {
 	switch c := c.(type) {
 	case *core.Function:
 		return c.Name
+	case *core.IntrinsicFunction:
+		return "!" + c.Name
 	default:
 		panic(c)
 	}
@@ -104,8 +106,6 @@ func opToString(coreProg *core.CoreProgram, op DubOp) string {
 		return fmt.Sprintf("<lookahead end> %v %s", n.Failed, registerName(n.Src))
 	case *Slice:
 		return formatAssignment(fmt.Sprintf("<slice> %s", registerName(n.Src)), n.Dst)
-	case *AppendOp:
-		return formatAssignment(fmt.Sprintf("<append> %s %s", registerName(n.List), registerName(n.Value)), n.Dst)
 	case *ReturnOp:
 		return fmt.Sprintf("<return> %s", registerList(n.Exprs))
 	case *Fail:

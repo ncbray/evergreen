@@ -484,11 +484,16 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		l := lowerExpr(expr.List, builder, true, fb)
 		v := lowerExpr(expr.Expr, builder, true, fb)
 		var dst *flow.RegisterInfo
+		var dsts []*flow.RegisterInfo
 		if used {
 			dst = builder.CreateRegister("", expr.T)
+			dsts = []*flow.RegisterInfo{dst}
 		}
-
-		body := builder.EmitOp(&flow.AppendOp{List: l, Value: v, Dst: dst})
+		body := builder.EmitOp(&flow.CallOp{
+			Target: builder.index.Append,
+			Args:   []*flow.RegisterInfo{l, v},
+			Dsts:   dsts,
+		})
 		fb.AttachFlow(flow.NORMAL, body)
 		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst

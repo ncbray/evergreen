@@ -85,11 +85,11 @@ type Function struct {
 func (node *Function) isCallable() {
 }
 
-type IntrinsticFunction struct {
+type IntrinsicFunction struct {
 	Name string
 }
 
-func (node *IntrinsticFunction) isCallable() {
+func (node *IntrinsicFunction) isCallable() {
 }
 
 type BuiltinTypeIndex struct {
@@ -101,9 +101,11 @@ type BuiltinTypeIndex struct {
 	Bool    *BuiltinType
 	Graph   *BuiltinType
 	Nil     *NilType
+	Append  *IntrinsicFunction
 }
 
 type CoreProgram struct {
+	Builtins       *BuiltinTypeIndex
 	Structures     []*StructType
 	Package_Scope  *Package_Scope
 	File_Scope     *File_Scope

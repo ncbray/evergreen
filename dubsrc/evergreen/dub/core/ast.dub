@@ -45,8 +45,8 @@ struct Function scoped implements Callable {
   File File
 }
 
-struct IntrinsticFunction implements Callable {
-       Name string
+struct IntrinsicFunction implements Callable {
+  Name string
 }
 
 struct BuiltinTypeIndex {
@@ -58,8 +58,10 @@ struct BuiltinTypeIndex {
   Bool BuiltinType
   Graph BuiltinType
   Nil NilType
+  Append IntrinsicFunction
 }
 
 struct CoreProgram contains (Package, File, Function) {
+  Builtins BuiltinTypeIndex
   Structures []StructType
 }

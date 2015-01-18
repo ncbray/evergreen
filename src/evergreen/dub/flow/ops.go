@@ -141,8 +141,6 @@ func IsNop(op DubOp) bool {
 		return op.Dst == nil
 	case *BinaryOp:
 		return op.Dst == nil
-	case *AppendOp:
-		return op.Dst == nil
 	case *CopyOp:
 		return op.Dst == nil || op.Dst == op.Src
 	case *CoerceOp:
