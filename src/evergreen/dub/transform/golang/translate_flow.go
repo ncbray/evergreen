@@ -243,13 +243,19 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 			case *srccore.IntrinsicFunction:
 				switch c {
 				case ctx.core.Builtins.Append:
-					if len(mappedArgs) != 2 || len(mappedDsts) != 1 {
+					if len(mappedArgs) != 2 {
+						panic(op)
+					}
+					var dstReg *dst.Register
+					if len(mappedDsts) == 1 {
+						dstReg = mappedDsts[0]
+					} else if len(mappedDsts) >= 2 {
 						panic(op)
 					}
 					dstID := builder.EmitOp(&dst.Append{
 						Src:  mappedArgs[0],
 						Args: []*dst.Register{mappedArgs[1]},
-						Dst:  mappedDsts[0],
+						Dst:  dstReg,
 					})
 					mapper.dubFlow(frameReg, srcID, dstID)
 				default:

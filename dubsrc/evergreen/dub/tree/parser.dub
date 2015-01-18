@@ -89,10 +89,10 @@ func DecodeString() string {
   contents := []rune{};
   star {
     choose {
-      append(contents, $[^\"\\]);
+      contents = append(contents, $[^\"\\]);
     } or {
       /[\\]/;
-      append(contents, EscapedChar());
+      contents = append(contents, EscapedChar());
     }
   }
   /[\"]/;
@@ -225,7 +225,7 @@ func ParseDestructure() Destructure {
       S();
       d := ParseDestructure();
       S();
-      append(fields, DestructureField{Name: name, Destructure: d});
+      fields = append(fields, DestructureField{Name: name, Destructure: d});
     }
     /[}]/;
     return DestructureStruct{Type: t, Args: fields};
@@ -236,7 +236,7 @@ func ParseDestructure() Destructure {
     S();
     fields := []Destructure{};
     star {
-      append(fields, ParseDestructure());
+      fields = append(fields, ParseDestructure());
       S();
     }
     /[}]/;
@@ -278,7 +278,7 @@ func MatchRune() RuneRangeMatch {
     invert = true;
   }
   star {
-    append(filters, ParseRuneFilter());
+    filters = append(filters, ParseRuneFilter());
   }
   /[\]]/;
   return RuneRangeMatch{Invert: invert, Filters: filters};
@@ -341,7 +341,7 @@ func Sequence() TextMatch {
     l := []TextMatch{e};
     plus {
       S();
-      append(l, MatchPrefix());
+      l = append(l, MatchPrefix());
     }
     return MatchSequence{Matches: l};
   } or {
@@ -357,7 +357,7 @@ func ParseMatchChoice() TextMatch {
       S();
       /[|]/;
       S();
-      append(l, Sequence());
+      l = append(l, Sequence());
     }
     return MatchChoice{Matches: l};
   } or {
@@ -368,12 +368,12 @@ func ParseMatchChoice() TextMatch {
 func ParseExprList() []ASTExpr {
   exprs := []ASTExpr{};
   question {
-    append(exprs, ParseExpr());
+    exprs = append(exprs, ParseExpr());
     star {
       S();
       /[,]/;
       S();
-      append(exprs, ParseExpr());
+      exprs = append(exprs, ParseExpr());
     }
   }
   return exprs;
@@ -385,7 +385,7 @@ func ParseTargetList() []ASTExpr {
     S();
     /[,]/;
     S();
-    append(exprs, ParseNameRef());
+    exprs = append(exprs, ParseNameRef());
   }
   return exprs;
 }
@@ -401,12 +401,12 @@ func ParseNamedExpr() NamedExpr {
 func ParseNamedExprList() []NamedExpr {
   exprs := []NamedExpr{};
   question {
-    append(exprs, ParseNamedExpr());
+    exprs = append(exprs, ParseNamedExpr());
     star {
       S();
       /[,]/;
       S();
-      append(exprs, ParseNamedExpr());
+      exprs = append(exprs, ParseNamedExpr());
     }
   }
   return exprs;
@@ -451,27 +451,6 @@ func PrimaryExpr() ASTExpr {
     S();
     /[)]/;
     return Coerce{Type: t, Expr: e};
-  } or {
-    /"append"/;
-    EndKeyword();
-    S();
-    /[(]/;
-    S();
-    name := Ident();
-    S();
-    /[,]/;
-    S();
-    expr := ParseExpr();
-    S();
-    /[)]/;
-    // TODO make the copy of the name node explicit?
-    return Assign{
-      Expr: Append{
-        List: NameRef{Name: name},
-        Expr: expr
-      },
-      Targets: []ASTExpr{NameRef{Name: name}}
-    };
   } or {
     name := Ident();
     S();
@@ -564,7 +543,7 @@ func ParseCompoundStatement() ASTExpr {
       /"or"/;
       EndKeyword();
       S();
-      append(blocks, ParseCodeBlock());
+      blocks = append(blocks, ParseCodeBlock());
     }
     return Choice{Blocks: blocks};
   } or {
@@ -654,7 +633,7 @@ func ParseCodeBlock() []ASTExpr {
   S();
   exprs := []ASTExpr{};
   star {
-    append(exprs, ParseStatement());
+    exprs = append(exprs, ParseStatement());
     S();
   }
   /[}]/;
@@ -666,12 +645,12 @@ func ParseParenthTypeList() []ASTTypeRef {
   S();
   types := []ASTTypeRef{};
   question {
-    append(types, ParseTypeRef());
+    types = append(types, ParseTypeRef());
     S();
     star {
       /[,]/;
       S();
-      append(types, ParseTypeRef());
+      types = append(types, ParseTypeRef());
       S();
     }
   }
@@ -720,7 +699,7 @@ func ParseStructDecl() StructDecl {
     S();
     ft := ParseTypeRef();
     S();
-    append(fields, FieldDecl{Name: fn, Type: ft});
+    fields = append(fields, FieldDecl{Name: fn, Type: ft});
   }
   /[}]/;
   return StructDecl{
@@ -742,12 +721,12 @@ func ParseParam() Param {
 func ParseParamList() []Param {
   params := []Param{};
   question {
-    append(params, ParseParam());
+    params = append(params, ParseParam());
     star {
       S();
       /[,]/;
       S();
-      append(params, ParseParam());
+      params = append(params, ParseParam());
     }
   }
   return params;
@@ -806,7 +785,7 @@ func ParseImports() []ImportDecl {
     /"("/;
     S();
     star {
-      append(imports, ImportDecl{
+      imports = append(imports, ImportDecl{
         Path: ParseStringLiteral()
       });
       S();
@@ -828,11 +807,11 @@ func ParseFile() File {
 
   star {
     choose {
-      append(decls, ParseFuncDecl());
+      decls = append(decls, ParseFuncDecl());
     } or {
-      append(decls, ParseStructDecl());
+      decls = append(decls, ParseStructDecl());
     } or {
-      append(tests, ParseTest());
+      tests = append(tests, ParseTest());
     }
     S();
   }

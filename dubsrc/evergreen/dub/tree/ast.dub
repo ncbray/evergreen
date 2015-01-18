@@ -194,12 +194,6 @@ struct Position implements ASTExpr {
 struct Fail implements ASTExpr {
 }
 
-struct Append implements ASTExpr {
-  List ASTExpr
-  Expr ASTExpr
-  T core.DubType
-}
-
 struct Return implements ASTExpr {
   Exprs []ASTExpr
 }

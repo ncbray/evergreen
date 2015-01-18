@@ -2,6 +2,7 @@
 package flow
 
 import (
+	"evergreen/dub/core"
 	"evergreen/graph"
 )
 
@@ -111,6 +112,21 @@ func AllocEdge(decl *LLFunc, flow int) graph.EdgeID {
 	return e
 }
 
+func MayHaveSideEffects(c core.Callable) bool {
+	switch c := c.(type) {
+	case *core.IntrinsicFunction:
+		// HACK should be comparaing against builtins, not names.
+		switch c.Name {
+		case "append":
+			// Not entirely true, but close enough for now.
+			return false
+		default:
+			panic(c)
+		}
+	}
+	return true
+}
+
 func IsNop(op DubOp) bool {
 	switch op := op.(type) {
 	case *Consume:
@@ -136,7 +152,7 @@ func IsNop(op DubOp) bool {
 	case *ConstantNilOp:
 		return op.Dst == nil
 	case *CallOp:
-		return false
+		return len(op.Dsts) == 0 && !MayHaveSideEffects(op.Target)
 	case *Slice:
 		return op.Dst == nil
 	case *BinaryOp:

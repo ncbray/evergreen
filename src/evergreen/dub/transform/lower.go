@@ -235,6 +235,19 @@ func lowerMatch(match tree.TextMatch, builder *dubBuilder, fb *graph.FlowBuilder
 	}
 }
 
+func getPossibleFlows(c core.Callable, builtins *core.BuiltinTypeIndex) (bool, bool) {
+	switch c := c.(type) {
+	case *core.IntrinsicFunction:
+		switch c {
+		case builtins.Append:
+			return true, false
+		default:
+			panic(c)
+		}
+	}
+	return true, true
+}
+
 func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.FlowBuilder) []*flow.RegisterInfo {
 	switch expr := expr.(type) {
 
@@ -252,9 +265,15 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *
 		}
 		body := builder.EmitOp(&flow.CallOp{Target: expr.Target, Args: args, Dsts: dsts})
 		fb.AttachFlow(flow.NORMAL, body)
-		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
-		fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
 
+		canNormal, canFail := getPossibleFlows(expr.Target, builder.index)
+
+		if canNormal {
+			fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
+		}
+		if canFail {
+			fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
+		}
 		return dsts
 	default:
 		return []*flow.RegisterInfo{lowerExpr(expr, builder, used, fb)}
@@ -480,24 +499,6 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		fb.AttachFlow(flow.NORMAL, body)
 		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
-	case *tree.Append:
-		l := lowerExpr(expr.List, builder, true, fb)
-		v := lowerExpr(expr.Expr, builder, true, fb)
-		var dst *flow.RegisterInfo
-		var dsts []*flow.RegisterInfo
-		if used {
-			dst = builder.CreateRegister("", expr.T)
-			dsts = []*flow.RegisterInfo{dst}
-		}
-		body := builder.EmitOp(&flow.CallOp{
-			Target: builder.index.Append,
-			Args:   []*flow.RegisterInfo{l, v},
-			Dsts:   dsts,
-		})
-		fb.AttachFlow(flow.NORMAL, body)
-		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
-		return dst
-
 	case *tree.Call:
 		dsts := lowerMultiValueExpr(expr, builder, true, fb)
 		var dst *flow.RegisterInfo

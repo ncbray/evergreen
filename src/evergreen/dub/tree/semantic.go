@@ -159,6 +159,15 @@ func binaryOpType(ctx *semanticPassContext, lt *core.BuiltinType, op string, rt 
 	return nil, false
 }
 
+func resolve(ctx *semanticPassContext, name string) (namedElement, bool) {
+	result, ok := ctx.Module.Namespace[name]
+	if ok {
+		return result, true
+	}
+	result, ok = ctx.Program.Namespace[name]
+	return result, ok
+}
+
 func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) []core.DubType {
 	switch expr := expr.(type) {
 	case *Repeat:
@@ -269,8 +278,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		return nil
 	case *Call:
 		name := expr.Name.Text
-		// HACK resolve other scopes?
-		fd, ok := ctx.Module.Namespace[name]
+		fd, ok := resolve(ctx, name)
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
 			return unresolvedScalar
@@ -280,20 +288,14 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("%#v is not callable", name))
 			return unresolvedScalar
 		}
-		for _, e := range expr.Args {
-			// TODO check argument types
-			scalarSemanticExprPass(ctx, decl, e, scope)
+		args := make([]core.DubType, len(expr.Args))
+		for i, e := range expr.Args {
+			args[i] = scalarSemanticExprPass(ctx, decl, e, scope)
 		}
-		types := ReturnTypes(ctx, f)
+		types := ReturnTypes(ctx, f, args)
 		expr.Target = f
 		expr.T = types
 		return types
-	case *Append:
-		t := scalarSemanticExprPass(ctx, decl, expr.List, scope)
-		scalarSemanticExprPass(ctx, decl, expr.Expr, scope)
-		// TODO type check arguments
-		expr.T = t
-		return scalarReturn(t)
 	case *Construct:
 		t := semanticTypePass(ctx, expr.Type)
 		st, ok := t.(*core.StructType)
@@ -531,7 +533,8 @@ func semanticTestPass(ctx *semanticPassContext, tst *Test) {
 }
 
 type ProgramScope struct {
-	Index *core.BuiltinTypeIndex
+	Index     *core.BuiltinTypeIndex
+	Namespace map[string]namedElement
 }
 
 type namedElement interface {
@@ -613,7 +616,8 @@ func ResolveType(ref ASTTypeRef) core.DubType {
 	}
 }
 
-func ReturnTypes(ctx *semanticPassContext, node core.Callable) []core.DubType {
+func ReturnTypes(ctx *semanticPassContext, node core.Callable, args []core.DubType) []core.DubType {
+	// TODO check argument types
 	switch node := node.(type) {
 	case *core.Function:
 		f := ctx.Functions[node.Index]
@@ -622,6 +626,16 @@ func ReturnTypes(ctx *semanticPassContext, node core.Callable) []core.DubType {
 			types[i] = ResolveType(t)
 		}
 		return types
+	case *core.IntrinsicFunction:
+		switch node {
+		case ctx.Program.Index.Append:
+			if len(args) != 2 {
+				panic(args)
+			}
+			return []core.DubType{args[0]}
+		default:
+			panic(node)
+		}
 	default:
 		panic(node)
 	}
@@ -639,16 +653,6 @@ func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
 		Nil:     &core.NilType{},
 		Append:  &core.IntrinsicFunction{Name: "append"},
 	}
-}
-
-var BuiltinTypeNames = []string{
-	"string",
-	"rune",
-	"int",
-	"int64",
-	"float32",
-	"bool",
-	"graph",
 }
 
 func GetBuiltinType(index *core.BuiltinTypeIndex, name string) (core.DubType, bool) {
@@ -674,7 +678,11 @@ func GetBuiltinType(index *core.BuiltinTypeIndex, name string) (core.DubType, bo
 
 func MakeProgramScope(program *Program) *ProgramScope {
 	programScope := &ProgramScope{
-		Index: program.Builtins,
+		Index:     program.Builtins,
+		Namespace: map[string]namedElement{},
+	}
+	programScope.Namespace["append"] = &NamedCallable{
+		Func: program.Builtins.Append,
 	}
 	return programScope
 }
