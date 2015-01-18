@@ -196,6 +196,19 @@ func baseName(lcl *LocalInfo) string {
 	return name
 }
 
+func isGoKeyword(s string) bool {
+	switch s {
+	case "break", "default", "func", "interface", "select",
+		"case", "defer", "go", "map", "struct",
+		"chan", "else", "got", "package", "switch",
+		"const", "fallthrough", "if", "range", "type",
+		"continue", "for", "import", "return", "var":
+		return true
+	default:
+		return false
+	}
+}
+
 func nameifyFunc(decl *FuncDecl, info *FileInfo) {
 	info.Decl = decl
 
@@ -219,7 +232,7 @@ func nameifyFunc(decl *FuncDecl, info *FileInfo) {
 	for iter.Next() {
 		lcl := iter.Value()
 		name := baseName(lcl)
-		if count[name] > 1 {
+		if count[name] > 1 || isGoKeyword(name) {
 			uid, _ := uids[name]
 			uids[name] += 1
 			lcl.Name = fmt.Sprintf("%s%d", name, uid)

@@ -398,6 +398,9 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 					panic(expr)
 				}
 				op = &flow.CopyOp{Src: src, Dst: dst}
+				if src.Name == "" {
+					src.Name = dst.Name
+				}
 			} else {
 				op = builder.ZeroRegister(dst)
 			}
