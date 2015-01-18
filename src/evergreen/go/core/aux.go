@@ -9,6 +9,8 @@ func MakeBuiltinTypeIndex() *BuiltinTypeIndex {
 		Bool:    &ExternalType{Name: "bool"},
 		String:  &ExternalType{Name: "string"},
 		Rune:    &ExternalType{Name: "rune"},
+
+		Append: &IntrinsicFunction{Name: "append"},
 	}
 }
 

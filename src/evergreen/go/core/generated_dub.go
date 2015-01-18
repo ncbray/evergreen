@@ -75,6 +75,11 @@ type BuiltinTypeIndex struct {
 	Bool    *ExternalType
 	String  *ExternalType
 	Rune    *ExternalType
+	Append  *IntrinsicFunction
+}
+
+type Callable interface {
+	isCallable()
 }
 
 type Function_Ref uint32
@@ -87,6 +92,16 @@ type Function struct {
 	Name    string
 	Package *Package
 	Index   Function_Ref
+}
+
+func (node *Function) isCallable() {
+}
+
+type IntrinsicFunction struct {
+	Name string
+}
+
+func (node *IntrinsicFunction) isCallable() {
 }
 
 type Package_Ref uint32

@@ -90,6 +90,17 @@ func multiAssign(expr tree.Expr, lclMap []*tree.LocalInfo, regs []*flow.Register
 	}
 }
 
+func callableName(c core.Callable) string {
+	switch c := c.(type) {
+	case *core.Function:
+		return c.Name
+	case *core.IntrinsicFunction:
+		return c.Name
+	default:
+		panic(c)
+	}
+}
+
 func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []*tree.LocalInfo, labels map[graph.NodeID]int, parent_label int, is_head bool, node graph.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
 	g := decl.CFG
 	for {
@@ -140,16 +151,10 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []*tre
 		case *flow.Call:
 			f := op.Target
 			block = append(block, multiAssign(&tree.Call{
-				Expr: &tree.GetGlobal{Text: f.Name}, // HACK
+				Expr: &tree.GetGlobal{Text: callableName(f)}, // HACK
 				Args: getLocalList(lclMap, op.Args),
 				F:    f,
 			}, lclMap, op.Dsts))
-		case *flow.Append:
-			block = append(block, scalarAssign(&tree.Call{
-				Expr: &tree.GetGlobal{Text: "append"}, // HACK
-				Args: getLocalList(lclMap, append([]*flow.Register{op.Src}, op.Args...)),
-				F:    nil,
-			}, lclMap, op.Dst))
 		case *flow.MethodCall:
 			// TODO simple IR
 			block = append(block, multiAssign(&tree.Call{

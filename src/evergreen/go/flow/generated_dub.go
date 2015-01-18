@@ -106,21 +106,12 @@ func (node *Attr) isGoOp() {
 }
 
 type Call struct {
-	Target *core.Function
+	Target core.Callable
 	Args   []*Register
 	Dsts   []*Register
 }
 
 func (node *Call) isGoOp() {
-}
-
-type Append struct {
-	Src  *Register
-	Args []*Register
-	Dst  *Register
-}
-
-func (node *Append) isGoOp() {
 }
 
 type MethodCall struct {

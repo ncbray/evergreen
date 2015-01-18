@@ -246,18 +246,16 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 					if len(mappedArgs) != 2 {
 						panic(op)
 					}
-					var dstReg *dst.Register
-					if len(mappedDsts) == 1 {
-						dstReg = mappedDsts[0]
-					} else if len(mappedDsts) >= 2 {
+					if len(mappedDsts) > 1 {
 						panic(op)
 					}
-					dstID := builder.EmitOp(&dst.Append{
-						Src:  mappedArgs[0],
-						Args: []*dst.Register{mappedArgs[1]},
-						Dst:  dstReg,
+					dstID := builder.EmitOp(&dst.Call{
+						Target: ctx.index.Append,
+						Args:   mappedArgs,
+						Dsts:   mappedDsts,
 					})
 					mapper.dubFlow(frameReg, srcID, dstID)
+
 				case ctx.core.Builtins.Position:
 					dstID := builder.EmitOp(&dst.MethodCall{
 						Expr: frameReg,

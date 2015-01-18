@@ -65,6 +65,17 @@ func typeName(t core.GoType) string {
 	}
 }
 
+func callableName(c core.Callable) string {
+	switch c := c.(type) {
+	case *core.Function:
+		return c.Name
+	case *core.IntrinsicFunction:
+		return "!" + c.Name
+	default:
+		panic(c)
+	}
+}
+
 func opToString(coreProg *core.CoreProgram, op GoOp) string {
 	switch op := op.(type) {
 	case *Entry:
@@ -92,10 +103,7 @@ func opToString(coreProg *core.CoreProgram, op GoOp) string {
 	case *BinaryOp:
 		return addDst(fmt.Sprintf("%s %s %s", RegisterName(op.Left), op.Op, RegisterName(op.Right)), op.Dst)
 	case *Call:
-		f := op.Target
-		return addDsts(fmt.Sprintf("%s(%s)", f.Name, registerList(op.Args)), op.Dsts)
-	case *Append:
-		return addDst(fmt.Sprintf("append(%s << %s)", RegisterName(op.Src), registerList(op.Args)), op.Dst)
+		return addDsts(fmt.Sprintf("%s(%s)", callableName(op.Target), registerList(op.Args)), op.Dsts)
 	case *MethodCall:
 		return addDsts(fmt.Sprintf("%s.%s(%s)", RegisterName(op.Expr), op.Name, registerList(op.Args)), op.Dsts)
 	case *ConstructStruct:

@@ -36,6 +36,21 @@ func (info *FileInfo) QualifyName(pkg *core.Package, name string) string {
 	return name
 }
 
+func (info *FileInfo) GetCallable(f core.Callable) Expr {
+	switch f := f.(type) {
+	case *core.Function:
+		return &GetGlobal{
+			Text: info.QualifyName(f.Package, f.Name),
+		}
+	case *core.IntrinsicFunction:
+		return &GetGlobal{
+			Text: f.Name,
+		}
+	default:
+		panic(f)
+	}
+}
+
 func (info *FileInfo) LocalName(lcl *LocalInfo) string {
 	return lcl.Name
 }
@@ -90,9 +105,7 @@ func nameifyExpr(expr Expr, info *FileInfo) {
 	case *Call:
 		f := expr.F
 		if f != nil {
-			expr.Expr = &GetGlobal{
-				Text: info.QualifyName(f.Package, f.Name),
-			}
+			expr.Expr = info.GetCallable(f)
 		}
 		nameifyExpr(expr.Expr, info)
 		for _, e := range expr.Args {

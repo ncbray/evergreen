@@ -51,11 +51,20 @@ struct BuiltinTypeIndex {
   Bool ExternalType
   String ExternalType
   Rune ExternalType
+
+  Append IntrinsicFunction
 }
 
-struct Function scoped {
+struct Callable {
+}
+
+struct Function scoped implements Callable {
   Name string
   Package Package
+}
+
+struct IntrinsicFunction implements Callable {
+  Name string
 }
 
 struct Package scoped {

@@ -255,7 +255,7 @@ func (node *Index) isExpr() {
 type Call struct {
 	Expr Expr
 	Args []Expr
-	F    *core.Function
+	F    core.Callable
 }
 
 func (node *Call) isStmt() {
