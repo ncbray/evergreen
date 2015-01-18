@@ -38,11 +38,11 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 			case *CallOp:
 				var tgt int
 				switch c := op.Target.(type) {
-				case *core.CallableFunction:
+				case *core.Function:
 					var ok bool
-					tgt, ok = lut[c.Func.Index]
+					tgt, ok = lut[c.Index]
 					if !ok {
-						panic(c.Func)
+						panic(c)
 					}
 				default:
 					panic(op.Target)

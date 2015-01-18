@@ -60,8 +60,8 @@ type DotStyler struct {
 
 func callableName(coreProg *core.CoreProgram, c core.Callable) string {
 	switch c := c.(type) {
-	case *core.CallableFunction:
-		return c.Func.Name
+	case *core.Function:
+		return c.Name
 	default:
 		panic(c)
 	}

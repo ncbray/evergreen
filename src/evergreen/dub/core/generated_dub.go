@@ -66,6 +66,10 @@ type File struct {
 	Index   File_Ref
 }
 
+type Callable interface {
+	isCallable()
+}
+
 type Function_Ref uint32
 
 type Function_Scope struct {
@@ -78,26 +82,14 @@ type Function struct {
 	Index Function_Ref
 }
 
+func (node *Function) isCallable() {
+}
+
 type IntrinsticFunction struct {
 	Name string
 }
 
-type Callable interface {
-	isCallable()
-}
-
-type CallableFunction struct {
-	Func *Function
-}
-
-func (node *CallableFunction) isCallable() {
-}
-
-type CallableIntrinstic struct {
-	Func *IntrinsticFunction
-}
-
-func (node *CallableIntrinstic) isCallable() {
+func (node *IntrinsticFunction) isCallable() {
 }
 
 type BuiltinTypeIndex struct {

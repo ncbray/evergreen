@@ -37,24 +37,16 @@ struct File scoped {
   Package Package
 }
 
-struct Function scoped {
+struct Callable {
+}
+
+struct Function scoped implements Callable {
   Name string
   File File
 }
 
-struct IntrinsticFunction {
+struct IntrinsticFunction implements Callable {
        Name string
-}
-
-struct Callable {
-}
-
-struct CallableFunction implements Callable {
-       Func Function
-}
-
-struct CallableIntrinstic implements Callable {
-       Func IntrinsticFunction
 }
 
 struct BuiltinTypeIndex {

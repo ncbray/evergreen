@@ -615,8 +615,8 @@ func ResolveType(ref ASTTypeRef) core.DubType {
 
 func ReturnTypes(ctx *semanticPassContext, node core.Callable) []core.DubType {
 	switch node := node.(type) {
-	case *core.CallableFunction:
-		f := ctx.Functions[node.Func.Index]
+	case *core.Function:
+		f := ctx.Functions[node.Index]
 		types := make([]core.DubType, len(f.ReturnTypes))
 		for i, t := range f.ReturnTypes {
 			types[i] = ResolveType(t)
@@ -733,9 +733,7 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 					ctx.Functions = append(ctx.Functions, decl)
 
 					ctx.Module.Namespace[name] = &NamedCallable{
-						Func: &core.CallableFunction{
-							Func: decl.F,
-						},
+						Func: decl.F,
 					}
 				}
 			case *StructDecl:

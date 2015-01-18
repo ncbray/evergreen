@@ -230,8 +230,8 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 		case *src.CallOp:
 			var tgt *srccore.Function
 			switch c := op.Target.(type) {
-			case *srccore.CallableFunction:
-				tgt = c.Func
+			case *srccore.Function:
+				tgt = c
 			default:
 				panic(op.Target)
 			}
