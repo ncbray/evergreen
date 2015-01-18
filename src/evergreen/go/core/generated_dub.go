@@ -88,6 +88,7 @@ type Function_Scope struct {
 type Function struct {
 	Name    string
 	Package Package_Ref
+	Index   Function_Ref
 }
 
 type Package_Ref uint32
@@ -102,6 +103,7 @@ type Package struct {
 	Path      []string
 	Extern    bool
 	Functions []Function_Ref
+	Index     Package_Ref
 }
 
 type CoreProgram struct {

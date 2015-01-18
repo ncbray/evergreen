@@ -15,13 +15,16 @@ const (
 )
 
 func (scope *Register_Scope) Get(ref Register_Ref) *Register {
+	if scope.objects[ref].Index != ref {
+		panic(scope.objects[ref].Index)
+	}
 	return scope.objects[ref]
 }
 
 func (scope *Register_Scope) Register(info *Register) Register_Ref {
-	index := Register_Ref(len(scope.objects))
+	info.Index = Register_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return index
+	return info.Index
 }
 
 func (scope *Register_Scope) Len() int {
@@ -29,13 +32,16 @@ func (scope *Register_Scope) Len() int {
 }
 
 func (scope *FlowFunc_Scope) Get(ref FlowFunc_Ref) *FlowFunc {
+	if scope.objects[ref].Index != ref {
+		panic(scope.objects[ref].Index)
+	}
 	return scope.objects[ref]
 }
 
 func (scope *FlowFunc_Scope) Register(info *FlowFunc) FlowFunc_Ref {
-	index := FlowFunc_Ref(len(scope.objects))
+	info.Index = FlowFunc_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return index
+	return info.Index
 }
 
 func (scope *FlowFunc_Scope) Len() int {

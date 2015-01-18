@@ -212,13 +212,16 @@ func InsertVarDecls(decl *FuncDecl) {
 }
 
 func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {
+	if scope.objects[ref].Index != ref {
+		panic(scope.objects[ref].Index)
+	}
 	return scope.objects[ref]
 }
 
 func (scope *LocalInfo_Scope) Register(info *LocalInfo) LocalInfo_Ref {
-	index := LocalInfo_Ref(len(scope.objects))
+	info.Index = LocalInfo_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return index
+	return info.Index
 }
 
 func (scope *LocalInfo_Scope) Len() int {
@@ -233,6 +236,7 @@ func (scope *LocalInfo_Scope) Remap(remap []LocalInfo_Ref, count int) {
 	objects := make([]*LocalInfo, count)
 	for i, info := range scope.objects {
 		idx := remap[i]
+		info.Index = idx
 		if idx != NoLocalInfo {
 			objects[idx] = info
 		}

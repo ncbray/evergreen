@@ -48,13 +48,16 @@ var EdgeTypeInfo = []edgeTypeInfo{
 }
 
 func (scope *RegisterInfo_Scope) Get(ref RegisterInfo_Ref) *RegisterInfo {
+	if scope.objects[ref].Index != ref {
+		panic(scope.objects[ref].Index)
+	}
 	return scope.objects[ref]
 }
 
 func (scope *RegisterInfo_Scope) Register(info *RegisterInfo) RegisterInfo_Ref {
-	index := RegisterInfo_Ref(len(scope.objects))
+	info.Index = RegisterInfo_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return index
+	return info.Index
 }
 
 func (scope *RegisterInfo_Scope) Len() int {
@@ -67,13 +70,26 @@ func (scope *RegisterInfo_Scope) Remap(remap []int, count int) {
 		idx := remap[i]
 		if idx >= 0 {
 			objects[idx] = info
+			info.Index = RegisterInfo_Ref(idx)
+		} else {
+			info.Index = NoRegisterInfo
 		}
 	}
 	scope.objects = objects
+	scope.check()
 }
 
 func (scope *RegisterInfo_Scope) Replace(replacement []*RegisterInfo) {
 	scope.objects = replacement
+	scope.check()
+}
+
+func (scope *RegisterInfo_Scope) check() {
+	for i, reg := range scope.objects {
+		if reg.Index != RegisterInfo_Ref(i) {
+			panic(i)
+		}
+	}
 }
 
 func AllocNode(decl *LLFunc, op DubOp) graph.NodeID {

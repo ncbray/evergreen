@@ -848,13 +848,16 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 }
 
 func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {
+	if scope.objects[ref].Index != ref {
+		panic(scope.objects[ref].Index)
+	}
 	return scope.objects[ref]
 }
 
 func (scope *LocalInfo_Scope) Register(info *LocalInfo) LocalInfo_Ref {
-	index := LocalInfo_Ref(len(scope.objects))
+	info.Index = LocalInfo_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return index
+	return info.Index
 }
 
 func (scope *LocalInfo_Scope) Len() int {

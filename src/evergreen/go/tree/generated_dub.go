@@ -154,8 +154,9 @@ type LocalInfo_Scope struct {
 }
 
 type LocalInfo struct {
-	Name string
-	T    TypeRef
+	Name  string
+	T     TypeRef
+	Index LocalInfo_Ref
 }
 
 type GetName struct {

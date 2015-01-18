@@ -53,6 +53,7 @@ type Package_Scope struct {
 type Package struct {
 	Path  []string
 	Files []File_Ref
+	Index Package_Ref
 }
 
 type File_Ref uint32
@@ -66,6 +67,7 @@ type File_Scope struct {
 type File struct {
 	Name    string
 	Package Package_Ref
+	Index   File_Ref
 }
 
 type Function_Ref uint32
@@ -77,8 +79,9 @@ type Function_Scope struct {
 }
 
 type Function struct {
-	Name string
-	File File_Ref
+	Name  string
+	File  File_Ref
+	Index Function_Ref
 }
 
 type IntrinsticFunction struct {

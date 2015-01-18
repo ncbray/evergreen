@@ -13,13 +13,16 @@ func MakeBuiltinTypeIndex() *BuiltinTypeIndex {
 }
 
 func (scope *Package_Scope) Get(ref Package_Ref) *Package {
+	if scope.objects[ref].Index != ref {
+		panic(scope.objects[ref].Index)
+	}
 	return scope.objects[ref]
 }
 
 func (scope *Package_Scope) Register(info *Package) Package_Ref {
-	index := Package_Ref(len(scope.objects))
+	info.Index = Package_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return index
+	return info.Index
 }
 
 func (scope *Package_Scope) Len() int {
@@ -45,13 +48,16 @@ func (iter *packageIterator) Value() (Package_Ref, *Package) {
 }
 
 func (scope *Function_Scope) Get(ref Function_Ref) *Function {
+	if scope.objects[ref].Index != ref {
+		panic(scope.objects[ref].Index)
+	}
 	return scope.objects[ref]
 }
 
 func (scope *Function_Scope) Register(info *Function) Function_Ref {
-	index := Function_Ref(len(scope.objects))
+	info.Index = Function_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return index
+	return info.Index
 }
 
 func (scope *Function_Scope) Len() int {

@@ -14,8 +14,9 @@ type Register_Scope struct {
 }
 
 type Register struct {
-	Name string
-	T    core.GoType
+	Name  string
+	T     core.GoType
+	Index Register_Ref
 }
 
 type FlowFunc_Ref uint32
@@ -35,6 +36,7 @@ type FlowFunc struct {
 	Ops            []GoOp
 	Edges          []int
 	Register_Scope *Register_Scope
+	Index          FlowFunc_Ref
 }
 
 type GoOp interface {

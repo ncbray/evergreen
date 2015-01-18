@@ -134,32 +134,37 @@ type RegisterReallocator struct {
 	nm   *NameMap
 }
 
-func (r *RegisterReallocator) Allocate(v int) int {
-	name := len(r.info)
-	ref := RegisterInfo_Ref(v)
-	r.info = append(r.info, r.decl.RegisterInfo_Scope.Get(ref))
-	return name
+func (r *RegisterReallocator) Allocate(v int) RegisterInfo_Ref {
+	original := r.decl.RegisterInfo_Scope.Get(RegisterInfo_Ref(v))
+	reg := &RegisterInfo{
+		Name:  original.Name,
+		T:     original.T,
+		Index: RegisterInfo_Ref(len(r.info)),
+	}
+	r.info = append(r.info, reg)
+	return reg.Index
 }
 
 func (r *RegisterReallocator) MakeOutput(n graph.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
 	if reg != NoRegisterInfo {
 		v := int(reg)
 		name := r.Allocate(v)
-		r.nm.SetName(n, v, name)
-		return RegisterInfo_Ref(name)
+		r.nm.SetName(n, v, int(name))
+		return name
 	}
 	return NoRegisterInfo
 }
 
 func (r *RegisterReallocator) Transfer(dst graph.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
 	v := int(reg)
-	name, ok := r.nm.transfers[dst][v]
+	nameI, ok := r.nm.transfers[dst][v]
+	name := RegisterInfo_Ref(nameI)
 	if !ok {
 		name = r.Allocate(v)
-		r.nm.transfers[dst][v] = name
-		r.nm.SetName(dst, v, name)
+		r.nm.transfers[dst][v] = int(name)
+		r.nm.SetName(dst, v, int(name))
 	}
-	return RegisterInfo_Ref(name)
+	return name
 }
 
 func (r *RegisterReallocator) Get(n graph.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {

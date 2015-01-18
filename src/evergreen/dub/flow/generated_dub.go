@@ -15,8 +15,9 @@ type RegisterInfo_Scope struct {
 }
 
 type RegisterInfo struct {
-	Name string
-	T    core.DubType
+	Name  string
+	T     core.DubType
+	Index RegisterInfo_Ref
 }
 
 type LLFunc struct {

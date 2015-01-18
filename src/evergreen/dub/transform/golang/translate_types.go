@@ -193,9 +193,13 @@ func createTypes(program *flow.DubProgram, coreProg *core.CoreProgram, ctx *DubT
 					},
 				})
 			}
-			impl.Fields = fields
 
 			if s.Scoped {
+				fields = append(fields, &dstcore.Field{
+					Name: "Index",
+					Type: ctx.link.GetType(s, REF),
+				})
+
 				ref, _ := ctx.link.GetType(s, REF).(*dstcore.TypeDefType)
 				ref.Name = subtypeName(s, REF)
 				ref.Type = ctx.index.UInt32
@@ -213,6 +217,7 @@ func createTypes(program *flow.DubProgram, coreProg *core.CoreProgram, ctx *DubT
 					},
 				}
 			}
+			impl.Fields = fields
 		}
 	}
 }

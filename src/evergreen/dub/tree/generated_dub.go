@@ -353,8 +353,9 @@ type LocalInfo_Scope struct {
 }
 
 type LocalInfo struct {
-	Name string
-	T    core.DubType
+	Name  string
+	T     core.DubType
+	Index LocalInfo_Ref
 }
 
 type Param struct {
