@@ -8,8 +8,6 @@ import (
 
 type RegisterInfo_Ref uint32
 
-const NoRegisterInfo = ^RegisterInfo_Ref(0)
-
 type RegisterInfo_Scope struct {
 	objects []*RegisterInfo
 }
@@ -22,12 +20,12 @@ type RegisterInfo struct {
 
 type LLFunc struct {
 	Name               string
-	Params             []RegisterInfo_Ref
+	Params             []*RegisterInfo
 	ReturnTypes        []core.DubType
 	CFG                *graph.Graph
 	Ops                []DubOp
 	Edges              []int
-	F                  core.Function_Ref
+	F                  *core.Function
 	RegisterInfo_Scope *RegisterInfo_Scope
 }
 
@@ -36,24 +34,24 @@ type DubOp interface {
 }
 
 type CoerceOp struct {
-	Src RegisterInfo_Ref
+	Src *RegisterInfo
 	T   core.DubType
-	Dst RegisterInfo_Ref
+	Dst *RegisterInfo
 }
 
 func (node *CoerceOp) isDubOp() {
 }
 
 type CopyOp struct {
-	Src RegisterInfo_Ref
-	Dst RegisterInfo_Ref
+	Src *RegisterInfo
+	Dst *RegisterInfo
 }
 
 func (node *CopyOp) isDubOp() {
 }
 
 type ConstantNilOp struct {
-	Dst RegisterInfo_Ref
+	Dst *RegisterInfo
 }
 
 func (node *ConstantNilOp) isDubOp() {
@@ -61,7 +59,7 @@ func (node *ConstantNilOp) isDubOp() {
 
 type ConstantIntOp struct {
 	Value int64
-	Dst   RegisterInfo_Ref
+	Dst   *RegisterInfo
 }
 
 func (node *ConstantIntOp) isDubOp() {
@@ -69,7 +67,7 @@ func (node *ConstantIntOp) isDubOp() {
 
 type ConstantFloat32Op struct {
 	Value float32
-	Dst   RegisterInfo_Ref
+	Dst   *RegisterInfo
 }
 
 func (node *ConstantFloat32Op) isDubOp() {
@@ -77,7 +75,7 @@ func (node *ConstantFloat32Op) isDubOp() {
 
 type ConstantBoolOp struct {
 	Value bool
-	Dst   RegisterInfo_Ref
+	Dst   *RegisterInfo
 }
 
 func (node *ConstantBoolOp) isDubOp() {
@@ -85,7 +83,7 @@ func (node *ConstantBoolOp) isDubOp() {
 
 type ConstantRuneOp struct {
 	Value rune
-	Dst   RegisterInfo_Ref
+	Dst   *RegisterInfo
 }
 
 func (node *ConstantRuneOp) isDubOp() {
@@ -93,17 +91,17 @@ func (node *ConstantRuneOp) isDubOp() {
 
 type ConstantStringOp struct {
 	Value string
-	Dst   RegisterInfo_Ref
+	Dst   *RegisterInfo
 }
 
 func (node *ConstantStringOp) isDubOp() {
 }
 
 type BinaryOp struct {
-	Left  RegisterInfo_Ref
+	Left  *RegisterInfo
 	Op    string
-	Right RegisterInfo_Ref
-	Dst   RegisterInfo_Ref
+	Right *RegisterInfo
+	Dst   *RegisterInfo
 }
 
 func (node *BinaryOp) isDubOp() {
@@ -111,8 +109,8 @@ func (node *BinaryOp) isDubOp() {
 
 type CallOp struct {
 	Target core.Callable
-	Args   []RegisterInfo_Ref
-	Dsts   []RegisterInfo_Ref
+	Args   []*RegisterInfo
+	Dsts   []*RegisterInfo
 }
 
 func (node *CallOp) isDubOp() {
@@ -120,13 +118,13 @@ func (node *CallOp) isDubOp() {
 
 type KeyValue struct {
 	Key   string
-	Value RegisterInfo_Ref
+	Value *RegisterInfo
 }
 
 type ConstructOp struct {
 	Type *core.StructType
 	Args []*KeyValue
-	Dst  RegisterInfo_Ref
+	Dst  *RegisterInfo
 }
 
 func (node *ConstructOp) isDubOp() {
@@ -134,29 +132,29 @@ func (node *ConstructOp) isDubOp() {
 
 type ConstructListOp struct {
 	Type *core.ListType
-	Args []RegisterInfo_Ref
-	Dst  RegisterInfo_Ref
+	Args []*RegisterInfo
+	Dst  *RegisterInfo
 }
 
 func (node *ConstructListOp) isDubOp() {
 }
 
 type Checkpoint struct {
-	Dst RegisterInfo_Ref
+	Dst *RegisterInfo
 }
 
 func (node *Checkpoint) isDubOp() {
 }
 
 type Recover struct {
-	Src RegisterInfo_Ref
+	Src *RegisterInfo
 }
 
 func (node *Recover) isDubOp() {
 }
 
 type LookaheadBegin struct {
-	Dst RegisterInfo_Ref
+	Dst *RegisterInfo
 }
 
 func (node *LookaheadBegin) isDubOp() {
@@ -164,31 +162,31 @@ func (node *LookaheadBegin) isDubOp() {
 
 type LookaheadEnd struct {
 	Failed bool
-	Src    RegisterInfo_Ref
+	Src    *RegisterInfo
 }
 
 func (node *LookaheadEnd) isDubOp() {
 }
 
 type Slice struct {
-	Src RegisterInfo_Ref
-	Dst RegisterInfo_Ref
+	Src *RegisterInfo
+	Dst *RegisterInfo
 }
 
 func (node *Slice) isDubOp() {
 }
 
 type AppendOp struct {
-	List  RegisterInfo_Ref
-	Value RegisterInfo_Ref
-	Dst   RegisterInfo_Ref
+	List  *RegisterInfo
+	Value *RegisterInfo
+	Dst   *RegisterInfo
 }
 
 func (node *AppendOp) isDubOp() {
 }
 
 type ReturnOp struct {
-	Exprs []RegisterInfo_Ref
+	Exprs []*RegisterInfo
 }
 
 func (node *ReturnOp) isDubOp() {
@@ -201,7 +199,7 @@ func (node *Fail) isDubOp() {
 }
 
 type Peek struct {
-	Dst RegisterInfo_Ref
+	Dst *RegisterInfo
 }
 
 func (node *Peek) isDubOp() {
@@ -214,8 +212,8 @@ func (node *Consume) isDubOp() {
 }
 
 type TransferOp struct {
-	Srcs []RegisterInfo_Ref
-	Dsts []RegisterInfo_Ref
+	Srcs []*RegisterInfo
+	Dsts []*RegisterInfo
 }
 
 func (node *TransferOp) isDubOp() {
@@ -228,7 +226,7 @@ func (node *EntryOp) isDubOp() {
 }
 
 type SwitchOp struct {
-	Cond RegisterInfo_Ref
+	Cond *RegisterInfo
 }
 
 func (node *SwitchOp) isDubOp() {

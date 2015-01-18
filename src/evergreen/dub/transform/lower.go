@@ -12,7 +12,7 @@ type dubBuilder struct {
 	index    *core.BuiltinTypeIndex
 	decl     *tree.FuncDecl
 	flow     *flow.LLFunc
-	localMap []flow.RegisterInfo_Ref
+	localMap []*flow.RegisterInfo
 	graph    *graph.Graph
 }
 
@@ -26,7 +26,7 @@ func (builder *dubBuilder) EmitEdge(nid graph.NodeID, flowID int) graph.EdgeID {
 	return e
 }
 
-func (builder *dubBuilder) CreateRegister(name string, t core.DubType) flow.RegisterInfo_Ref {
+func (builder *dubBuilder) CreateRegister(name string, t core.DubType) *flow.RegisterInfo {
 	info := &flow.RegisterInfo{
 		Name: name,
 		T:    t,
@@ -34,13 +34,12 @@ func (builder *dubBuilder) CreateRegister(name string, t core.DubType) flow.Regi
 	return builder.flow.RegisterInfo_Scope.Register(info)
 }
 
-func (builder *dubBuilder) CreateCheckpointRegister() flow.RegisterInfo_Ref {
+func (builder *dubBuilder) CreateCheckpointRegister() *flow.RegisterInfo {
 	return builder.CreateRegister("checkpoint", builder.index.Int)
 }
 
-func (builder *dubBuilder) ZeroRegister(dst flow.RegisterInfo_Ref) flow.DubOp {
-	info := builder.flow.RegisterInfo_Scope.Get(dst)
-	switch t := info.T.(type) {
+func (builder *dubBuilder) ZeroRegister(dst *flow.RegisterInfo) flow.DubOp {
+	switch t := dst.T.(type) {
 	case *core.StructType:
 		return &flow.ConstantNilOp{Dst: dst}
 	case *core.BuiltinType:
@@ -58,11 +57,11 @@ func (builder *dubBuilder) ZeroRegister(dst flow.RegisterInfo_Ref) flow.DubOp {
 			panic(t.Name)
 		}
 	default:
-		panic(info.T)
+		panic(dst.T)
 	}
 }
 
-func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *dubBuilder) (graph.NodeID, graph.NodeID) {
+func makeRuneSwitch(cond *flow.RegisterInfo, op string, value rune, builder *dubBuilder) (graph.NodeID, graph.NodeID) {
 	vreg := builder.CreateRegister("other", builder.index.Rune)
 	make_value := builder.EmitOp(&flow.ConstantRuneOp{Value: value, Dst: vreg})
 
@@ -87,9 +86,9 @@ func makeRuneSwitch(cond flow.RegisterInfo_Ref, op string, value rune, builder *
 const CONTINUE_MATCHING = flow.NORMAL
 const STOP_MATCHING = flow.FAIL
 
-func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, fb *graph.FlowBuilder) flow.RegisterInfo_Ref {
+func lowerRuneMatch(match *tree.RuneRangeMatch, used bool, builder *dubBuilder, fb *graph.FlowBuilder) *flow.RegisterInfo {
 	// Read
-	cond := flow.NoRegisterInfo
+	var cond *flow.RegisterInfo
 	if len(match.Filters) > 0 || used {
 		cond = builder.CreateRegister("c", builder.index.Rune)
 	}
@@ -236,17 +235,17 @@ func lowerMatch(match tree.TextMatch, builder *dubBuilder, fb *graph.FlowBuilder
 	}
 }
 
-func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.FlowBuilder) []flow.RegisterInfo_Ref {
+func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.FlowBuilder) []*flow.RegisterInfo {
 	switch expr := expr.(type) {
 
 	case *tree.Call:
-		args := make([]flow.RegisterInfo_Ref, len(expr.Args))
+		args := make([]*flow.RegisterInfo, len(expr.Args))
 		for i, arg := range expr.Args {
 			args[i] = lowerExpr(arg, builder, true, fb)
 		}
-		var dsts []flow.RegisterInfo_Ref
+		var dsts []*flow.RegisterInfo
 		if used {
-			dsts = make([]flow.RegisterInfo_Ref, len(expr.T))
+			dsts = make([]*flow.RegisterInfo, len(expr.T))
 			for i, t := range expr.T {
 				dsts[i] = builder.CreateRegister("", t)
 			}
@@ -258,11 +257,11 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *
 
 		return dsts
 	default:
-		return []flow.RegisterInfo_Ref{lowerExpr(expr, builder, used, fb)}
+		return []*flow.RegisterInfo{lowerExpr(expr, builder, used, fb)}
 	}
 }
 
-func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.FlowBuilder) flow.RegisterInfo_Ref {
+func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.FlowBuilder) *flow.RegisterInfo {
 	switch expr := expr.(type) {
 	case *tree.If:
 		cond := lowerExpr(expr.Expr, builder, true, fb)
@@ -277,7 +276,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		lowerBlock(expr.Else, builder, block)
 		fb.AbsorbExits(block)
 
-		return flow.NoRegisterInfo
+		return nil
 
 	case *tree.Repeat:
 		// HACK unroll
@@ -303,9 +302,9 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		block.RegisterExit(builder.EmitEdge(recover, flow.NORMAL), flow.NORMAL)
 
 		fb.AbsorbExits(block)
-		return flow.NoRegisterInfo
+		return nil
 	case *tree.Choice:
-		checkpoint := flow.NoRegisterInfo
+		var checkpoint *flow.RegisterInfo
 		if len(expr.Blocks) > 1 {
 			checkpoint = builder.CreateCheckpointRegister()
 		}
@@ -324,7 +323,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 			}
 			fb.AbsorbExits(block)
 		}
-		return flow.NoRegisterInfo
+		return nil
 
 	case *tree.Optional:
 		// Checkpoint
@@ -342,27 +341,27 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		}
 
 		fb.AbsorbExits(block)
-		return flow.NoRegisterInfo
+		return nil
 
 	case *tree.NameRef:
 		if !used {
-			return flow.NoRegisterInfo
+			return nil
 		}
-		dst := builder.CreateRegister(expr.Name.Text, builder.decl.LocalInfo_Scope.Get(expr.Local).T)
-		body := builder.EmitOp(&flow.CopyOp{Src: builder.localMap[expr.Local], Dst: dst})
+		dst := builder.CreateRegister(expr.Name.Text, expr.Local.T)
+		body := builder.EmitOp(&flow.CopyOp{Src: builder.localMap[expr.Local.Index], Dst: dst})
 		fb.AttachFlow(flow.NORMAL, body)
 		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
 
 	case *tree.Assign:
-		var srcs []flow.RegisterInfo_Ref
+		var srcs []*flow.RegisterInfo
 		if expr.Expr != nil {
 			srcs = lowerMultiValueExpr(expr.Expr, builder, true, fb)
 			if len(expr.Targets) != len(srcs) {
 				panic(expr.Targets)
 			}
 		}
-		dsts := make([]flow.RegisterInfo_Ref, len(expr.Targets))
+		dsts := make([]*flow.RegisterInfo, len(expr.Targets))
 		for i, etgt := range expr.Targets {
 			tgt, ok := etgt.(*tree.NameRef)
 			if !ok {
@@ -371,12 +370,12 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 			if tree.IsDiscard(tgt.Name.Text) {
 				continue
 			}
-			dst := builder.localMap[tgt.Local]
+			dst := builder.localMap[tgt.Local.Index]
 			dsts[i] = dst
 			var op flow.DubOp
 			if srcs != nil {
 				src := srcs[i]
-				if src == flow.NoRegisterInfo {
+				if src == nil {
 					panic(expr)
 				}
 				op = &flow.CopyOp{Src: src, Dst: dst}
@@ -391,11 +390,11 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		if len(dsts) == 1 {
 			return dsts[0]
 		}
-		return flow.NoRegisterInfo
+		return nil
 
 	case *tree.RuneLiteral:
 		if !used {
-			return flow.NoRegisterInfo
+			return nil
 		}
 		dst := builder.CreateRegister("c_r", builder.index.Rune)
 		body := builder.EmitOp(&flow.ConstantRuneOp{Value: expr.Value, Dst: dst})
@@ -405,7 +404,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 
 	case *tree.StringLiteral:
 		if !used {
-			return flow.NoRegisterInfo
+			return nil
 		}
 		dst := builder.CreateRegister("c_s", builder.index.String)
 		body := builder.EmitOp(&flow.ConstantStringOp{Value: expr.Value, Dst: dst})
@@ -415,7 +414,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 
 	case *tree.IntLiteral:
 		if !used {
-			return flow.NoRegisterInfo
+			return nil
 		}
 		dst := builder.CreateRegister("c_i", builder.index.Int)
 		body := builder.EmitOp(&flow.ConstantIntOp{Value: int64(expr.Value), Dst: dst})
@@ -425,7 +424,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 
 	case *tree.Float32Literal:
 		if !used {
-			return flow.NoRegisterInfo
+			return nil
 		}
 		dst := builder.CreateRegister("c_f", builder.index.Float32)
 		body := builder.EmitOp(&flow.ConstantFloat32Op{Value: expr.Value, Dst: dst})
@@ -435,7 +434,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 
 	case *tree.BoolLiteral:
 		if !used {
-			return flow.NoRegisterInfo
+			return nil
 		}
 		dst := builder.CreateRegister("c_b", builder.index.Bool)
 		body := builder.EmitOp(&flow.ConstantBoolOp{Value: expr.Value, Dst: dst})
@@ -444,25 +443,25 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		return dst
 
 	case *tree.Return:
-		exprs := make([]flow.RegisterInfo_Ref, len(expr.Exprs))
+		exprs := make([]*flow.RegisterInfo, len(expr.Exprs))
 		for i, e := range expr.Exprs {
 			exprs[i] = lowerExpr(e, builder, true, fb)
 		}
 		body := builder.EmitOp(&flow.ReturnOp{Exprs: exprs})
 		fb.AttachFlow(flow.NORMAL, body)
 		fb.RegisterExit(builder.EmitEdge(body, flow.RETURN), flow.RETURN)
-		return flow.NoRegisterInfo
+		return nil
 
 	case *tree.Fail:
 		body := builder.EmitOp(&flow.Fail{})
 		fb.AttachFlow(flow.NORMAL, body)
 		fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
 
-		return flow.NoRegisterInfo
+		return nil
 
 	case *tree.Position:
 		if !used {
-			return flow.NoRegisterInfo
+			return nil
 		}
 		pos := builder.CreateRegister("pos", builder.index.Int)
 		// HACK assume checkpoint is just the index
@@ -473,7 +472,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 	case *tree.BinaryOp:
 		left := lowerExpr(expr.Left, builder, true, fb)
 		right := lowerExpr(expr.Right, builder, true, fb)
-		dst := flow.NoRegisterInfo
+		var dst *flow.RegisterInfo
 		if used {
 			dst = builder.CreateRegister("", expr.T)
 		}
@@ -484,7 +483,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 	case *tree.Append:
 		l := lowerExpr(expr.List, builder, true, fb)
 		v := lowerExpr(expr.Expr, builder, true, fb)
-		dst := flow.NoRegisterInfo
+		var dst *flow.RegisterInfo
 		if used {
 			dst = builder.CreateRegister("", expr.T)
 		}
@@ -496,7 +495,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 
 	case *tree.Call:
 		dsts := lowerMultiValueExpr(expr, builder, true, fb)
-		dst := flow.NoRegisterInfo
+		var dst *flow.RegisterInfo
 		if used {
 			if len(dsts) != 1 {
 				panic(expr)
@@ -518,7 +517,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		if !ok {
 			panic(t)
 		}
-		dst := flow.NoRegisterInfo
+		var dst *flow.RegisterInfo
 		if used {
 			dst = builder.CreateRegister("", t)
 		}
@@ -528,7 +527,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		return dst
 
 	case *tree.ConstructList:
-		args := make([]flow.RegisterInfo_Ref, len(expr.Args))
+		args := make([]*flow.RegisterInfo, len(expr.Args))
 		for i, arg := range expr.Args {
 			args[i] = lowerExpr(arg, builder, true, fb)
 		}
@@ -537,7 +536,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		if !ok {
 			panic(t)
 		}
-		dst := flow.NoRegisterInfo
+		var dst *flow.RegisterInfo
 		if used {
 			dst = builder.CreateRegister("", t)
 		}
@@ -549,7 +548,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 	case *tree.Coerce:
 		t := tree.ResolveType(expr.Type)
 		src := lowerExpr(expr.Expr, builder, true, fb)
-		dst := flow.NoRegisterInfo
+		var dst *flow.RegisterInfo
 		if used {
 			dst = builder.CreateRegister("", t)
 		}
@@ -570,7 +569,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		lowerBlock(expr.Block, builder, fb)
 
 		// Create a slice
-		dst := flow.NoRegisterInfo
+		var dst *flow.RegisterInfo
 		if used {
 			dst = builder.CreateRegister("slice", builder.index.String)
 		}
@@ -582,8 +581,8 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		return dst
 
 	case *tree.StringMatch:
-		dst := flow.NoRegisterInfo
-		start := flow.NoRegisterInfo
+		var dst *flow.RegisterInfo
+		var start *flow.RegisterInfo
 
 		// Checkpoint
 		if used {
@@ -622,7 +621,7 @@ func lowerBlock(block []tree.ASTExpr, builder *dubBuilder, fb *graph.FlowBuilder
 }
 
 func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc) *flow.LLFunc {
-	f := funcMap[decl.F]
+	f := funcMap[decl.F.Index]
 
 	g := graph.CreateGraph()
 	ops := []flow.DubOp{
@@ -645,16 +644,16 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 
 	// Allocate register for locals
 	numLocals := decl.LocalInfo_Scope.Len()
-	builder.localMap = make([]flow.RegisterInfo_Ref, numLocals)
+	builder.localMap = make([]*flow.RegisterInfo, numLocals)
 	for i := 0; i < numLocals; i++ {
 		lcl := decl.LocalInfo_Scope.Get(tree.LocalInfo_Ref(i))
 		builder.localMap[i] = builder.CreateRegister(lcl.Name, lcl.T)
 	}
 
 	// Function parameters
-	params := make([]flow.RegisterInfo_Ref, len(decl.Params))
+	params := make([]*flow.RegisterInfo, len(decl.Params))
 	for i, p := range decl.Params {
-		params[i] = builder.localMap[p.Name.Local]
+		params[i] = builder.localMap[p.Name.Local.Index]
 	}
 	f.Params = params
 
@@ -670,7 +669,7 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 
 	// Attach flows to exit.
 	if fb.HasFlow(flow.NORMAL) {
-		ret := builder.EmitOp(&flow.ReturnOp{Exprs: []flow.RegisterInfo_Ref{}})
+		ret := builder.EmitOp(&flow.ReturnOp{Exprs: []*flow.RegisterInfo{}})
 		fb.AttachFlow(flow.NORMAL, ret)
 		fb.RegisterExit(builder.EmitEdge(ret, flow.RETURN), flow.RETURN)
 	}
@@ -738,7 +737,7 @@ func LowerProgram(status compiler.PassStatus, program *tree.Program, coreProg *c
 		df := &flow.LLFunc{
 			Name:               f.Name,
 			RegisterInfo_Scope: &flow.RegisterInfo_Scope{},
-			F:                  fref,
+			F:                  f,
 		}
 		dubFuncs[fref] = df
 	}

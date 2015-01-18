@@ -123,21 +123,16 @@ func goType(t core.DubType, ctx *DubToGoContext) dstcore.GoType {
 
 func goFieldType(t core.DubType, ctx *DubToGoContext) dstcore.GoType {
 	switch t := t.(type) {
-	case *core.StructType:
-		if t.Scoped {
-			return ctx.link.GetType(t, REF)
-		}
 	case *core.ListType:
 		return &dstcore.SliceType{Element: goFieldType(t.Type, ctx)}
 	}
 	return goType(t, ctx)
 }
 
-func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, packages []dstcore.Package_Ref, link DubToGoLinker) []dstcore.GoType {
+func createTypeMapping(program *flow.DubProgram, coreProg *core.CoreProgram, packages []*dstcore.Package, link DubToGoLinker) []dstcore.GoType {
 	types := []dstcore.GoType{}
 	for _, s := range coreProg.Structures {
-		pIndex := coreProg.File_Scope.Get(s.File).Package
-		p := packages[pIndex]
+		p := packages[s.File.Package.Index]
 
 		if s.IsParent {
 			if s.Scoped {

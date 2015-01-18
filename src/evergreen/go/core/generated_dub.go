@@ -20,7 +20,7 @@ func (node *SliceType) isGoType() {
 
 type ExternalType struct {
 	Name    string
-	Package Package_Ref
+	Package *Package
 }
 
 func (node *ExternalType) isGoType() {
@@ -29,7 +29,7 @@ func (node *ExternalType) isGoType() {
 type TypeDefType struct {
 	Name    string
 	Type    GoType
-	Package Package_Ref
+	Package *Package
 }
 
 func (node *TypeDefType) isGoType() {
@@ -51,8 +51,8 @@ type Field struct {
 type StructType struct {
 	Name    string
 	Fields  []*Field
-	Package Package_Ref
-	Methods []Function_Ref
+	Package *Package
+	Methods []*Function
 }
 
 func (node *StructType) isGoType() {
@@ -61,7 +61,7 @@ func (node *StructType) isGoType() {
 type InterfaceType struct {
 	Name    string
 	Fields  []*Field
-	Package Package_Ref
+	Package *Package
 }
 
 func (node *InterfaceType) isGoType() {
@@ -79,21 +79,17 @@ type BuiltinTypeIndex struct {
 
 type Function_Ref uint32
 
-const NoFunction = ^Function_Ref(0)
-
 type Function_Scope struct {
 	objects []*Function
 }
 
 type Function struct {
 	Name    string
-	Package Package_Ref
+	Package *Package
 	Index   Function_Ref
 }
 
 type Package_Ref uint32
-
-const NoPackage = ^Package_Ref(0)
 
 type Package_Scope struct {
 	objects []*Package
@@ -102,7 +98,7 @@ type Package_Scope struct {
 type Package struct {
 	Path      []string
 	Extern    bool
-	Functions []Function_Ref
+	Functions []*Function
 	Index     Package_Ref
 }
 

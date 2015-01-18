@@ -23,7 +23,7 @@ func OutputFile(file *FileAST, dirname string, runner *compiler.TaskRunner) {
 }
 
 func OutputPackage(pkg *PackageAST, coreProg *core.CoreProgram, dirname string, runner *compiler.TaskRunner) {
-	p := coreProg.Package_Scope.Get(pkg.P)
+	p := pkg.P
 
 	path := []string{dirname}
 	path = append(path, p.Path...)

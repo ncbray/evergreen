@@ -2,13 +2,13 @@ package core
 
 func MakeBuiltinTypeIndex() *BuiltinTypeIndex {
 	return &BuiltinTypeIndex{
-		Int:     &ExternalType{Name: "int", Package: NoPackage},
-		UInt32:  &ExternalType{Name: "uint32", Package: NoPackage},
-		Int64:   &ExternalType{Name: "int64", Package: NoPackage},
-		Float32: &ExternalType{Name: "float32", Package: NoPackage},
-		Bool:    &ExternalType{Name: "bool", Package: NoPackage},
-		String:  &ExternalType{Name: "string", Package: NoPackage},
-		Rune:    &ExternalType{Name: "rune", Package: NoPackage},
+		Int:     &ExternalType{Name: "int"},
+		UInt32:  &ExternalType{Name: "uint32"},
+		Int64:   &ExternalType{Name: "int64"},
+		Float32: &ExternalType{Name: "float32"},
+		Bool:    &ExternalType{Name: "bool"},
+		String:  &ExternalType{Name: "string"},
+		Rune:    &ExternalType{Name: "rune"},
 	}
 }
 
@@ -19,10 +19,10 @@ func (scope *Package_Scope) Get(ref Package_Ref) *Package {
 	return scope.objects[ref]
 }
 
-func (scope *Package_Scope) Register(info *Package) Package_Ref {
+func (scope *Package_Scope) Register(info *Package) *Package {
 	info.Index = Package_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *Package_Scope) Len() int {
@@ -54,20 +54,17 @@ func (scope *Function_Scope) Get(ref Function_Ref) *Function {
 	return scope.objects[ref]
 }
 
-func (scope *Function_Scope) Register(info *Function) Function_Ref {
+func (scope *Function_Scope) Register(info *Function) *Function {
 	info.Index = Function_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *Function_Scope) Len() int {
 	return len(scope.objects)
 }
 
-func InsertFunctionIntoPackage(coreProg *CoreProgram, pRef Package_Ref, fRef Function_Ref) {
-	p := coreProg.Package_Scope.Get(pRef)
-	f := coreProg.Function_Scope.Get(fRef)
-
-	f.Package = pRef
-	p.Functions = append(p.Functions, fRef)
+func InsertFunctionIntoPackage(coreProg *CoreProgram, p *Package, f *Function) {
+	f.Package = p
+	p.Functions = append(p.Functions, f)
 }

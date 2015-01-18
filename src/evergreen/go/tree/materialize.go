@@ -5,7 +5,7 @@ import (
 )
 
 type refRewriter interface {
-	rewriteLocalInfo(index LocalInfo_Ref) LocalInfo_Ref
+	rewriteLocalInfo(index *LocalInfo) *LocalInfo
 }
 
 // Find all LocalInfos
@@ -13,24 +13,9 @@ type funcGC struct {
 	live []bool
 }
 
-func (rewriter *funcGC) rewriteLocalInfo(index LocalInfo_Ref) LocalInfo_Ref {
-	if index < 0 {
-		panic(index)
-	}
-	rewriter.live[index] = true
-	return index
-}
-
-// Rewrite all LocalInfos
-type funcRemap struct {
-	remap []LocalInfo_Ref
-}
-
-func (rewriter *funcRemap) rewriteLocalInfo(index LocalInfo_Ref) LocalInfo_Ref {
-	if index < 0 {
-		panic(index)
-	}
-	return rewriter.remap[index]
+func (rewriter *funcGC) rewriteLocalInfo(lcl *LocalInfo) *LocalInfo {
+	rewriter.live[lcl.Index] = true
+	return lcl
 }
 
 func sweepExprList(exprs []Expr, rewriter refRewriter) {
@@ -160,27 +145,23 @@ func CompactFunc(decl *FuncDecl) {
 	sweepFunc(decl, sweep)
 
 	remap, count := MakeRemap(sweep.live)
-	sweepFunc(decl, &funcRemap{remap: remap})
-
 	decl.LocalInfo_Scope.Remap(remap, count)
 }
 
-func isParam(decl *FuncDecl, ref LocalInfo_Ref) bool {
-	if ref < 0 {
+func isParam(decl *FuncDecl, lcl *LocalInfo) bool {
+	if lcl == nil {
 		return false
 	}
-	if decl.Recv != nil {
-		if decl.Recv.Info == ref {
-			return true
-		}
+	if decl.Recv != nil && decl.Recv.Info == lcl {
+		return true
 	}
 	for _, p := range decl.Type.Params {
-		if p.Info == ref {
+		if p.Info == lcl {
 			return true
 		}
 	}
 	for _, p := range decl.Type.Results {
-		if p.Info == ref {
+		if p.Info == lcl {
 			return true
 		}
 	}
@@ -195,16 +176,15 @@ func InsertVarDecls(decl *FuncDecl) {
 	// It is easier to do this than precisely calculate where they need to be defined.
 	iter := decl.LocalInfo_Scope.Iter()
 	for iter.Next() {
-		i := iter.Index()
 		info := iter.Value()
-		if isParam(decl, i) {
+		if isParam(decl, info) {
 			continue
 		}
 		stmts = append(stmts, &Var{
 			Name: info.Name,
 			// HACK should copy this instead of sharing it
 			Type: info.T,
-			Info: i,
+			Info: info,
 		})
 	}
 
@@ -218,10 +198,10 @@ func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {
 	return scope.objects[ref]
 }
 
-func (scope *LocalInfo_Scope) Register(info *LocalInfo) LocalInfo_Ref {
+func (scope *LocalInfo_Scope) Register(info *LocalInfo) *LocalInfo {
 	info.Index = LocalInfo_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *LocalInfo_Scope) Len() int {
@@ -237,7 +217,7 @@ func (scope *LocalInfo_Scope) Remap(remap []LocalInfo_Ref, count int) {
 	for i, info := range scope.objects {
 		idx := remap[i]
 		info.Index = idx
-		if idx != NoLocalInfo {
+		if idx != ^LocalInfo_Ref(0) {
 			objects[idx] = info
 		}
 	}
@@ -262,7 +242,7 @@ func (iter *localInfoIterator) Value() *LocalInfo {
 	return iter.scope.objects[iter.current]
 }
 
-func (decl *FuncDecl) CreateLocalInfo(name string, T TypeRef) LocalInfo_Ref {
+func (decl *FuncDecl) CreateLocalInfo(name string, T TypeRef) *LocalInfo {
 	return decl.LocalInfo_Scope.Register(&LocalInfo{
 		Name: name,
 		T:    T,
@@ -271,27 +251,6 @@ func (decl *FuncDecl) CreateLocalInfo(name string, T TypeRef) LocalInfo_Ref {
 
 func (decl *FuncDecl) GetLocalInfo(idx LocalInfo_Ref) *LocalInfo {
 	return decl.LocalInfo_Scope.Get(idx)
-}
-
-func (decl *FuncDecl) MakeParam(idx LocalInfo_Ref) *Param {
-	localInfo := decl.GetLocalInfo(idx)
-	return &Param{
-		Name: localInfo.Name,
-		Type: localInfo.T,
-		Info: idx,
-	}
-}
-
-func (decl *FuncDecl) MakeGetLocal(idx LocalInfo_Ref) Expr {
-	return &GetLocal{
-		Info: idx,
-	}
-}
-
-func (decl *FuncDecl) MakeSetLocal(idx LocalInfo_Ref) Target {
-	return &SetLocal{
-		Info: idx,
-	}
 }
 
 func RefForType(t core.GoType) TypeRef {

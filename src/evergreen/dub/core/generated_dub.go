@@ -36,7 +36,7 @@ type StructType struct {
 	Scoped     bool
 	Contains   []*StructType
 	IsParent   bool
-	File       File_Ref
+	File       *File
 }
 
 func (node *StructType) isDubType() {
@@ -44,21 +44,17 @@ func (node *StructType) isDubType() {
 
 type Package_Ref uint32
 
-const NoPackage = ^Package_Ref(0)
-
 type Package_Scope struct {
 	objects []*Package
 }
 
 type Package struct {
 	Path  []string
-	Files []File_Ref
+	Files []*File
 	Index Package_Ref
 }
 
 type File_Ref uint32
-
-const NoFile = ^File_Ref(0)
 
 type File_Scope struct {
 	objects []*File
@@ -66,13 +62,11 @@ type File_Scope struct {
 
 type File struct {
 	Name    string
-	Package Package_Ref
+	Package *Package
 	Index   File_Ref
 }
 
 type Function_Ref uint32
-
-const NoFunction = ^Function_Ref(0)
 
 type Function_Scope struct {
 	objects []*Function
@@ -80,7 +74,7 @@ type Function_Scope struct {
 
 type Function struct {
 	Name  string
-	File  File_Ref
+	File  *File
 	Index Function_Ref
 }
 
@@ -93,7 +87,7 @@ type Callable interface {
 }
 
 type CallableFunction struct {
-	Func Function_Ref
+	Func *Function
 }
 
 func (node *CallableFunction) isCallable() {

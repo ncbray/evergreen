@@ -71,7 +71,7 @@ func GeneratePrecExpr(gen *textGenerator, expr Expr) (string, int) {
 	case *GetGlobal:
 		return expr.Text, operandPrec
 	case *GetLocal:
-		info := gen.decl.GetLocalInfo(expr.Info)
+		info := expr.Info
 		return info.Name, operandPrec
 	case *GetName:
 		return expr.Text, operandPrec
@@ -148,7 +148,7 @@ func GenerateExprList(gen *textGenerator, exprs []Expr) string {
 func GenerateTarget(gen *textGenerator, expr Target) string {
 	switch expr := expr.(type) {
 	case *SetLocal:
-		info := gen.decl.GetLocalInfo(expr.Info)
+		info := expr.Info
 		return info.Name
 	case *SetName:
 		return expr.Text

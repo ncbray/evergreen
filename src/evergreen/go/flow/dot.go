@@ -7,29 +7,29 @@ import (
 	"strings"
 )
 
-func RegisterName(reg Register_Ref) string {
-	if reg != NoRegister {
-		return fmt.Sprintf("r%d", reg)
+func RegisterName(reg *Register) string {
+	if reg != nil {
+		return fmt.Sprintf("r%d", reg.Index)
 	} else {
 		return "_"
 	}
 }
 
-func addDst(op string, dst Register_Ref) string {
-	if dst == NoRegister {
+func addDst(op string, dst *Register) string {
+	if dst == nil {
 		return op
 	}
 	return fmt.Sprintf("%s := %s", RegisterName(dst), op)
 }
 
-func addDsts(op string, dsts []Register_Ref) string {
+func addDsts(op string, dsts []*Register) string {
 	if len(dsts) == 0 {
 		return op
 	}
 	return fmt.Sprintf("%s := %s", registerList(dsts), op)
 }
 
-func registerList(args []Register_Ref) string {
+func registerList(args []*Register) string {
 	names := make([]string, len(args))
 	for i, arg := range args {
 		names[i] = RegisterName(arg)
@@ -92,7 +92,7 @@ func opToString(coreProg *core.CoreProgram, op GoOp) string {
 	case *BinaryOp:
 		return addDst(fmt.Sprintf("%s %s %s", RegisterName(op.Left), op.Op, RegisterName(op.Right)), op.Dst)
 	case *Call:
-		f := coreProg.Function_Scope.Get(op.Target)
+		f := op.Target
 		return addDsts(fmt.Sprintf("%s(%s)", f.Name, registerList(op.Args)), op.Dsts)
 	case *Append:
 		return addDst(fmt.Sprintf("append(%s << %s)", RegisterName(op.Src), registerList(op.Args)), op.Dst)

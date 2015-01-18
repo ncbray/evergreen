@@ -54,10 +54,10 @@ func (scope *RegisterInfo_Scope) Get(ref RegisterInfo_Ref) *RegisterInfo {
 	return scope.objects[ref]
 }
 
-func (scope *RegisterInfo_Scope) Register(info *RegisterInfo) RegisterInfo_Ref {
+func (scope *RegisterInfo_Scope) Register(info *RegisterInfo) *RegisterInfo {
 	info.Index = RegisterInfo_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *RegisterInfo_Scope) Len() int {
@@ -72,7 +72,7 @@ func (scope *RegisterInfo_Scope) Remap(remap []int, count int) {
 			objects[idx] = info
 			info.Index = RegisterInfo_Ref(idx)
 		} else {
-			info.Index = NoRegisterInfo
+			info.Index = ^RegisterInfo_Ref(0)
 		}
 	}
 	scope.objects = objects
@@ -118,35 +118,35 @@ func IsNop(op DubOp) bool {
 	case *Fail:
 		return false
 	case *Checkpoint:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *Peek:
 		return false
 	case *LookaheadBegin:
 		return false
 	case *ConstantRuneOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *ConstantStringOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *ConstantIntOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *ConstantFloat32Op:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *ConstantBoolOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *ConstantNilOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *CallOp:
 		return false
 	case *Slice:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *BinaryOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *AppendOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *CopyOp:
-		return op.Dst == NoRegisterInfo || op.Dst == op.Src
+		return op.Dst == nil || op.Dst == op.Src
 	case *CoerceOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *Recover:
 		return false
 	case *LookaheadEnd:
@@ -154,9 +154,9 @@ func IsNop(op DubOp) bool {
 	case *ReturnOp:
 		return false
 	case *ConstructOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *ConstructListOp:
-		return op.Dst == NoRegisterInfo
+		return op.Dst == nil
 	case *TransferOp:
 		return len(op.Dsts) == 0
 	case *EntryOp:

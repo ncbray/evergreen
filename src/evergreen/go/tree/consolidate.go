@@ -36,7 +36,7 @@ func defUseExpr(expr Expr, du *defUse) {
 	}
 	switch expr := expr.(type) {
 	case *GetLocal:
-		du.GetLocalInfo(expr.Info).Uses += 1
+		du.GetLocalInfo(expr.Info.Index).Uses += 1
 	case *IntLiteral, *Float32Literal, *RuneLiteral, *BoolLiteral, *StringLiteral, *NilLiteral, *GetGlobal:
 		// Leaf
 	case *UnaryExpr:
@@ -74,7 +74,7 @@ func defUseExpr(expr Expr, du *defUse) {
 func defUseTarget(expr Target, du *defUse) {
 	switch expr := expr.(type) {
 	case *SetLocal:
-		du.GetLocalInfo(expr.Info).Defs += 1
+		du.GetLocalInfo(expr.Info.Index).Defs += 1
 	default:
 		panic(du.decl.Name)
 	}
@@ -92,7 +92,7 @@ func defUseStmt(stmt Stmt, du *defUse) {
 	case *Var:
 		if stmt.Expr != nil {
 			defUseExpr(stmt.Expr, du)
-			du.GetLocalInfo(stmt.Info).Defs += 1
+			du.GetLocalInfo(stmt.Info.Index).Defs += 1
 		}
 	case *If:
 		defUseExpr(stmt.Cond, du)
@@ -128,9 +128,9 @@ func defUseBlock(stmts []Stmt, du *defUse) {
 
 func defUseParam(param *Param, input bool, du *defUse) {
 	// Outputs are implicitly zeroed.
-	du.GetLocalInfo(param.Info).Defs += 1
+	du.GetLocalInfo(param.Info.Index).Defs += 1
 	if !input {
-		du.GetLocalInfo(param.Info).Uses += 1
+		du.GetLocalInfo(param.Info.Index).Uses += 1
 	}
 }
 
@@ -148,7 +148,7 @@ func defUseFunc(decl *FuncDecl, du *defUse) {
 }
 
 func pullLocal(expr *GetLocal, du *defUse, out []Stmt) (Expr, []Stmt) {
-	info := du.GetLocalInfo(expr.Info)
+	info := du.GetLocalInfo(expr.Info.Index)
 	if info.Uses != 1 || info.Defs != 1 {
 		return expr, out
 	}

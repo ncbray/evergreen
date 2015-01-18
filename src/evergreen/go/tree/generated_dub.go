@@ -35,7 +35,7 @@ func (node *SliceRef) isTypeRef() {
 type Param struct {
 	Name string
 	Type TypeRef
-	Info LocalInfo_Ref
+	Info *LocalInfo
 }
 
 type FuncTypeRef struct {
@@ -147,8 +147,6 @@ func (node *ListLiteral) isExpr() {
 
 type LocalInfo_Ref uint32
 
-const NoLocalInfo = ^LocalInfo_Ref(0)
-
 type LocalInfo_Scope struct {
 	objects []*LocalInfo
 }
@@ -177,7 +175,7 @@ func (node *SetName) isTarget() {
 }
 
 type GetLocal struct {
-	Info LocalInfo_Ref
+	Info *LocalInfo
 }
 
 func (node *GetLocal) isStmt() {
@@ -187,7 +185,7 @@ func (node *GetLocal) isExpr() {
 }
 
 type SetLocal struct {
-	Info LocalInfo_Ref
+	Info *LocalInfo
 }
 
 func (node *SetLocal) isTarget() {
@@ -257,7 +255,7 @@ func (node *Index) isExpr() {
 type Call struct {
 	Expr Expr
 	Args []Expr
-	F    core.Function_Ref
+	F    *core.Function
 }
 
 func (node *Call) isStmt() {
@@ -301,7 +299,7 @@ type Var struct {
 	Name string
 	Type TypeRef
 	Expr Expr
-	Info LocalInfo_Ref
+	Info *LocalInfo
 }
 
 func (node *Var) isStmt() {
@@ -363,7 +361,7 @@ type FuncDecl struct {
 	Recv            *Param
 	Type            *FuncTypeRef
 	Body            []Stmt
-	Package         core.Package_Ref
+	Package         *core.Package
 	LocalInfo_Scope *LocalInfo_Scope
 }
 
@@ -423,7 +421,7 @@ type FileAST struct {
 
 type PackageAST struct {
 	Files []*FileAST
-	P     core.Package_Ref
+	P     *core.Package
 }
 
 type ProgramAST struct {

@@ -5,17 +5,17 @@ import (
 	"evergreen/ssi"
 )
 
-func addDef(reg RegisterInfo_Ref, node graph.NodeID, defuse *ssi.DefUseCollector) {
-	if reg != NoRegisterInfo {
-		defuse.AddDef(node, int(reg))
+func addDef(reg *RegisterInfo, node graph.NodeID, defuse *ssi.DefUseCollector) {
+	if reg != nil {
+		defuse.AddDef(node, int(reg.Index))
 	}
 }
 
-func addUse(reg RegisterInfo_Ref, node graph.NodeID, defuse *ssi.DefUseCollector) {
-	if reg == NoRegisterInfo {
+func addUse(reg *RegisterInfo, node graph.NodeID, defuse *ssi.DefUseCollector) {
+	if reg == nil {
 		panic("Tried to use non-existant register.")
 	}
-	defuse.AddUse(node, int(reg))
+	defuse.AddUse(node, int(reg.Index))
 }
 
 func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *ssi.DefUseCollector) {
@@ -94,36 +94,36 @@ func collectDefUse(decl *LLFunc, node graph.NodeID, op DubOp, defuse *ssi.DefUse
 }
 
 type NameMap struct {
-	names     []map[int]int
-	transfers []map[int]int
+	names     []map[RegisterInfo_Ref]*RegisterInfo
+	transfers []map[RegisterInfo_Ref]*RegisterInfo
 	idoms     []graph.NodeID
 }
 
-func (nm *NameMap) GetName(n graph.NodeID, v int) int {
-	name, ok := nm.names[n][v]
+func (nm *NameMap) GetName(n graph.NodeID, reg *RegisterInfo) *RegisterInfo {
+	newReg, ok := nm.names[n][reg.Index]
 	if !ok {
 		if n == nm.idoms[n] {
-			panic(v)
+			panic(reg)
 		}
-		name = nm.GetName(nm.idoms[n], v)
-		nm.names[n][v] = name
+		newReg = nm.GetName(nm.idoms[n], reg)
+		nm.names[n][reg.Index] = newReg
 	}
-	return name
+	return newReg
 }
 
-func (nm *NameMap) SetName(n graph.NodeID, v int, name int) {
-	nm.names[n][v] = name
+func (nm *NameMap) SetName(n graph.NodeID, reg *RegisterInfo, newReg *RegisterInfo) {
+	nm.names[n][reg.Index] = newReg
 }
 
 func CreateNameMap(numNodes int, idoms []graph.NodeID) *NameMap {
 	nm := &NameMap{
-		names:     make([]map[int]int, numNodes),
-		transfers: make([]map[int]int, numNodes),
+		names:     make([]map[RegisterInfo_Ref]*RegisterInfo, numNodes),
+		transfers: make([]map[RegisterInfo_Ref]*RegisterInfo, numNodes),
 		idoms:     idoms,
 	}
 	for i := 0; i < numNodes; i++ {
-		nm.names[i] = map[int]int{}
-		nm.transfers[i] = map[int]int{}
+		nm.names[i] = map[RegisterInfo_Ref]*RegisterInfo{}
+		nm.transfers[i] = map[RegisterInfo_Ref]*RegisterInfo{}
 	}
 	return nm
 }
@@ -134,45 +134,42 @@ type RegisterReallocator struct {
 	nm   *NameMap
 }
 
-func (r *RegisterReallocator) Allocate(v int) RegisterInfo_Ref {
-	original := r.decl.RegisterInfo_Scope.Get(RegisterInfo_Ref(v))
-	reg := &RegisterInfo{
-		Name:  original.Name,
-		T:     original.T,
+func (r *RegisterReallocator) Allocate(reg *RegisterInfo) *RegisterInfo {
+	newReg := &RegisterInfo{
+		Name:  reg.Name,
+		T:     reg.T,
 		Index: RegisterInfo_Ref(len(r.info)),
 	}
-	r.info = append(r.info, reg)
-	return reg.Index
+	r.info = append(r.info, newReg)
+	return newReg
 }
 
-func (r *RegisterReallocator) MakeOutput(n graph.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
-	if reg != NoRegisterInfo {
-		v := int(reg)
-		name := r.Allocate(v)
-		r.nm.SetName(n, v, int(name))
-		return name
+func (r *RegisterReallocator) MakeOutput(n graph.NodeID, reg *RegisterInfo) *RegisterInfo {
+	if reg == nil {
+		return nil
 	}
-	return NoRegisterInfo
+	newReg := r.Allocate(reg)
+	r.nm.SetName(n, reg, newReg)
+	return newReg
 }
 
-func (r *RegisterReallocator) Transfer(dst graph.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
-	v := int(reg)
-	nameI, ok := r.nm.transfers[dst][v]
-	name := RegisterInfo_Ref(nameI)
-	if !ok {
-		name = r.Allocate(v)
-		r.nm.transfers[dst][v] = int(name)
-		r.nm.SetName(dst, v, int(name))
+func (r *RegisterReallocator) Transfer(dst graph.NodeID, reg *RegisterInfo) *RegisterInfo {
+	newReg, ok := r.nm.transfers[dst][reg.Index]
+	if ok {
+		return newReg
 	}
-	return name
+	newReg = r.Allocate(reg)
+	r.nm.transfers[dst][reg.Index] = newReg
+	r.nm.SetName(dst, reg, newReg)
+	return newReg
 }
 
-func (r *RegisterReallocator) Get(n graph.NodeID, reg RegisterInfo_Ref) RegisterInfo_Ref {
-	return RegisterInfo_Ref(r.nm.GetName(n, int(reg)))
+func (r *RegisterReallocator) Get(n graph.NodeID, reg *RegisterInfo) *RegisterInfo {
+	return r.nm.GetName(n, reg)
 }
 
-func (r *RegisterReallocator) Set(n graph.NodeID, reg RegisterInfo_Ref, name RegisterInfo_Ref) {
-	r.nm.SetName(n, int(reg), int(name))
+func (r *RegisterReallocator) Set(n graph.NodeID, reg *RegisterInfo, name *RegisterInfo) {
+	r.nm.SetName(n, reg, name)
 }
 
 func renameOp(n graph.NodeID, data DubOp, ra *RegisterReallocator) {
@@ -283,89 +280,96 @@ func rename(decl *LLFunc) {
 	decl.RegisterInfo_Scope.Replace(ra.info)
 }
 
+func deadAtExit(live ssi.LivenessOracle, n graph.NodeID, reg *RegisterInfo) bool {
+	if reg == nil {
+		return true
+	}
+	return !live.LiveAtExit(n, int(reg.Index))
+}
+
 func killUnusedOutputs(n graph.NodeID, op DubOp, live ssi.LivenessOracle) {
 	switch op := op.(type) {
 	case *EntryOp, *ExitOp:
 	case *Consume, *Fail:
 	case *Checkpoint:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *Peek:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *LookaheadBegin:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *ConstantRuneOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *ConstantStringOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *ConstantIntOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *ConstantFloat32Op:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *ConstantBoolOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *ConstantNilOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *CallOp:
 		anyLive := false
 		for i, dst := range op.Dsts {
-			if !live.LiveAtExit(n, int(dst)) {
-				op.Dsts[i] = NoRegisterInfo
+			if !live.LiveAtExit(n, int(dst.Index)) {
+				op.Dsts[i] = nil
 			} else {
 				anyLive = true
 			}
 		}
 		if !anyLive {
-			op.Dsts = []RegisterInfo_Ref{}
+			op.Dsts = []*RegisterInfo{}
 		}
 	case *Slice:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *BinaryOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *AppendOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *CopyOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *CoerceOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *Recover:
 	case *LookaheadEnd:
 	case *SwitchOp:
 	case *ReturnOp:
 	case *ConstructOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	case *ConstructListOp:
-		if !live.LiveAtExit(n, int(op.Dst)) {
-			op.Dst = NoRegisterInfo
+		if deadAtExit(live, n, op.Dst) {
+			op.Dst = nil
 		}
 	default:
 		panic(op)
@@ -374,8 +378,8 @@ func killUnusedOutputs(n graph.NodeID, op DubOp, live ssi.LivenessOracle) {
 
 func createTransfer(decl *LLFunc, size int) (graph.NodeID, graph.EdgeID, *TransferOp) {
 	op := &TransferOp{
-		Srcs: make([]RegisterInfo_Ref, size),
-		Dsts: make([]RegisterInfo_Ref, size),
+		Srcs: make([]*RegisterInfo, size),
+		Dsts: make([]*RegisterInfo, size),
 	}
 	n := AllocNode(decl, op)
 	e := AllocEdge(decl, 0)
@@ -398,8 +402,9 @@ func place(decl *LLFunc, builder *ssi.SSIBuilder, live *ssi.LiveVars) {
 			}
 			_, te, op := createTransfer(decl, len(phiFuncs))
 			for j, v := range phiFuncs {
-				op.Srcs[j] = RegisterInfo_Ref(v)
-				op.Dsts[j] = RegisterInfo_Ref(v)
+				info := decl.RegisterInfo_Scope.Get(RegisterInfo_Ref(v))
+				op.Srcs[j] = info
+				op.Dsts[j] = info
 			}
 			g.InsertInEdge(te, edge)
 		}

@@ -9,10 +9,10 @@ import (
 
 type semanticScope struct {
 	parent *semanticScope
-	locals map[string]LocalInfo_Ref
+	locals map[string]*LocalInfo
 }
 
-func (scope *semanticScope) localInfo(name string) (LocalInfo_Ref, bool) {
+func (scope *semanticScope) localInfo(name string) (*LocalInfo, bool) {
 	for scope != nil {
 		info, ok := scope.locals[name]
 		if ok {
@@ -20,11 +20,14 @@ func (scope *semanticScope) localInfo(name string) (LocalInfo_Ref, bool) {
 		}
 		scope = scope.parent
 	}
-	return NoLocalInfo, false
+	return nil, false
 }
 
 func childScope(scope *semanticScope) *semanticScope {
-	return &semanticScope{parent: scope, locals: map[string]LocalInfo_Ref{}}
+	return &semanticScope{
+		parent: scope,
+		locals: map[string]*LocalInfo{},
+	}
 }
 
 var unresolvedType core.DubType = nil
@@ -82,10 +85,10 @@ func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, 
 	case *NameRef:
 		name := expr.Name.Text
 		if IsDiscard(name) {
-			expr.Local = NoLocalInfo
+			expr.Local = nil
 			return
 		}
-		var info LocalInfo_Ref
+		var info *LocalInfo
 		var exists bool
 		if define {
 			_, exists = scope.localInfo(expr.Name.Text)
@@ -206,7 +209,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			return scalarReturn(unresolvedType)
 		}
 		expr.Local = info
-		return scalarReturn(decl.LocalInfo_Scope.Get(info).T)
+		return scalarReturn(info.T)
 	case *Assign:
 		var t []core.DubType
 		if expr.Expr != nil {
@@ -613,7 +616,7 @@ func ResolveType(ref ASTTypeRef) core.DubType {
 func ReturnTypes(ctx *semanticPassContext, node core.Callable) []core.DubType {
 	switch node := node.(type) {
 	case *core.CallableFunction:
-		f := ctx.Functions[node.Func]
+		f := ctx.Functions[node.Func.Index]
 		types := make([]core.DubType, len(f.ReturnTypes))
 		for i, t := range f.ReturnTypes {
 			types[i] = ResolveType(t)
@@ -854,10 +857,10 @@ func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {
 	return scope.objects[ref]
 }
 
-func (scope *LocalInfo_Scope) Register(info *LocalInfo) LocalInfo_Ref {
+func (scope *LocalInfo_Scope) Register(info *LocalInfo) *LocalInfo {
 	info.Index = LocalInfo_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *LocalInfo_Scope) Len() int {

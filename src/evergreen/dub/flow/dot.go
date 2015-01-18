@@ -11,15 +11,15 @@ func dotString(message string) string {
 	return fmt.Sprintf("\"%s\"", graph.EscapeDotString(message))
 }
 
-func registerName(reg RegisterInfo_Ref) string {
-	if reg != NoRegisterInfo {
-		return fmt.Sprintf("r%d", reg)
+func registerName(reg *RegisterInfo) string {
+	if reg != nil {
+		return fmt.Sprintf("r%d", reg.Index)
 	} else {
 		return "_"
 	}
 }
 
-func registerList(regs []RegisterInfo_Ref) string {
+func registerList(regs []*RegisterInfo) string {
 	names := make([]string, len(regs))
 	for i, reg := range regs {
 		names[i] = registerName(reg)
@@ -38,14 +38,14 @@ func keyValueList(args []*KeyValue) string {
 	return "\n" + strings.Join(names, "")
 }
 
-func formatAssignment(op string, dst RegisterInfo_Ref) string {
-	if dst == NoRegisterInfo {
+func formatAssignment(op string, dst *RegisterInfo) string {
+	if dst == nil {
 		return op
 	}
 	return fmt.Sprintf("%s := %s", registerName(dst), op)
 }
 
-func formatMultiAssignment(op string, dsts []RegisterInfo_Ref) string {
+func formatMultiAssignment(op string, dsts []*RegisterInfo) string {
 	if len(dsts) > 0 {
 		return fmt.Sprintf("%s := %s", registerList(dsts), op)
 	} else {
@@ -61,7 +61,7 @@ type DotStyler struct {
 func callableName(coreProg *core.CoreProgram, c core.Callable) string {
 	switch c := c.(type) {
 	case *core.CallableFunction:
-		return coreProg.Function_Scope.Get(c.Func).Name
+		return c.Func.Name
 	default:
 		panic(c)
 	}

@@ -20,10 +20,10 @@ func (scope *Function_Scope) Get(ref Function_Ref) *Function {
 	return scope.objects[ref]
 }
 
-func (scope *Function_Scope) Register(info *Function) Function_Ref {
+func (scope *Function_Scope) Register(info *Function) *Function {
 	info.Index = Function_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *Function_Scope) Len() int {
@@ -55,10 +55,10 @@ func (scope *Package_Scope) Get(ref Package_Ref) *Package {
 	return scope.objects[ref]
 }
 
-func (scope *Package_Scope) Register(info *Package) Package_Ref {
+func (scope *Package_Scope) Register(info *Package) *Package {
 	info.Index = Package_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *Package_Scope) Len() int {
@@ -90,10 +90,10 @@ func (scope *File_Scope) Get(ref File_Ref) *File {
 	return scope.objects[ref]
 }
 
-func (scope *File_Scope) Register(info *File) File_Ref {
+func (scope *File_Scope) Register(info *File) *File {
 	info.Index = File_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *File_Scope) Len() int {

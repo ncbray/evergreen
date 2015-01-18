@@ -20,7 +20,7 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 
 	// Find the exit flows of every function.
 	for i, f := range program.LLFuncs {
-		lut[f.F] = i
+		lut[f.F.Index] = i
 		it := f.CFG.EntryIterator(f.CFG.Exit())
 		for it.HasNext() {
 			_, e := it.GetNext()
@@ -40,7 +40,7 @@ func TrimFlow(status compiler.PassStatus, program *DubProgram) {
 				switch c := op.Target.(type) {
 				case *core.CallableFunction:
 					var ok bool
-					tgt, ok = lut[c.Func]
+					tgt, ok = lut[c.Func.Index]
 					if !ok {
 						panic(c.Func)
 					}

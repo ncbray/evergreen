@@ -55,7 +55,7 @@ func (mapper *flowMapper) handleFailEdge(original graph.EdgeID, translated graph
 	}
 }
 
-func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID, dstID graph.NodeID) {
+func (mapper *flowMapper) dubFlow(frameRef *dst.Register, srcID graph.NodeID, dstID graph.NodeID) {
 	ctx := mapper.ctx
 	stitcher := mapper.stitcher
 	builder := mapper.builder
@@ -128,36 +128,32 @@ func (mapper *flowMapper) dubFlow(frameRef dst.Register_Ref, srcID graph.NodeID,
 	}
 }
 
-func dstReg(regMap []dst.Register_Ref, reg src.RegisterInfo_Ref) dst.Register_Ref {
-	if reg == src.NoRegisterInfo {
-		return dst.NoRegister
-	}
-	return regMap[reg]
-}
-
-func multiDstReg(regMap []dst.Register_Ref, reg src.RegisterInfo_Ref) []dst.Register_Ref {
-	if reg == src.NoRegisterInfo {
+func dstReg(regMap []*dst.Register, reg *src.RegisterInfo) *dst.Register {
+	if reg == nil {
 		return nil
 	}
-	return []dst.Register_Ref{regMap[reg]}
+	return regMap[reg.Index]
 }
 
-func regList(regMap []dst.Register_Ref, args []src.RegisterInfo_Ref) []dst.Register_Ref {
-	out := make([]dst.Register_Ref, len(args))
+func multiDstReg(regMap []*dst.Register, reg *src.RegisterInfo) []*dst.Register {
+	if reg == nil {
+		return nil
+	}
+	return []*dst.Register{regMap[reg.Index]}
+}
+
+func regList(regMap []*dst.Register, args []*src.RegisterInfo) []*dst.Register {
+	out := make([]*dst.Register, len(args))
 	for i, arg := range args {
-		out[i] = regMap[arg]
+		out[i] = regMap[arg.Index]
 	}
 	return out
 }
 
-func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *dst.FlowFunc) {
-	goCoreFunc := &dstcore.Function{
-		Name:    srcF.Name,
-		Package: dstcore.NoPackage,
-	}
-
+func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 	goFlowFunc := &dst.FlowFunc{
-		Recv:           dst.NoRegister,
+		Recv:           nil,
+		Function:       ctx.functionMap[srcF.F.Index],
 		Register_Scope: &dst.Register_Scope{},
 	}
 
@@ -167,21 +163,21 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 
 	// Remap registers
 	num := srcF.RegisterInfo_Scope.Len()
-	regMap := make([]dst.Register_Ref, num)
+	regMap := make([]*dst.Register, num)
 	for i := 0; i < num; i++ {
 		r := srcF.RegisterInfo_Scope.Get(src.RegisterInfo_Ref(i))
 		regMap[i] = builder.MakeRegister(r.Name, goType(r.T, ctx))
 	}
 
 	// Remap parameters
-	goFlowFunc.Params = make([]dst.Register_Ref, len(srcF.Params)+1)
+	goFlowFunc.Params = make([]*dst.Register, len(srcF.Params)+1)
 	goFlowFunc.Params[0] = frameReg
 	for i, p := range srcF.Params {
-		goFlowFunc.Params[i+1] = regMap[p]
+		goFlowFunc.Params[i+1] = regMap[p.Index]
 	}
 
 	// Create result registers
-	goFlowFunc.Results = make([]dst.Register_Ref, len(srcF.ReturnTypes))
+	goFlowFunc.Results = make([]*dst.Register, len(srcF.ReturnTypes))
 	for i, rt := range srcF.ReturnTypes {
 		goFlowFunc.Results[i] = builder.MakeRegister("ret", goType(rt, ctx))
 	}
@@ -213,7 +209,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			stitcher.MapIncomingEdges(srcID, dstID)
 		case *src.SwitchOp:
 			dstID := builder.EmitOp(&dst.Switch{
-				Cond: regMap[op.Cond],
+				Cond: regMap[op.Cond.Index],
 			})
 			stitcher.MapIncomingEdges(srcID, dstID)
 
@@ -232,18 +228,17 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 				}
 			}
 		case *src.CallOp:
-			var tgt srccore.Function_Ref
+			var tgt *srccore.Function
 			switch c := op.Target.(type) {
 			case *srccore.CallableFunction:
 				tgt = c.Func
 			default:
 				panic(op.Target)
 			}
-			args := []dst.Register_Ref{frameReg}
+			args := []*dst.Register{frameReg}
 			args = append(args, regList(regMap, op.Args)...)
 			dstID := builder.EmitOp(&dst.Call{
-				// HACK assumes functions are defined in the same order.
-				Target: dstcore.Function_Ref(tgt),
+				Target: ctx.functionMap[tgt.Index],
 				Args:   args,
 				Dsts:   regList(regMap, op.Dsts),
 			})
@@ -258,7 +253,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			for i, arg := range op.Args {
 				args[i] = &dst.NamedArg{
 					Name: arg.Key,
-					Arg:  regMap[arg.Value],
+					Arg:  regMap[arg.Value.Index],
 				}
 			}
 
@@ -346,9 +341,9 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			mapper.simpleFlow(srcID, dstID)
 		case *src.BinaryOp:
 			dstID := builder.EmitOp(&dst.BinaryOp{
-				Left:  regMap[op.Left],
+				Left:  regMap[op.Left.Index],
 				Op:    op.Op,
-				Right: regMap[op.Right],
+				Right: regMap[op.Right.Index],
 				Dst:   dstReg(regMap, op.Dst),
 			})
 			mapper.simpleFlow(srcID, dstID)
@@ -369,7 +364,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Recover",
-				Args: []dst.Register_Ref{regMap[op.Src]},
+				Args: []*dst.Register{regMap[op.Src.Index]},
 			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.Peek:
@@ -400,29 +395,29 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: name,
-				Args: []dst.Register_Ref{regMap[op.Src]},
+				Args: []*dst.Register{regMap[op.Src.Index]},
 			})
 			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.Slice:
 			dstID := builder.EmitOp(&dst.MethodCall{
 				Expr: frameReg,
 				Name: "Slice",
-				Args: []dst.Register_Ref{regMap[op.Src]},
+				Args: []*dst.Register{regMap[op.Src.Index]},
 				Dsts: multiDstReg(regMap, op.Dst),
 			})
 			mapper.dubFlow(frameReg, srcID, dstID)
 		case *src.CoerceOp:
 			dstID := builder.EmitOp(&dst.Coerce{
-				Src:  regMap[op.Src],
+				Src:  regMap[op.Src.Index],
 				Type: goType(op.T, ctx),
-				Dst:  regMap[op.Dst],
+				Dst:  regMap[op.Dst.Index],
 			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.AppendOp:
 			dstID := builder.EmitOp(&dst.Append{
-				Src:  regMap[op.List],
-				Args: []dst.Register_Ref{regMap[op.Value]},
-				Dst:  regMap[op.Dst],
+				Src:  regMap[op.List.Index],
+				Args: []*dst.Register{regMap[op.Value.Index]},
+				Dst:  regMap[op.Dst.Index],
 			})
 			mapper.simpleFlow(srcID, dstID)
 		case *src.ReturnOp:
@@ -439,10 +434,10 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) (*dstcore.Function, *d
 			panic(op)
 		}
 	}
-	return goCoreFunc, goFlowFunc
+	return goFlowFunc
 }
 
-func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goCoreProg *dstcore.CoreProgram, goFlowProg *dst.FlowProgram, p dstcore.Package_Ref, selfType *dstcore.StructType) {
+func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goCoreProg *dstcore.CoreProgram, goFlowProg *dst.FlowProgram, p *dstcore.Package, selfType *dstcore.StructType) {
 	if parent == nil {
 		return
 	}
@@ -451,11 +446,11 @@ func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goC
 
 	goCoreFunc := &dstcore.Function{
 		Name:    "is" + parent.Name,
-		Package: dstcore.NoPackage,
+		Package: nil,
 	}
 
 	goFlowFunc := &dst.FlowFunc{
-		Recv: dst.NoRegister,
+		Recv: nil,
 		CFG:  graph.CreateGraph(),
 		Ops: []dst.GoOp{
 			&dst.Entry{},
@@ -484,14 +479,13 @@ func createTagInternal(base *srccore.StructType, parent *srccore.StructType, goC
 }
 
 // Fake functions for enforcing type relationships.
-func createTags(dubCoreProg *srccore.CoreProgram, dubFlowProg *src.DubProgram, goCoreProg *dstcore.CoreProgram, goFlowProg *dst.FlowProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) {
+func createTags(dubCoreProg *srccore.CoreProgram, dubFlowProg *src.DubProgram, goCoreProg *dstcore.CoreProgram, goFlowProg *dst.FlowProgram, packages []*dstcore.Package, ctx *DubToGoContext) {
 	for _, s := range dubCoreProg.Structures {
 		if s.IsParent || s.Implements == nil {
 			continue
 		}
 
-		pIndex := dubCoreProg.File_Scope.Get(s.File).Package
-		p := packages[pIndex]
+		p := packages[s.File.Package.Index]
 
 		absSelfType := ctx.link.GetType(s, STRUCT)
 		selfType, ok := absSelfType.(*dstcore.StructType)

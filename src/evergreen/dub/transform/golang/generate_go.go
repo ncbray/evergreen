@@ -11,34 +11,14 @@ import (
 )
 
 type DubToGoContext struct {
-	index   *dstcore.BuiltinTypeIndex
-	state   *dstcore.StructType
-	graph   *dstcore.StructType
-	t       *dstcore.StructType
-	link    DubToGoLinker
-	core    *core.CoreProgram
-	dstCore *dstcore.CoreProgram
-}
-
-func generateTreeForStruct(s *core.StructType, bypass *transform.TreeBypass, ctx *DubToGoContext) {
-	if !s.IsParent {
-		if s.Scoped {
-			bypass.DeclsForStruct[ctx.link.GetType(s, REF)] = []ast.Decl{
-				&ast.VarDecl{
-					Name: "No" + s.Name,
-					Type: ctx.link.TypeRef(s, REF),
-					Expr: &ast.UnaryExpr{
-						Op: "^",
-						Expr: &ast.TypeCoerce{
-							Type: ctx.link.TypeRef(s, REF),
-							Expr: &ast.IntLiteral{Value: 0},
-						},
-					},
-					Const: true,
-				},
-			}
-		}
-	}
+	index       *dstcore.BuiltinTypeIndex
+	state       *dstcore.StructType
+	graph       *dstcore.StructType
+	t           *dstcore.StructType
+	link        DubToGoLinker
+	core        *core.CoreProgram
+	dstCore     *dstcore.CoreProgram
+	functionMap []*dstcore.Function
 }
 
 func makeExterns(goCoreProg *dstcore.CoreProgram, ctx *DubToGoContext) {
@@ -70,18 +50,27 @@ func makeExterns(goCoreProg *dstcore.CoreProgram, ctx *DubToGoContext) {
 	}
 }
 
-func createFuncs(dubCoreProg *core.CoreProgram, dubFlowProg *flow.DubProgram, goCoreProg *dstcore.CoreProgram, goFlowProg *dstflow.FlowProgram, packages []dstcore.Package_Ref, ctx *DubToGoContext) []dstflow.FlowFunc_Ref {
-	flowFuncs := make([]dstflow.FlowFunc_Ref, dubCoreProg.Function_Scope.Len())
+func createFuncs(dubCoreProg *core.CoreProgram, dubFlowProg *flow.DubProgram, goCoreProg *dstcore.CoreProgram, goFlowProg *dstflow.FlowProgram, packages []*dstcore.Package, ctx *DubToGoContext) []*dstflow.FlowFunc {
+	n := dubCoreProg.Function_Scope.Len()
+	coreMap := make([]*dstcore.Function, n)
+	for i := 0; i < n; i++ {
+		f := dubCoreProg.Function_Scope.Get(core.Function_Ref(i))
+		coreMap[i] = goCoreProg.Function_Scope.Register(&dstcore.Function{
+			Name:    f.Name,
+			Package: nil,
+		})
+	}
+	ctx.functionMap = coreMap
+
+	flowFuncs := make([]*dstflow.FlowFunc, n)
 
 	// TODO iterate over Dub funcs directly.
 	for i, p := range dubFlowProg.Packages {
 		dstPkg := packages[i]
 		for _, f := range p.Funcs {
-			dstCoreFunc, dstFlowFunc := translateFlow(f, ctx)
-			fRef := goCoreProg.Function_Scope.Register(dstCoreFunc)
-			flowFuncs[f.F] = goFlowProg.FlowFunc_Scope.Register(dstFlowFunc)
-
-			dstcore.InsertFunctionIntoPackage(goCoreProg, dstPkg, fRef)
+			dstFlowFunc := translateFlow(f, ctx)
+			flowFuncs[f.F.Index] = goFlowProg.FlowFunc_Scope.Register(dstFlowFunc)
+			dstcore.InsertFunctionIntoPackage(goCoreProg, dstPkg, dstFlowFunc.Function)
 		}
 	}
 	return flowFuncs
@@ -101,7 +90,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 	}
 
 	// Translate package identities.
-	packages := make([]dstcore.Package_Ref, len(program.Packages))
+	packages := make([]*dstcore.Package, len(program.Packages))
 	for i, dubPkg := range program.Packages {
 		path := append(rootPackage, dubPkg.Path...)
 		packages[i] = dstCoreProg.Package_Scope.Register(&dstcore.Package{
@@ -138,13 +127,7 @@ func GenerateGo(status compiler.PassStatus, program *flow.DubProgram, coreProg *
 
 func generateTreeBypass(program *flow.DubProgram, coreProg *core.CoreProgram, generate_tests bool, ctx *DubToGoContext) *transform.TreeBypass {
 	bypass := &transform.TreeBypass{
-		DeclsForStruct: map[dstcore.GoType][]ast.Decl{},
-		Tests:          make([]*ast.FileAST, len(program.Packages)),
-	}
-
-	// For each type, generate declarations that cannot be derived from the flow IR.
-	for _, s := range coreProg.Structures {
-		generateTreeForStruct(s, bypass, ctx)
+		Tests: make([]*ast.FileAST, len(program.Packages)),
 	}
 
 	// For each package, generate tests that cannot be derived from the flow IR

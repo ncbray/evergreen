@@ -7,8 +7,6 @@ import (
 
 type Register_Ref uint32
 
-const NoRegister = ^Register_Ref(0)
-
 type Register_Scope struct {
 	objects []*Register
 }
@@ -21,17 +19,15 @@ type Register struct {
 
 type FlowFunc_Ref uint32
 
-const NoFlowFunc = ^FlowFunc_Ref(0)
-
 type FlowFunc_Scope struct {
 	objects []*FlowFunc
 }
 
 type FlowFunc struct {
-	Function       core.Function_Ref
-	Recv           Register_Ref
-	Params         []Register_Ref
-	Results        []Register_Ref
+	Function       *core.Function
+	Recv           *Register
+	Params         []*Register
+	Results        []*Register
 	CFG            *graph.Graph
 	Ops            []GoOp
 	Edges          []int
@@ -44,7 +40,7 @@ type GoOp interface {
 }
 
 type ConstantNil struct {
-	Dst Register_Ref
+	Dst *Register
 }
 
 func (node *ConstantNil) isGoOp() {
@@ -52,7 +48,7 @@ func (node *ConstantNil) isGoOp() {
 
 type ConstantInt struct {
 	Value int64
-	Dst   Register_Ref
+	Dst   *Register
 }
 
 func (node *ConstantInt) isGoOp() {
@@ -60,7 +56,7 @@ func (node *ConstantInt) isGoOp() {
 
 type ConstantFloat32 struct {
 	Value float32
-	Dst   Register_Ref
+	Dst   *Register
 }
 
 func (node *ConstantFloat32) isGoOp() {
@@ -68,7 +64,7 @@ func (node *ConstantFloat32) isGoOp() {
 
 type ConstantBool struct {
 	Value bool
-	Dst   Register_Ref
+	Dst   *Register
 }
 
 func (node *ConstantBool) isGoOp() {
@@ -76,7 +72,7 @@ func (node *ConstantBool) isGoOp() {
 
 type ConstantRune struct {
 	Value rune
-	Dst   Register_Ref
+	Dst   *Register
 }
 
 func (node *ConstantRune) isGoOp() {
@@ -84,54 +80,54 @@ func (node *ConstantRune) isGoOp() {
 
 type ConstantString struct {
 	Value string
-	Dst   Register_Ref
+	Dst   *Register
 }
 
 func (node *ConstantString) isGoOp() {
 }
 
 type BinaryOp struct {
-	Left  Register_Ref
+	Left  *Register
 	Op    string
-	Right Register_Ref
-	Dst   Register_Ref
+	Right *Register
+	Dst   *Register
 }
 
 func (node *BinaryOp) isGoOp() {
 }
 
 type Attr struct {
-	Expr Register_Ref
+	Expr *Register
 	Name string
-	Dst  Register_Ref
+	Dst  *Register
 }
 
 func (node *Attr) isGoOp() {
 }
 
 type Call struct {
-	Target core.Function_Ref
-	Args   []Register_Ref
-	Dsts   []Register_Ref
+	Target *core.Function
+	Args   []*Register
+	Dsts   []*Register
 }
 
 func (node *Call) isGoOp() {
 }
 
 type Append struct {
-	Src  Register_Ref
-	Args []Register_Ref
-	Dst  Register_Ref
+	Src  *Register
+	Args []*Register
+	Dst  *Register
 }
 
 func (node *Append) isGoOp() {
 }
 
 type MethodCall struct {
-	Expr Register_Ref
+	Expr *Register
 	Name string
-	Args []Register_Ref
-	Dsts []Register_Ref
+	Args []*Register
+	Dsts []*Register
 }
 
 func (node *MethodCall) isGoOp() {
@@ -139,14 +135,14 @@ func (node *MethodCall) isGoOp() {
 
 type NamedArg struct {
 	Name string
-	Arg  Register_Ref
+	Arg  *Register
 }
 
 type ConstructStruct struct {
 	Type      *core.StructType
 	AddrTaken bool
 	Args      []*NamedArg
-	Dst       Register_Ref
+	Dst       *Register
 }
 
 func (node *ConstructStruct) isGoOp() {
@@ -154,32 +150,32 @@ func (node *ConstructStruct) isGoOp() {
 
 type ConstructSlice struct {
 	Type *core.SliceType
-	Args []Register_Ref
-	Dst  Register_Ref
+	Args []*Register
+	Dst  *Register
 }
 
 func (node *ConstructSlice) isGoOp() {
 }
 
 type Coerce struct {
-	Src  Register_Ref
+	Src  *Register
 	Type core.GoType
-	Dst  Register_Ref
+	Dst  *Register
 }
 
 func (node *Coerce) isGoOp() {
 }
 
 type Transfer struct {
-	Srcs []Register_Ref
-	Dsts []Register_Ref
+	Srcs []*Register
+	Dsts []*Register
 }
 
 func (node *Transfer) isGoOp() {
 }
 
 type Return struct {
-	Args []Register_Ref
+	Args []*Register
 }
 
 func (node *Return) isGoOp() {
@@ -198,7 +194,7 @@ func (node *Entry) isGoOp() {
 }
 
 type Switch struct {
-	Cond Register_Ref
+	Cond *Register
 }
 
 func (node *Switch) isGoOp() {

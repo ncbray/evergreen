@@ -3,7 +3,6 @@ package golang
 import (
 	"evergreen/dub/core"
 	"evergreen/dub/tree"
-	dstcore "evergreen/go/core"
 	dst "evergreen/go/tree"
 	"fmt"
 )
@@ -11,9 +10,9 @@ import (
 type testingContext struct {
 	glbl     *DubToGoContext
 	funcDecl *dst.FuncDecl
-	state    dst.LocalInfo_Ref
-	tInfo    dst.LocalInfo_Ref
-	okInfo   dst.LocalInfo_Ref
+	state    *dst.LocalInfo
+	tInfo    *dst.LocalInfo
+	okInfo   *dst.LocalInfo
 }
 
 func (ctx *testingContext) GetState() dst.Expr {
@@ -63,9 +62,9 @@ func (ctx *testingContext) makeFatalTest(cond dst.Expr, f string, args ...dst.Ex
 		Cond: cond,
 		Body: []dst.Stmt{
 			&dst.Call{
-				Expr: attr(ctx.funcDecl.MakeGetLocal(ctx.tInfo), "Fatalf"),
+				Expr: attr(&dst.GetLocal{Info: ctx.tInfo}, "Fatalf"),
 				Args: wrapped,
-				F:    dstcore.NoFunction,
+				F:    nil,
 			},
 		},
 	}
@@ -77,7 +76,7 @@ func makeLen(expr dst.Expr) dst.Expr {
 		Args: []dst.Expr{
 			expr,
 		},
-		F: dstcore.NoFunction,
+		F: nil,
 	}
 }
 
@@ -115,7 +114,7 @@ func translateType(ctx *testingContext, at core.DubType) dst.TypeRef {
 	}
 }
 
-func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d tree.Destructure, generalType core.DubType, ctx *testingContext, stmts []dst.Stmt) []dst.Stmt {
+func generateDestructure(value *dst.LocalInfo, nameX string, path string, d tree.Destructure, generalType core.DubType, ctx *testingContext, stmts []dst.Stmt) []dst.Stmt {
 	switch d := d.(type) {
 	case *tree.DestructureStruct:
 		actual_value := value
@@ -130,31 +129,34 @@ func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d t
 			actual_name := fmt.Sprintf("typed_%s", nameX)
 
 			lref := translateType(ctx, actualType)
-			actual_value = ctx.funcDecl.CreateLocalInfo(actual_name, lref)
+			actual_value = ctx.funcDecl.LocalInfo_Scope.Register(&dst.LocalInfo{
+				Name: actual_name,
+				T:    lref,
+			})
 
 			ref := translateType(ctx, actualType)
 			stmts = append(stmts, &dst.Assign{
 				Targets: []dst.Target{
 					// HACK
-					ctx.funcDecl.MakeSetLocal(actual_value),
-					ctx.funcDecl.MakeSetLocal(ctx.okInfo),
+					&dst.SetLocal{Info: actual_value},
+					&dst.SetLocal{Info: ctx.okInfo},
 				},
 				Op: "=",
 				Sources: []dst.Expr{
 					// TODO typecast tree.
 					&dst.TypeAssert{
-						Expr: ctx.funcDecl.MakeGetLocal(value),
+						Expr: &dst.GetLocal{Info: value},
 						Type: ref,
 					},
 				},
 			})
 			stmts = append(stmts, ctx.makeFatalTest(
-				&dst.UnaryExpr{Op: "!", Expr: ctx.funcDecl.MakeGetLocal(ctx.okInfo)},
+				&dst.UnaryExpr{Op: "!", Expr: &dst.GetLocal{Info: ctx.okInfo}},
 				fmt.Sprintf("%s: expected a *%s but got a %%#v", path, structType.Name),
-				ctx.funcDecl.MakeGetLocal(value),
+				&dst.GetLocal{Info: value},
 			))
 		}
-		cond := checkEQ(ctx.funcDecl.MakeGetLocal(actual_value), &dst.NilLiteral{})
+		cond := checkEQ(&dst.GetLocal{Info: actual_value}, &dst.NilLiteral{})
 		stmts = append(stmts, ctx.makeFatalTest(cond, fmt.Sprintf("%s: nil", path)))
 
 		for _, arg := range d.Args {
@@ -173,7 +175,7 @@ func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d t
 				},
 				Op: "=",
 				Sources: []dst.Expr{
-					attr(ctx.funcDecl.MakeGetLocal(actual_value), fn),
+					attr(&dst.GetLocal{Info: actual_value}, fn),
 				},
 			})
 			childstmts = generateDestructure(
@@ -190,9 +192,9 @@ func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d t
 		}
 	case *tree.DestructureList:
 		stmts = append(stmts, ctx.makeFatalTest(
-			checkNE(makeLen(ctx.funcDecl.MakeGetLocal(value)), intLiteral(len(d.Args))),
+			checkNE(makeLen(&dst.GetLocal{Info: value}), intLiteral(len(d.Args))),
 			fmt.Sprintf("%s: expected length %d but got %%d", path, len(d.Args)),
-			makeLen(ctx.funcDecl.MakeGetLocal(value)),
+			makeLen(&dst.GetLocal{Info: value}),
 		))
 		t := tree.ResolveType(d.Type)
 		dt, ok := t.(*core.ListType)
@@ -206,12 +208,12 @@ func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d t
 			child_value := ctx.funcDecl.CreateLocalInfo(child_name, translateType(ctx, dt.Type))
 			childstmts = append(childstmts, &dst.Assign{
 				Targets: []dst.Target{
-					ctx.funcDecl.MakeSetLocal(child_value),
+					&dst.SetLocal{Info: child_value},
 				},
 				Op: "=",
 				Sources: []dst.Expr{
 					&dst.Index{
-						Expr:  ctx.funcDecl.MakeGetLocal(value),
+						Expr:  &dst.GetLocal{Info: value},
 						Index: intLiteral(i),
 					},
 				},
@@ -223,15 +225,15 @@ func generateDestructure(value dst.LocalInfo_Ref, nameX string, path string, d t
 	case *tree.DestructureValue:
 		switch expr := d.Expr.(type) {
 		case *tree.StringLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), ctx.funcDecl.MakeGetLocal(value)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(&dst.GetLocal{Info: value}, strLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), strLiteral(expr.Value), &dst.GetLocal{Info: value}))
 		case *tree.RuneLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), runeLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(expr.Value), ctx.funcDecl.MakeGetLocal(value)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(&dst.GetLocal{Info: value}, runeLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#U but got %%#U", path), runeLiteral(expr.Value), &dst.GetLocal{Info: value}))
 		case *tree.IntLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), ctx.funcDecl.MakeGetLocal(value)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(&dst.GetLocal{Info: value}, intLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), intLiteral(expr.Value), &dst.GetLocal{Info: value}))
 		case *tree.BoolLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), ctx.funcDecl.MakeGetLocal(value)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(&dst.GetLocal{Info: value}, boolLiteral(expr.Value)), fmt.Sprintf("%s: expected %%#v but got %%#v", path), boolLiteral(expr.Value), &dst.GetLocal{Info: value}))
 		case *tree.NilLiteral:
-			stmts = append(stmts, ctx.makeFatalTest(checkNE(ctx.funcDecl.MakeGetLocal(value), nilLiteral()), fmt.Sprintf("%s: expected nil but got %%#v", path), ctx.funcDecl.MakeGetLocal(value)))
+			stmts = append(stmts, ctx.makeFatalTest(checkNE(&dst.GetLocal{Info: value}, nilLiteral()), fmt.Sprintf("%s: expected nil but got %%#v", path), &dst.GetLocal{Info: value}))
 		default:
 			panic(expr)
 		}
@@ -254,7 +256,7 @@ func generateExpr(ctx *testingContext, expr tree.ASTExpr) dst.Expr {
 		return &dst.Call{
 			Expr: glbl(expr.Name.Text),
 			Args: args,
-			F:    dstcore.NoFunction,
+			F:    nil,
 		}
 	case *tree.StringLiteral:
 		return strLiteral(expr.Value)
@@ -309,7 +311,7 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 				Args: []dst.Expr{
 					strLiteral(tst.Input),
 				},
-				F: dstcore.NoFunction,
+				F: nil,
 			},
 		},
 	})
@@ -320,7 +322,7 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 	stmts = append(stmts, &dst.Assign{
 		Targets: []dst.Target{
 			// HACK
-			ctx.funcDecl.MakeSetLocal(root_value),
+			&dst.SetLocal{Info: root_value},
 		},
 		Op: "=",
 		Sources: []dst.Expr{
@@ -338,7 +340,7 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 			attr(ctx.GetState(), "Index"),
 			&dst.Call{
 				Expr: attr(ctx.GetState(), "Deepest"),
-				F:    dstcore.NoFunction,
+				F:    nil,
 			},
 		))
 	}
@@ -354,7 +356,9 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 
 	decl.Type = &dst.FuncTypeRef{
 		Params: []*dst.Param{
-			decl.MakeParam(ctx.tInfo),
+			&dst.Param{
+				Info: ctx.tInfo,
+			},
 		},
 		Results: []*dst.Param{},
 	}

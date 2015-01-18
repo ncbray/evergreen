@@ -59,8 +59,8 @@ func analyizeProgram(program *flow.DubProgram) {
 
 func goFlowFuncName(cf *gocore.Function, f *goflow.FlowFunc) string {
 	base := "func"
-	if f.Recv != goflow.NoRegister {
-		ref := f.Register_Scope.Get(f.Recv)
+	if f.Recv != nil {
+		ref := f.Recv
 		at := ref.T
 		pt, ok := at.(*gocore.PointerType)
 		if !ok {
@@ -89,7 +89,7 @@ func dumpFlowFuncs(status compiler.PassStatus, runner *compiler.TaskRunner, goFl
 		cf := goCoreProg.Function_Scope.Get(gocore.Function_Ref(fIndex))
 		dot := graph.GraphToDot(f.CFG, &goflow.DotStyler{Func: f, Core: goCoreProg})
 		parts := append(outputDir, "dub_to_go")
-		p := goCoreProg.Package_Scope.Get(cf.Package)
+		p := cf.Package
 		parts = append(parts, p.Path...)
 		parts = append(parts, fmt.Sprintf("%s.svg", goFlowFuncName(cf, f)))
 		outfile := filepath.Join(parts...)

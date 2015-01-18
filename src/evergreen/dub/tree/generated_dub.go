@@ -244,7 +244,7 @@ func (node *Assign) isASTExpr() {
 
 type NameRef struct {
 	Name  *Id
-	Local LocalInfo_Ref
+	Local *LocalInfo
 }
 
 func (node *NameRef) isASTExpr() {
@@ -346,8 +346,6 @@ func (node *StructDecl) isASTDecl() {
 
 type LocalInfo_Ref uint32
 
-const NoLocalInfo = ^LocalInfo_Ref(0)
-
 type LocalInfo_Scope struct {
 	objects []*LocalInfo
 }
@@ -368,7 +366,7 @@ type FuncDecl struct {
 	Params          []*Param
 	ReturnTypes     []ASTTypeRef
 	Block           []ASTExpr
-	F               core.Function_Ref
+	F               *core.Function
 	LocalInfo_Scope *LocalInfo_Scope
 }
 
@@ -393,13 +391,13 @@ type File struct {
 	Imports []*ImportDecl
 	Decls   []ASTDecl
 	Tests   []*Test
-	F       core.File_Ref
+	F       *core.File
 }
 
 type Package struct {
 	Path  []string
 	Files []*File
-	P     core.Package_Ref
+	P     *core.Package
 }
 
 type Program struct {

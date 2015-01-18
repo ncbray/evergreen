@@ -21,10 +21,10 @@ func (scope *Register_Scope) Get(ref Register_Ref) *Register {
 	return scope.objects[ref]
 }
 
-func (scope *Register_Scope) Register(info *Register) Register_Ref {
+func (scope *Register_Scope) Register(info *Register) *Register {
 	info.Index = Register_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *Register_Scope) Len() int {
@@ -38,10 +38,10 @@ func (scope *FlowFunc_Scope) Get(ref FlowFunc_Ref) *FlowFunc {
 	return scope.objects[ref]
 }
 
-func (scope *FlowFunc_Scope) Register(info *FlowFunc) FlowFunc_Ref {
+func (scope *FlowFunc_Scope) Register(info *FlowFunc) *FlowFunc {
 	info.Index = FlowFunc_Ref(len(scope.objects))
 	scope.objects = append(scope.objects, info)
-	return info.Index
+	return info
 }
 
 func (scope *FlowFunc_Scope) Len() int {
@@ -89,7 +89,7 @@ type GoFlowBuilder struct {
 	decl *FlowFunc
 }
 
-func (builder *GoFlowBuilder) MakeRegister(name string, t core.GoType) Register_Ref {
+func (builder *GoFlowBuilder) MakeRegister(name string, t core.GoType) *Register {
 	return builder.decl.Register_Scope.Register(&Register{Name: name, T: t})
 }
 

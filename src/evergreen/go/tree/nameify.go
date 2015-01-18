@@ -29,22 +29,20 @@ func (info *FileInfo) ImportedName(pkg *core.Package) string {
 	return name
 }
 
-func (info *FileInfo) QualifyName(ref core.Package_Ref, name string) string {
-	if ref != core.NoPackage {
-		pkg := info.CoreProg.Package_Scope.Get(ref)
-		if pkg != info.Package {
-			return fmt.Sprintf("%s.%s", info.ImportedName(pkg), name)
-		}
+func (info *FileInfo) QualifyName(pkg *core.Package, name string) string {
+	if pkg != nil && pkg != info.Package {
+		return fmt.Sprintf("%s.%s", info.ImportedName(pkg), name)
 	}
 	return name
 }
 
-func (info *FileInfo) LocalName(index LocalInfo_Ref) string {
-	return info.Decl.LocalInfo_Scope.Get(index).Name
+func (info *FileInfo) LocalName(lcl *LocalInfo) string {
+	return lcl.Name
 }
 
 func nameifyParam(p *Param, info *FileInfo) {
 	p.Name = info.LocalName(p.Info)
+	p.Type = p.Info.T
 	nameifyType(p.Type, info)
 }
 
@@ -90,8 +88,8 @@ func nameifyExpr(expr Expr, info *FileInfo) {
 		nameifyExpr(expr.Left, info)
 		nameifyExpr(expr.Right, info)
 	case *Call:
-		if expr.F != core.NoFunction {
-			f := info.CoreProg.Function_Scope.Get(expr.F)
+		f := expr.F
+		if f != nil {
 			expr.Expr = &GetGlobal{
 				Text: info.QualifyName(f.Package, f.Name),
 			}
@@ -264,7 +262,7 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 }
 
 func nameifyFile(pkg *PackageAST, file *FileAST, coreProg *core.CoreProgram) {
-	p := coreProg.Package_Scope.Get(pkg.P)
+	p := pkg.P
 	file.Package = p.Path[len(p.Path)-1]
 
 	info := &FileInfo{
@@ -292,7 +290,7 @@ func Nameify(status compiler.PassStatus, prog *ProgramAST, coreProg *core.CorePr
 
 	nameifyPrepass(prog)
 	for _, pkg := range prog.Packages {
-		p := coreProg.Package_Scope.Get(pkg.P)
+		p := pkg.P
 		pkgName := ""
 		if len(p.Path) > 0 {
 			pkgName = p.Path[len(p.Path)-1]

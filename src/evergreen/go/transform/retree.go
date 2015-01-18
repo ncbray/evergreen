@@ -38,13 +38,13 @@ func findBlockHeads(g *graph.Graph, order []graph.NodeID) ([]graph.NodeID, map[g
 	return heads, labels
 }
 
-func getLocal(lclMap []tree.LocalInfo_Ref, reg flow.Register_Ref) *tree.GetLocal {
+func getLocal(lclMap []*tree.LocalInfo, reg *flow.Register) *tree.GetLocal {
 	return &tree.GetLocal{
-		Info: lclMap[reg],
+		Info: lclMap[reg.Index],
 	}
 }
 
-func getLocalList(lclMap []tree.LocalInfo_Ref, regs []flow.Register_Ref) []tree.Expr {
+func getLocalList(lclMap []*tree.LocalInfo, regs []*flow.Register) []tree.Expr {
 	lcls := make([]tree.Expr, len(regs))
 	for i, reg := range regs {
 		lcls[i] = getLocal(lclMap, reg)
@@ -52,18 +52,18 @@ func getLocalList(lclMap []tree.LocalInfo_Ref, regs []flow.Register_Ref) []tree.
 	return lcls
 }
 
-func setLocal(lclMap []tree.LocalInfo_Ref, reg flow.Register_Ref) tree.Target {
-	if reg != flow.NoRegister {
+func setLocal(lclMap []*tree.LocalInfo, reg *flow.Register) tree.Target {
+	if reg != nil {
 		return &tree.SetLocal{
-			Info: lclMap[reg],
+			Info: lclMap[reg.Index],
 		}
 	} else {
 		return &tree.SetDiscard{}
 	}
 }
 
-func scalarAssign(expr tree.Expr, lclMap []tree.LocalInfo_Ref, reg flow.Register_Ref) tree.Stmt {
-	if reg == flow.NoRegister {
+func scalarAssign(expr tree.Expr, lclMap []*tree.LocalInfo, reg *flow.Register) tree.Stmt {
+	if reg == nil {
 		return expr
 	} else {
 		return &tree.Assign{
@@ -74,7 +74,7 @@ func scalarAssign(expr tree.Expr, lclMap []tree.LocalInfo_Ref, reg flow.Register
 	}
 }
 
-func multiAssign(expr tree.Expr, lclMap []tree.LocalInfo_Ref, regs []flow.Register_Ref) tree.Stmt {
+func multiAssign(expr tree.Expr, lclMap []*tree.LocalInfo, regs []*flow.Register) tree.Stmt {
 	if len(regs) == 0 {
 		return expr
 	} else {
@@ -90,7 +90,7 @@ func multiAssign(expr tree.Expr, lclMap []tree.LocalInfo_Ref, regs []flow.Regist
 	}
 }
 
-func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree.LocalInfo_Ref, labels map[graph.NodeID]int, parent_label int, is_head bool, node graph.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
+func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []*tree.LocalInfo, labels map[graph.NodeID]int, parent_label int, is_head bool, node graph.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
 	g := decl.CFG
 	for {
 		if !is_head {
@@ -138,17 +138,17 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 		case *flow.ConstantNil:
 			block = append(block, scalarAssign(&tree.NilLiteral{}, lclMap, op.Dst))
 		case *flow.Call:
-			f := coreProg.Function_Scope.Get(op.Target)
+			f := op.Target
 			block = append(block, multiAssign(&tree.Call{
 				Expr: &tree.GetGlobal{Text: f.Name}, // HACK
 				Args: getLocalList(lclMap, op.Args),
-				F:    op.Target,
+				F:    f,
 			}, lclMap, op.Dsts))
 		case *flow.Append:
 			block = append(block, scalarAssign(&tree.Call{
 				Expr: &tree.GetGlobal{Text: "append"}, // HACK
-				Args: getLocalList(lclMap, append([]flow.Register_Ref{op.Src}, op.Args...)),
-				F:    core.NoFunction,
+				Args: getLocalList(lclMap, append([]*flow.Register{op.Src}, op.Args...)),
+				F:    nil,
 			}, lclMap, op.Dst))
 		case *flow.MethodCall:
 			// TODO simple IR
@@ -158,7 +158,7 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []tree
 					Text: op.Name,
 				},
 				Args: getLocalList(lclMap, op.Args),
-				F:    core.NoFunction,
+				F:    nil,
 			}, lclMap, op.Dsts))
 		case *flow.Transfer:
 			srcs := []tree.Expr{}
@@ -285,54 +285,47 @@ func RetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.FlowFun
 
 	// Translate locals
 	numRegisters := decl.Register_Scope.Len()
-	lclMap := make([]tree.LocalInfo_Ref, numRegisters)
+	lclMap := make([]*tree.LocalInfo, numRegisters)
 	for i := 0; i < numRegisters; i++ {
-		ref := flow.Register_Ref(i)
-		info := decl.Register_Scope.Get(ref)
-		lclMap[i] = tree.LocalInfo_Ref(funcDecl.LocalInfo_Scope.Register(&tree.LocalInfo{
+		info := decl.Register_Scope.Get(flow.Register_Ref(i))
+		lclMap[i] = funcDecl.LocalInfo_Scope.Register(&tree.LocalInfo{
 			Name: info.Name,
 			T:    tree.RefForType(info.T),
-		}))
+		})
 	}
 
 	ft := &tree.FuncTypeRef{}
 
 	// Translate receiver.
-	ref := decl.Recv
-	if ref != flow.NoRegister {
-		info := decl.Register_Scope.Get(ref)
-		index := lclMap[ref]
-		mapped := funcDecl.LocalInfo_Scope.Get(index)
+	info := decl.Recv
+	if info != nil {
+		mapped := lclMap[info.Index]
 		funcDecl.Recv = &tree.Param{
 			Name: mapped.Name,
 			Type: tree.RefForType(info.T),
-			Info: index,
+			Info: mapped,
 		}
 	}
 
 	// Translate parameters
 	ft.Params = make([]*tree.Param, len(decl.Params))
-	for i, ref := range decl.Params {
-		info := decl.Register_Scope.Get(ref)
-		index := lclMap[ref]
-		mapped := funcDecl.LocalInfo_Scope.Get(index)
+	for i, info := range decl.Params {
+		mapped := lclMap[info.Index]
 		ft.Params[i] = &tree.Param{
 			Name: mapped.Name,
 			Type: tree.RefForType(info.T),
-			Info: index,
+			Info: mapped,
 		}
 	}
 
 	// Translate returns
 	ft.Results = make([]*tree.Param, len(decl.Results))
-	for i, ref := range decl.Results {
-		info := decl.Register_Scope.Get(ref)
-		index := lclMap[ref]
-		mapped := funcDecl.LocalInfo_Scope.Get(index)
+	for i, info := range decl.Results {
+		mapped := lclMap[info.Index]
 		ft.Results[i] = &tree.Param{
 			Name: mapped.Name,
 			Type: tree.RefForType(info.T),
-			Info: index,
+			Info: mapped,
 		}
 	}
 
@@ -364,15 +357,14 @@ func RetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.FlowFun
 }
 
 type TreeBypass struct {
-	DeclsForStruct map[core.GoType][]tree.Decl
-	Tests          []*tree.FileAST
+	Tests []*tree.FileAST
 }
 
 func pathLeaf(path []string) string {
 	return path[len(path)-1]
 }
 
-func getPackage(t core.GoType) core.Package_Ref {
+func getPackage(t core.GoType) *core.Package {
 	switch t := t.(type) {
 	case *core.StructType:
 		return t.Package
@@ -426,28 +418,24 @@ func declForType(t core.GoType) tree.Decl {
 	}
 }
 
-func generateGoFile(coreProg *core.CoreProgram, flowProg *flow.FlowProgram, auxDeclsForStruct map[core.GoType][]tree.Decl, types []core.GoType, funcs []core.Function_Ref, file *tree.FileAST) {
+func generateGoFile(coreProg *core.CoreProgram, flowProg *flow.FlowProgram, types []core.GoType, funcs []*core.Function, file *tree.FileAST) {
 	file.Name = "generated_dub.go"
 
 	for _, t := range types {
 		file.Decls = append(file.Decls, declForType(t))
-		more, _ := auxDeclsForStruct[t]
-		file.Decls = append(file.Decls, more...)
 
 		st, ok := t.(*core.StructType)
 		if ok {
-			for _, fIndex := range st.Methods {
-				cf := coreProg.Function_Scope.Get(fIndex)
-				f := flowProg.FlowFunc_Scope.Get(flow.FlowFunc_Ref(fIndex))
+			for _, cf := range st.Methods {
+				f := flowProg.FlowFunc_Scope.Get(flow.FlowFunc_Ref(cf.Index))
 				file.Decls = append(file.Decls, RetreeFunc(coreProg, cf, f))
 			}
 		}
 	}
 
-	for _, fIndex := range funcs {
-		cf := coreProg.Function_Scope.Get(fIndex)
-		f := flowProg.FlowFunc_Scope.Get(flow.FlowFunc_Ref(fIndex))
-		if f.Recv != flow.NoRegister {
+	for _, cf := range funcs {
+		f := flowProg.FlowFunc_Scope.Get(flow.FlowFunc_Ref(cf.Index))
+		if f.Recv != nil {
 			continue
 		}
 		file.Decls = append(file.Decls, RetreeFunc(coreProg, cf, f))
@@ -461,7 +449,7 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 	// Bucket types for each package.
 	packageTypes := make([][]core.GoType, coreProg.Package_Scope.Len())
 	for _, t := range program.Types {
-		pIndex := getPackage(t)
+		pIndex := getPackage(t).Index
 		packageTypes[pIndex] = append(packageTypes[pIndex], t)
 	}
 
@@ -479,14 +467,14 @@ func FlowToTree(status compiler.PassStatus, program *flow.FlowProgram, coreProg 
 		}
 		fileDecls := []*tree.FileAST{fileAST}
 
-		generateGoFile(coreProg, program, bypass.DeclsForStruct, packageTypes[p], pkg.Functions, fileAST)
+		generateGoFile(coreProg, program, packageTypes[p], pkg.Functions, fileAST)
 		if bypass.Tests[p] != nil {
 			fileDecls = append(fileDecls, bypass.Tests[p])
 		}
 
 		pkgAST := &tree.PackageAST{
 			Files: fileDecls,
-			P:     p,
+			P:     pkg,
 		}
 		packageDecls = append(packageDecls, pkgAST)
 	}
