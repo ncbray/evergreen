@@ -258,6 +258,14 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 						Dst:  dstReg,
 					})
 					mapper.dubFlow(frameReg, srcID, dstID)
+				case ctx.core.Builtins.Position:
+					dstID := builder.EmitOp(&dst.MethodCall{
+						Expr: frameReg,
+						Name: "Checkpoint",
+						Args: mappedArgs,
+						Dsts: mappedDsts,
+					})
+					mapper.dubFlow(frameReg, srcID, dstID)
 				default:
 					panic(c)
 				}

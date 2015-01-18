@@ -112,6 +112,7 @@ func AllocEdge(decl *LLFunc, flow int) graph.EdgeID {
 	return e
 }
 
+// TODO plumb through type index.
 func MayHaveSideEffects(c core.Callable) bool {
 	switch c := c.(type) {
 	case *core.IntrinsicFunction:
@@ -119,6 +120,8 @@ func MayHaveSideEffects(c core.Callable) bool {
 		switch c.Name {
 		case "append":
 			// Not entirely true, but close enough for now.
+			return false
+		case "position":
 			return false
 		default:
 			panic(c)

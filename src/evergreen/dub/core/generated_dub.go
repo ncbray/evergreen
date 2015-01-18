@@ -93,15 +93,16 @@ func (node *IntrinsicFunction) isCallable() {
 }
 
 type BuiltinTypeIndex struct {
-	String  *BuiltinType
-	Rune    *BuiltinType
-	Int     *BuiltinType
-	Int64   *BuiltinType
-	Float32 *BuiltinType
-	Bool    *BuiltinType
-	Graph   *BuiltinType
-	Nil     *NilType
-	Append  *IntrinsicFunction
+	String   *BuiltinType
+	Rune     *BuiltinType
+	Int      *BuiltinType
+	Int64    *BuiltinType
+	Float32  *BuiltinType
+	Bool     *BuiltinType
+	Graph    *BuiltinType
+	Nil      *NilType
+	Append   *IntrinsicFunction
+	Position *IntrinsicFunction
 }
 
 type CoreProgram struct {

@@ -59,6 +59,7 @@ struct BuiltinTypeIndex {
   Graph BuiltinType
   Nil NilType
   Append IntrinsicFunction
+  Position IntrinsicFunction
 }
 
 struct CoreProgram contains (Package, File, Function) {

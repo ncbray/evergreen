@@ -239,7 +239,7 @@ func getPossibleFlows(c core.Callable, builtins *core.BuiltinTypeIndex) (bool, b
 	switch c := c.(type) {
 	case *core.IntrinsicFunction:
 		switch c {
-		case builtins.Append:
+		case builtins.Append, builtins.Position:
 			return true, false
 		default:
 			panic(c)
@@ -475,19 +475,8 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		body := builder.EmitOp(&flow.Fail{})
 		fb.AttachFlow(flow.NORMAL, body)
 		fb.RegisterExit(builder.EmitEdge(body, flow.FAIL), flow.FAIL)
-
 		return nil
 
-	case *tree.Position:
-		if !used {
-			return nil
-		}
-		pos := builder.CreateRegister("pos", builder.index.Int)
-		// HACK assume checkpoint is just the index
-		head := builder.EmitOp(&flow.Checkpoint{Dst: pos})
-		fb.AttachFlow(flow.NORMAL, head)
-		fb.RegisterExit(builder.EmitEdge(head, flow.NORMAL), flow.NORMAL)
-		return pos
 	case *tree.BinaryOp:
 		left := lowerExpr(expr.Left, builder, true, fb)
 		right := lowerExpr(expr.Right, builder, true, fb)
@@ -499,6 +488,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		fb.AttachFlow(flow.NORMAL, body)
 		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
+
 	case *tree.Call:
 		dsts := lowerMultiValueExpr(expr, builder, true, fb)
 		var dst *flow.RegisterInfo
@@ -510,6 +500,7 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 			}
 		}
 		return dst
+
 	case *tree.Construct:
 		args := make([]*flow.KeyValue, len(expr.Args))
 		for i, arg := range expr.Args {

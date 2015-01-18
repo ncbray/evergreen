@@ -272,8 +272,6 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			}
 		}
 		return nil
-	case *Position:
-		return scalarReturn(ctx.Program.Index.Int)
 	case *Fail:
 		return nil
 	case *Call:
@@ -612,6 +610,8 @@ func ResolveType(ref ASTTypeRef) core.DubType {
 }
 
 func ReturnTypes(ctx *semanticPassContext, node core.Callable, args []core.DubType) []core.DubType {
+	builtins := ctx.Program.Index
+
 	// TODO check argument types
 	switch node := node.(type) {
 	case *core.Function:
@@ -628,6 +628,11 @@ func ReturnTypes(ctx *semanticPassContext, node core.Callable, args []core.DubTy
 				panic(args)
 			}
 			return []core.DubType{args[0]}
+		case ctx.Program.Index.Position:
+			if len(args) != 0 {
+				panic(args)
+			}
+			return []core.DubType{builtins.Int}
 		default:
 			panic(node)
 		}
@@ -638,15 +643,16 @@ func ReturnTypes(ctx *semanticPassContext, node core.Callable, args []core.DubTy
 
 func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
 	return &core.BuiltinTypeIndex{
-		String:  &core.BuiltinType{Name: "string"},
-		Rune:    &core.BuiltinType{Name: "rune"},
-		Int:     &core.BuiltinType{Name: "int"},
-		Int64:   &core.BuiltinType{Name: "int64"},
-		Float32: &core.BuiltinType{Name: "float32"},
-		Bool:    &core.BuiltinType{Name: "bool"},
-		Graph:   &core.BuiltinType{Name: "graph"},
-		Nil:     &core.NilType{},
-		Append:  &core.IntrinsicFunction{Name: "append"},
+		String:   &core.BuiltinType{Name: "string"},
+		Rune:     &core.BuiltinType{Name: "rune"},
+		Int:      &core.BuiltinType{Name: "int"},
+		Int64:    &core.BuiltinType{Name: "int64"},
+		Float32:  &core.BuiltinType{Name: "float32"},
+		Bool:     &core.BuiltinType{Name: "bool"},
+		Graph:    &core.BuiltinType{Name: "graph"},
+		Nil:      &core.NilType{},
+		Append:   &core.IntrinsicFunction{Name: "append"},
+		Position: &core.IntrinsicFunction{Name: "position"},
 	}
 }
 
@@ -679,6 +685,7 @@ func MakeProgramScope(program *Program) *ProgramScope {
 	addBuiltinType(builtins.Graph, ns)
 
 	addIntrinsticFunction(builtins.Append, ns)
+	addIntrinsticFunction(builtins.Position, ns)
 
 	return programScope
 }

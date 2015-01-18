@@ -19,8 +19,8 @@ func EndKeyword() {
 }
 
 func Ident() Id {
-  p := position;
-  // Don't al*low keywords as identifiers.
+  p := position();
+  // Don't allow keywords as identifiers.
   /!(("func"|"test"|"struct"|"implements"|"star"|"plus"|"choose"|"or"|"question"|"if"|"else"|"return"|"var"|"true"|"false"|"nil") ![a-zA-Z_0-9])/;
   text := /[a-zA-Z_][a-zA-Z_0-9]*/;
   return Id{Pos: p, Text: text};
@@ -130,7 +130,7 @@ func DecodeBool() (bool, string) {
 }
 
 func ParseStringLiteral() StringLiteral {
-  p := position;
+  p := position();
   var value string;
   text := slice {
     value = DecodeString();
@@ -433,10 +433,6 @@ func PrimaryExpr() ASTExpr {
     S();
     block := ParseCodeBlock();
     return Slice{Block: block};
-  } or {
-    /"position"/;
-    EndKeyword();
-    return Position{};
   } or {
     /"coerce"/;
     EndKeyword();
