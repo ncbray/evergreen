@@ -258,9 +258,14 @@ func lowerMultiValueExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *
 		}
 		var dsts []*flow.RegisterInfo
 		if used {
-			dsts = make([]*flow.RegisterInfo, len(expr.T))
-			for i, t := range expr.T {
-				dsts[i] = builder.CreateRegister("", t)
+			switch t := expr.T.(type) {
+			case *core.TupleType:
+				dsts = make([]*flow.RegisterInfo, len(t.Types))
+				for i, child := range t.Types {
+					dsts[i] = builder.CreateRegister("", child)
+				}
+			default:
+				dsts = []*flow.RegisterInfo{builder.CreateRegister("", t)}
 			}
 		}
 		body := builder.EmitOp(&flow.CallOp{Target: expr.Target, Args: args, Dsts: dsts})

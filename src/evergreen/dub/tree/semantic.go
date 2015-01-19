@@ -32,7 +32,7 @@ func childScope(scope *semanticScope) *semanticScope {
 
 var unresolvedType core.DubType = nil
 
-var unresolvedScalar = []core.DubType{unresolvedType}
+var voidType = &core.TupleType{}
 
 func TypeMatches(actual core.DubType, expected core.DubType, exact bool) bool {
 	if actual == unresolvedType || expected == unresolvedType {
@@ -96,6 +96,11 @@ func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, 
 				ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
 				return
 			}
+			switch t.(type) {
+			case *core.TupleType:
+				ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Cannot store tuple in local %#v", name))
+				t = unresolvedType
+			}
 			info = decl.LocalInfo_Scope.Register(&LocalInfo{Name: name, T: t})
 			scope.locals[expr.Name.Text] = info
 		} else {
@@ -110,19 +115,6 @@ func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, 
 	default:
 		panic(expr)
 	}
-}
-
-func scalarSemanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) core.DubType {
-	types := semanticExprPass(ctx, decl, expr, scope)
-	if len(types) != 1 {
-		ctx.Status.GlobalError(fmt.Sprintf("expected a single value, got %d instead", len(types)))
-		return unresolvedType
-	}
-	return types[0]
-}
-
-func scalarReturn(t core.DubType) []core.DubType {
-	return []core.DubType{t}
 }
 
 // TODO rewrite binary op to explicitly promote types.
@@ -168,30 +160,30 @@ func resolve(ctx *semanticPassContext, name string) (namedElement, bool) {
 	return result, ok
 }
 
-func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) []core.DubType {
+func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) core.DubType {
 	switch expr := expr.(type) {
 	case *Repeat:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
-		return nil
+		return voidType
 	case *Choice:
 		for _, block := range expr.Blocks {
 			semanticBlockPass(ctx, decl, block, childScope(scope))
 		}
-		return nil
+		return voidType
 	case *Optional:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
-		return nil
+		return voidType
 	case *If:
 		semanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO check condition type
 		semanticBlockPass(ctx, decl, expr.Block, childScope(scope))
 		semanticBlockPass(ctx, decl, expr.Else, childScope(scope))
-		return nil
+		return voidType
 	case *BinaryOp:
-		l := scalarSemanticExprPass(ctx, decl, expr.Left, scope)
-		r := scalarSemanticExprPass(ctx, decl, expr.Right, scope)
-		if l == nil || r == nil {
-			return unresolvedScalar
+		l := semanticExprPass(ctx, decl, expr.Left, scope)
+		r := semanticExprPass(ctx, decl, expr.Right, scope)
+		if l == unresolvedType || r == unresolvedType {
+			return unresolvedType
 		}
 		lt, ok := l.(*core.BuiltinType)
 		if !ok {
@@ -209,57 +201,67 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			sig := fmt.Sprintf("%s%s%s", lt.Name, expr.Op, rt.Name)
 			ctx.Status.LocationError(expr.OpPos, fmt.Sprintf("unsupported binary op %s", sig))
 		}
-		return scalarReturn(expr.T)
+		return expr.T
 	case *NameRef:
 		name := expr.Name.Text
 		info, found := scope.localInfo(name)
 		if !found {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return scalarReturn(unresolvedType)
+			return unresolvedType
 		}
 		expr.Local = info
-		return scalarReturn(info.T)
+		return info.T
 	case *Assign:
-		var t []core.DubType
+		var t core.DubType
 		if expr.Expr != nil {
 			t = semanticExprPass(ctx, decl, expr.Expr, scope)
 		}
 		if expr.Type != nil {
-			t = scalarReturn(semanticTypePass(ctx, expr.Type))
+			t = semanticTypePass(ctx, expr.Type)
 		}
-		if len(expr.Targets) != len(t) {
-			ctx.Status.GlobalError(fmt.Sprintf("Expected %d values but got %d", len(expr.Targets), len(t)))
-			t = make([]core.DubType, len(expr.Targets))
-			for i, _ := range expr.Targets {
-				t[i] = unresolvedType
+		if len(expr.Targets) != 1 {
+			count := 1
+			switch t := t.(type) {
+			case *core.TupleType:
+				count = len(t.Types)
+				if len(expr.Targets) == count {
+					for i, target := range expr.Targets {
+						semanticTargetPass(ctx, decl, target, t.Types[i], expr.Define, scope)
+					}
+					return t
+				}
 			}
+			ctx.Status.GlobalError(fmt.Sprintf("Expected %d values but got %d", len(expr.Targets), count))
+			for _, target := range expr.Targets {
+				semanticTargetPass(ctx, decl, target, unresolvedType, expr.Define, scope)
+			}
+			return unresolvedType
+		} else {
+			semanticTargetPass(ctx, decl, expr.Targets[0], t, expr.Define, scope)
+			return t
 		}
-		for i, target := range expr.Targets {
-			semanticTargetPass(ctx, decl, target, t[i], expr.Define, scope)
-		}
-		return t
 	case *StringMatch:
-		return scalarReturn(ctx.Program.Index.String)
+		return ctx.Program.Index.String
 	case *RuneMatch:
-		return scalarReturn(ctx.Program.Index.Rune)
+		return ctx.Program.Index.Rune
 	case *RuneLiteral:
-		return scalarReturn(ctx.Program.Index.Rune)
+		return ctx.Program.Index.Rune
 	case *StringLiteral:
-		return scalarReturn(ctx.Program.Index.String)
+		return ctx.Program.Index.String
 	case *IntLiteral:
-		return scalarReturn(ctx.Program.Index.Int)
+		return ctx.Program.Index.Int
 	case *Float32Literal:
-		return scalarReturn(ctx.Program.Index.Float32)
+		return ctx.Program.Index.Float32
 	case *BoolLiteral:
-		return scalarReturn(ctx.Program.Index.Bool)
+		return ctx.Program.Index.Bool
 	case *NilLiteral:
-		return scalarReturn(ctx.Program.Index.Nil)
+		return ctx.Program.Index.Nil
 	case *Return:
 		if len(decl.ReturnTypes) != len(expr.Exprs) {
 			ctx.Status.LocationError(expr.Pos, fmt.Sprintf("expected %d return values, got %d", len(decl.ReturnTypes), len(expr.Exprs)))
 		}
 		for i, e := range expr.Exprs {
-			at := scalarSemanticExprPass(ctx, decl, e, scope)
+			at := semanticExprPass(ctx, decl, e, scope)
 			if i < len(decl.ReturnTypes) {
 				et := ResolveType(decl.ReturnTypes[i])
 				if !TypeMatches(at, et, false) {
@@ -276,21 +278,21 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		fd, ok := resolve(ctx, name)
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return unresolvedScalar
+			return unresolvedType
 		}
 		f, ok := AsFunc(fd)
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("%#v is not callable", name))
-			return unresolvedScalar
+			return unresolvedType
 		}
 		args := make([]core.DubType, len(expr.Args))
 		for i, e := range expr.Args {
-			args[i] = scalarSemanticExprPass(ctx, decl, e, scope)
+			args[i] = semanticExprPass(ctx, decl, e, scope)
 		}
-		types := ReturnTypes(ctx, f, args)
+		t := ReturnType(ctx, f, args)
 		expr.Target = f
-		expr.T = types
-		return types
+		expr.T = t
+		return t
 	case *Construct:
 		t := semanticTypePass(ctx, expr.Type)
 		st, ok := t.(*core.StructType)
@@ -298,7 +300,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			panic(t)
 		}
 		for _, arg := range expr.Args {
-			aft := scalarSemanticExprPass(ctx, decl, arg.Expr, scope)
+			aft := semanticExprPass(ctx, decl, arg.Expr, scope)
 			if st != nil {
 				fn := arg.Name.Text
 				f := GetField(st, fn)
@@ -312,7 +314,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				}
 			}
 		}
-		return scalarReturn(t)
+		return t
 	case *ConstructList:
 		t := semanticTypePass(ctx, expr.Type)
 		lt, ok := t.(*core.ListType)
@@ -320,19 +322,19 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			panic(t)
 		}
 		for _, arg := range expr.Args {
-			at := scalarSemanticExprPass(ctx, decl, arg, scope)
+			at := semanticExprPass(ctx, decl, arg, scope)
 			if lt != nil {
 				if !TypeMatches(at, lt.Type, false) {
 					ctx.Status.GlobalError(fmt.Sprintf("%s vs. %s", core.TypeName(at), core.TypeName(lt.Type)))
 				}
 			}
 		}
-		return scalarReturn(t)
+		return t
 	case *Coerce:
 		t := semanticTypePass(ctx, expr.Type)
-		scalarSemanticExprPass(ctx, decl, expr.Expr, scope)
+		semanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO type check
-		return scalarReturn(t)
+		return t
 	default:
 		panic(expr)
 	}
@@ -501,7 +503,7 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 		}
 		return t
 	case *DestructureValue:
-		return scalarSemanticExprPass(ctx, decl, d.Expr, scope)
+		return semanticExprPass(ctx, decl, d.Expr, scope)
 	default:
 		panic(d)
 	}
@@ -510,11 +512,8 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 func semanticTestPass(ctx *semanticPassContext, tst *Test) {
 	// HACK no real context
 	scope := childScope(nil)
-	types := semanticExprPass(ctx, nil, tst.Rule, scope)
-	if len(types) != 1 {
-		panic(types)
-	}
-	tst.Type = types[0]
+	t := semanticExprPass(ctx, nil, tst.Rule, scope)
+	tst.Type = t
 
 	at := semanticDestructurePass(ctx, nil, tst.Destructure, scope)
 	if !TypeMatches(at, tst.Type, false) {
@@ -606,35 +605,40 @@ func ResolveType(ref ASTTypeRef) core.DubType {
 	}
 }
 
-func ReturnTypes(ctx *semanticPassContext, node core.Callable, args []core.DubType) []core.DubType {
+func ReturnType(ctx *semanticPassContext, node core.Callable, args []core.DubType) core.DubType {
 	builtins := ctx.Program.Index
 
 	// TODO check argument types
 	switch node := node.(type) {
 	case *core.Function:
 		f := ctx.Functions[node.Index]
-		types := make([]core.DubType, len(f.ReturnTypes))
-		for i, t := range f.ReturnTypes {
-			types[i] = ResolveType(t)
+		if len(f.ReturnTypes) != 1 {
+			types := make([]core.DubType, len(f.ReturnTypes))
+			for i, t := range f.ReturnTypes {
+				types[i] = ResolveType(t)
+			}
+			// TODO memoize
+			return &core.TupleType{Types: types}
+		} else {
+			return ResolveType(f.ReturnTypes[0])
 		}
-		return types
 	case *core.IntrinsicFunction:
 		switch node {
 		case ctx.Program.Index.Append:
 			if len(args) != 2 {
 				panic(args)
 			}
-			return []core.DubType{args[0]}
+			return args[0]
 		case ctx.Program.Index.Position:
 			if len(args) != 0 {
 				panic(args)
 			}
-			return []core.DubType{builtins.Int}
+			return builtins.Int
 		case ctx.Program.Index.Slice:
 			if len(args) != 2 {
 				panic(args)
 			}
-			return []core.DubType{builtins.String}
+			return builtins.String
 		default:
 			panic(node)
 		}

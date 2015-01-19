@@ -181,7 +181,7 @@ struct Call implements ASTExpr {
   Name Id
   Args []ASTExpr
   Target core.Callable
-  T []core.DubType
+  T core.DubType
 }
 
 struct Fail implements ASTExpr {

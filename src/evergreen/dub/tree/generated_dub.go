@@ -276,7 +276,7 @@ type Call struct {
 	Name   *Id
 	Args   []ASTExpr
 	Target core.Callable
-	T      []core.DubType
+	T      core.DubType
 }
 
 func (node *Call) isASTExpr() {

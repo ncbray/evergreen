@@ -24,6 +24,13 @@ type ListType struct {
 func (node *ListType) isDubType() {
 }
 
+type TupleType struct {
+	Types []DubType
+}
+
+func (node *TupleType) isDubType() {
+}
+
 type FieldType struct {
 	Name string
 	Type DubType

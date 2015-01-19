@@ -12,6 +12,10 @@ struct ListType implements DubType {
   Type DubType
 }
 
+struct TupleType implements DubType {
+  Types []DubType
+}
+
 struct FieldType {
   Name string
   Type DubType
