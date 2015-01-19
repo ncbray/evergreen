@@ -707,7 +707,7 @@ func ParseStructDecl() StructDecl {
 }
 
 func ParseParam() Param {
-     name := ParseNameRef();
+     name := Ident();
      S();
      type := ParseTypeRef();
      return Param{Name: name, Type: type};

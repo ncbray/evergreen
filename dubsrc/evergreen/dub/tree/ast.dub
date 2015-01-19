@@ -154,7 +154,17 @@ struct Assign implements ASTExpr {
 
 struct NameRef implements ASTExpr {
   Name Id
-  Local LocalInfo
+}
+
+struct GetLocal implements ASTExpr {
+  Info LocalInfo
+}
+
+struct SetLocal implements ASTExpr {
+  Info LocalInfo
+}
+
+struct Discard implements ASTExpr {
 }
 
 struct NamedExpr {
@@ -220,8 +230,9 @@ struct LocalInfo scoped {
 }
 
 struct Param {
-  Name NameRef
+  Name Id
   Type ASTTypeRef
+  Info LocalInfo
 }
 
 struct FuncDecl contains(LocalInfo) implements ASTDecl {

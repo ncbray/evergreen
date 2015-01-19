@@ -80,38 +80,41 @@ func IsDiscard(name string) bool {
 	return name == "_"
 }
 
-func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, t core.DubType, define bool, scope *semanticScope) {
+func createLocal(ctx *semanticPassContext, decl *FuncDecl, name *Id, t core.DubType, scope *semanticScope) *LocalInfo {
+	info, exists := scope.localInfo(name.Text)
+	if exists {
+		ctx.Status.LocationError(name.Pos, fmt.Sprintf("Tried to redefine %#v", name.Text))
+		return info
+	}
+	info = decl.LocalInfo_Scope.Register(&LocalInfo{Name: name.Text, T: t})
+	scope.locals[name.Text] = info
+	return info
+}
+
+func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, t core.DubType, define bool, scope *semanticScope) ASTExpr {
 	switch expr := expr.(type) {
 	case *NameRef:
 		name := expr.Name.Text
 		if IsDiscard(name) {
-			expr.Local = nil
-			return
+			return &Discard{}
+		}
+		switch t.(type) {
+		case *core.TupleType:
+			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Cannot store tuple in local %#v", name))
+			t = unresolvedType
 		}
 		var info *LocalInfo
-		var exists bool
 		if define {
-			_, exists = scope.localInfo(expr.Name.Text)
-			if exists {
-				ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to redefine %#v", name))
-				return
-			}
-			switch t.(type) {
-			case *core.TupleType:
-				ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Cannot store tuple in local %#v", name))
-				t = unresolvedType
-			}
-			info = decl.LocalInfo_Scope.Register(&LocalInfo{Name: name, T: t})
-			scope.locals[expr.Name.Text] = info
+			info = createLocal(ctx, decl, expr.Name, t, scope)
 		} else {
+			var exists bool
 			info, exists = scope.localInfo(name)
 			if !exists {
 				ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to assign to unknown variable %#v", name))
-				return
 			}
 			// TODO type check
 		}
-		expr.Local = info
+		return &SetLocal{Info: info}
 	default:
 		panic(expr)
 	}
@@ -160,30 +163,31 @@ func resolve(ctx *semanticPassContext, name string) (namedElement, bool) {
 	return result, ok
 }
 
-func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) core.DubType {
+func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) (ASTExpr, core.DubType) {
 	switch expr := expr.(type) {
 	case *Repeat:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
-		return voidType
+		return expr, voidType
 	case *Choice:
 		for _, block := range expr.Blocks {
 			semanticBlockPass(ctx, decl, block, childScope(scope))
 		}
-		return voidType
+		return expr, voidType
 	case *Optional:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
-		return voidType
+		return expr, voidType
 	case *If:
-		semanticExprPass(ctx, decl, expr.Expr, scope)
+		expr.Expr, _ = semanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO check condition type
 		semanticBlockPass(ctx, decl, expr.Block, childScope(scope))
 		semanticBlockPass(ctx, decl, expr.Else, childScope(scope))
-		return voidType
+		return expr, voidType
 	case *BinaryOp:
-		l := semanticExprPass(ctx, decl, expr.Left, scope)
-		r := semanticExprPass(ctx, decl, expr.Right, scope)
+		var l, r core.DubType
+		expr.Left, l = semanticExprPass(ctx, decl, expr.Left, scope)
+		expr.Right, r = semanticExprPass(ctx, decl, expr.Right, scope)
 		if l == unresolvedType || r == unresolvedType {
-			return unresolvedType
+			return expr, unresolvedType
 		}
 		lt, ok := l.(*core.BuiltinType)
 		if !ok {
@@ -201,20 +205,19 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			sig := fmt.Sprintf("%s%s%s", lt.Name, expr.Op, rt.Name)
 			ctx.Status.LocationError(expr.OpPos, fmt.Sprintf("unsupported binary op %s", sig))
 		}
-		return expr.T
+		return expr, expr.T
 	case *NameRef:
 		name := expr.Name.Text
 		info, found := scope.localInfo(name)
 		if !found {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return unresolvedType
+			return expr, unresolvedType
 		}
-		expr.Local = info
-		return info.T
+		return &GetLocal{Info: info}, info.T
 	case *Assign:
 		var t core.DubType
 		if expr.Expr != nil {
-			t = semanticExprPass(ctx, decl, expr.Expr, scope)
+			expr.Expr, t = semanticExprPass(ctx, decl, expr.Expr, scope)
 		}
 		if expr.Type != nil {
 			t = semanticTypePass(ctx, expr.Type)
@@ -226,42 +229,43 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				count = len(t.Types)
 				if len(expr.Targets) == count {
 					for i, target := range expr.Targets {
-						semanticTargetPass(ctx, decl, target, t.Types[i], expr.Define, scope)
+						expr.Targets[i] = semanticTargetPass(ctx, decl, target, t.Types[i], expr.Define, scope)
 					}
-					return t
+					return expr, t
 				}
 			}
 			ctx.Status.GlobalError(fmt.Sprintf("Expected %d values but got %d", len(expr.Targets), count))
-			for _, target := range expr.Targets {
-				semanticTargetPass(ctx, decl, target, unresolvedType, expr.Define, scope)
+			for i, target := range expr.Targets {
+				expr.Targets[i] = semanticTargetPass(ctx, decl, target, unresolvedType, expr.Define, scope)
 			}
-			return unresolvedType
+			return expr, unresolvedType
 		} else {
-			semanticTargetPass(ctx, decl, expr.Targets[0], t, expr.Define, scope)
-			return t
+			expr.Targets[0] = semanticTargetPass(ctx, decl, expr.Targets[0], t, expr.Define, scope)
+			return expr, t
 		}
 	case *StringMatch:
-		return ctx.Program.Index.String
+		return expr, ctx.Program.Index.String
 	case *RuneMatch:
-		return ctx.Program.Index.Rune
+		return expr, ctx.Program.Index.Rune
 	case *RuneLiteral:
-		return ctx.Program.Index.Rune
+		return expr, ctx.Program.Index.Rune
 	case *StringLiteral:
-		return ctx.Program.Index.String
+		return expr, ctx.Program.Index.String
 	case *IntLiteral:
-		return ctx.Program.Index.Int
+		return expr, ctx.Program.Index.Int
 	case *Float32Literal:
-		return ctx.Program.Index.Float32
+		return expr, ctx.Program.Index.Float32
 	case *BoolLiteral:
-		return ctx.Program.Index.Bool
+		return expr, ctx.Program.Index.Bool
 	case *NilLiteral:
-		return ctx.Program.Index.Nil
+		return expr, ctx.Program.Index.Nil
 	case *Return:
 		if len(decl.ReturnTypes) != len(expr.Exprs) {
 			ctx.Status.LocationError(expr.Pos, fmt.Sprintf("expected %d return values, got %d", len(decl.ReturnTypes), len(expr.Exprs)))
 		}
 		for i, e := range expr.Exprs {
-			at := semanticExprPass(ctx, decl, e, scope)
+			var at core.DubType
+			expr.Exprs[i], at = semanticExprPass(ctx, decl, e, scope)
 			if i < len(decl.ReturnTypes) {
 				et := ResolveType(decl.ReturnTypes[i])
 				if !TypeMatches(at, et, false) {
@@ -270,29 +274,29 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 
 			}
 		}
-		return nil
+		return expr, voidType
 	case *Fail:
-		return nil
+		return expr, voidType
 	case *Call:
 		name := expr.Name.Text
 		fd, ok := resolve(ctx, name)
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return unresolvedType
+			return expr, unresolvedType
 		}
 		f, ok := AsFunc(fd)
 		if !ok {
 			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("%#v is not callable", name))
-			return unresolvedType
+			return expr, unresolvedType
 		}
 		args := make([]core.DubType, len(expr.Args))
 		for i, e := range expr.Args {
-			args[i] = semanticExprPass(ctx, decl, e, scope)
+			expr.Args[i], args[i] = semanticExprPass(ctx, decl, e, scope)
 		}
 		t := ReturnType(ctx, f, args)
 		expr.Target = f
 		expr.T = t
-		return t
+		return expr, t
 	case *Construct:
 		t := semanticTypePass(ctx, expr.Type)
 		st, ok := t.(*core.StructType)
@@ -300,7 +304,8 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			panic(t)
 		}
 		for _, arg := range expr.Args {
-			aft := semanticExprPass(ctx, decl, arg.Expr, scope)
+			var aft core.DubType
+			arg.Expr, aft = semanticExprPass(ctx, decl, arg.Expr, scope)
 			if st != nil {
 				fn := arg.Name.Text
 				f := GetField(st, fn)
@@ -314,27 +319,28 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				}
 			}
 		}
-		return t
+		return expr, t
 	case *ConstructList:
 		t := semanticTypePass(ctx, expr.Type)
 		lt, ok := t.(*core.ListType)
 		if t != nil && !ok {
 			panic(t)
 		}
-		for _, arg := range expr.Args {
-			at := semanticExprPass(ctx, decl, arg, scope)
+		for i, arg := range expr.Args {
+			var at core.DubType
+			expr.Args[i], at = semanticExprPass(ctx, decl, arg, scope)
 			if lt != nil {
 				if !TypeMatches(at, lt.Type, false) {
 					ctx.Status.GlobalError(fmt.Sprintf("%s vs. %s", core.TypeName(at), core.TypeName(lt.Type)))
 				}
 			}
 		}
-		return t
+		return expr, t
 	case *Coerce:
 		t := semanticTypePass(ctx, expr.Type)
-		semanticExprPass(ctx, decl, expr.Expr, scope)
+		expr.Expr, _ = semanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO type check
-		return t
+		return expr, t
 	default:
 		panic(expr)
 	}
@@ -421,8 +427,8 @@ func semanticStructTypePass(ctx *semanticPassContext, node ASTTypeRef) *core.Str
 }
 
 func semanticBlockPass(ctx *semanticPassContext, decl *FuncDecl, block []ASTExpr, scope *semanticScope) {
-	for _, expr := range block {
-		semanticExprPass(ctx, decl, expr, scope)
+	for i, expr := range block {
+		block[i], _ = semanticExprPass(ctx, decl, expr, scope)
 	}
 }
 
@@ -438,7 +444,7 @@ func semanticFuncSignaturePass(ctx *semanticPassContext, decl *FuncDecl) {
 func semanticFuncBodyPass(ctx *semanticPassContext, decl *FuncDecl) {
 	scope := childScope(nil)
 	for _, p := range decl.Params {
-		semanticTargetPass(ctx, decl, p.Name, ResolveType(p.Type), true, scope)
+		p.Info = createLocal(ctx, decl, p.Name, ResolveType(p.Type), scope)
 	}
 	semanticBlockPass(ctx, decl, decl.Block, scope)
 }
@@ -503,7 +509,9 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 		}
 		return t
 	case *DestructureValue:
-		return semanticExprPass(ctx, decl, d.Expr, scope)
+		var t core.DubType
+		d.Expr, t = semanticExprPass(ctx, decl, d.Expr, scope)
+		return t
 	default:
 		panic(d)
 	}
@@ -512,8 +520,7 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 func semanticTestPass(ctx *semanticPassContext, tst *Test) {
 	// HACK no real context
 	scope := childScope(nil)
-	t := semanticExprPass(ctx, nil, tst.Rule, scope)
-	tst.Type = t
+	tst.Rule, tst.Type = semanticExprPass(ctx, nil, tst.Rule, scope)
 
 	at := semanticDestructurePass(ctx, nil, tst.Destructure, scope)
 	if !TypeMatches(at, tst.Type, false) {

@@ -236,11 +236,30 @@ func (node *Assign) isASTExpr() {
 }
 
 type NameRef struct {
-	Name  *Id
-	Local *LocalInfo
+	Name *Id
 }
 
 func (node *NameRef) isASTExpr() {
+}
+
+type GetLocal struct {
+	Info *LocalInfo
+}
+
+func (node *GetLocal) isASTExpr() {
+}
+
+type SetLocal struct {
+	Info *LocalInfo
+}
+
+func (node *SetLocal) isASTExpr() {
+}
+
+type Discard struct {
+}
+
+func (node *Discard) isASTExpr() {
 }
 
 type NamedExpr struct {
@@ -337,8 +356,9 @@ type LocalInfo struct {
 }
 
 type Param struct {
-	Name *NameRef
+	Name *Id
 	Type ASTTypeRef
+	Info *LocalInfo
 }
 
 type FuncDecl struct {
@@ -4747,9 +4767,9 @@ block8:
 }
 
 func ParseParam(frame *runtime.State) (ret *Param) {
-	var name *NameRef
+	var name *Id
 	var type0 ASTTypeRef
-	name = ParseNameRef(frame)
+	name = Ident(frame)
 	if frame.Flow == 0 {
 		S(frame)
 		type0 = ParseTypeRef(frame)

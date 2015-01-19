@@ -367,12 +367,12 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		fb.AbsorbExits(block)
 		return nil
 
-	case *tree.NameRef:
+	case *tree.GetLocal:
 		if !used {
 			return nil
 		}
-		dst := builder.CreateRegister(expr.Name.Text, expr.Local.T)
-		body := builder.EmitOp(&flow.CopyOp{Src: builder.localMap[expr.Local.Index], Dst: dst})
+		dst := builder.CreateRegister(expr.Info.Name, expr.Info.T)
+		body := builder.EmitOp(&flow.CopyOp{Src: builder.localMap[expr.Info.Index], Dst: dst})
 		fb.AttachFlow(flow.NORMAL, body)
 		fb.RegisterExit(builder.EmitEdge(body, flow.NORMAL), flow.NORMAL)
 		return dst
@@ -387,14 +387,14 @@ func lowerExpr(expr tree.ASTExpr, builder *dubBuilder, used bool, fb *graph.Flow
 		}
 		dsts := make([]*flow.RegisterInfo, len(expr.Targets))
 		for i, etgt := range expr.Targets {
-			tgt, ok := etgt.(*tree.NameRef)
+			tgt, ok := etgt.(*tree.SetLocal)
 			if !ok {
 				panic(expr.Targets)
 			}
-			if tree.IsDiscard(tgt.Name.Text) {
+			if tree.IsDiscard(tgt.Info.Name) {
 				continue
 			}
-			dst := builder.localMap[tgt.Local.Index]
+			dst := builder.localMap[tgt.Info.Index]
 			dsts[i] = dst
 			var op flow.DubOp
 			if srcs != nil {
@@ -645,7 +645,7 @@ func lowerAST(program *tree.Program, decl *tree.FuncDecl, funcMap []*flow.LLFunc
 	// Function parameters
 	params := make([]*flow.RegisterInfo, len(decl.Params))
 	for i, p := range decl.Params {
-		params[i] = builder.localMap[p.Name.Local.Index]
+		params[i] = builder.localMap[p.Info.Index]
 	}
 	f.Params = params
 
