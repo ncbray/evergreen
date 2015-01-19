@@ -289,6 +289,7 @@ func (node *Fail) isASTExpr() {
 }
 
 type Return struct {
+	Pos   int
 	Exprs []ASTExpr
 }
 
@@ -298,6 +299,7 @@ func (node *Return) isASTExpr() {
 type BinaryOp struct {
 	Left  ASTExpr
 	Op    string
+	OpPos int
 	Right ASTExpr
 	T     core.DubType
 }
@@ -3344,6 +3346,7 @@ func ParseBinaryOp(frame *runtime.State, min_prec int) (ret ASTExpr) {
 	var e0 ASTExpr
 	var e1 ASTExpr
 	var checkpoint int
+	var opPos int
 	var op string
 	var prec int
 	var r ASTExpr
@@ -3356,6 +3359,7 @@ func ParseBinaryOp(frame *runtime.State, min_prec int) (ret ASTExpr) {
 block1:
 	checkpoint = frame.Checkpoint()
 	S(frame)
+	opPos = frame.Checkpoint()
 	op, prec = BinaryOperator(frame)
 	if frame.Flow == 0 {
 		if prec < min_prec {
@@ -3365,7 +3369,7 @@ block1:
 		S(frame)
 		r = ParseBinaryOp(frame, prec+1)
 		if frame.Flow == 0 {
-			e1 = &BinaryOp{Left: e1, Op: op, Right: r}
+			e1 = &BinaryOp{Left: e1, Op: op, OpPos: opPos, Right: r}
 			goto block1
 		}
 		goto block2
@@ -3875,6 +3879,7 @@ func ParseStatement(frame *runtime.State) (ret ASTExpr) {
 	var c5 rune
 	var c6 rune
 	var c7 rune
+	var pos int
 	var c8 rune
 	var c9 rune
 	var c10 rune
@@ -4019,6 +4024,7 @@ block3:
 	goto block4
 block4:
 	frame.Recover(checkpoint0)
+	pos = frame.Checkpoint()
 	c8 = frame.Peek()
 	if frame.Flow == 0 {
 		if c8 == 'r' {
@@ -4049,7 +4055,7 @@ block4:
 														exprs = ParseExprList(frame)
 														EOS(frame)
 														if frame.Flow == 0 {
-															ret = &Return{Exprs: exprs}
+															ret = &Return{Pos: pos, Exprs: exprs}
 															return
 														}
 														goto block5

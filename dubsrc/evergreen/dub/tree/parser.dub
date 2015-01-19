@@ -493,13 +493,19 @@ func ParseBinaryOp(min_prec int) ASTExpr {
   star {
     S();
     // TODO associativity
+    opPos := position();
     op, prec := BinaryOperator();
     if prec < min_prec {
       fail;
     }
     S();
     r := ParseBinaryOp(prec + 1);
-    e = BinaryOp{Left: e, Op: op, Right: r};
+    e = BinaryOp{
+      Left: e,
+      Op: op,
+      OpPos: opPos,
+      Right: r
+    };
   }
   return e;
 }
@@ -589,12 +595,13 @@ func ParseStatement() ASTExpr {
     EOS();
     return Fail{};
   } or {
+    pos := position();
     /"return"/;
     EndKeyword();
     S();
     exprs := ParseExprList();
     EOS();
-    return Return{Exprs: exprs};
+    return Return{Pos: pos, Exprs: exprs};
   } or {
     names := ParseTargetList();
     S();

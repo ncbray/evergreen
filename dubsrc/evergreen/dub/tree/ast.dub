@@ -188,12 +188,14 @@ struct Fail implements ASTExpr {
 }
 
 struct Return implements ASTExpr {
+  Pos int
   Exprs []ASTExpr
 }
 
 struct BinaryOp implements ASTExpr {
   Left ASTExpr
   Op string
+  OpPos int
   Right ASTExpr
   T core.DubType
 }

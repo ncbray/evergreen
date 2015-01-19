@@ -207,7 +207,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		} else {
 			expr.T = unresolvedType
 			sig := fmt.Sprintf("%s%s%s", lt.Name, expr.Op, rt.Name)
-			ctx.Status.GlobalError(fmt.Sprintf("unsupported binary op %s", sig))
+			ctx.Status.LocationError(expr.OpPos, fmt.Sprintf("unsupported binary op %s", sig))
 		}
 		return scalarReturn(expr.T)
 	case *NameRef:
@@ -256,7 +256,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		return scalarReturn(ctx.Program.Index.Nil)
 	case *Return:
 		if len(decl.ReturnTypes) != len(expr.Exprs) {
-			ctx.Status.GlobalError(fmt.Sprintf("wrong number of return types: %d vs. %d", len(expr.Exprs), len(decl.ReturnTypes)))
+			ctx.Status.LocationError(expr.Pos, fmt.Sprintf("expected %d return values, got %d", len(decl.ReturnTypes), len(expr.Exprs)))
 		}
 		for i, e := range expr.Exprs {
 			at := scalarSemanticExprPass(ctx, decl, e, scope)
