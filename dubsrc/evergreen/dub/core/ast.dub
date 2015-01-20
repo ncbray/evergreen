@@ -16,6 +16,14 @@ struct TupleType implements DubType {
   Types []DubType
 }
 
+struct FunctionType implements DubType {
+  Params []DubType
+  Result DubType
+}
+
+struct FunctionTemplateType implements DubType {
+}
+
 struct FieldType {
   Name string
   Type DubType
@@ -46,12 +54,20 @@ struct Callable {
 
 struct Function scoped implements Callable {
   Name string
+  Type FunctionType
   File File
 }
 
 struct IntrinsicFunction implements Callable {
   Name string
+  Parent IntrinsicFunctionTemplate
+  Type FunctionType
 }
+
+struct IntrinsicFunctionTemplate {
+  Name string
+}
+
 
 struct BuiltinTypeIndex {
   String BuiltinType
@@ -62,7 +78,7 @@ struct BuiltinTypeIndex {
   Bool BuiltinType
   Graph BuiltinType
   Nil NilType
-  Append IntrinsicFunction
+  Append IntrinsicFunctionTemplate
   Position IntrinsicFunction
   Slice IntrinsicFunction
 }

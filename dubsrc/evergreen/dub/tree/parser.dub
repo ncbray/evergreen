@@ -440,15 +440,6 @@ func PrimaryExpr() ASTExpr {
     /[)]/;
     return Coerce{Type: t, Expr: e};
   } or {
-    name := Ident();
-    S();
-    /[(]/;
-    S();
-    args := ParseExprList();
-    S();
-    /[)]/;
-    return Call{Name: name, Args: args};
-  } or {
     t := ParseStructTypeRef();
     S();
     /[{]/;
@@ -483,13 +474,27 @@ func PrimaryExpr() ASTExpr {
 }
 
 func ParseNameRef() NameRef {
-    // TODO supress keywords.
     return NameRef{Name: Ident()};
+}
+
+func PrimaryExprPostfix() ASTExpr {
+  e := PrimaryExpr();
+  star {
+    S();
+    pos := position();
+    /[(]/;
+    S();
+    args := ParseExprList();
+    S();
+    /[)]/;
+    e = Call{Expr: e, Pos: pos, Args: args};
+  }
+  return e;
 }
 
 // Uses precedence climbing.
 func ParseBinaryOp(min_prec int) ASTExpr {
-  e := PrimaryExpr();
+  e := PrimaryExprPostfix();
   star {
     S();
     // TODO associativity

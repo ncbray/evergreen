@@ -253,8 +253,24 @@ func generateExpr(ctx *testingContext, expr tree.ASTExpr) dst.Expr {
 		for _, arg := range expr.Args {
 			args = append(args, generateExpr(ctx, arg))
 		}
+		var c core.Callable
+		fname := "foobar"
+		switch e := expr.Expr.(type) {
+		case *tree.GetFunction:
+			c = e.Func
+			switch f := c.(type) {
+			case *core.Function:
+				fname = f.Name
+			case *core.IntrinsicFunction:
+				fname = f.Name
+			default:
+				panic(e.Func)
+			}
+		default:
+			panic(expr.Expr)
+		}
 		return &dst.Call{
-			Expr: glbl(expr.Name.Text),
+			Expr: glbl(fname),
 			Args: args,
 			F:    nil,
 		}

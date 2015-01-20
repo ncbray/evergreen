@@ -31,6 +31,20 @@ type TupleType struct {
 func (node *TupleType) isDubType() {
 }
 
+type FunctionType struct {
+	Params []DubType
+	Result DubType
+}
+
+func (node *FunctionType) isDubType() {
+}
+
+type FunctionTemplateType struct {
+}
+
+func (node *FunctionTemplateType) isDubType() {
+}
+
 type FieldType struct {
 	Name string
 	Type DubType
@@ -85,6 +99,7 @@ type Function_Scope struct {
 
 type Function struct {
 	Name  string
+	Type  *FunctionType
 	File  *File
 	Index Function_Ref
 }
@@ -93,10 +108,16 @@ func (node *Function) isCallable() {
 }
 
 type IntrinsicFunction struct {
-	Name string
+	Name   string
+	Parent *IntrinsicFunctionTemplate
+	Type   *FunctionType
 }
 
 func (node *IntrinsicFunction) isCallable() {
+}
+
+type IntrinsicFunctionTemplate struct {
+	Name string
 }
 
 type BuiltinTypeIndex struct {
@@ -108,7 +129,7 @@ type BuiltinTypeIndex struct {
 	Bool     *BuiltinType
 	Graph    *BuiltinType
 	Nil      *NilType
-	Append   *IntrinsicFunction
+	Append   *IntrinsicFunctionTemplate
 	Position *IntrinsicFunction
 	Slice    *IntrinsicFunction
 }

@@ -238,8 +238,11 @@ func lowerMatch(match tree.TextMatch, builder *dubBuilder, fb *graph.FlowBuilder
 func getPossibleFlows(c core.Callable, builtins *core.BuiltinTypeIndex) (bool, bool) {
 	switch c := c.(type) {
 	case *core.IntrinsicFunction:
+		if c.Parent == builtins.Append {
+			return true, false
+		}
 		switch c {
-		case builtins.Append, builtins.Position, builtins.Slice:
+		case builtins.Position, builtins.Slice:
 			return true, false
 		default:
 			panic(c)

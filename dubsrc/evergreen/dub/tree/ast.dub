@@ -167,6 +167,14 @@ struct SetLocal implements ASTExpr {
 struct Discard implements ASTExpr {
 }
 
+struct GetFunction implements ASTExpr {
+  Func core.Callable
+}
+
+struct GetFunctionTemplate implements ASTExpr {
+  Template core.IntrinsicFunctionTemplate
+}
+
 struct NamedExpr {
   Name Id
   Expr ASTExpr
@@ -188,7 +196,8 @@ struct Coerce implements ASTExpr {
 }
 
 struct Call implements ASTExpr {
-  Name Id
+  Expr ASTExpr
+  Pos int
   Args []ASTExpr
   Target core.Callable
   T core.DubType

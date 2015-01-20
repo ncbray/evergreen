@@ -241,8 +241,7 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 				})
 				mapper.dubFlow(frameReg, srcID, dstID)
 			case *srccore.IntrinsicFunction:
-				switch c {
-				case ctx.core.Builtins.Append:
+				if c.Parent == ctx.core.Builtins.Append {
 					if len(mappedArgs) != 2 {
 						panic(op)
 					}
@@ -255,25 +254,30 @@ func translateFlow(srcF *src.LLFunc, ctx *DubToGoContext) *dst.FlowFunc {
 						Dsts:   mappedDsts,
 					})
 					mapper.dubFlow(frameReg, srcID, dstID)
+				} else {
 
-				case ctx.core.Builtins.Position:
-					dstID := builder.EmitOp(&dst.MethodCall{
-						Expr: frameReg,
-						Name: "Checkpoint",
-						Args: mappedArgs,
-						Dsts: mappedDsts,
-					})
-					mapper.dubFlow(frameReg, srcID, dstID)
-				case ctx.core.Builtins.Slice:
-					dstID := builder.EmitOp(&dst.MethodCall{
-						Expr: frameReg,
-						Name: "Slice",
-						Args: mappedArgs,
-						Dsts: mappedDsts,
-					})
-					mapper.dubFlow(frameReg, srcID, dstID)
-				default:
-					panic(c)
+					switch c {
+					case ctx.core.Builtins.Position:
+						dstID := builder.EmitOp(&dst.MethodCall{
+							Expr: frameReg,
+							Name: "Checkpoint",
+							Args: mappedArgs,
+							Dsts: mappedDsts,
+						})
+						mapper.dubFlow(frameReg, srcID, dstID)
+
+					case ctx.core.Builtins.Slice:
+						dstID := builder.EmitOp(&dst.MethodCall{
+							Expr: frameReg,
+							Name: "Slice",
+							Args: mappedArgs,
+							Dsts: mappedDsts,
+						})
+						mapper.dubFlow(frameReg, srcID, dstID)
+
+					default:
+						panic(c)
+					}
 				}
 			default:
 				panic(op.Target)

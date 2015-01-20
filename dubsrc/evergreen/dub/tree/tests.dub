@@ -395,7 +395,7 @@ test VarDecl ParseStatement() "var foo int = 1;"
 test MultiAssign ParseStatement() "a, b, c = foo();"
   Assign {
     Expr: Call {
-      Name: Id{Text: "foo"}
+      Expr: NameRef{Name: Id{Text: "foo"}}
     }
     Targets: []ASTExpr{
       NameRef{Name: Id{Text: "a"}}
@@ -407,7 +407,7 @@ test MultiAssign ParseStatement() "a, b, c = foo();"
 
 test MultiCall ParseStatement() "foo(a, b, c);"
   Call {
-    Name: Id{Text: "foo"}
+    Expr: NameRef{Name: Id{Text: "foo"}}
     Args: []ASTExpr{
       NameRef{Name: Id{Text: "a"}}
       NameRef{Name: Id{Text: "b"}}

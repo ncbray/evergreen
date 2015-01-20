@@ -262,6 +262,20 @@ type Discard struct {
 func (node *Discard) isASTExpr() {
 }
 
+type GetFunction struct {
+	Func core.Callable
+}
+
+func (node *GetFunction) isASTExpr() {
+}
+
+type GetFunctionTemplate struct {
+	Template *core.IntrinsicFunctionTemplate
+}
+
+func (node *GetFunctionTemplate) isASTExpr() {
+}
+
 type NamedExpr struct {
 	Name *Id
 	Expr ASTExpr
@@ -292,7 +306,8 @@ func (node *Coerce) isASTExpr() {
 }
 
 type Call struct {
-	Name   *Id
+	Expr   ASTExpr
+	Pos    int
 	Args   []ASTExpr
 	Target core.Callable
 	T      core.DubType
@@ -3087,23 +3102,19 @@ func PrimaryExpr(frame *runtime.State) (ret ASTExpr) {
 	var c7 rune
 	var e0 ASTExpr
 	var c8 rune
-	var name *Id
-	var c9 rune
-	var args0 []ASTExpr
-	var c10 rune
 	var t1 ASTTypeRef
-	var c11 rune
-	var args1 []*NamedExpr
-	var c12 rune
+	var c9 rune
+	var args0 []*NamedExpr
+	var c10 rune
 	var t2 *ListTypeRef
-	var c13 rune
-	var args2 []ASTExpr
-	var c14 rune
+	var c11 rune
+	var args1 []ASTExpr
+	var c12 rune
 	var r1 *StringMatch
 	var r2 *RuneMatch
-	var c15 rune
+	var c13 rune
 	var e1 ASTExpr
-	var c16 rune
+	var c14 rune
 	var r3 *NameRef
 	checkpoint = frame.Checkpoint()
 	r0 = Literal(frame)
@@ -3214,21 +3225,21 @@ func PrimaryExpr(frame *runtime.State) (ret ASTExpr) {
 	goto block1
 block1:
 	frame.Recover(checkpoint)
-	name = Ident(frame)
+	t1 = ParseStructTypeRef(frame)
 	if frame.Flow == 0 {
 		S(frame)
 		c9 = frame.Peek()
 		if frame.Flow == 0 {
-			if c9 == '(' {
+			if c9 == '{' {
 				frame.Consume()
 				S(frame)
-				args0 = ParseExprList(frame)
+				args0 = ParseNamedExprList(frame)
 				S(frame)
 				c10 = frame.Peek()
 				if frame.Flow == 0 {
-					if c10 == ')' {
+					if c10 == '}' {
 						frame.Consume()
-						ret = &Call{Name: name, Args: args0}
+						ret = &Construct{Type: t1, Args: args0}
 						return
 					}
 					frame.Fail()
@@ -3244,7 +3255,7 @@ block1:
 	goto block2
 block2:
 	frame.Recover(checkpoint)
-	t1 = ParseStructTypeRef(frame)
+	t2 = ParseListTypeRef(frame)
 	if frame.Flow == 0 {
 		S(frame)
 		c11 = frame.Peek()
@@ -3252,13 +3263,13 @@ block2:
 			if c11 == '{' {
 				frame.Consume()
 				S(frame)
-				args1 = ParseNamedExprList(frame)
+				args1 = ParseExprList(frame)
 				S(frame)
 				c12 = frame.Peek()
 				if frame.Flow == 0 {
 					if c12 == '}' {
 						frame.Consume()
-						ret = &Construct{Type: t1, Args: args1}
+						ret = &ConstructList{Type: t2, Args: args1}
 						return
 					}
 					frame.Fail()
@@ -3274,36 +3285,6 @@ block2:
 	goto block3
 block3:
 	frame.Recover(checkpoint)
-	t2 = ParseListTypeRef(frame)
-	if frame.Flow == 0 {
-		S(frame)
-		c13 = frame.Peek()
-		if frame.Flow == 0 {
-			if c13 == '{' {
-				frame.Consume()
-				S(frame)
-				args2 = ParseExprList(frame)
-				S(frame)
-				c14 = frame.Peek()
-				if frame.Flow == 0 {
-					if c14 == '}' {
-						frame.Consume()
-						ret = &ConstructList{Type: t2, Args: args2}
-						return
-					}
-					frame.Fail()
-					goto block4
-				}
-				goto block4
-			}
-			frame.Fail()
-			goto block4
-		}
-		goto block4
-	}
-	goto block4
-block4:
-	frame.Recover(checkpoint)
 	r1 = StringMatchExpr(frame)
 	if frame.Flow == 0 {
 		ret = r1
@@ -3316,33 +3297,33 @@ block4:
 		return
 	}
 	frame.Recover(checkpoint)
-	c15 = frame.Peek()
+	c13 = frame.Peek()
 	if frame.Flow == 0 {
-		if c15 == '(' {
+		if c13 == '(' {
 			frame.Consume()
 			S(frame)
 			e1 = ParseExpr(frame)
 			if frame.Flow == 0 {
 				S(frame)
-				c16 = frame.Peek()
+				c14 = frame.Peek()
 				if frame.Flow == 0 {
-					if c16 == ')' {
+					if c14 == ')' {
 						frame.Consume()
 						ret = e1
 						return
 					}
 					frame.Fail()
-					goto block5
+					goto block4
 				}
-				goto block5
+				goto block4
 			}
-			goto block5
+			goto block4
 		}
 		frame.Fail()
-		goto block5
+		goto block4
 	}
-	goto block5
-block5:
+	goto block4
+block4:
 	frame.Recover(checkpoint)
 	r3 = ParseNameRef(frame)
 	if frame.Flow == 0 {
@@ -3362,6 +3343,53 @@ func ParseNameRef(frame *runtime.State) (ret *NameRef) {
 	return
 }
 
+func PrimaryExprPostfix(frame *runtime.State) (ret ASTExpr) {
+	var e0 ASTExpr
+	var e1 ASTExpr
+	var checkpoint int
+	var pos int
+	var c0 rune
+	var args []ASTExpr
+	var c1 rune
+	e0 = PrimaryExpr(frame)
+	if frame.Flow == 0 {
+		e1 = e0
+		goto block1
+	}
+	return
+block1:
+	checkpoint = frame.Checkpoint()
+	S(frame)
+	pos = frame.Checkpoint()
+	c0 = frame.Peek()
+	if frame.Flow == 0 {
+		if c0 == '(' {
+			frame.Consume()
+			S(frame)
+			args = ParseExprList(frame)
+			S(frame)
+			c1 = frame.Peek()
+			if frame.Flow == 0 {
+				if c1 == ')' {
+					frame.Consume()
+					e1 = &Call{Expr: e1, Pos: pos, Args: args}
+					goto block1
+				}
+				frame.Fail()
+				goto block2
+			}
+			goto block2
+		}
+		frame.Fail()
+		goto block2
+	}
+	goto block2
+block2:
+	frame.Recover(checkpoint)
+	ret = e1
+	return
+}
+
 func ParseBinaryOp(frame *runtime.State, min_prec int) (ret ASTExpr) {
 	var e0 ASTExpr
 	var e1 ASTExpr
@@ -3370,7 +3398,7 @@ func ParseBinaryOp(frame *runtime.State, min_prec int) (ret ASTExpr) {
 	var op string
 	var prec int
 	var r ASTExpr
-	e0 = PrimaryExpr(frame)
+	e0 = PrimaryExprPostfix(frame)
 	if frame.Flow == 0 {
 		e1 = e0
 		goto block1

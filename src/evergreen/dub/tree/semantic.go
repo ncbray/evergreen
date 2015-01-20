@@ -111,6 +111,7 @@ func semanticTargetPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, 
 			info, exists = scope.localInfo(name)
 			if !exists {
 				ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Tried to assign to unknown variable %#v", name))
+				return &Discard{}
 			}
 			// TODO type check
 		}
@@ -163,6 +164,37 @@ func resolve(ctx *semanticPassContext, name string) (namedElement, bool) {
 	return result, ok
 }
 
+func funcType(c core.Callable) *core.FunctionType {
+	switch f := c.(type) {
+	case *core.Function:
+		return f.Type
+	case *core.IntrinsicFunction:
+		return f.Type
+	default:
+		panic(c)
+	}
+}
+
+func specializeTemplate(ctx *semanticPassContext, template *core.IntrinsicFunctionTemplate, args []core.DubType) (core.Callable, *core.FunctionType) {
+	if template != ctx.Program.Index.Append {
+		panic(template)
+	}
+	if len(args) != 2 {
+		panic(args)
+	}
+	ft := &core.FunctionType{
+		Params: args,
+		Result: args[0],
+	}
+
+	// TODO memoize
+	return &core.IntrinsicFunction{
+		Name:   template.Name,
+		Parent: template,
+		Type:   ft,
+	}, ft
+}
+
 func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) (ASTExpr, core.DubType) {
 	switch expr := expr.(type) {
 	case *Repeat:
@@ -209,11 +241,22 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 	case *NameRef:
 		name := expr.Name.Text
 		info, found := scope.localInfo(name)
-		if !found {
-			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return expr, unresolvedType
+		if found {
+			return &GetLocal{Info: info}, info.T
 		}
-		return &GetLocal{Info: info}, info.T
+		named, found := resolve(ctx, name)
+		if found {
+			switch named := named.(type) {
+			case *NamedCallable:
+				return &GetFunction{Func: named.Func}, funcType(named.Func)
+			case *NamedCallableTemplate:
+				return &GetFunctionTemplate{Template: named.Func}, &core.FunctionTemplateType{}
+			default:
+				panic(named)
+			}
+		}
+		ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
+		return expr, unresolvedType
 	case *Assign:
 		var t core.DubType
 		if expr.Expr != nil {
@@ -278,25 +321,44 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 	case *Fail:
 		return expr, voidType
 	case *Call:
-		name := expr.Name.Text
-		fd, ok := resolve(ctx, name)
-		if !ok {
-			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return expr, unresolvedType
-		}
-		f, ok := AsFunc(fd)
-		if !ok {
-			ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("%#v is not callable", name))
-			return expr, unresolvedType
-		}
+		// Process the main expr
+		var et core.DubType
+		expr.Expr, et = semanticExprPass(ctx, decl, expr.Expr, scope)
+
+		// Process args
 		args := make([]core.DubType, len(expr.Args))
 		for i, e := range expr.Args {
 			expr.Args[i], args[i] = semanticExprPass(ctx, decl, e, scope)
 		}
-		t := ReturnType(ctx, f, args)
-		expr.Target = f
-		expr.T = t
-		return expr, t
+
+		// Resolve the call
+		var rt core.DubType = unresolvedType
+		if et != unresolvedType {
+			switch ft := et.(type) {
+			case *core.FunctionType:
+				ref, ok := expr.Expr.(*GetFunction)
+				if ok {
+					expr.Target = ref.Func
+					rt = ft.Result
+				} else {
+					ctx.Status.LocationError(expr.Pos, "can only call directly referenced functions")
+				}
+			case *core.FunctionTemplateType:
+				ref, ok := expr.Expr.(*GetFunctionTemplate)
+				if ok {
+					concrete, cft := specializeTemplate(ctx, ref.Template, args)
+					expr.Target = concrete
+					rt = cft.Result
+				} else {
+					ctx.Status.LocationError(expr.Pos, "can only call directly referenced function templates")
+				}
+			default:
+				ctx.Status.LocationError(expr.Pos, "expr not callable")
+			}
+		}
+
+		expr.T = rt
+		return expr, rt
 	case *Construct:
 		t := semanticTypePass(ctx, expr.Type)
 		st, ok := t.(*core.StructType)
@@ -433,11 +495,25 @@ func semanticBlockPass(ctx *semanticPassContext, decl *FuncDecl, block []ASTExpr
 }
 
 func semanticFuncSignaturePass(ctx *semanticPassContext, decl *FuncDecl) {
-	for _, p := range decl.Params {
-		semanticTypePass(ctx, p.Type)
+	args := make([]core.DubType, len(decl.Params))
+	for i, p := range decl.Params {
+		args[i] = semanticTypePass(ctx, p.Type)
 	}
-	for _, t := range decl.ReturnTypes {
-		semanticTypePass(ctx, t)
+	var result core.DubType
+	if len(decl.ReturnTypes) != 1 {
+		results := make([]core.DubType, len(decl.ReturnTypes))
+		for i, t := range decl.ReturnTypes {
+			results[i] = semanticTypePass(ctx, t)
+		}
+		result = &core.TupleType{
+			Types: results,
+		}
+	} else {
+		result = semanticTypePass(ctx, decl.ReturnTypes[0])
+	}
+	decl.F.Type = &core.FunctionType{
+		Params: args,
+		Result: result,
 	}
 }
 
@@ -560,13 +636,11 @@ type NamedCallable struct {
 func (element *NamedCallable) isNamedElement() {
 }
 
-func AsFunc(node namedElement) (core.Callable, bool) {
-	switch node := node.(type) {
-	case *NamedCallable:
-		return node.Func, true
-	default:
-		return nil, false
-	}
+type NamedCallableTemplate struct {
+	Func *core.IntrinsicFunctionTemplate
+}
+
+func (element *NamedCallableTemplate) isNamedElement() {
 }
 
 type NamedPackage struct {
@@ -631,11 +705,6 @@ func ReturnType(ctx *semanticPassContext, node core.Callable, args []core.DubTyp
 		}
 	case *core.IntrinsicFunction:
 		switch node {
-		case ctx.Program.Index.Append:
-			if len(args) != 2 {
-				panic(args)
-			}
-			return args[0]
 		case ctx.Program.Index.Position:
 			if len(args) != 0 {
 				panic(args)
@@ -655,23 +724,48 @@ func ReturnType(ctx *semanticPassContext, node core.Callable, args []core.DubTyp
 }
 
 func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
-	return &core.BuiltinTypeIndex{
-		String:   &core.BuiltinType{Name: "string"},
-		Rune:     &core.BuiltinType{Name: "rune"},
-		Int:      &core.BuiltinType{Name: "int"},
-		Int64:    &core.BuiltinType{Name: "int64"},
-		Float32:  &core.BuiltinType{Name: "float32"},
-		Bool:     &core.BuiltinType{Name: "bool"},
-		Graph:    &core.BuiltinType{Name: "graph"},
-		Nil:      &core.NilType{},
-		Append:   &core.IntrinsicFunction{Name: "append"},
-		Position: &core.IntrinsicFunction{Name: "position"},
-		Slice:    &core.IntrinsicFunction{Name: "slice"},
+	index := &core.BuiltinTypeIndex{
+		String:  &core.BuiltinType{Name: "string"},
+		Rune:    &core.BuiltinType{Name: "rune"},
+		Int:     &core.BuiltinType{Name: "int"},
+		Int64:   &core.BuiltinType{Name: "int64"},
+		Float32: &core.BuiltinType{Name: "float32"},
+		Bool:    &core.BuiltinType{Name: "bool"},
+		Graph:   &core.BuiltinType{Name: "graph"},
+		Nil:     &core.NilType{},
+	}
+
+	index.Append = &core.IntrinsicFunctionTemplate{
+		Name: "append",
+	}
+	index.Position = &core.IntrinsicFunction{
+		Name: "position",
+		Type: &core.FunctionType{
+			Params: []core.DubType{},
+			Result: index.Int,
+		},
+	}
+	index.Slice = &core.IntrinsicFunction{
+		Name: "slice",
+		Type: &core.FunctionType{
+			Params: []core.DubType{
+				index.Int,
+				index.Int,
+			},
+			Result: index.String,
+		},
+	}
+	return index
+}
+
+func addIntrinsicFunction(f *core.IntrinsicFunction, namespace map[string]namedElement) {
+	namespace[f.Name] = &NamedCallable{
+		Func: f,
 	}
 }
 
-func addIntrinsticFunction(f *core.IntrinsicFunction, namespace map[string]namedElement) {
-	namespace[f.Name] = &NamedCallable{
+func addIntrinsicFunctionTemplate(f *core.IntrinsicFunctionTemplate, namespace map[string]namedElement) {
+	namespace[f.Name] = &NamedCallableTemplate{
 		Func: f,
 	}
 }
@@ -698,9 +792,9 @@ func MakeProgramScope(program *Program) *ProgramScope {
 	addBuiltinType(builtins.Bool, ns)
 	addBuiltinType(builtins.Graph, ns)
 
-	addIntrinsticFunction(builtins.Append, ns)
-	addIntrinsticFunction(builtins.Position, ns)
-	addIntrinsticFunction(builtins.Slice, ns)
+	addIntrinsicFunctionTemplate(builtins.Append, ns)
+	addIntrinsicFunction(builtins.Position, ns)
+	addIntrinsicFunction(builtins.Slice, ns)
 
 	return programScope
 }
