@@ -41,8 +41,9 @@ itself.  This is still a risk, however, so be careful.
 ## Background
 
 ### Layout
-* /dub/ contains the DSL sources.
+* /dubsrc/ contains the DSL sources.
 * /src/ contains the Go sources.
+* /src/.../generated_dub.go are generated files that have been checked in.
 * /src/generated/ contains a temporary copy of the generated sources for testing.
 * /output/ is a temporary directory for visualization and debugging information.
 
