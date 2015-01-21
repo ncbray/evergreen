@@ -122,7 +122,7 @@ struct DestructureStruct implements Destructure {
 }
 
 struct DestructureList implements Destructure {
-  Type ListTypeRef
+  Type ASTTypeRef
   Args []Destructure
 }
 
@@ -186,7 +186,7 @@ struct Construct implements ASTExpr {
 }
 
 struct ConstructList implements ASTExpr {
-  Type ListTypeRef
+  Type ASTTypeRef
   Args []ASTExpr
 }
 

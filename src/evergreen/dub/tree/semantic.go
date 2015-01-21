@@ -263,7 +263,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			expr.Expr, t = semanticExprPass(ctx, decl, expr.Expr, scope)
 		}
 		if expr.Type != nil {
-			t = semanticTypePass(ctx, expr.Type)
+			expr.Type, t = semanticTypePass(ctx, expr.Type)
 		}
 		if len(expr.Targets) != 1 {
 			count := 1
@@ -360,7 +360,8 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		expr.T = rt
 		return expr, rt
 	case *Construct:
-		t := semanticTypePass(ctx, expr.Type)
+		var t core.DubType
+		expr.Type, t = semanticTypePass(ctx, expr.Type)
 		st, ok := t.(*core.StructType)
 		if t != nil && !ok {
 			panic(t)
@@ -383,7 +384,8 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		}
 		return expr, t
 	case *ConstructList:
-		t := semanticTypePass(ctx, expr.Type)
+		var t core.DubType
+		expr.Type, t = semanticTypePass(ctx, expr.Type)
 		lt, ok := t.(*core.ListType)
 		if t != nil && !ok {
 			panic(t)
@@ -399,7 +401,8 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		}
 		return expr, t
 	case *Coerce:
-		t := semanticTypePass(ctx, expr.Type)
+		var t core.DubType
+		expr.Type, t = semanticTypePass(ctx, expr.Type)
 		expr.Expr, _ = semanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO type check
 		return expr, t
@@ -408,7 +411,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 	}
 }
 
-func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) core.DubType {
+func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) (ASTTypeRef, core.DubType) {
 	switch node := node.(type) {
 	case *TypeRef:
 		name := node.Name.Text
@@ -416,16 +419,16 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) core.DubType {
 		if !ok {
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
 			node.T = unresolvedType
-			return unresolvedType
+			return node, unresolvedType
 		}
 		t, ok := AsType(d)
 		if !ok {
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
 			node.T = unresolvedType
-			return unresolvedType
+			return node, unresolvedType
 		}
 		node.T = t
-		return t
+		return node, t
 	case *QualifiedTypeRef:
 		node.T = unresolvedType
 
@@ -433,31 +436,36 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) core.DubType {
 		pkg, ok := ctx.Module.Namespace[mname]
 		if !ok {
 			ctx.Status.LocationError(node.Package.Pos, fmt.Sprintf("Could not resolve name %#v", mname))
-			return unresolvedType
+			return node, unresolvedType
 		}
 		scope, ok := AsPackage(pkg)
 		if !ok {
 			ctx.Status.LocationError(node.Package.Pos, fmt.Sprintf("%#v is not a package", mname))
-			return unresolvedType
+			return node, unresolvedType
 		}
 		name := node.Name.Text
 		d, ok := scope.Namespace[name]
 		if !ok {
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			return unresolvedType
+			return node, unresolvedType
 		}
 		t, ok := AsType(d)
 		if !ok {
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
-			return unresolvedType
+			return node, unresolvedType
 		}
 		node.T = t
-		return t
+		return node, t
 	case *ListTypeRef:
-		t := semanticTypePass(ctx, node.Type)
-		// TODO memoize list types
-		node.T = &core.ListType{Type: t}
-		return node.T
+		var t core.DubType
+		node.Type, t = semanticTypePass(ctx, node.Type)
+		if t == unresolvedType {
+			node.T = unresolvedType
+		} else {
+			// TODO memoize list types
+			node.T = &core.ListType{Type: t}
+		}
+		return node, node.T
 	default:
 		panic(node)
 	}
@@ -476,7 +484,7 @@ func refLocation(node ASTTypeRef) int {
 }
 
 func semanticStructTypePass(ctx *semanticPassContext, node ASTTypeRef) *core.StructType {
-	t := semanticTypePass(ctx, node)
+	node, t := semanticTypePass(ctx, node)
 	if t == unresolvedType {
 		return nil
 	}
@@ -497,19 +505,19 @@ func semanticBlockPass(ctx *semanticPassContext, decl *FuncDecl, block []ASTExpr
 func semanticFuncSignaturePass(ctx *semanticPassContext, decl *FuncDecl) {
 	args := make([]core.DubType, len(decl.Params))
 	for i, p := range decl.Params {
-		args[i] = semanticTypePass(ctx, p.Type)
+		p.Type, args[i] = semanticTypePass(ctx, p.Type)
 	}
 	var result core.DubType
 	if len(decl.ReturnTypes) != 1 {
 		results := make([]core.DubType, len(decl.ReturnTypes))
 		for i, t := range decl.ReturnTypes {
-			results[i] = semanticTypePass(ctx, t)
+			decl.ReturnTypes[i], results[i] = semanticTypePass(ctx, t)
 		}
 		result = &core.TupleType{
 			Types: results,
 		}
 	} else {
-		result = semanticTypePass(ctx, decl.ReturnTypes[0])
+		decl.ReturnTypes[0], result = semanticTypePass(ctx, decl.ReturnTypes[0])
 	}
 	decl.F.Type = &core.FunctionType{
 		Params: args,
@@ -538,9 +546,11 @@ func semanticStructPass(ctx *semanticPassContext, decl *StructDecl) {
 	}
 	t.Fields = make([]*core.FieldType, len(decl.Fields))
 	for i, f := range decl.Fields {
+		var ft core.DubType
+		f.Type, ft = semanticTypePass(ctx, f.Type)
 		t.Fields[i] = &core.FieldType{
 			Name: f.Name.Text,
-			Type: semanticTypePass(ctx, f.Type),
+			Type: ft,
 		}
 	}
 }
@@ -548,7 +558,8 @@ func semanticStructPass(ctx *semanticPassContext, decl *StructDecl) {
 func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destructure, scope *semanticScope) core.DubType {
 	switch d := d.(type) {
 	case *DestructureStruct:
-		t := semanticTypePass(ctx, d.Type)
+		var t core.DubType
+		d.Type, t = semanticTypePass(ctx, d.Type)
 		st, ok := t.(*core.StructType)
 		if t != nil && !ok {
 			panic(t)
@@ -570,7 +581,8 @@ func semanticDestructurePass(ctx *semanticPassContext, decl *FuncDecl, d Destruc
 		}
 		return t
 	case *DestructureList:
-		t := semanticTypePass(ctx, d.Type)
+		var t core.DubType
+		d.Type, t = semanticTypePass(ctx, d.Type)
 		lt, ok := t.(*core.ListType)
 		if t != nil && !ok {
 			panic(t)

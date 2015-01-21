@@ -187,7 +187,7 @@ func (node *DestructureStruct) isDestructure() {
 }
 
 type DestructureList struct {
-	Type *ListTypeRef
+	Type ASTTypeRef
 	Args []Destructure
 }
 
@@ -290,7 +290,7 @@ func (node *Construct) isASTExpr() {
 }
 
 type ConstructList struct {
-	Type *ListTypeRef
+	Type ASTTypeRef
 	Args []ASTExpr
 }
 
