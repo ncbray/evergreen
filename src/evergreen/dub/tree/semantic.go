@@ -418,20 +418,15 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) (ASTTypeRef, co
 		d, ok := resolve(ctx, name)
 		if !ok {
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
-			node.T = unresolvedType
 			return node, unresolvedType
 		}
 		t, ok := AsType(d)
 		if !ok {
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
-			node.T = unresolvedType
 			return node, unresolvedType
 		}
-		node.T = t
-		return node, t
+		return &GetType{Type: t}, t
 	case *QualifiedTypeRef:
-		node.T = unresolvedType
-
 		mname := node.Package.Text
 		pkg, ok := ctx.Module.Namespace[mname]
 		if !ok {
@@ -454,18 +449,16 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) (ASTTypeRef, co
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
 			return node, unresolvedType
 		}
-		node.T = t
-		return node, t
+		return &GetType{Type: t}, t
 	case *ListTypeRef:
 		var t core.DubType
 		node.Type, t = semanticTypePass(ctx, node.Type)
 		if t == unresolvedType {
-			node.T = unresolvedType
-		} else {
-			// TODO memoize list types
-			node.T = &core.ListType{Type: t}
+			return node, unresolvedType
 		}
-		return node, node.T
+		// TODO memoize list types
+		t = &core.ListType{Type: t}
+		return &GetType{Type: t}, t
 	default:
 		panic(node)
 	}
@@ -687,12 +680,10 @@ func GetField(node *core.StructType, name string) *core.FieldType {
 
 func ResolveType(ref ASTTypeRef) core.DubType {
 	switch ref := ref.(type) {
-	case *TypeRef:
-		return ref.T
-	case *QualifiedTypeRef:
-		return ref.T
-	case *ListTypeRef:
-		return ref.T
+	case *GetType:
+		return ref.Type
+	case *TypeRef, *QualifiedTypeRef, *ListTypeRef:
+		return unresolvedType
 	default:
 		panic(ref)
 	}

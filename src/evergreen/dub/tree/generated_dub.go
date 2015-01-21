@@ -139,7 +139,6 @@ type ASTTypeRef interface {
 
 type TypeRef struct {
 	Name *Id
-	T    core.DubType
 }
 
 func (node *TypeRef) isASTTypeRef() {
@@ -147,7 +146,6 @@ func (node *TypeRef) isASTTypeRef() {
 
 type ListTypeRef struct {
 	Type ASTTypeRef
-	T    core.DubType
 }
 
 func (node *ListTypeRef) isASTTypeRef() {
@@ -156,10 +154,16 @@ func (node *ListTypeRef) isASTTypeRef() {
 type QualifiedTypeRef struct {
 	Package *Id
 	Name    *Id
-	T       core.DubType
 }
 
 func (node *QualifiedTypeRef) isASTTypeRef() {
+}
+
+type GetType struct {
+	Type core.DubType
+}
+
+func (node *GetType) isASTTypeRef() {
 }
 
 type Destructure interface {

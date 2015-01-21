@@ -90,18 +90,19 @@ struct ASTTypeRef {
 
 struct TypeRef implements ASTTypeRef {
   Name Id
-  T core.DubType
 }
 
 struct ListTypeRef implements ASTTypeRef {
   Type ASTTypeRef
-  T core.DubType
 }
 
 struct QualifiedTypeRef implements ASTTypeRef {
   Package Id
   Name Id
-  T core.DubType
+}
+
+struct GetType implements ASTTypeRef {
+  Type core.DubType
 }
 
 struct Destructure {
