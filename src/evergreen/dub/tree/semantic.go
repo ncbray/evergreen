@@ -7,6 +7,66 @@ import (
 	"strings"
 )
 
+type tupleLUT struct {
+	Type *core.TupleType
+	Next map[core.DubType]*tupleLUT
+}
+
+func makeTupleLUT() *tupleLUT {
+	return &tupleLUT{Next: map[core.DubType]*tupleLUT{}}
+}
+
+type specialization struct {
+	Func   *core.IntrinsicFunctionTemplate
+	Params *core.TupleType
+}
+
+type typeMemoizer struct {
+	Tuples      *tupleLUT
+	Lists       map[core.DubType]*core.ListType
+	Specialized map[specialization]core.Callable
+}
+
+func (memo *typeMemoizer) getTuple(types []core.DubType) *core.TupleType {
+	current := memo.Tuples
+	for _, t := range types {
+		next, ok := current.Next[t]
+		if !ok {
+			next = makeTupleLUT()
+			current.Next[t] = next
+		}
+		current = next
+	}
+	if current.Type == nil {
+		current.Type = &core.TupleType{Types: types}
+	}
+	return current.Type
+}
+
+func (memo *typeMemoizer) getList(t core.DubType) *core.ListType {
+	lt, ok := memo.Lists[t]
+	if !ok {
+		lt = &core.ListType{Type: t}
+		memo.Lists[t] = lt
+	}
+	return lt
+}
+
+// TODO remove ft parameter?
+func (memo *typeMemoizer) getSpecialized(template *core.IntrinsicFunctionTemplate, params []core.DubType, ft *core.FunctionType) core.Callable {
+	key := specialization{Func: template, Params: memo.getTuple(params)}
+	c, ok := memo.Specialized[key]
+	if !ok {
+		c = &core.IntrinsicFunction{
+			Name:   template.Name,
+			Parent: template,
+			Type:   ft,
+		}
+		memo.Specialized[key] = c
+	}
+	return c
+}
+
 type semanticScope struct {
 	parent *semanticScope
 	locals map[string]*LocalInfo
@@ -31,8 +91,6 @@ func childScope(scope *semanticScope) *semanticScope {
 }
 
 var unresolvedType core.DubType = nil
-
-var voidType = &core.TupleType{}
 
 func TypeMatches(actual core.DubType, expected core.DubType, exact bool) bool {
 	if actual == unresolvedType || expected == unresolvedType {
@@ -187,33 +245,28 @@ func specializeTemplate(ctx *semanticPassContext, template *core.IntrinsicFuncti
 		Result: args[0],
 	}
 
-	// TODO memoize
-	return &core.IntrinsicFunction{
-		Name:   template.Name,
-		Parent: template,
-		Type:   ft,
-	}, ft
+	return ctx.Memo.getSpecialized(template, []core.DubType{args[1]}, ft), ft
 }
 
 func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) (ASTExpr, core.DubType) {
 	switch expr := expr.(type) {
 	case *Repeat:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
-		return expr, voidType
+		return expr, ctx.Void
 	case *Choice:
 		for _, block := range expr.Blocks {
 			semanticBlockPass(ctx, decl, block, childScope(scope))
 		}
-		return expr, voidType
+		return expr, ctx.Void
 	case *Optional:
 		semanticBlockPass(ctx, decl, expr.Block, scope)
-		return expr, voidType
+		return expr, ctx.Void
 	case *If:
 		expr.Expr, _ = semanticExprPass(ctx, decl, expr.Expr, scope)
 		// TODO check condition type
 		semanticBlockPass(ctx, decl, expr.Block, childScope(scope))
 		semanticBlockPass(ctx, decl, expr.Else, childScope(scope))
-		return expr, voidType
+		return expr, ctx.Void
 	case *BinaryOp:
 		var l, r core.DubType
 		expr.Left, l = semanticExprPass(ctx, decl, expr.Left, scope)
@@ -317,9 +370,9 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 
 			}
 		}
-		return expr, voidType
+		return expr, ctx.Void
 	case *Fail:
-		return expr, voidType
+		return expr, ctx.Void
 	case *Call:
 		// Process the main expr
 		var et core.DubType
@@ -456,8 +509,7 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) (ASTTypeRef, co
 		if t == unresolvedType {
 			return node, unresolvedType
 		}
-		// TODO memoize list types
-		t = &core.ListType{Type: t}
+		t = ctx.Memo.getList(t)
 		return &GetType{Type: t}, t
 	default:
 		panic(node)
@@ -506,9 +558,7 @@ func semanticFuncSignaturePass(ctx *semanticPassContext, decl *FuncDecl) {
 		for i, t := range decl.ReturnTypes {
 			decl.ReturnTypes[i], results[i] = semanticTypePass(ctx, t)
 		}
-		result = &core.TupleType{
-			Types: results,
-		}
+		result = ctx.Memo.getTuple(results)
 	} else {
 		decl.ReturnTypes[0], result = semanticTypePass(ctx, decl.ReturnTypes[0])
 	}
@@ -701,8 +751,7 @@ func ReturnType(ctx *semanticPassContext, node core.Callable, args []core.DubTyp
 			for i, t := range f.ReturnTypes {
 				types[i] = ResolveType(t)
 			}
-			// TODO memoize
-			return &core.TupleType{Types: types}
+			return ctx.Memo.getTuple(types)
 		} else {
 			return ResolveType(f.ReturnTypes[0])
 		}
@@ -809,6 +858,8 @@ type semanticPassContext struct {
 	Status         compiler.PassStatus
 	Core           *core.CoreProgram
 	Functions      []*FuncDecl
+	Memo           *typeMemoizer
+	Void           *core.TupleType
 }
 
 func resolveImport(ctx *semanticPassContext, imp *ImportDecl) {
@@ -919,6 +970,13 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 	status.Begin()
 	defer status.End()
 
+	memo := &typeMemoizer{
+		Tuples:      makeTupleLUT(),
+		Lists:       map[core.DubType]*core.ListType{},
+		Specialized: map[specialization]core.Callable{},
+	}
+	voidType := memo.getTuple(nil)
+
 	programScope := MakeProgramScope(program)
 	coreProg := &core.CoreProgram{
 		Builtins:       program.Builtins,
@@ -952,6 +1010,8 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 			ModuleContexts: ctxs,
 			Status:         status,
 			Core:           coreProg,
+			Memo:           memo,
+			Void:           voidType,
 		}
 	}
 
