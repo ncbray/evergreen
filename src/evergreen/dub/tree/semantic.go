@@ -21,10 +21,16 @@ type specialization struct {
 	Params *core.TupleType
 }
 
+type funcTypeKey struct {
+	Params *core.TupleType
+	Result core.DubType
+}
+
 type typeMemoizer struct {
 	Tuples      *tupleLUT
 	Lists       map[core.DubType]*core.ListType
 	Specialized map[specialization]core.Callable
+	Funcs       map[funcTypeKey]*core.FunctionType
 }
 
 func (memo *typeMemoizer) getTuple(types []core.DubType) *core.TupleType {
@@ -65,6 +71,19 @@ func (memo *typeMemoizer) getSpecialized(template *core.IntrinsicFunctionTemplat
 		memo.Specialized[key] = c
 	}
 	return c
+}
+
+func (memo *typeMemoizer) getFunctionType(params []core.DubType, result core.DubType) *core.FunctionType {
+	key := funcTypeKey{Params: memo.getTuple(params), Result: result}
+	ft, ok := memo.Funcs[key]
+	if !ok {
+		ft = &core.FunctionType{
+			Params: params,
+			Result: result,
+		}
+		memo.Funcs[key] = ft
+	}
+	return ft
 }
 
 type semanticScope struct {
@@ -240,11 +259,7 @@ func specializeTemplate(ctx *semanticPassContext, template *core.IntrinsicFuncti
 	if len(args) != 2 {
 		panic(args)
 	}
-	ft := &core.FunctionType{
-		Params: args,
-		Result: args[0],
-	}
-
+	ft := ctx.Memo.getFunctionType(args, args[0])
 	return ctx.Memo.getSpecialized(template, []core.DubType{args[1]}, ft), ft
 }
 
@@ -562,10 +577,7 @@ func semanticFuncSignaturePass(ctx *semanticPassContext, decl *FuncDecl) {
 	} else {
 		decl.ReturnTypes[0], result = semanticTypePass(ctx, decl.ReturnTypes[0])
 	}
-	decl.F.Type = &core.FunctionType{
-		Params: args,
-		Result: result,
-	}
+	decl.F.Type = ctx.Memo.getFunctionType(args, result)
 }
 
 func semanticFuncBodyPass(ctx *semanticPassContext, decl *FuncDecl) {
@@ -792,6 +804,7 @@ func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
 	}
 	index.Position = &core.IntrinsicFunction{
 		Name: "position",
+		// TODO memoize
 		Type: &core.FunctionType{
 			Params: []core.DubType{},
 			Result: index.Int,
@@ -799,6 +812,7 @@ func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
 	}
 	index.Slice = &core.IntrinsicFunction{
 		Name: "slice",
+		// TODO memoize
 		Type: &core.FunctionType{
 			Params: []core.DubType{
 				index.Int,
@@ -974,6 +988,7 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 		Tuples:      makeTupleLUT(),
 		Lists:       map[core.DubType]*core.ListType{},
 		Specialized: map[specialization]core.Callable{},
+		Funcs:       map[funcTypeKey]*core.FunctionType{},
 	}
 	voidType := memo.getTuple(nil)
 
