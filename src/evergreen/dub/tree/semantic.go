@@ -380,7 +380,8 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			if i < len(decl.ReturnTypes) {
 				et := ResolveType(decl.ReturnTypes[i])
 				if !TypeMatches(at, et, false) {
-					ctx.Status.GlobalError(fmt.Sprintf("return: %s vs. %s", core.TypeName(at), core.TypeName(et)))
+					// TODO point at the exact expression.
+					ctx.Status.LocationError(expr.Pos, fmt.Sprintf("return: %s vs. %s", core.TypeName(at), core.TypeName(et)))
 				}
 
 			}
