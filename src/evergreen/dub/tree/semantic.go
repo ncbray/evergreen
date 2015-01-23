@@ -383,7 +383,6 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 					// TODO point at the exact expression.
 					ctx.Status.LocationError(expr.Pos, fmt.Sprintf("return: %s vs. %s", core.TypeName(at), core.TypeName(et)))
 				}
-
 			}
 		}
 		return expr, ctx.Void
@@ -408,6 +407,17 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				ref, ok := expr.Expr.(*GetFunction)
 				if ok {
 					expr.Target = ref.Func
+					if len(args) == len(ft.Params) {
+						for i, at := range args {
+							et := ft.Params[i]
+							if !TypeMatches(at, et, false) {
+								// TODO point at the exact expression.
+								ctx.Status.LocationError(expr.Pos, fmt.Sprintf("argument %d - got %s, expected %s", i, core.TypeName(at), core.TypeName(et)))
+							}
+						}
+					} else {
+						ctx.Status.LocationError(expr.Pos, fmt.Sprintf("expected %d arguments, got %d", len(ft.Params), len(args)))
+					}
 					rt = ft.Result
 				} else {
 					ctx.Status.LocationError(expr.Pos, "can only call directly referenced functions")
