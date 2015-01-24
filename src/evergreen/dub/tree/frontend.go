@@ -84,7 +84,6 @@ func parseProgram(status compiler.PassStatus, p compiler.LocationProvider, root 
 	}
 	return &Program{
 		Packages: packages,
-		Builtins: MakeBuiltinTypeIndex(),
 	}
 }
 

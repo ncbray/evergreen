@@ -798,7 +798,7 @@ func ReturnType(ctx *semanticPassContext, node core.Callable, args []core.DubTyp
 	}
 }
 
-func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
+func makeBuiltinTypeIndex(memo *typeMemoizer) *core.BuiltinTypeIndex {
 	index := &core.BuiltinTypeIndex{
 		String:  &core.BuiltinType{Name: "string"},
 		Rune:    &core.BuiltinType{Name: "rune"},
@@ -815,22 +815,21 @@ func MakeBuiltinTypeIndex() *core.BuiltinTypeIndex {
 	}
 	index.Position = &core.IntrinsicFunction{
 		Name: "position",
-		// TODO memoize
-		Type: &core.FunctionType{
-			Params: []core.DubType{},
-			Result: index.Int,
-		},
+		Type: memo.getFunctionType(
+			[]core.DubType{},
+			index.Int,
+		),
 	}
 	index.Slice = &core.IntrinsicFunction{
 		Name: "slice",
 		// TODO memoize
-		Type: &core.FunctionType{
-			Params: []core.DubType{
+		Type: memo.getFunctionType(
+			[]core.DubType{
 				index.Int,
 				index.Int,
 			},
-			Result: index.String,
-		},
+			index.String,
+		),
 	}
 	return index
 }
@@ -1002,6 +1001,8 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 		Funcs:       map[funcTypeKey]*core.FunctionType{},
 	}
 	voidType := memo.getTuple(nil)
+
+	program.Builtins = makeBuiltinTypeIndex(memo)
 
 	programScope := MakeProgramScope(program)
 	coreProg := &core.CoreProgram{
