@@ -21,8 +21,14 @@ struct FunctionType implements DubType {
   Result DubType
 }
 
+struct UnboundType implements DubType {
+  Index int
+}
+
+// Placeholder for semantic pass.
 struct FunctionTemplateType implements DubType {
 }
+
 
 struct FieldType {
   Name string
@@ -64,10 +70,15 @@ struct IntrinsicFunction implements Callable {
   Type FunctionType
 }
 
-struct IntrinsicFunctionTemplate {
+struct TemplateParam {
   Name string
 }
 
+struct IntrinsicFunctionTemplate {
+  Name string
+  Params []TemplateParam
+  Type FunctionType
+}
 
 struct BuiltinTypeIndex {
   String BuiltinType

@@ -31,6 +31,7 @@ type typeMemoizer struct {
 	Lists       map[core.DubType]*core.ListType
 	Specialized map[specialization]core.Callable
 	Funcs       map[funcTypeKey]*core.FunctionType
+	Unbound     []*core.UnboundType
 }
 
 func (memo *typeMemoizer) getTuple(types []core.DubType) *core.TupleType {
@@ -84,6 +85,13 @@ func (memo *typeMemoizer) getFunctionType(params []core.DubType, result core.Dub
 		memo.Funcs[key] = ft
 	}
 	return ft
+}
+
+func (memo *typeMemoizer) getUnbound(index int) *core.UnboundType {
+	for index >= len(memo.Unbound) {
+		memo.Unbound = append(memo.Unbound, &core.UnboundType{Index: len(memo.Unbound)})
+	}
+	return memo.Unbound[index]
 }
 
 type semanticScope struct {
@@ -252,15 +260,66 @@ func funcType(c core.Callable) *core.FunctionType {
 	}
 }
 
+func inferArgBindings(ctx *semanticPassContext, at core.DubType, ct core.DubType, exact bool, bindings []core.DubType) core.DubType {
+	switch at := at.(type) {
+	case *core.UnboundType:
+		bound := bindings[at.Index]
+		if bound == nil {
+			bindings[at.Index] = ct
+			bound = ct
+		} else {
+			if !TypeMatches(ct, bound, exact) {
+				ctx.Status.GlobalError(fmt.Sprintf("Expected %v, but got %v", bound, ct))
+			}
+		}
+		return bound
+	case *core.ListType:
+		other, ok := ct.(*core.ListType)
+		if !ok {
+			ctx.Status.GlobalError(fmt.Sprintf("Expected a list, but got %#v", ct))
+			return unresolvedType
+		}
+
+		return ctx.Memo.getList(inferArgBindings(ctx, at.Type, other.Type, true, bindings))
+	default:
+		panic(at)
+	}
+}
+
+func specializeBindings(ctx *semanticPassContext, at core.DubType, bindings []core.DubType) core.DubType {
+	switch at := at.(type) {
+	case *core.UnboundType:
+		return bindings[at.Index]
+	case *core.ListType:
+		return ctx.Memo.getList(specializeBindings(ctx, at.Type, bindings))
+	default:
+		panic(at)
+	}
+}
+
+func inferTypeBindings(ctx *semanticPassContext, aft *core.FunctionType, numParams int, args []core.DubType) (*core.FunctionType, []core.DubType) {
+	bindings := make([]core.DubType, numParams)
+	if len(aft.Params) != len(args) {
+		ctx.Status.GlobalError(fmt.Sprintf("Expected %d arguments but got %d", len(aft.Params), len(args)))
+		return nil, nil
+	}
+	specialized := make([]core.DubType, len(aft.Params))
+	for i, at := range aft.Params {
+		specialized[i] = inferArgBindings(ctx, at, args[i], false, bindings)
+	}
+	result := specializeBindings(ctx, aft.Result, bindings)
+
+	// TODO was there an error?  Return unresolved.
+	ft := ctx.Memo.getFunctionType(specialized, result)
+	return ft, bindings
+}
+
 func specializeTemplate(ctx *semanticPassContext, template *core.IntrinsicFunctionTemplate, args []core.DubType) (core.Callable, *core.FunctionType) {
 	if template != ctx.Program.Index.Append {
 		panic(template)
 	}
-	if len(args) != 2 {
-		panic(args)
-	}
-	ft := ctx.Memo.getFunctionType(args, args[0])
-	return ctx.Memo.getSpecialized(template, []core.DubType{args[1]}, ft), ft
+	ft, bindings := inferTypeBindings(ctx, template.Type, len(template.Params), args)
+	return ctx.Memo.getSpecialized(template, bindings, ft), ft
 }
 
 func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) (ASTExpr, core.DubType) {
@@ -812,6 +871,18 @@ func makeBuiltinTypeIndex(memo *typeMemoizer) *core.BuiltinTypeIndex {
 
 	index.Append = &core.IntrinsicFunctionTemplate{
 		Name: "append",
+		Params: []*core.TemplateParam{
+			&core.TemplateParam{
+				Name: "T",
+			},
+		},
+		Type: memo.getFunctionType(
+			[]core.DubType{
+				memo.getList(memo.getUnbound(0)),
+				memo.getUnbound(0),
+			},
+			memo.getList(memo.getUnbound(0)),
+		),
 	}
 	index.Position = &core.IntrinsicFunction{
 		Name: "position",

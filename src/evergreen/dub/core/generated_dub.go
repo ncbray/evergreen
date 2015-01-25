@@ -39,6 +39,13 @@ type FunctionType struct {
 func (node *FunctionType) isDubType() {
 }
 
+type UnboundType struct {
+	Index int
+}
+
+func (node *UnboundType) isDubType() {
+}
+
 type FunctionTemplateType struct {
 }
 
@@ -116,8 +123,14 @@ type IntrinsicFunction struct {
 func (node *IntrinsicFunction) isCallable() {
 }
 
-type IntrinsicFunctionTemplate struct {
+type TemplateParam struct {
 	Name string
+}
+
+type IntrinsicFunctionTemplate struct {
+	Name   string
+	Params []*TemplateParam
+	Type   *FunctionType
 }
 
 type BuiltinTypeIndex struct {
