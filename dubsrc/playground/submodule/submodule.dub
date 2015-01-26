@@ -1,0 +1,3 @@
+func Foo() int {
+  return 37;
+}

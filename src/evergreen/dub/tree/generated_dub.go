@@ -280,6 +280,13 @@ type GetFunctionTemplate struct {
 func (node *GetFunctionTemplate) isASTExpr() {
 }
 
+type GetPackage struct {
+	Package *core.Package
+}
+
+func (node *GetPackage) isASTExpr() {
+}
+
 type NamedExpr struct {
 	Name *Id
 	Expr ASTExpr
@@ -318,6 +325,15 @@ type Call struct {
 }
 
 func (node *Call) isASTExpr() {
+}
+
+type Selector struct {
+	Expr ASTExpr
+	Pos  int
+	Name *Id
+}
+
+func (node *Selector) isASTExpr() {
 }
 
 type Fail struct {
@@ -3350,11 +3366,14 @@ func ParseNameRef(frame *runtime.State) (ret *NameRef) {
 func PrimaryExprPostfix(frame *runtime.State) (ret ASTExpr) {
 	var e0 ASTExpr
 	var e1 ASTExpr
-	var checkpoint int
+	var checkpoint0 int
 	var pos int
+	var checkpoint1 int
 	var c0 rune
 	var args []ASTExpr
 	var c1 rune
+	var c2 rune
+	var name *Id
 	e0 = PrimaryExpr(frame)
 	if frame.Flow == 0 {
 		e1 = e0
@@ -3362,9 +3381,10 @@ func PrimaryExprPostfix(frame *runtime.State) (ret ASTExpr) {
 	}
 	return
 block1:
-	checkpoint = frame.Checkpoint()
+	checkpoint0 = frame.Checkpoint()
 	S(frame)
 	pos = frame.Checkpoint()
+	checkpoint1 = frame.Checkpoint()
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
 		if c0 == '(' {
@@ -3389,7 +3409,25 @@ block1:
 	}
 	goto block2
 block2:
-	frame.Recover(checkpoint)
+	frame.Recover(checkpoint1)
+	c2 = frame.Peek()
+	if frame.Flow == 0 {
+		if c2 == '.' {
+			frame.Consume()
+			S(frame)
+			name = Ident(frame)
+			if frame.Flow == 0 {
+				e1 = &Selector{Expr: e1, Pos: pos, Name: name}
+				goto block1
+			}
+			goto block3
+		}
+		frame.Fail()
+		goto block3
+	}
+	goto block3
+block3:
+	frame.Recover(checkpoint0)
 	ret = e1
 	return
 }

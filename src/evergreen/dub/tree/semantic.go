@@ -322,6 +322,19 @@ func specializeTemplate(ctx *semanticPassContext, template *core.IntrinsicFuncti
 	return ctx.Memo.getSpecialized(template, bindings, ft), ft
 }
 
+func rewriteNamedLookup(named namedElement) (ASTExpr, core.DubType) {
+	switch named := named.(type) {
+	case *NamedCallable:
+		return &GetFunction{Func: named.Func}, funcType(named.Func)
+	case *NamedCallableTemplate:
+		return &GetFunctionTemplate{Template: named.Func}, &core.FunctionTemplateType{}
+	case *NamedPackage:
+		return &GetPackage{Package: named.Scope.Package}, &core.PackageType{}
+	default:
+		panic(named)
+	}
+}
+
 func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, scope *semanticScope) (ASTExpr, core.DubType) {
 	switch expr := expr.(type) {
 	case *Repeat:
@@ -373,14 +386,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 		}
 		named, found := resolve(ctx, name)
 		if found {
-			switch named := named.(type) {
-			case *NamedCallable:
-				return &GetFunction{Func: named.Func}, funcType(named.Func)
-			case *NamedCallableTemplate:
-				return &GetFunctionTemplate{Template: named.Func}, &core.FunctionTemplateType{}
-			default:
-				panic(named)
-			}
+			return rewriteNamedLookup(named)
 		}
 		ctx.Status.LocationError(expr.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
 		return expr, unresolvedType
@@ -497,6 +503,20 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 
 		expr.T = rt
 		return expr, rt
+	case *Selector:
+		expr.Expr, _ = semanticExprPass(ctx, decl, expr.Expr, scope)
+		switch e := expr.Expr.(type) {
+		case *GetPackage:
+			ns := ctx.ModuleContexts[e.Package.Index].Module.Namespace
+			child, ok := ns[expr.Name.Text]
+			if !ok {
+				ctx.Status.LocationError(expr.Pos, fmt.Sprintf("unknown name %#v", expr.Name.Text))
+				return expr, unresolvedType
+			}
+			return rewriteNamedLookup(child)
+		default:
+			panic(e)
+		}
 	case *Construct:
 		var t core.DubType
 		expr.Type, t = semanticTypePass(ctx, expr.Type)
@@ -797,6 +817,7 @@ func AsPackage(node namedElement) (*ModuleScope, bool) {
 }
 
 type ModuleScope struct {
+	Package   *core.Package
 	Path      []string
 	Namespace map[string]namedElement
 }
@@ -1099,6 +1120,7 @@ func SemanticPass(program *Program, status compiler.PassStatus) *core.CoreProgra
 	ctxs := make([]*semanticPassContext, len(program.Packages))
 	for i, pkg := range program.Packages {
 		moduleScope := &ModuleScope{
+			Package:   pkg.P,
 			Path:      pkg.Path,
 			Namespace: map[string]namedElement{},
 		}

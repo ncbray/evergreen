@@ -29,6 +29,8 @@ struct UnboundType implements DubType {
 struct FunctionTemplateType implements DubType {
 }
 
+struct PackageType implements DubType {
+}
 
 struct FieldType {
   Name string

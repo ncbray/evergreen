@@ -482,12 +482,19 @@ func PrimaryExprPostfix() ASTExpr {
   star {
     S();
     pos := position();
-    /[(]/;
-    S();
-    args := ParseExprList();
-    S();
-    /[)]/;
-    e = Call{Expr: e, Pos: pos, Args: args};
+    choose {
+      /[(]/;
+      S();
+      args := ParseExprList();
+      S();
+      /[)]/;
+      e = Call{Expr: e, Pos: pos, Args: args};
+    } or {
+      /[.]/;
+      S();
+      name := Ident();
+      e = Selector{Expr: e, Pos: pos, Name: name};
+    }
   }
   return e;
 }

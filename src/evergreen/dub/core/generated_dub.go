@@ -52,6 +52,12 @@ type FunctionTemplateType struct {
 func (node *FunctionTemplateType) isDubType() {
 }
 
+type PackageType struct {
+}
+
+func (node *PackageType) isDubType() {
+}
+
 type FieldType struct {
 	Name string
 	Type DubType

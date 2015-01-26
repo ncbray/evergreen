@@ -27,3 +27,10 @@ func TestBlend(t *testing.T) {
 	assert.IntEquals(t, state.Flow, runtime.NORMAL)
 	assert.Float32Equals(t, result, 5)
 }
+
+func TestFooProxy(t *testing.T) {
+	state := &runtime.State{}
+	result := playground.FooProxy(state)
+	assert.IntEquals(t, state.Flow, runtime.NORMAL)
+	assert.IntEquals(t, result, 37)
+}
