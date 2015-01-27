@@ -314,11 +314,25 @@ func inferTypeBindings(ctx *semanticPassContext, aft *core.FunctionType, numPara
 	return ft, bindings
 }
 
-func specializeTemplate(ctx *semanticPassContext, template *core.IntrinsicFunctionTemplate, args []core.DubType) (core.Callable, *core.FunctionType) {
-	if template != ctx.Program.Index.Append {
-		panic(template)
-	}
+func inferTemplate(ctx *semanticPassContext, template *core.IntrinsicFunctionTemplate, args []core.DubType) (core.Callable, *core.FunctionType) {
 	ft, bindings := inferTypeBindings(ctx, template.Type, len(template.Params), args)
+	return ctx.Memo.getSpecialized(template, bindings, ft), ft
+}
+
+func specializeTemplate(ctx *semanticPassContext, template *core.IntrinsicFunctionTemplate, bindings []core.DubType) (core.Callable, *core.FunctionType) {
+	if len(bindings) != len(template.Params) {
+		ctx.Status.GlobalError(fmt.Sprintf("Expected %d type parameters but got %d", len(template.Params), len(bindings)))
+		return nil, nil
+	}
+
+	aft := template.Type
+	specialized := make([]core.DubType, len(aft.Params))
+	for i, at := range aft.Params {
+		specialized[i] = specializeBindings(ctx, at, bindings)
+	}
+	result := specializeBindings(ctx, aft.Result, bindings)
+	ft := ctx.Memo.getFunctionType(specialized, result)
+
 	return ctx.Memo.getSpecialized(template, bindings, ft), ft
 }
 
@@ -490,7 +504,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			case *core.FunctionTemplateType:
 				ref, ok := expr.Expr.(*GetFunctionTemplate)
 				if ok {
-					concrete, cft := specializeTemplate(ctx, ref.Template, args)
+					concrete, cft := inferTemplate(ctx, ref.Template, args)
 					expr.Target = concrete
 					rt = cft.Result
 				} else {
@@ -514,6 +528,18 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 				return expr, unresolvedType
 			}
 			return rewriteNamedLookup(child)
+		default:
+			panic(e)
+		}
+	case *SpecializeTemplate:
+		var bindings []core.DubType
+		expr.Expr, _ = semanticExprPass(ctx, decl, expr.Expr, scope)
+		expr.Types, bindings = semanticTypeListPass(ctx, expr.Types)
+
+		switch e := expr.Expr.(type) {
+		case *GetFunctionTemplate:
+			concrete, cft := specializeTemplate(ctx, e.Template, bindings)
+			return &GetFunction{Func: concrete}, cft
 		default:
 			panic(e)
 		}
@@ -567,6 +593,14 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 	default:
 		panic(expr)
 	}
+}
+
+func semanticTypeListPass(ctx *semanticPassContext, nodes []ASTTypeRef) ([]ASTTypeRef, []core.DubType) {
+	types := make([]core.DubType, len(nodes))
+	for i, node := range nodes {
+		nodes[i], types[i] = semanticTypePass(ctx, node)
+	}
+	return nodes, types
 }
 
 func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) (ASTTypeRef, core.DubType) {

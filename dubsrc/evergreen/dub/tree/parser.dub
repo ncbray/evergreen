@@ -494,6 +494,13 @@ func PrimaryExprPostfix() ASTExpr {
       S();
       name := Ident();
       e = Selector{Expr: e, Pos: pos, Name: name};
+    } or {
+      /[<]/;
+      S();
+      types := ParseTypeList();
+      S();
+      /[>]/;
+      e = SpecializeTemplate{Expr: e, Pos: pos, Types: types};
     }
   }
   return e;
@@ -647,20 +654,25 @@ func ParseCodeBlock() []ASTExpr {
   return exprs;
 }
 
-func ParseParenthTypeList() []ASTTypeRef {
-  /[(]/;
-  S();
+func ParseTypeList() []ASTTypeRef {
   types := []ASTTypeRef{};
   question {
     types = append(types, ParseTypeRef());
-    S();
     star {
+      S();
       /[,]/;
       S();
       types = append(types, ParseTypeRef());
-      S();
     }
   }
+  return types;
+}
+
+func ParseParenthTypeList() []ASTTypeRef {
+  /[(]/;
+  S();
+  types := ParseTypeList();
+  S();
   /[)]/;
   return types;
 }

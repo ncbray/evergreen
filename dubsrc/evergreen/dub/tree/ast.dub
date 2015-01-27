@@ -214,6 +214,12 @@ struct Selector implements ASTExpr {
   Name Id
 }
 
+struct SpecializeTemplate implements ASTExpr {
+  Expr ASTExpr
+  Pos int
+  Types []ASTTypeRef
+}
+
 struct Fail implements ASTExpr {
 }
 

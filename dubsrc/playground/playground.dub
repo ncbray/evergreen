@@ -17,3 +17,9 @@ func Blend(x float32, y float32, amt float32) float32 {
 func FooProxy() int {
   return submodule.Foo();
 }
+
+func ExplicitSpecialization() []int {
+  l := []int{};
+  l = append<int>(l, 1);
+  return l;
+}

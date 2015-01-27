@@ -34,3 +34,10 @@ func TestFooProxy(t *testing.T) {
 	assert.IntEquals(t, state.Flow, runtime.NORMAL)
 	assert.IntEquals(t, result, 37)
 }
+
+func TestExplicitSpecialization(t *testing.T) {
+	state := &runtime.State{}
+	result := playground.ExplicitSpecialization(state)
+	assert.IntEquals(t, state.Flow, runtime.NORMAL)
+	assert.IntListEquals(t, result, []int{1})
+}

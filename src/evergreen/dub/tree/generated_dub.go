@@ -336,6 +336,15 @@ type Selector struct {
 func (node *Selector) isASTExpr() {
 }
 
+type SpecializeTemplate struct {
+	Expr  ASTExpr
+	Pos   int
+	Types []ASTTypeRef
+}
+
+func (node *SpecializeTemplate) isASTExpr() {
+}
+
 type Fail struct {
 }
 
@@ -3374,6 +3383,9 @@ func PrimaryExprPostfix(frame *runtime.State) (ret ASTExpr) {
 	var c1 rune
 	var c2 rune
 	var name *Id
+	var c3 rune
+	var types []ASTTypeRef
+	var c4 rune
 	e0 = PrimaryExpr(frame)
 	if frame.Flow == 0 {
 		e1 = e0
@@ -3427,6 +3439,31 @@ block2:
 	}
 	goto block3
 block3:
+	frame.Recover(checkpoint1)
+	c3 = frame.Peek()
+	if frame.Flow == 0 {
+		if c3 == '<' {
+			frame.Consume()
+			S(frame)
+			types = ParseTypeList(frame)
+			S(frame)
+			c4 = frame.Peek()
+			if frame.Flow == 0 {
+				if c4 == '>' {
+					frame.Consume()
+					e1 = &SpecializeTemplate{Expr: e1, Pos: pos, Types: types}
+					goto block1
+				}
+				frame.Fail()
+				goto block4
+			}
+			goto block4
+		}
+		frame.Fail()
+		goto block4
+	}
+	goto block4
+block4:
 	frame.Recover(checkpoint0)
 	ret = e1
 	return
@@ -4293,77 +4330,74 @@ block1:
 	return
 }
 
-func ParseParenthTypeList(frame *runtime.State) (ret []ASTTypeRef) {
-	var c0 rune
+func ParseTypeList(frame *runtime.State) (ret []ASTTypeRef) {
 	var types0 []ASTTypeRef
 	var checkpoint0 int
 	var r0 ASTTypeRef
 	var types1 []ASTTypeRef
-	var types2 []ASTTypeRef
 	var checkpoint1 int
-	var c1 rune
+	var c rune
 	var r1 ASTTypeRef
-	var types3 []ASTTypeRef
-	var types4 []ASTTypeRef
-	var types5 []ASTTypeRef
-	var types6 []ASTTypeRef
-	var c2 rune
+	var types2 []ASTTypeRef
+	types0 = []ASTTypeRef{}
+	checkpoint0 = frame.Checkpoint()
+	r0 = ParseTypeRef(frame)
+	if frame.Flow == 0 {
+		types1 = append(types0, r0)
+		goto block1
+	}
+	frame.Recover(checkpoint0)
+	types2 = types0
+	goto block3
+block1:
+	checkpoint1 = frame.Checkpoint()
+	S(frame)
+	c = frame.Peek()
+	if frame.Flow == 0 {
+		if c == ',' {
+			frame.Consume()
+			S(frame)
+			r1 = ParseTypeRef(frame)
+			if frame.Flow == 0 {
+				types1 = append(types1, r1)
+				goto block1
+			}
+			goto block2
+		}
+		frame.Fail()
+		goto block2
+	}
+	goto block2
+block2:
+	frame.Recover(checkpoint1)
+	types2 = types1
+	goto block3
+block3:
+	ret = types2
+	return
+}
+
+func ParseParenthTypeList(frame *runtime.State) (ret []ASTTypeRef) {
+	var c0 rune
+	var types []ASTTypeRef
+	var c1 rune
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
 		if c0 == '(' {
 			frame.Consume()
 			S(frame)
-			types0 = []ASTTypeRef{}
-			checkpoint0 = frame.Checkpoint()
-			r0 = ParseTypeRef(frame)
-			if frame.Flow == 0 {
-				types1 = append(types0, r0)
-				S(frame)
-				types2 = types1
-				goto block1
-			}
-			types6 = types0
-			frame.Recover(checkpoint0)
-			types5 = types6
-			goto block3
-		}
-		frame.Fail()
-		return
-	}
-	return
-block1:
-	checkpoint1 = frame.Checkpoint()
-	c1 = frame.Peek()
-	if frame.Flow == 0 {
-		if c1 == ',' {
-			frame.Consume()
+			types = ParseTypeList(frame)
 			S(frame)
-			r1 = ParseTypeRef(frame)
+			c1 = frame.Peek()
 			if frame.Flow == 0 {
-				types3 = append(types2, r1)
-				S(frame)
-				types2 = types3
-				goto block1
+				if c1 == ')' {
+					frame.Consume()
+					ret = types
+					return
+				}
+				frame.Fail()
+				return
 			}
-			types4 = types2
-			goto block2
-		}
-		frame.Fail()
-		types4 = types2
-		goto block2
-	}
-	types4 = types2
-	goto block2
-block2:
-	frame.Recover(checkpoint1)
-	types5 = types4
-	goto block3
-block3:
-	c2 = frame.Peek()
-	if frame.Flow == 0 {
-		if c2 == ')' {
-			frame.Consume()
-			ret = types5
 			return
 		}
 		frame.Fail()
