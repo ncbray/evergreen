@@ -23,3 +23,7 @@ func ExplicitSpecialization() []int {
   l = append<int>(l, 1);
   return l;
 }
+
+func StringAddition() string {
+  return "foo" + "bar";
+}

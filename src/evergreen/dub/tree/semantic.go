@@ -222,6 +222,13 @@ func binaryOpType(ctx *semanticPassContext, lt *core.BuiltinType, op string, rt 
 			case builtins.Float32:
 				return builtins.Float32, true
 			}
+		case builtins.String:
+			switch rt {
+			case builtins.String:
+				if op == "+" {
+					return builtins.String, true
+				}
+			}
 		}
 	case "<", "<=", ">", ">=", "==", "!=":
 		switch lt {

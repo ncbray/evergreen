@@ -41,3 +41,10 @@ func TestExplicitSpecialization(t *testing.T) {
 	assert.IntEquals(t, state.Flow, runtime.NORMAL)
 	assert.IntListEquals(t, result, []int{1})
 }
+
+func TestStringAddition(t *testing.T) {
+	state := &runtime.State{}
+	result := playground.StringAddition(state)
+	assert.IntEquals(t, state.Flow, runtime.NORMAL)
+	assert.StringEquals(t, result, "foobar")
+}
