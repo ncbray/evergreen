@@ -100,7 +100,7 @@ func (cluster *ClusterLoop) DumpShort() string {
 func makeCluster(g *Graph) Cluster {
 	g = g.Copy()
 	info, edges, postorder := analyzeStructure(g)
-	return makeCluster2(g, info, edges, postorder)
+	return contractClusters(g, info, edges, postorder)
 }
 
 type nodeInfo struct {
@@ -424,7 +424,7 @@ func clusterRegion(g *Graph, n NodeID, currentHead NodeID, cluster Cluster, clus
 	}
 }
 
-func makeCluster2(g *Graph, nodes []nodeInfo, edges []edgeType, postorder []NodeID) Cluster {
+func contractClusters(g *Graph, nodes []nodeInfo, edges []edgeType, postorder []NodeID) Cluster {
 	clusters := make([]Cluster, g.NumNodes())
 
 	for _, n := range postorder {

@@ -107,9 +107,6 @@ func TestClusterDiamond(t *testing.T) {
 
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0 2) <(3) (4)> (5 1)]")
-
-	info, edges, postorder := analyzeStructure(g)
-	makeCluster2(g, info, edges, postorder)
 }
 
 func TestClusterCross(t *testing.T) {
@@ -178,9 +175,6 @@ func TestLadder3(t *testing.T) {
 
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) (3) <(4) (5)> (1)]")
-
-	info, edges, postorder := analyzeStructure(g)
-	makeCluster2(g, info, edges, postorder)
 }
 
 func TestLadderSkip(t *testing.T) {
@@ -248,9 +242,6 @@ func TestCrossEdgeToLoop(t *testing.T) {
 
 	cluster := makeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) {(3 4)}]")
-
-	info, edges, postorder := analyzeStructure(g)
-	makeCluster2(g, info, edges, postorder)
 }
 
 func TestInnerOuter(t *testing.T) {
@@ -387,8 +378,6 @@ func Test2Levelif(t *testing.T) {
 		n2,
 		e,
 	}, t)
-
-	makeCluster2(g, info, edges, postorder)
 }
 
 func TestDualLoop(t *testing.T) {
@@ -459,8 +448,6 @@ func TestDualLoop(t *testing.T) {
 		n1,
 		e,
 	}, t)
-
-	makeCluster2(g, info, edges, postorder)
 }
 
 func TestForwardEdgeLoop(t *testing.T) {
