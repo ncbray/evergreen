@@ -441,5 +441,10 @@ func contractClusters(g *Graph, nodes []nodeInfo, edges []edgeType, postorder []
 		}
 		clusters[n] = cluster
 	}
+	for i := 1; i < len(clusters); i++ {
+		if clusters[i] != nil {
+			panic(i)
+		}
+	}
 	return clusters[0]
 }
