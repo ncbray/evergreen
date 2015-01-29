@@ -98,6 +98,7 @@ func (cluster *ClusterLoop) DumpShort() string {
 }
 
 func makeCluster(g *Graph) Cluster {
+	g = g.Copy()
 	info, edges, postorder := analyzeStructure(g)
 	return makeCluster2(g, info, edges, postorder)
 }
@@ -277,7 +278,7 @@ func (lf *loopFinder) findIdoms() {
 func analyzeStructure(g *Graph) ([]nodeInfo, []edgeType, []NodeID) {
 	numNodes := g.NumNodes()
 	lf := &loopFinder{
-		graph: g.Copy(),
+		graph: g,
 		node:  make([]nodeInfo, numNodes),
 		edge:  make([]edgeType, g.NumEdges()),
 		depth: make([]int, numNodes),
@@ -424,8 +425,6 @@ func clusterRegion(g *Graph, n NodeID, currentHead NodeID, cluster Cluster, clus
 }
 
 func makeCluster2(g *Graph, nodes []nodeInfo, edges []edgeType, postorder []NodeID) Cluster {
-	g = g.Copy()
-
 	clusters := make([]Cluster, g.NumNodes())
 
 	for _, n := range postorder {
