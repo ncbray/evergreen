@@ -148,6 +148,7 @@ struct Optional implements ASTExpr {
 
 struct Assign implements ASTExpr {
   Expr ASTExpr
+  Pos int
   Targets []ASTExpr
   Type ASTTypeRef
   Define bool

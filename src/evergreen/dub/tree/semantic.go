@@ -431,7 +431,7 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 					return expr, t
 				}
 			}
-			ctx.Status.GlobalError(fmt.Sprintf("Expected %d values but got %d", len(expr.Targets), count))
+			ctx.Status.LocationError(expr.Pos, fmt.Sprintf("Expected %d values but got %d", len(expr.Targets), count))
 			for i, target := range expr.Targets {
 				expr.Targets[i] = semanticTargetPass(ctx, decl, target, unresolvedType, expr.Define, scope)
 			}

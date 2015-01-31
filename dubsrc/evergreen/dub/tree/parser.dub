@@ -593,6 +593,7 @@ func ParseStatement() ASTExpr {
   choose {
     return ParseCompoundStatement();
   } or {
+    pos := position();
     /"var"/;
     EndKeyword();
     S();
@@ -607,7 +608,13 @@ func ParseStatement() ASTExpr {
       expr = ParseExpr(); 
     }
     EOS();
-    return Assign{Expr: expr, Targets: []ASTExpr{name}, Type: t, Define: true};
+    return Assign{
+      Expr: expr,
+      Pos: pos, // HACK?
+      Targets: []ASTExpr{name},
+      Type: t,
+      Define: true
+    };
   } or {
     /"fail"/;
     EndKeyword();
@@ -624,6 +631,7 @@ func ParseStatement() ASTExpr {
   } or {
     names := ParseTargetList();
     S();
+    pos := position();
     var defined bool;
     choose {
       /":="/;
@@ -634,7 +642,12 @@ func ParseStatement() ASTExpr {
     S();
     expr := ParseExpr();
     EOS();
-    return Assign{Expr: expr, Targets: names, Define: defined};
+    return Assign{
+      Expr: expr,
+      Pos: pos,
+      Targets: names,
+      Define: defined
+    };
   } or {
     e := ParseExpr();
     EOS();

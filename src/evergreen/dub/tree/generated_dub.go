@@ -231,6 +231,7 @@ func (node *Optional) isASTExpr() {
 
 type Assign struct {
 	Expr    ASTExpr
+	Pos     int
 	Targets []ASTExpr
 	Type    ASTTypeRef
 	Define  bool
@@ -3992,6 +3993,7 @@ func EOS(frame *runtime.State) {
 func ParseStatement(frame *runtime.State) (ret ASTExpr) {
 	var checkpoint0 int
 	var r ASTExpr
+	var pos0 int
 	var c0 rune
 	var c1 rune
 	var c2 rune
@@ -4006,7 +4008,7 @@ func ParseStatement(frame *runtime.State) (ret ASTExpr) {
 	var c5 rune
 	var c6 rune
 	var c7 rune
-	var pos int
+	var pos1 int
 	var c8 rune
 	var c9 rune
 	var c10 rune
@@ -4015,6 +4017,7 @@ func ParseStatement(frame *runtime.State) (ret ASTExpr) {
 	var c13 rune
 	var exprs []ASTExpr
 	var names []ASTExpr
+	var pos2 int
 	var defined0 bool
 	var checkpoint2 int
 	var c14 rune
@@ -4030,6 +4033,7 @@ func ParseStatement(frame *runtime.State) (ret ASTExpr) {
 		return
 	}
 	frame.Recover(checkpoint0)
+	pos0 = frame.Checkpoint()
 	c0 = frame.Peek()
 	if frame.Flow == 0 {
 		if c0 == 'v' {
@@ -4097,7 +4101,7 @@ block1:
 block2:
 	EOS(frame)
 	if frame.Flow == 0 {
-		ret = &Assign{Expr: expr2, Targets: []ASTExpr{name}, Type: t, Define: true}
+		ret = &Assign{Expr: expr2, Pos: pos0, Targets: []ASTExpr{name}, Type: t, Define: true}
 		return
 	}
 	goto block3
@@ -4151,7 +4155,7 @@ block3:
 	goto block4
 block4:
 	frame.Recover(checkpoint0)
-	pos = frame.Checkpoint()
+	pos1 = frame.Checkpoint()
 	c8 = frame.Peek()
 	if frame.Flow == 0 {
 		if c8 == 'r' {
@@ -4182,7 +4186,7 @@ block4:
 														exprs = ParseExprList(frame)
 														EOS(frame)
 														if frame.Flow == 0 {
-															ret = &Return{Pos: pos, Exprs: exprs}
+															ret = &Return{Pos: pos1, Exprs: exprs}
 															return
 														}
 														goto block5
@@ -4223,6 +4227,7 @@ block5:
 	names = ParseTargetList(frame)
 	if frame.Flow == 0 {
 		S(frame)
+		pos2 = frame.Checkpoint()
 		defined0 = false
 		checkpoint2 = frame.Checkpoint()
 		c14 = frame.Peek()
@@ -4266,7 +4271,7 @@ block7:
 	if frame.Flow == 0 {
 		EOS(frame)
 		if frame.Flow == 0 {
-			ret = &Assign{Expr: expr3, Targets: names, Define: defined1}
+			ret = &Assign{Expr: expr3, Pos: pos2, Targets: names, Define: defined1}
 			return
 		}
 		goto block8
