@@ -2,6 +2,10 @@ func LineTerminator() {
   /"\n"|"\r\n"|"\r"/;
 }
 
+func SingleLineComment() {
+  /"//" [^\n\r]*/;
+}
+
 func S() {
   star {
     choose {
@@ -9,9 +13,16 @@ func S() {
     } or {
       LineTerminator();
     } or {
-      /"//" [^\n\r]*/;
+      SingleLineComment();
     }
   }
+}
+
+
+// Could call this "s", but OSX has a case-insensitive filesystem and this
+// messes with dumping per-function info to disk.
+func sInsert() {
+  /[ \t]*/;
 }
 
 func EndKeyword() {
@@ -423,8 +434,9 @@ func ParseReturnTypeList() []ASTTypeRef {
 }
 
 func PrimaryExpr() ASTExpr {
+  var e ASTExpr;
   choose {
-    return Literal();
+    e = Literal();
   } or {
     /"coerce"/;
     EndKeyword();
@@ -435,10 +447,10 @@ func PrimaryExpr() ASTExpr {
     S();
     /[,]/;
     S();
-    e := ParseExpr();
+    child := ParseExpr();
     S();
     /[)]/;
-    return Coerce{Type: t, Expr: e};
+    e = Coerce{Type: t, Expr: child};
   } or {
     t := ParseStructTypeRef();
     S();
@@ -447,7 +459,7 @@ func PrimaryExpr() ASTExpr {
     args := ParseNamedExprList();
     S();
     /[}]/;
-    return Construct{Type: t, Args: args};
+    e = Construct{Type: t, Args: args};
   } or {
     t := ParseListTypeRef();
     S();
@@ -456,21 +468,22 @@ func PrimaryExpr() ASTExpr {
     args := ParseExprList();
     S();
     /[}]/;
-    return ConstructList{Type: t, Args: args};
+    e = ConstructList{Type: t, Args: args};
   } or {
-    return StringMatchExpr();
+    e = StringMatchExpr();
   } or {
-    return RuneMatchExpr();
+    e = RuneMatchExpr();
   } or {
     /[(]/;
     S();
-    e := ParseExpr();
+    e = ParseExpr();
     S();
     /[)]/;
-    return e;
   } or {
-    return ParseNameRef();
+    e = ParseNameRef();
   }
+  sInsert();
+  return e;
 }
 
 func ParseNameRef() NameRef {
@@ -480,7 +493,6 @@ func ParseNameRef() NameRef {
 func PrimaryExprPostfix() ASTExpr {
   e := PrimaryExpr();
   star {
-    S();
     pos := position();
     choose {
       /[(]/;
@@ -502,6 +514,7 @@ func PrimaryExprPostfix() ASTExpr {
       /[>]/;
       e = SpecializeTemplate{Expr: e, Pos: pos, Types: types};
     }
+    sInsert();
   }
   return e;
 }
@@ -510,7 +523,6 @@ func PrimaryExprPostfix() ASTExpr {
 func ParseBinaryOp(min_prec int) ASTExpr {
   e := PrimaryExprPostfix();
   star {
-    S();
     // TODO associativity
     opPos := position();
     op, prec := BinaryOperator();
@@ -585,8 +597,15 @@ func ParseCompoundStatement() ASTExpr {
 }
 
 func EOS() {
-  S();
-  /[;]|&[)}]/;
+  choose {
+    S();
+    /[;]|&[)}]|![^]/;
+  } or {
+    question {
+      SingleLineComment();
+    }
+    LineTerminator();
+  }
 }
 
 func ParseStatement() ASTExpr {
@@ -618,13 +637,14 @@ func ParseStatement() ASTExpr {
   } or {
     /"fail"/;
     EndKeyword();
+    sInsert();
     EOS();
     return Fail{};
   } or {
     pos := position();
     /"return"/;
     EndKeyword();
-    S();
+    sInsert();
     exprs := ParseExprList();
     EOS();
     return Return{Pos: pos, Exprs: exprs};

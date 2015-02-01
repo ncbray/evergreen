@@ -19,8 +19,8 @@ func FooProxy() int {
 }
 
 func ExplicitSpecialization() []int {
-  l := []int{};
-  l = append<int>(l, 1);
+  l := []int{}
+  l = append<int>(l, 1)
   return l
 }
 
