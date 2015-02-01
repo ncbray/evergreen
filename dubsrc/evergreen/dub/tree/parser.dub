@@ -1,19 +1,19 @@
 func LineTerminator() {
-  /"\n"|"\r\n"|"\r"/;
+  /"\n"|"\r\n"|"\r"/
 }
 
 func SingleLineComment() {
-  /"//" [^\n\r]*/;
+  /"//" [^\n\r]*/
 }
 
 func S() {
   star {
     choose {
-      /[ \t]/;
+      /[ \t]/
     } or {
-      LineTerminator();
+      LineTerminator()
     } or {
-      SingleLineComment();
+      SingleLineComment()
     }
   }
 }
@@ -22,851 +22,851 @@ func S() {
 // Could call this "s", but OSX has a case-insensitive filesystem and this
 // messes with dumping per-function info to disk.
 func sInsert() {
-  /[ \t]*/;
+  /[ \t]*/
 }
 
 func EndKeyword() {
-  /![a-zA-Z_0-9]/;
+  /![a-zA-Z_0-9]/
 }
 
 func Ident() Id {
-  p := position();
+  p := position()
   // Don't allow keywords as identifiers.
-  /!(("func"|"test"|"struct"|"implements"|"star"|"plus"|"choose"|"or"|"question"|"if"|"else"|"return"|"var"|"true"|"false"|"nil") ![a-zA-Z_0-9])/;
-  text := /[a-zA-Z_][a-zA-Z_0-9]*/;
-  return Id{Pos: p, Text: text};
+  /!(("func"|"test"|"struct"|"implements"|"star"|"plus"|"choose"|"or"|"question"|"if"|"else"|"return"|"var"|"true"|"false"|"nil") ![a-zA-Z_0-9])/
+  text := /[a-zA-Z_][a-zA-Z_0-9]*/
+  return Id{Pos: p, Text: text}
 }
 
 func ParseNumericLiteral() ASTExpr{
-  var value int;
-  divisor := 1;
-  begin := position();
+  var value int
+  divisor := 1
+  begin := position()
   plus {
-    digit := coerce(int, $[0-9]) - coerce(int, '0');
-    value = value * 10 + digit;
+    digit := coerce(int, $[0-9]) - coerce(int, '0')
+    value = value * 10 + digit
   }
   question {
-    /[.]/;
+    /[.]/
     plus {
-      digit = coerce(int, $[0-9]) - coerce(int, '0');
-      value = value * 10 + digit;
-      divisor = divisor * 10;
+      digit = coerce(int, $[0-9]) - coerce(int, '0')
+      value = value * 10 + digit
+      divisor = divisor * 10
     }
   }
-  end := position();
-  text := slice(begin, end);
+  end := position()
+  text := slice(begin, end)
   if divisor > 1 {
-    return Float32Literal{Text: text, Value: coerce(float32, value) / coerce(float32, divisor)};
+    return Float32Literal{Text: text, Value: coerce(float32, value) / coerce(float32, divisor)}
   } else {
-    return IntLiteral{Text: text, Value: value};
+    return IntLiteral{Text: text, Value: value}
   }
 }
 
 func EscapedChar() rune {
   choose {
-    /[a]/;
-    return '\a';
+    /[a]/
+    return '\a'
   } or {
-    /[b]/;
-    return '\b';
+    /[b]/
+    return '\b'
   } or {
-    /[f]/;
-    return '\f';
+    /[f]/
+    return '\f'
   } or {
-    /[n]/;
-    return '\n';
+    /[n]/
+    return '\n'
   } or {
-    /[r]/;
-    return '\r';
+    /[r]/
+    return '\r'
   } or {
-    /[t]/;
-    return '\t';
+    /[t]/
+    return '\t'
   } or {
-    /[v]/;
-    return '\v';
+    /[v]/
+    return '\v'
   } or {
-    /[\\]/;
-    return '\\';
+    /[\\]/
+    return '\\'
   } or {
-    /[']/;
-    return '\'';
+    /[']/
+    return '\''
   } or {
-    /[\"]/;
-    return '\"';
+    /[\"]/
+    return '\"'
   }
 }
 
 func DecodeString() string {
-  /[\"]/;
-  contents := []rune{};
+  /[\"]/
+  contents := []rune{}
   star {
     choose {
-      contents = append(contents, $[^\"\\]);
+      contents = append(contents, $[^\"\\])
     } or {
-      /[\\]/;
-      contents = append(contents, EscapedChar());
+      /[\\]/
+      contents = append(contents, EscapedChar())
     }
   }
-  /[\"]/;
-  return coerce(string, contents);
+  /[\"]/
+  return coerce(string, contents)
 }
 
 func DecodeRune() (rune, string) {
-  var value rune;
-  begin := position();
-  /[']/;
+  var value rune
+  begin := position()
+  /[']/
   choose {
-    value = $[^\\'];
+    value = $[^\\']
   } or {
-    /[\\]/;
-    value = EscapedChar();
+    /[\\]/
+    value = EscapedChar()
   }
-  /[']/;
-  end := position();
-  return value, slice(begin, end);
+  /[']/
+  end := position()
+  return value, slice(begin, end)
 }
 
 func DecodeBool() (bool, string) {
-  var value bool;
-  begin := position();
+  var value bool
+  begin := position()
   choose {
-    /"true"/;
-    value = true;
+    /"true"/
+    value = true
   } or {
-    /"false"/;
-    value = false;
+    /"false"/
+    value = false
   }
-  EndKeyword();
-  end := position();
-  return value, slice(begin, end);
+  EndKeyword()
+  end := position()
+  return value, slice(begin, end)
 }
 
 func ParseStringLiteral() StringLiteral {
-  begin := position();
-  value := DecodeString();
-  end := position();
-  return StringLiteral{Pos: begin, Text: slice(begin, end), Value: value};
+  begin := position()
+  value := DecodeString()
+  end := position()
+  return StringLiteral{Pos: begin, Text: slice(begin, end), Value: value}
 }
 
 func Literal() ASTExpr {
   choose {
-    value, text := DecodeRune();
-    return RuneLiteral{Text: text, Value: value};
+    value, text := DecodeRune()
+    return RuneLiteral{Text: text, Value: value}
   } or {
-    return ParseStringLiteral();
+    return ParseStringLiteral()
   } or {
-    return ParseNumericLiteral();
+    return ParseNumericLiteral()
   } or {
-    value, text := DecodeBool();
-    return BoolLiteral{Text: text, Value: value};
+    value, text := DecodeBool()
+    return BoolLiteral{Text: text, Value: value}
   } or {
-    /"nil"/;
-    return NilLiteral{};
+    /"nil"/
+    return NilLiteral{}
   }
 }
 
 func BinaryOperator() (string, int) {
-  var op string;
-  var prec int;
+  var op string
+  var prec int
   choose {
-    return /[*/%]/, 5;
+    return /[*/%]/, 5
   } or {
-    return /[+\-]/, 4;
+    return /[+\-]/, 4
   } or {
-    return /([<>][=]?)|([!=][=])/, 3;
+    return /([<>][=]?)|([!=][=])/, 3
   }
 }
 
 func StringMatchExpr() StringMatch {
-  /[/]/;
-  S();
-  e := ParseMatchChoice();
-  S();
-  /[/]/;
-  return StringMatch{Match: e};
+  /[/]/
+  S()
+  e := ParseMatchChoice()
+  S()
+  /[/]/
+  return StringMatch{Match: e}
 }
 
 func RuneMatchExpr() RuneMatch {
-  /[$]/;
-  S();
-  e := MatchRune();
-  return RuneMatch{Match: e};
+  /[$]/
+  S()
+  e := MatchRune()
+  return RuneMatch{Match: e}
 }
 
 func ParseStructTypeRef() ASTTypeRef {
   choose {
-    pkg := Ident();
-    S();
-    /[.]/;
-    S();
+    pkg := Ident()
+    S()
+    /[.]/
+    S()
     return QualifiedTypeRef{
       Package: pkg,
       Name: Ident()
-    };
+    }
   } or {
-    return TypeRef{Name: Ident()};
+    return TypeRef{Name: Ident()}
   }
 }
 
 func ParseListTypeRef() ListTypeRef {
-    /[\[][\]]/;
-    return ListTypeRef{Type: ParseTypeRef()};
+    /[\[][\]]/
+    return ListTypeRef{Type: ParseTypeRef()}
 }
 
 func ParseTypeRef() ASTTypeRef {
   choose {
-    return ParseStructTypeRef();
+    return ParseStructTypeRef()
   } or {
-    return ParseListTypeRef();
+    return ParseListTypeRef()
   }
 }
 
 func ParseDestructure() Destructure {
   choose {
-    t := ParseStructTypeRef();
-    S();
-    /[{]/;
-    S();
-    fields := []DestructureField{};
+    t := ParseStructTypeRef()
+    S()
+    /[{]/
+    S()
+    fields := []DestructureField{}
     star {
-      name := Ident();
-      S();
-      /[:]/;
-      S();
-      d := ParseDestructure();
-      S();
-      fields = append(fields, DestructureField{Name: name, Destructure: d});
+      name := Ident()
+      S()
+      /[:]/
+      S()
+      d := ParseDestructure()
+      S()
+      fields = append(fields, DestructureField{Name: name, Destructure: d})
     }
-    /[}]/;
-    return DestructureStruct{Type: t, Args: fields};
+    /[}]/
+    return DestructureStruct{Type: t, Args: fields}
   } or {
-    t := ParseListTypeRef();
-    S();
-    /[{]/;
-    S();
-    fields := []Destructure{};
+    t := ParseListTypeRef()
+    S()
+    /[{]/
+    S()
+    fields := []Destructure{}
     star {
-      fields = append(fields, ParseDestructure());
-      S();
+      fields = append(fields, ParseDestructure())
+      S()
     }
-    /[}]/;
-    return DestructureList{Type: t, Args: fields};
+    /[}]/
+    return DestructureList{Type: t, Args: fields}
   } or {
-    return DestructureValue{Expr: Literal()};
+    return DestructureValue{Expr: Literal()}
   }
 }
 
 func ParseRuneFilterRune() rune {
   choose {
-    return $[^\]\-\\];
+    return $[^\]\-\\]
   } or {
-    /[\\]/;
+    /[\\]/
     choose {
-      return EscapedChar();
+      return EscapedChar()
     } or {
-      return $[^];
+      return $[^]
     }
   }
 }
 
 func ParseRuneFilter() RuneFilter {
-  min := ParseRuneFilterRune();
-  max := min;
+  min := ParseRuneFilterRune()
+  max := min
   question {
-    /[\-]/;
-    max = ParseRuneFilterRune();
+    /[\-]/
+    max = ParseRuneFilterRune()
   }
-  return RuneFilter{Min: min, Max: max};
+  return RuneFilter{Min: min, Max: max}
 }
 
 func MatchRune() RuneRangeMatch {
-  /[\[]/;
-  invert := false;
-  filters := []RuneFilter{};
+  /[\[]/
+  invert := false
+  filters := []RuneFilter{}
   question {
-    /[\^]/;
-    invert = true;
+    /[\^]/
+    invert = true
   }
   star {
-    filters = append(filters, ParseRuneFilter());
+    filters = append(filters, ParseRuneFilter())
   }
-  /[\]]/;
-  return RuneRangeMatch{Invert: invert, Filters: filters};
+  /[\]]/
+  return RuneRangeMatch{Invert: invert, Filters: filters}
 }
 
 func Atom() TextMatch {
   choose {
-    return MatchRune();
+    return MatchRune()
   } or {
-    value := DecodeString();
-    return StringLiteralMatch{Value: value};
+    value := DecodeString()
+    return StringLiteralMatch{Value: value}
   } or {
-    /[(]/;
-    S();
-    e := ParseMatchChoice();
-    S();
-    /[)]/;
-    return e;
+    /[(]/
+    S()
+    e := ParseMatchChoice()
+    S()
+    /[)]/
+    return e
   }
 }
 
 func MatchPostfix() TextMatch {
-  e := Atom();
+  e := Atom()
   choose {
-    S();
-    /[*]/;
-    return MatchRepeat{Match: e, Min: 0};
+    S()
+    /[*]/
+    return MatchRepeat{Match: e, Min: 0}
   } or {
-    S();
-    /[+]/;
-    return MatchRepeat{Match: e, Min: 1};
+    S()
+    /[+]/
+    return MatchRepeat{Match: e, Min: 1}
   } or {
-    S();
-    /[?]/;
-    return MatchChoice{Matches: []TextMatch{e, MatchSequence{Matches: []TextMatch{}}}};
+    S()
+    /[?]/
+    return MatchChoice{Matches: []TextMatch{e, MatchSequence{Matches: []TextMatch{}}}}
   } or {
-    return e;
+    return e
   }
 }
 
 func MatchPrefix() TextMatch {
   choose {
-    var invert bool;
+    var invert bool
     choose {
-      /[!]/;
-      invert = true;
+      /[!]/
+      invert = true
     } or {
-      /[&]/;
+      /[&]/
     }
-    S();
-    return MatchLookahead{Invert: invert, Match: MatchPostfix()};
+    S()
+    return MatchLookahead{Invert: invert, Match: MatchPostfix()}
   } or {
-    return MatchPostfix();
+    return MatchPostfix()
   }
 }
 
 func Sequence() TextMatch {
-  e := MatchPrefix();
+  e := MatchPrefix()
   choose {
-    l := []TextMatch{e};
+    l := []TextMatch{e}
     plus {
-      S();
-      l = append(l, MatchPrefix());
+      S()
+      l = append(l, MatchPrefix())
     }
-    return MatchSequence{Matches: l};
+    return MatchSequence{Matches: l}
   } or {
-    return e;
+    return e
   }
 }
 
 func ParseMatchChoice() TextMatch {
-  e := Sequence();
+  e := Sequence()
   choose {
-    l := []TextMatch{e};
+    l := []TextMatch{e}
     plus {
-      S();
-      /[|]/;
-      S();
-      l = append(l, Sequence());
+      S()
+      /[|]/
+      S()
+      l = append(l, Sequence())
     }
-    return MatchChoice{Matches: l};
+    return MatchChoice{Matches: l}
   } or {
-    return e;
+    return e
   }
 }
 
 func ParseExprList() []ASTExpr {
-  exprs := []ASTExpr{};
+  exprs := []ASTExpr{}
   question {
-    exprs = append(exprs, ParseExpr());
+    exprs = append(exprs, ParseExpr())
     star {
-      S();
-      /[,]/;
-      S();
-      exprs = append(exprs, ParseExpr());
+      S()
+      /[,]/
+      S()
+      exprs = append(exprs, ParseExpr())
     }
   }
-  return exprs;
+  return exprs
 }
 
 func ParseTargetList() []ASTExpr {
-  exprs := []ASTExpr{ParseNameRef()};
+  exprs := []ASTExpr{ParseNameRef()}
   star {
-    S();
-    /[,]/;
-    S();
-    exprs = append(exprs, ParseNameRef());
+    S()
+    /[,]/
+    S()
+    exprs = append(exprs, ParseNameRef())
   }
-  return exprs;
+  return exprs
 }
 
 func ParseNamedExpr() NamedExpr {
-  name := Ident();
-  S();
-  /[:]/;
-  S();
-  return NamedExpr{Name: name, Expr: ParseExpr()};
+  name := Ident()
+  S()
+  /[:]/
+  S()
+  return NamedExpr{Name: name, Expr: ParseExpr()}
 }
 
 func ParseNamedExprList() []NamedExpr {
-  exprs := []NamedExpr{};
+  exprs := []NamedExpr{}
   question {
-    exprs = append(exprs, ParseNamedExpr());
+    exprs = append(exprs, ParseNamedExpr())
     star {
-      S();
-      /[,]/;
-      S();
-      exprs = append(exprs, ParseNamedExpr());
+      S()
+      /[,]/
+      S()
+      exprs = append(exprs, ParseNamedExpr())
     }
   }
-  return exprs;
+  return exprs
 }
 
 
 func ParseReturnTypeList() []ASTTypeRef {
   choose {
-    return ParseParenthTypeList();
+    return ParseParenthTypeList()
   } or {
-    return []ASTTypeRef{ParseTypeRef()};
+    return []ASTTypeRef{ParseTypeRef()}
   } or {
-    return []ASTTypeRef{};
+    return []ASTTypeRef{}
   }
 }
 
 func PrimaryExpr() ASTExpr {
-  var e ASTExpr;
+  var e ASTExpr
   choose {
-    e = Literal();
+    e = Literal()
   } or {
-    /"coerce"/;
-    EndKeyword();
-    S();
-    /[(]/;
-    S();
-    t := ParseTypeRef();
-    S();
-    /[,]/;
-    S();
-    child := ParseExpr();
-    S();
-    /[)]/;
-    e = Coerce{Type: t, Expr: child};
+    /"coerce"/
+    EndKeyword()
+    S()
+    /[(]/
+    S()
+    t := ParseTypeRef()
+    S()
+    /[,]/
+    S()
+    child := ParseExpr()
+    S()
+    /[)]/
+    e = Coerce{Type: t, Expr: child}
   } or {
-    t := ParseStructTypeRef();
-    S();
-    /[{]/;
-    S();
-    args := ParseNamedExprList();
-    S();
-    /[}]/;
-    e = Construct{Type: t, Args: args};
+    t := ParseStructTypeRef()
+    S()
+    /[{]/
+    S()
+    args := ParseNamedExprList()
+    S()
+    /[}]/
+    e = Construct{Type: t, Args: args}
   } or {
-    t := ParseListTypeRef();
-    S();
-    /[{]/;
-    S();
-    args := ParseExprList();
-    S();
-    /[}]/;
-    e = ConstructList{Type: t, Args: args};
+    t := ParseListTypeRef()
+    S()
+    /[{]/
+    S()
+    args := ParseExprList()
+    S()
+    /[}]/
+    e = ConstructList{Type: t, Args: args}
   } or {
-    e = StringMatchExpr();
+    e = StringMatchExpr()
   } or {
-    e = RuneMatchExpr();
+    e = RuneMatchExpr()
   } or {
-    /[(]/;
-    S();
-    e = ParseExpr();
-    S();
-    /[)]/;
+    /[(]/
+    S()
+    e = ParseExpr()
+    S()
+    /[)]/
   } or {
-    e = ParseNameRef();
+    e = ParseNameRef()
   }
-  sInsert();
-  return e;
+  sInsert()
+  return e
 }
 
 func ParseNameRef() NameRef {
-    return NameRef{Name: Ident()};
+    return NameRef{Name: Ident()}
 }
 
 func PrimaryExprPostfix() ASTExpr {
-  e := PrimaryExpr();
+  e := PrimaryExpr()
   star {
-    pos := position();
+    pos := position()
     choose {
-      /[(]/;
-      S();
-      args := ParseExprList();
-      S();
-      /[)]/;
-      e = Call{Expr: e, Pos: pos, Args: args};
+      /[(]/
+      S()
+      args := ParseExprList()
+      S()
+      /[)]/
+      e = Call{Expr: e, Pos: pos, Args: args}
     } or {
-      /[.]/;
-      S();
-      name := Ident();
-      e = Selector{Expr: e, Pos: pos, Name: name};
+      /[.]/
+      S()
+      name := Ident()
+      e = Selector{Expr: e, Pos: pos, Name: name}
     } or {
-      /[<]/;
-      S();
-      types := ParseTypeList();
-      S();
-      /[>]/;
-      e = SpecializeTemplate{Expr: e, Pos: pos, Types: types};
+      /[<]/
+      S()
+      types := ParseTypeList()
+      S()
+      /[>]/
+      e = SpecializeTemplate{Expr: e, Pos: pos, Types: types}
     }
-    sInsert();
+    sInsert()
   }
-  return e;
+  return e
 }
 
 // Uses precedence climbing.
 func ParseBinaryOp(min_prec int) ASTExpr {
-  e := PrimaryExprPostfix();
+  e := PrimaryExprPostfix()
   star {
     // TODO associativity
-    opPos := position();
-    op, prec := BinaryOperator();
+    opPos := position()
+    op, prec := BinaryOperator()
     if prec < min_prec {
-      fail;
+      fail
     }
-    S();
-    r := ParseBinaryOp(prec + 1);
+    S()
+    r := ParseBinaryOp(prec + 1)
     e = BinaryOp{
       Left: e,
       Op: op,
       OpPos: opPos,
       Right: r
-    };
+    }
   }
-  return e;
+  return e
 }
 
 func ParseExpr() ASTExpr {
-     return ParseBinaryOp(1);
+     return ParseBinaryOp(1)
 }
 
 func ParseCompoundStatement() ASTExpr {
   choose {
-    /"star"/;
-    EndKeyword();
-    S();
-    block := ParseCodeBlock();
-    return Repeat{Block: block, Min: 0};
+    /"star"/
+    EndKeyword()
+    S()
+    block := ParseCodeBlock()
+    return Repeat{Block: block, Min: 0}
   } or {
-    /"plus"/;
-    EndKeyword();
-    S();
-    block := ParseCodeBlock();
-    return Repeat{Block: block, Min: 1};
+    /"plus"/
+    EndKeyword()
+    S()
+    block := ParseCodeBlock()
+    return Repeat{Block: block, Min: 1}
   } or {
-    /"choose"/;
-    EndKeyword();
-    S();
-    blocks := [][]ASTExpr{ParseCodeBlock()};
+    /"choose"/
+    EndKeyword()
+    S()
+    blocks := [][]ASTExpr{ParseCodeBlock()}
     plus {
-      S();
-      /"or"/;
-      EndKeyword();
-      S();
-      blocks = append(blocks, ParseCodeBlock());
+      S()
+      /"or"/
+      EndKeyword()
+      S()
+      blocks = append(blocks, ParseCodeBlock())
     }
-    return Choice{Blocks: blocks};
+    return Choice{Blocks: blocks}
   } or {
-    /"question"/;
-    EndKeyword();
-    S();
-    block := ParseCodeBlock();
-    return Optional{Block: block};
+    /"question"/
+    EndKeyword()
+    S()
+    block := ParseCodeBlock()
+    return Optional{Block: block}
   } or {
-    /"if"/;
-    EndKeyword();
-    S();
-    expr := ParseExpr();
-    S();
-    block := ParseCodeBlock();
-    else_ := []ASTExpr{};
+    /"if"/
+    EndKeyword()
+    S()
+    expr := ParseExpr()
+    S()
+    block := ParseCodeBlock()
+    else_ := []ASTExpr{}
     question {
-      S();
-      /"else"/;
-      EndKeyword();
-      S();
-      else_ = ParseCodeBlock();
+      S()
+      /"else"/
+      EndKeyword()
+      S()
+      else_ = ParseCodeBlock()
     }
-    return If{Expr: expr, Block: block, Else: else_};
+    return If{Expr: expr, Block: block, Else: else_}
   }
 }
 
 func EOS() {
   choose {
-    S();
-    /[;]|&[)}]|![^]/;
+    S()
+    /[;]|&[)}]|![^]/
   } or {
     question {
-      SingleLineComment();
+      SingleLineComment()
     }
-    LineTerminator();
+    LineTerminator()
   }
 }
 
 func ParseStatement() ASTExpr {
   choose {
-    return ParseCompoundStatement();
+    return ParseCompoundStatement()
   } or {
-    pos := position();
-    /"var"/;
-    EndKeyword();
-    S();
-    name := ParseNameRef();
-    S();
-    t := ParseTypeRef();
-    var expr ASTExpr;
+    pos := position()
+    /"var"/
+    EndKeyword()
+    S()
+    name := ParseNameRef()
+    S()
+    t := ParseTypeRef()
+    var expr ASTExpr
     question {
-      S();
-      /[=]/;
-      S();
-      expr = ParseExpr(); 
+      S()
+      /[=]/
+      S()
+      expr = ParseExpr() 
     }
-    EOS();
+    EOS()
     return Assign{
       Expr: expr,
       Pos: pos, // HACK?
       Targets: []ASTExpr{name},
       Type: t,
       Define: true
-    };
-  } or {
-    /"fail"/;
-    EndKeyword();
-    sInsert();
-    EOS();
-    return Fail{};
-  } or {
-    pos := position();
-    /"return"/;
-    EndKeyword();
-    sInsert();
-    exprs := ParseExprList();
-    EOS();
-    return Return{Pos: pos, Exprs: exprs};
-  } or {
-    names := ParseTargetList();
-    S();
-    pos := position();
-    var defined bool;
-    choose {
-      /":="/;
-      defined = true;
-    } or {
-      /"="/;
     }
-    S();
-    expr := ParseExpr();
-    EOS();
+  } or {
+    /"fail"/
+    EndKeyword()
+    sInsert()
+    EOS()
+    return Fail{}
+  } or {
+    pos := position()
+    /"return"/
+    EndKeyword()
+    sInsert()
+    exprs := ParseExprList()
+    EOS()
+    return Return{Pos: pos, Exprs: exprs}
+  } or {
+    names := ParseTargetList()
+    S()
+    pos := position()
+    var defined bool
+    choose {
+      /":="/
+      defined = true
+    } or {
+      /"="/
+    }
+    S()
+    expr := ParseExpr()
+    EOS()
     return Assign{
       Expr: expr,
       Pos: pos,
       Targets: names,
       Define: defined
-    };
+    }
   } or {
-    e := ParseExpr();
-    EOS();
-    return e;
+    e := ParseExpr()
+    EOS()
+    return e
   }
 }
 
 func ParseCodeBlock() []ASTExpr {
-  /[{]/;
-  S();
-  exprs := []ASTExpr{};
+  /[{]/
+  S()
+  exprs := []ASTExpr{}
   star {
-    exprs = append(exprs, ParseStatement());
-    S();
+    exprs = append(exprs, ParseStatement())
+    S()
   }
-  /[}]/;
-  return exprs;
+  /[}]/
+  return exprs
 }
 
 func ParseTypeList() []ASTTypeRef {
-  types := []ASTTypeRef{};
+  types := []ASTTypeRef{}
   question {
-    types = append(types, ParseTypeRef());
+    types = append(types, ParseTypeRef())
     star {
-      S();
-      /[,]/;
-      S();
-      types = append(types, ParseTypeRef());
+      S()
+      /[,]/
+      S()
+      types = append(types, ParseTypeRef())
     }
   }
-  return types;
+  return types
 }
 
 func ParseParenthTypeList() []ASTTypeRef {
-  /[(]/;
-  S();
-  types := ParseTypeList();
-  S();
-  /[)]/;
-  return types;
+  /[(]/
+  S()
+  types := ParseTypeList()
+  S()
+  /[)]/
+  return types
 }
 
 func ParseStructDecl() StructDecl {
-  /"struct"/;
-  EndKeyword();
-  S();
-  name := Ident();
-  S();
+  /"struct"/
+  EndKeyword()
+  S()
+  name := Ident()
+  S()
 
-  scoped := false;
+  scoped := false
   question {
-    /"scoped"/;
-    EndKeyword();
-    S();
-    scoped = true;
+    /"scoped"/
+    EndKeyword()
+    S()
+    scoped = true
   }
 
-  contains := []ASTTypeRef{};
+  contains := []ASTTypeRef{}
   question {
-    /"contains"/;
-    EndKeyword();
-    S();
-    contains = ParseParenthTypeList();
-    S();
+    /"contains"/
+    EndKeyword()
+    S()
+    contains = ParseParenthTypeList()
+    S()
   }
 
-  var impl ASTTypeRef;
+  var impl ASTTypeRef
   question {
-    /"implements"/;
-    EndKeyword();
-    S();
-    impl = ParseTypeRef();
-    S();
+    /"implements"/
+    EndKeyword()
+    S()
+    impl = ParseTypeRef()
+    S()
   }
 
-  /[{]/;
-  S();
-  fields := []FieldDecl{};
+  /[{]/
+  S()
+  fields := []FieldDecl{}
   star {
-    fn := Ident();
-    S();
-    ft := ParseTypeRef();
-    S();
-    fields = append(fields, FieldDecl{Name: fn, Type: ft});
+    fn := Ident()
+    S()
+    ft := ParseTypeRef()
+    S()
+    fields = append(fields, FieldDecl{Name: fn, Type: ft})
   }
-  /[}]/;
+  /[}]/
   return StructDecl{
     Name: name,
     Implements: impl,
     Fields: fields,
     Scoped: scoped,
     Contains: contains
-  };
+  }
 }
 
 func ParseParam() Param {
-     name := Ident();
-     S();
-     type := ParseTypeRef();
-     return Param{Name: name, Type: type};
+     name := Ident()
+     S()
+     type := ParseTypeRef()
+     return Param{Name: name, Type: type}
 }
 
 func ParseParamList() []Param {
-  params := []Param{};
+  params := []Param{}
   question {
-    params = append(params, ParseParam());
+    params = append(params, ParseParam())
     star {
-      S();
-      /[,]/;
-      S();
-      params = append(params, ParseParam());
+      S()
+      /[,]/
+      S()
+      params = append(params, ParseParam())
     }
   }
-  return params;
+  return params
 }
 
 func ParseFuncDecl() FuncDecl {
-  /"func"/;
-  EndKeyword();
-  S();
-  name := Ident();
-  S();
-  /"("/;
-  S();
-  params := ParseParamList();
-  S();
-  /")"/;
-  S();
-  retTypes := ParseReturnTypeList();
-  S();
-  block := ParseCodeBlock();
-  return FuncDecl{Name: name, Params: params, ReturnTypes: retTypes, Block: block};
+  /"func"/
+  EndKeyword()
+  S()
+  name := Ident()
+  S()
+  /"("/
+  S()
+  params := ParseParamList()
+  S()
+  /")"/
+  S()
+  retTypes := ParseReturnTypeList()
+  S()
+  block := ParseCodeBlock()
+  return FuncDecl{Name: name, Params: params, ReturnTypes: retTypes, Block: block}
 }
 
 func ParseMatchState() string {
   choose {
-    text := /"NORMAL"|"FAIL"/;
-    EndKeyword();
-    return text;
+    text := /"NORMAL"|"FAIL"/
+    EndKeyword()
+    return text
   } or {
-    return "NORMAL";
+    return "NORMAL"
   }
 }
 
 func ParseTest() Test {
-  /"test"/;
-  EndKeyword();
-  S();
-  name := Ident();
-  S();
-  rule := ParseExpr();
-  S();
-  input := DecodeString();
-  S();
-  flow := ParseMatchState();
-  S();
-  d := ParseDestructure();
-  return Test{Name: name, Rule: rule, Input: input, Flow: flow, Destructure: d};
+  /"test"/
+  EndKeyword()
+  S()
+  name := Ident()
+  S()
+  rule := ParseExpr()
+  S()
+  input := DecodeString()
+  S()
+  flow := ParseMatchState()
+  S()
+  d := ParseDestructure()
+  return Test{Name: name, Rule: rule, Input: input, Flow: flow, Destructure: d}
 }
 
 func ParseImports() []ImportDecl {
-  imports := []ImportDecl{};
+  imports := []ImportDecl{}
   question {
-    /"import"/;
-    EndKeyword();
-    S();
-    /"("/;
-    S();
+    /"import"/
+    EndKeyword()
+    S()
+    /"("/
+    S()
     star {
       imports = append(imports, ImportDecl{
         Path: ParseStringLiteral()
-      });
-      S();
+      })
+      S()
     }
-    /")"/;
+    /")"/
   }
-  return imports;
+  return imports
 }
 
 func ParseFile() File {
-  decls := []ASTDecl{};
-  tests := []Test{};
+  decls := []ASTDecl{}
+  tests := []Test{}
 
   // Leading whitespace
-  S();
+  S()
 
-  imports := ParseImports();
-  S();
+  imports := ParseImports()
+  S()
 
   star {
     choose {
-      decls = append(decls, ParseFuncDecl());
+      decls = append(decls, ParseFuncDecl())
     } or {
-      decls = append(decls, ParseStructDecl());
+      decls = append(decls, ParseStructDecl())
     } or {
-      tests = append(tests, ParseTest());
+      tests = append(tests, ParseTest())
     }
-    S();
+    S()
   }
-  /![^]/;
-  return File{Imports: imports, Decls: decls, Tests: tests};
+  /![^]/
+  return File{Imports: imports, Decls: decls, Tests: tests}
 }
