@@ -3,27 +3,27 @@ import (
 )
 
 func Add(a int, b int) int {
-  return a + b;
+  return a + b
 }
 
 func CoerceFraction() float32 {
-  return coerce(float32, 5) / coerce(float32, 8);
+  return coerce(float32, 5) / coerce(float32, 8)
 }
 
 func Blend(x float32, y float32, amt float32) float32 {
-  return (1.0 - amt) * x + amt * y;
+  return (1.0 - amt) * x + amt * y
 }
 
 func FooProxy() int {
-  return submodule.Foo();
+  return submodule.Foo()
 }
 
 func ExplicitSpecialization() []int {
   l := []int{};
   l = append<int>(l, 1);
-  return l;
+  return l
 }
 
 func StringAddition() string {
-  return "foo" + "bar";
+  return "foo" + "bar"
 }

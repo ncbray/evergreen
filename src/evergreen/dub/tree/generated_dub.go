@@ -3976,17 +3976,45 @@ block8:
 }
 
 func EOS(frame *runtime.State) {
-	var c rune
+	var checkpoint0 int
+	var c0 rune
+	var checkpoint1 int
+	var c1 rune
 	S(frame)
-	c = frame.Peek()
+	checkpoint0 = frame.Checkpoint()
+	c0 = frame.Peek()
 	if frame.Flow == 0 {
-		if c == ';' {
+		if c0 == ';' {
 			frame.Consume()
-			return
+			goto block3
 		}
 		frame.Fail()
-		return
+		goto block1
 	}
+	goto block1
+block1:
+	frame.Recover(checkpoint0)
+	checkpoint1 = frame.LookaheadBegin()
+	c1 = frame.Peek()
+	if frame.Flow == 0 {
+		if c1 == ')' {
+			goto block2
+		}
+		if c1 == '}' {
+			goto block2
+		}
+		frame.Fail()
+		goto block4
+	}
+	goto block4
+block2:
+	frame.Consume()
+	frame.LookaheadNormal(checkpoint1)
+	goto block3
+block3:
+	return
+block4:
+	frame.LookaheadFail(checkpoint1)
 	return
 }
 

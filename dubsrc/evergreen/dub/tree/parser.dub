@@ -586,7 +586,7 @@ func ParseCompoundStatement() ASTExpr {
 
 func EOS() {
   S();
-  /[;]/;
+  /[;]|&[)}]/;
 }
 
 func ParseStatement() ASTExpr {
