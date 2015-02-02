@@ -64,7 +64,6 @@ func (ctx *testingContext) makeFatalTest(cond dst.Expr, f string, args ...dst.Ex
 			&dst.Call{
 				Expr: attr(&dst.GetLocal{Info: ctx.tInfo}, "Fatalf"),
 				Args: wrapped,
-				F:    nil,
 			},
 		},
 	}
@@ -76,7 +75,6 @@ func makeLen(expr dst.Expr) dst.Expr {
 		Args: []dst.Expr{
 			expr,
 		},
-		F: nil,
 	}
 }
 
@@ -272,7 +270,6 @@ func generateExpr(ctx *testingContext, expr tree.ASTExpr) dst.Expr {
 		return &dst.Call{
 			Expr: glbl(fname),
 			Args: args,
-			F:    nil,
 		}
 	case *tree.StringLiteral:
 		return strLiteral(expr.Value)
@@ -327,7 +324,6 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 				Args: []dst.Expr{
 					strLiteral(tst.Input),
 				},
-				F: nil,
 			},
 		},
 	})
@@ -356,7 +352,6 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 			attr(ctx.GetState(), "Index"),
 			&dst.Call{
 				Expr: attr(ctx.GetState(), "Deepest"),
-				F:    nil,
 			},
 		))
 	}

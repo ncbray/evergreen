@@ -93,50 +93,49 @@ func nameifyType(t TypeRef, info *FileInfo) {
 	}
 }
 
-func nameifyExpr(expr Expr, info *FileInfo) {
+func nameifyExpr(expr Expr, info *FileInfo) Expr {
 	switch expr := expr.(type) {
 	case *GetLocal, *GetName, *GetGlobal:
 		// TODO
+	case *GetFunction:
+		return info.GetCallable(expr.Func)
 	case *UnaryExpr:
-		nameifyExpr(expr.Expr, info)
+		expr.Expr = nameifyExpr(expr.Expr, info)
 	case *BinaryExpr:
-		nameifyExpr(expr.Left, info)
-		nameifyExpr(expr.Right, info)
+		expr.Left = nameifyExpr(expr.Left, info)
+		expr.Right = nameifyExpr(expr.Right, info)
 	case *Call:
-		f := expr.F
-		if f != nil {
-			expr.Expr = info.GetCallable(f)
-		}
-		nameifyExpr(expr.Expr, info)
-		for _, e := range expr.Args {
-			nameifyExpr(e, info)
+		expr.Expr = nameifyExpr(expr.Expr, info)
+		for i, e := range expr.Args {
+			expr.Args[i] = nameifyExpr(e, info)
 		}
 	case *Selector:
-		nameifyExpr(expr.Expr, info)
+		expr.Expr = nameifyExpr(expr.Expr, info)
 	case *Index:
-		nameifyExpr(expr.Expr, info)
-		nameifyExpr(expr.Index, info)
+		expr.Expr = nameifyExpr(expr.Expr, info)
+		expr.Index = nameifyExpr(expr.Index, info)
 	case *TypeCoerce:
 		nameifyType(expr.Type, info)
-		nameifyExpr(expr.Expr, info)
+		expr.Expr = nameifyExpr(expr.Expr, info)
 	case *TypeAssert:
-		nameifyExpr(expr.Expr, info)
+		expr.Expr = nameifyExpr(expr.Expr, info)
 		nameifyType(expr.Type, info)
 	case *StructLiteral:
 		nameifyType(expr.Type, info)
-		for _, e := range expr.Args {
-			nameifyExpr(e.Expr, info)
+		for i, e := range expr.Args {
+			expr.Args[i].Expr = nameifyExpr(e.Expr, info)
 		}
 	case *ListLiteral:
 		nameifyType(expr.Type, info)
-		for _, e := range expr.Args {
-			nameifyExpr(e, info)
+		for i, e := range expr.Args {
+			expr.Args[i] = nameifyExpr(e, info)
 		}
 	case *IntLiteral, *Float32Literal, *BoolLiteral, *StringLiteral, *RuneLiteral, *NilLiteral:
 		// Leaf
 	default:
 		panic(expr)
 	}
+	return expr
 }
 
 func nameifyTarget(expr Target, info *FileInfo) {
@@ -148,32 +147,32 @@ func nameifyTarget(expr Target, info *FileInfo) {
 	}
 }
 
-func nameifyStmt(stmt Stmt, info *FileInfo) {
+func nameifyStmt(stmt Stmt, info *FileInfo) Stmt {
 	switch stmt := stmt.(type) {
 	case *Var:
 		stmt.Name = info.LocalName(stmt.Info)
 		nameifyType(stmt.Type, info)
 		if stmt.Expr != nil {
-			nameifyExpr(stmt.Expr, info)
+			stmt.Expr = nameifyExpr(stmt.Expr, info)
 		}
 	case *Assign:
-		for _, e := range stmt.Sources {
-			nameifyExpr(e, info)
+		for i, e := range stmt.Sources {
+			stmt.Sources[i] = nameifyExpr(e, info)
 		}
 		for _, e := range stmt.Targets {
 			nameifyTarget(e, info)
 		}
 	case *If:
-		nameifyExpr(stmt.Cond, info)
+		stmt.Cond = nameifyExpr(stmt.Cond, info)
 		nameifyBody(stmt.Body, info)
 		if stmt.Else != nil {
-			nameifyStmt(stmt.Else, info)
+			stmt.Else = nameifyStmt(stmt.Else, info)
 		}
 	case *BlockStmt:
 		nameifyBody(stmt.Body, info)
 	case *Return:
-		for _, e := range stmt.Args {
-			nameifyExpr(e, info)
+		for i, e := range stmt.Args {
+			stmt.Args[i] = nameifyExpr(e, info)
 		}
 	case *Goto:
 		// TODO
@@ -183,16 +182,17 @@ func nameifyStmt(stmt Stmt, info *FileInfo) {
 		// TODO unhack.
 		expr, ok := stmt.(Expr)
 		if ok {
-			nameifyExpr(expr, info)
+			return nameifyExpr(expr, info)
 		} else {
 			panic(stmt)
 		}
 	}
+	return stmt
 }
 
 func nameifyBody(body []Stmt, info *FileInfo) {
-	for _, stmt := range body {
-		nameifyStmt(stmt, info)
+	for i, stmt := range body {
+		body[i] = nameifyStmt(stmt, info)
 	}
 }
 
@@ -281,7 +281,7 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 		nameifyFunc(decl, info)
 	case *VarDecl:
 		nameifyType(decl.Type, info)
-		nameifyExpr(decl.Expr, info)
+		decl.Expr = nameifyExpr(decl.Expr, info)
 	default:
 		panic(decl)
 	}

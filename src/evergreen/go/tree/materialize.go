@@ -26,7 +26,7 @@ func sweepExprList(exprs []Expr, rewriter refRewriter) {
 
 func sweepExpr(expr Expr, rewriter refRewriter) {
 	switch expr := expr.(type) {
-	case *IntLiteral, *Float32Literal, *BoolLiteral, *StringLiteral, *RuneLiteral, *NilLiteral, *GetGlobal, *GetName:
+	case *IntLiteral, *Float32Literal, *BoolLiteral, *StringLiteral, *RuneLiteral, *NilLiteral, *GetGlobal, *GetFunction, *GetName:
 		// Leaf
 	case *GetLocal:
 		expr.Info = rewriter.rewriteLocalInfo(expr.Info)

@@ -103,6 +103,10 @@ struct GetGlobal implements Expr {
   Text string
 }
 
+struct GetFunction implements Expr {
+  Func core.Callable
+}
+
 struct SetDiscard implements Target {
 }
 
@@ -130,7 +134,6 @@ struct Index implements Expr {
 struct Call implements Expr {
   Expr Expr
   Args []Expr
-  F core.Callable
 }
 
 struct TypeAssert implements Expr {
