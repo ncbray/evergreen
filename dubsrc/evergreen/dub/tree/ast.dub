@@ -174,7 +174,7 @@ struct GetFunction implements ASTExpr {
 }
 
 struct GetFunctionTemplate implements ASTExpr {
-  Template core.IntrinsicFunctionTemplate
+  Template core.CallableTemplate
 }
 
 struct GetPackage implements ASTExpr {
@@ -237,6 +237,10 @@ struct BinaryOp implements ASTExpr {
   T core.DubType
 }
 
+struct TemplateParam {
+  Name Id
+}
+
 struct FieldDecl {
   Name Id
   Type ASTTypeRef
@@ -264,6 +268,7 @@ struct Param {
 
 struct FuncDecl contains(LocalInfo) implements ASTDecl {
   Name Id
+  TemplateParams []TemplateParam
   Params []Param
   ReturnTypes []ASTTypeRef
   Block []ASTExpr

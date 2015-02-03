@@ -27,3 +27,7 @@ func ExplicitSpecialization() []int {
 func StringAddition() string {
   return "foo" + "bar"
 }
+
+func Sub<T>(a T, b T) T {
+  return a - b
+}

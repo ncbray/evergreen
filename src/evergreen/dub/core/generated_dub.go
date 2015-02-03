@@ -133,10 +133,24 @@ type TemplateParam struct {
 	Name string
 }
 
+type CallableTemplate interface {
+	isCallableTemplate()
+}
+
+type FunctionTemplate struct {
+	Name string
+}
+
+func (node *FunctionTemplate) isCallableTemplate() {
+}
+
 type IntrinsicFunctionTemplate struct {
 	Name   string
 	Params []*TemplateParam
 	Type   *FunctionType
+}
+
+func (node *IntrinsicFunctionTemplate) isCallableTemplate() {
 }
 
 type BuiltinTypeIndex struct {

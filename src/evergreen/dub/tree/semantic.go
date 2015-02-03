@@ -511,9 +511,14 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 			case *core.FunctionTemplateType:
 				ref, ok := expr.Expr.(*GetFunctionTemplate)
 				if ok {
-					concrete, cft := inferTemplate(ctx, ref.Template, args)
-					expr.Target = concrete
-					rt = cft.Result
+					switch tmpl := ref.Template.(type) {
+					case *core.IntrinsicFunctionTemplate:
+						concrete, cft := inferTemplate(ctx, tmpl, args)
+						expr.Target = concrete
+						rt = cft.Result
+					default:
+						panic(tmpl)
+					}
 				} else {
 					ctx.Status.LocationError(expr.Pos, "can only call directly referenced function templates")
 				}
@@ -545,8 +550,13 @@ func semanticExprPass(ctx *semanticPassContext, decl *FuncDecl, expr ASTExpr, sc
 
 		switch e := expr.Expr.(type) {
 		case *GetFunctionTemplate:
-			concrete, cft := specializeTemplate(ctx, e.Template, bindings)
-			return &GetFunction{Func: concrete}, cft
+			switch tmpl := e.Template.(type) {
+			case *core.IntrinsicFunctionTemplate:
+				concrete, cft := specializeTemplate(ctx, tmpl, bindings)
+				return &GetFunction{Func: concrete}, cft
+			default:
+				panic(tmpl)
+			}
 		default:
 			panic(e)
 		}
@@ -835,7 +845,7 @@ func (element *NamedCallable) isNamedElement() {
 }
 
 type NamedCallableTemplate struct {
-	Func *core.IntrinsicFunctionTemplate
+	Func core.CallableTemplate
 }
 
 func (element *NamedCallableTemplate) isNamedElement() {
@@ -1061,11 +1071,21 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 						Name: name,
 						File: file.F,
 					}
-					decl.F = ctx.Core.Function_Scope.Register(f)
-					ctx.Functions = append(ctx.Functions, decl)
 
-					ctx.Module.Namespace[name] = &NamedCallable{
-						Func: decl.F,
+					if len(decl.TemplateParams) == 0 {
+						decl.F = ctx.Core.Function_Scope.Register(f)
+						ctx.Functions = append(ctx.Functions, decl)
+
+						ctx.Module.Namespace[name] = &NamedCallable{
+							Func: decl.F,
+						}
+					} else {
+						f := &core.FunctionTemplate{
+							Name: name,
+						}
+						ctx.Module.Namespace[name] = &NamedCallableTemplate{
+							Func: f,
+						}
 					}
 				}
 			case *StructDecl:
@@ -1093,8 +1113,10 @@ func resolveSignatures(ctx *semanticPassContext, pkg *Package) {
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
 			case *FuncDecl:
-				// Needed for resolving calls in the next step.
-				semanticFuncSignaturePass(ctx, decl)
+				if len(decl.TemplateParams) == 0 {
+					// Needed for resolving calls in the next step.
+					semanticFuncSignaturePass(ctx, decl)
+				}
 			case *StructDecl:
 				// Needed for resolving field reference types.
 				semanticStructPass(ctx, decl)

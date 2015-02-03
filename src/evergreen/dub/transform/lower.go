@@ -697,8 +697,10 @@ func lowerPackage(program *tree.Program, pkg *tree.Package, funcMap []*flow.LLFu
 		for _, decl := range file.Decls {
 			switch decl := decl.(type) {
 			case *tree.FuncDecl:
-				f := lowerAST(program, decl, funcMap)
-				dubPkg.Funcs = append(dubPkg.Funcs, f)
+				if len(decl.TemplateParams) == 0 {
+					f := lowerAST(program, decl, funcMap)
+					dubPkg.Funcs = append(dubPkg.Funcs, f)
+				}
 			case *tree.StructDecl:
 				dubPkg.Structs = append(dubPkg.Structs, decl.T)
 			default:

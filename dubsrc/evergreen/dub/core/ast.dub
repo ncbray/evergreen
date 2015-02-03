@@ -76,7 +76,14 @@ struct TemplateParam {
   Name string
 }
 
-struct IntrinsicFunctionTemplate {
+struct CallableTemplate {
+}
+
+struct FunctionTemplate implements CallableTemplate{
+  Name string
+}
+
+struct IntrinsicFunctionTemplate implements CallableTemplate {
   Name string
   Params []TemplateParam
   Type FunctionType

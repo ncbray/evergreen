@@ -763,6 +763,29 @@ func ParseStructDecl() StructDecl {
   }
 }
 
+func ParseTemplateParam() TemplateParam {
+  return TemplateParam{Name: Ident()}
+}
+
+
+func ParseTemplateParamList() []TemplateParam {
+  tparams := []TemplateParam{}
+  question {
+    /[<]/
+    S()
+    tparams = append(tparams, ParseTemplateParam())
+    S()
+    star {
+      /[,]/
+      S()
+      tparams = append(tparams, ParseTemplateParam())
+      S()
+    }
+    /[>]/
+  }
+  return tparams
+}
+
 func ParseParam() Param {
      name := Ident()
      S()
@@ -790,6 +813,8 @@ func ParseFuncDecl() FuncDecl {
   S()
   name := Ident()
   S()
+  tparams := ParseTemplateParamList()
+  S()
   /"("/
   S()
   params := ParseParamList()
@@ -799,7 +824,13 @@ func ParseFuncDecl() FuncDecl {
   retTypes := ParseReturnTypeList()
   S()
   block := ParseCodeBlock()
-  return FuncDecl{Name: name, Params: params, ReturnTypes: retTypes, Block: block}
+  return FuncDecl{
+    Name: name,
+    TemplateParams: tparams,
+    Params: params,
+    ReturnTypes: retTypes,
+    Block: block
+  }
 }
 
 func ParseMatchState() string {

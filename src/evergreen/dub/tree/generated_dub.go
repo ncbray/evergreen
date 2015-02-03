@@ -275,7 +275,7 @@ func (node *GetFunction) isASTExpr() {
 }
 
 type GetFunctionTemplate struct {
-	Template *core.IntrinsicFunctionTemplate
+	Template core.CallableTemplate
 }
 
 func (node *GetFunctionTemplate) isASTExpr() {
@@ -371,6 +371,10 @@ type BinaryOp struct {
 func (node *BinaryOp) isASTExpr() {
 }
 
+type TemplateParam struct {
+	Name *Id
+}
+
 type FieldDecl struct {
 	Name *Id
 	Type ASTTypeRef
@@ -408,6 +412,7 @@ type Param struct {
 
 type FuncDecl struct {
 	Name            *Id
+	TemplateParams  []*TemplateParam
 	Params          []*Param
 	ReturnTypes     []ASTTypeRef
 	Block           []ASTExpr
@@ -4975,6 +4980,101 @@ block8:
 	return
 }
 
+func ParseTemplateParam(frame *runtime.State) (ret *TemplateParam) {
+	var r *Id
+	r = Ident(frame)
+	if frame.Flow == 0 {
+		ret = &TemplateParam{Name: r}
+		return
+	}
+	return
+}
+
+func ParseTemplateParamList(frame *runtime.State) (ret []*TemplateParam) {
+	var tparams0 []*TemplateParam
+	var checkpoint0 int
+	var c0 rune
+	var r0 *TemplateParam
+	var tparams1 []*TemplateParam
+	var tparams2 []*TemplateParam
+	var checkpoint1 int
+	var c1 rune
+	var r1 *TemplateParam
+	var tparams3 []*TemplateParam
+	var tparams4 []*TemplateParam
+	var c2 rune
+	var tparams5 []*TemplateParam
+	var tparams6 []*TemplateParam
+	tparams0 = []*TemplateParam{}
+	checkpoint0 = frame.Checkpoint()
+	c0 = frame.Peek()
+	if frame.Flow == 0 {
+		if c0 == '<' {
+			frame.Consume()
+			S(frame)
+			r0 = ParseTemplateParam(frame)
+			if frame.Flow == 0 {
+				tparams1 = append(tparams0, r0)
+				S(frame)
+				tparams2 = tparams1
+				goto block1
+			}
+			tparams6 = tparams0
+			goto block3
+		}
+		frame.Fail()
+		tparams6 = tparams0
+		goto block3
+	}
+	tparams6 = tparams0
+	goto block3
+block1:
+	checkpoint1 = frame.Checkpoint()
+	c1 = frame.Peek()
+	if frame.Flow == 0 {
+		if c1 == ',' {
+			frame.Consume()
+			S(frame)
+			r1 = ParseTemplateParam(frame)
+			if frame.Flow == 0 {
+				tparams3 = append(tparams2, r1)
+				S(frame)
+				tparams2 = tparams3
+				goto block1
+			}
+			tparams4 = tparams2
+			goto block2
+		}
+		frame.Fail()
+		tparams4 = tparams2
+		goto block2
+	}
+	tparams4 = tparams2
+	goto block2
+block2:
+	frame.Recover(checkpoint1)
+	c2 = frame.Peek()
+	if frame.Flow == 0 {
+		if c2 == '>' {
+			frame.Consume()
+			tparams5 = tparams4
+			goto block4
+		}
+		frame.Fail()
+		tparams6 = tparams4
+		goto block3
+	}
+	tparams6 = tparams4
+	goto block3
+block3:
+	frame.Recover(checkpoint0)
+	tparams5 = tparams6
+	goto block4
+block4:
+	ret = tparams5
+	return
+}
+
 func ParseParam(frame *runtime.State) (ret *Param) {
 	var name *Id
 	var type0 ASTTypeRef
@@ -5044,6 +5144,7 @@ func ParseFuncDecl(frame *runtime.State) (ret *FuncDecl) {
 	var c2 rune
 	var c3 rune
 	var name *Id
+	var tparams []*TemplateParam
 	var c4 rune
 	var params []*Param
 	var c5 rune
@@ -5071,6 +5172,8 @@ func ParseFuncDecl(frame *runtime.State) (ret *FuncDecl) {
 										name = Ident(frame)
 										if frame.Flow == 0 {
 											S(frame)
+											tparams = ParseTemplateParamList(frame)
+											S(frame)
 											c4 = frame.Peek()
 											if frame.Flow == 0 {
 												if c4 == '(' {
@@ -5087,7 +5190,7 @@ func ParseFuncDecl(frame *runtime.State) (ret *FuncDecl) {
 															S(frame)
 															block = ParseCodeBlock(frame)
 															if frame.Flow == 0 {
-																ret = &FuncDecl{Name: name, Params: params, ReturnTypes: retTypes, Block: block, LocalInfo_Scope: &LocalInfo_Scope{}}
+																ret = &FuncDecl{Name: name, TemplateParams: tparams, Params: params, ReturnTypes: retTypes, Block: block, LocalInfo_Scope: &LocalInfo_Scope{}}
 																return
 															}
 															return
