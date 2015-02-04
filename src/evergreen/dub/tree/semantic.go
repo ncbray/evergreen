@@ -345,11 +345,11 @@ func specializeTemplate(ctx *semanticPassContext, template *core.IntrinsicFuncti
 
 func rewriteNamedLookup(named namedElement) (ASTExpr, core.DubType) {
 	switch named := named.(type) {
-	case *NamedCallable:
+	case *namedCallable:
 		return &GetFunction{Func: named.Func}, funcType(named.Func)
-	case *NamedCallableTemplate:
+	case *namedCallableTemplate:
 		return &GetFunctionTemplate{Template: named.Func}, &core.FunctionTemplateType{}
-	case *NamedPackage:
+	case *namedPackage:
 		return &GetPackage{Package: named.Scope.Package}, &core.PackageType{}
 	default:
 		panic(named)
@@ -629,7 +629,7 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) (ASTTypeRef, co
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
 			return node, unresolvedType
 		}
-		t, ok := AsType(d)
+		t, ok := asType(d)
 		if !ok {
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
 			return node, unresolvedType
@@ -642,7 +642,7 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) (ASTTypeRef, co
 			ctx.Status.LocationError(node.Package.Pos, fmt.Sprintf("Could not resolve name %#v", mname))
 			return node, unresolvedType
 		}
-		scope, ok := AsPackage(pkg)
+		scope, ok := asPackage(pkg)
 		if !ok {
 			ctx.Status.LocationError(node.Package.Pos, fmt.Sprintf("%#v is not a package", mname))
 			return node, unresolvedType
@@ -653,7 +653,7 @@ func semanticTypePass(ctx *semanticPassContext, node ASTTypeRef) (ASTTypeRef, co
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("Could not resolve name %#v", name))
 			return node, unresolvedType
 		}
-		t, ok := AsType(d)
+		t, ok := asType(d)
 		if !ok {
 			ctx.Status.LocationError(node.Name.Pos, fmt.Sprintf("%#v is not a type", name))
 			return node, unresolvedType
@@ -821,46 +821,46 @@ type namedElement interface {
 	isNamedElement()
 }
 
-type NamedType struct {
+type namedType struct {
 	T core.DubType
 }
 
-func (element *NamedType) isNamedElement() {
+func (element *namedType) isNamedElement() {
 }
 
-func AsType(node namedElement) (core.DubType, bool) {
+func asType(node namedElement) (core.DubType, bool) {
 	switch node := node.(type) {
-	case *NamedType:
+	case *namedType:
 		return node.T, true
 	default:
 		return nil, false
 	}
 }
 
-type NamedCallable struct {
+type namedCallable struct {
 	Func core.Callable
 }
 
-func (element *NamedCallable) isNamedElement() {
+func (element *namedCallable) isNamedElement() {
 }
 
-type NamedCallableTemplate struct {
+type namedCallableTemplate struct {
 	Func core.CallableTemplate
 }
 
-func (element *NamedCallableTemplate) isNamedElement() {
+func (element *namedCallableTemplate) isNamedElement() {
 }
 
-type NamedPackage struct {
+type namedPackage struct {
 	Scope *ModuleScope
 }
 
-func (element *NamedPackage) isNamedElement() {
+func (element *namedPackage) isNamedElement() {
 }
 
-func AsPackage(node namedElement) (*ModuleScope, bool) {
+func asPackage(node namedElement) (*ModuleScope, bool) {
 	switch node := node.(type) {
-	case *NamedPackage:
+	case *namedPackage:
 		return node.Scope, true
 	default:
 		return nil, false
@@ -978,19 +978,19 @@ func makeBuiltinTypeIndex(memo *typeMemoizer) *core.BuiltinTypeIndex {
 }
 
 func addIntrinsicFunction(f *core.IntrinsicFunction, namespace map[string]namedElement) {
-	namespace[f.Name] = &NamedCallable{
+	namespace[f.Name] = &namedCallable{
 		Func: f,
 	}
 }
 
 func addIntrinsicFunctionTemplate(f *core.IntrinsicFunctionTemplate, namespace map[string]namedElement) {
-	namespace[f.Name] = &NamedCallableTemplate{
+	namespace[f.Name] = &namedCallableTemplate{
 		Func: f,
 	}
 }
 
 func addBuiltinType(t *core.BuiltinType, namespace map[string]namedElement) {
-	namespace[t.Name] = &NamedType{
+	namespace[t.Name] = &namedType{
 		T: t,
 	}
 }
@@ -1045,7 +1045,7 @@ func resolveImport(ctx *semanticPassContext, imp *ImportDecl) {
 			if exists {
 				ctx.Status.LocationError(pos, fmt.Sprintf("Tried to redefine %#v", name))
 			} else {
-				ctx.Module.Namespace[name] = &NamedPackage{Scope: other.Module}
+				ctx.Module.Namespace[name] = &namedPackage{Scope: other.Module}
 			}
 			return
 		}
@@ -1076,14 +1076,14 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 						decl.F = ctx.Core.Function_Scope.Register(f)
 						ctx.Functions = append(ctx.Functions, decl)
 
-						ctx.Module.Namespace[name] = &NamedCallable{
+						ctx.Module.Namespace[name] = &namedCallable{
 							Func: decl.F,
 						}
 					} else {
 						f := &core.FunctionTemplate{
 							Name: name,
 						}
-						ctx.Module.Namespace[name] = &NamedCallableTemplate{
+						ctx.Module.Namespace[name] = &namedCallableTemplate{
 							Func: f,
 						}
 					}
@@ -1099,7 +1099,7 @@ func indexModule(ctx *semanticPassContext, pkg *Package) {
 					}
 					decl.T = st
 					ctx.Core.Structures = append(ctx.Core.Structures, st)
-					ctx.Module.Namespace[name] = &NamedType{T: st}
+					ctx.Module.Namespace[name] = &namedType{T: st}
 				}
 			default:
 				panic(decl)
