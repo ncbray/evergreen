@@ -74,7 +74,7 @@ struct StructLiteral implements Expr {
 }
 
 struct ListLiteral implements Expr {
-  Type SliceRef
+  Type TypeRef
   Args []Expr
 }
 

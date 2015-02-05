@@ -57,11 +57,10 @@ func (info *FileInfo) LocalName(lcl *LocalInfo) string {
 
 func nameifyParam(p *Param, info *FileInfo) {
 	p.Name = info.LocalName(p.Info)
-	p.Type = p.Info.T
-	nameifyType(p.Type, info)
+	p.Type = nameifyType(p.Info.T, info)
 }
 
-func nameifyType(t TypeRef, info *FileInfo) {
+func nameifyType(t TypeRef, info *FileInfo) TypeRef {
 	switch t := t.(type) {
 	case *NameRef:
 		impl := t.T
@@ -78,9 +77,9 @@ func nameifyType(t TypeRef, info *FileInfo) {
 			panic(impl)
 		}
 	case *SliceRef:
-		nameifyType(t.Element, info)
+		t.Element = nameifyType(t.Element, info)
 	case *PointerRef:
-		nameifyType(t.Element, info)
+		t.Element = nameifyType(t.Element, info)
 	case *FuncTypeRef:
 		for _, p := range t.Params {
 			nameifyParam(p, info)
@@ -91,6 +90,7 @@ func nameifyType(t TypeRef, info *FileInfo) {
 	default:
 		panic(t)
 	}
+	return t
 }
 
 func nameifyExpr(expr Expr, info *FileInfo) Expr {
@@ -115,18 +115,18 @@ func nameifyExpr(expr Expr, info *FileInfo) Expr {
 		expr.Expr = nameifyExpr(expr.Expr, info)
 		expr.Index = nameifyExpr(expr.Index, info)
 	case *TypeCoerce:
-		nameifyType(expr.Type, info)
+		expr.Type = nameifyType(expr.Type, info)
 		expr.Expr = nameifyExpr(expr.Expr, info)
 	case *TypeAssert:
 		expr.Expr = nameifyExpr(expr.Expr, info)
-		nameifyType(expr.Type, info)
+		expr.Type = nameifyType(expr.Type, info)
 	case *StructLiteral:
-		nameifyType(expr.Type, info)
+		expr.Type = nameifyType(expr.Type, info)
 		for i, e := range expr.Args {
 			expr.Args[i].Expr = nameifyExpr(e.Expr, info)
 		}
 	case *ListLiteral:
-		nameifyType(expr.Type, info)
+		expr.Type = nameifyType(expr.Type, info)
 		for i, e := range expr.Args {
 			expr.Args[i] = nameifyExpr(e, info)
 		}
@@ -151,7 +151,7 @@ func nameifyStmt(stmt Stmt, info *FileInfo) Stmt {
 	switch stmt := stmt.(type) {
 	case *Var:
 		stmt.Name = info.LocalName(stmt.Info)
-		nameifyType(stmt.Type, info)
+		stmt.Type = nameifyType(stmt.Type, info)
 		if stmt.Expr != nil {
 			stmt.Expr = nameifyExpr(stmt.Expr, info)
 		}
@@ -255,11 +255,13 @@ func nameifyFunc(decl *FuncDecl, info *FileInfo) {
 	iter = decl.LocalInfo_Scope.Iter()
 	for iter.Next() {
 		lcl := iter.Value()
-		nameifyType(lcl.T, info)
+		lcl.T = nameifyType(lcl.T, info)
 	}
 	if decl.Recv != nil {
 		nameifyParam(decl.Recv, info)
 	}
+	// HACK not writing back to decl.Type due to type widening.
+	// Function types should not be rewritten, however.
 	nameifyType(decl.Type, info)
 	nameifyBody(decl.Body, info)
 	InsertVarDecls(decl)
@@ -269,18 +271,18 @@ func nameifyDecl(decl Decl, info *FileInfo) {
 	switch decl := decl.(type) {
 	case *InterfaceDecl:
 		for _, field := range decl.Fields {
-			nameifyType(field.Type, info)
+			field.Type = nameifyType(field.Type, info)
 		}
 	case *StructDecl:
 		for _, field := range decl.Fields {
-			nameifyType(field.Type, info)
+			field.Type = nameifyType(field.Type, info)
 		}
 	case *TypeDefDecl:
-		nameifyType(decl.Type, info)
+		decl.Type = nameifyType(decl.Type, info)
 	case *FuncDecl:
 		nameifyFunc(decl, info)
 	case *VarDecl:
-		nameifyType(decl.Type, info)
+		decl.Type = nameifyType(decl.Type, info)
 		decl.Expr = nameifyExpr(decl.Expr, info)
 	default:
 		panic(decl)

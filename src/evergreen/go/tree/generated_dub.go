@@ -135,7 +135,7 @@ func (node *StructLiteral) isExpr() {
 }
 
 type ListLiteral struct {
-	Type *SliceRef
+	Type TypeRef
 	Args []Expr
 }
 
