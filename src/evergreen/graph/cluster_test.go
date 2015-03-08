@@ -61,7 +61,7 @@ func TestLinear(t *testing.T) {
 	emitFullEdge(g, n3, n4)
 	emitFullEdge(g, n4, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "(0 2 3 4 5 1)")
 }
 
@@ -81,7 +81,7 @@ func TestLinearSkip(t *testing.T) {
 	emitFullEdge(g, n3, n4)
 	emitFullEdge(g, n4, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0 2) (3 4) (5 1)]")
 }
 
@@ -105,7 +105,7 @@ func TestClusterDiamond(t *testing.T) {
 
 	emitFullEdge(g, n4, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0 2) <(3) (4)> (5 1)]")
 }
 
@@ -130,7 +130,7 @@ func TestClusterCross(t *testing.T) {
 	emitFullEdge(g, n3, x)
 	emitFullEdge(g, n4, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) <(2) (3)> <(4) (5)> (1)]")
 }
 
@@ -150,7 +150,7 @@ func TestLadder2(t *testing.T) {
 	emitFullEdge(g, n1, n3)
 	emitFullEdge(g, n3, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) <(3) (4)> (1)]")
 }
 
@@ -173,7 +173,7 @@ func TestLadder3(t *testing.T) {
 	emitFullEdge(g, n2, n4)
 	emitFullEdge(g, n4, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) (3) <(4) (5)> (1)]")
 }
 
@@ -192,7 +192,7 @@ func TestLadderSkip(t *testing.T) {
 
 	emitFullEdge(g, n2, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) (3) (1)]")
 }
 
@@ -221,7 +221,7 @@ func TestLadderSkipComplex(t *testing.T) {
 
 	emitFullEdge(g, n5, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) <(3) (5 6)> (4) (1)]")
 }
 
@@ -240,7 +240,7 @@ func TestCrossEdgeToLoop(t *testing.T) {
 	emitFullEdge(g, n2, n3)
 	emitFullEdge(g, n3, n2)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) (2) {(3 4)}]")
 }
 
@@ -268,7 +268,7 @@ func TestInnerOuter(t *testing.T) {
 
 	emitFullEdge(g, n5, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) [(2) <(3) (4 5)>] (6) (1)]")
 }
 
@@ -306,7 +306,7 @@ func Test2Levelif(t *testing.T) {
 
 	emitFullEdge(g, n8, x)
 
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) <[(2) <(4) (5)> (8)] [(3) <(6) (7)> (9)]> (1)]")
 
 	info, edges, postorder := analyzeStructure(g)

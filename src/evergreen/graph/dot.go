@@ -173,7 +173,7 @@ func drawCluster(drawer *dotDrawer, cluster Cluster, styler DotStyler) {
 }
 
 func drawClusteredNodes(drawer *dotDrawer, g *Graph, styler DotStyler) {
-	cluster := makeCluster(g)
+	cluster := MakeCluster(g)
 	drawCluster(drawer, cluster, styler)
 }
 

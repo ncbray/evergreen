@@ -281,25 +281,17 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []*tre
 }
 
 func RetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.FlowFunc) *tree.FuncDecl {
+	//return NewRetreeFunc(coreProg, f, decl)
+
 	funcDecl := &tree.FuncDecl{
 		Name:            f.Name,
 		LocalInfo_Scope: &tree.LocalInfo_Scope{},
 	}
 
 	// Translate locals
-	numRegisters := decl.Register_Scope.Len()
-	lclMap := make([]*tree.LocalInfo, numRegisters)
-	for i := 0; i < numRegisters; i++ {
-		info := decl.Register_Scope.Get(flow.Register_Ref(i))
-		lclMap[i] = funcDecl.LocalInfo_Scope.Register(&tree.LocalInfo{
-			Name: info.Name,
-			T:    tree.RefForType(info.T),
-		})
-	}
+	lclMap := makeLocalMap(decl, funcDecl)
 
-	ft := &tree.FuncTypeRef{}
-
-	// Translate receiver.
+	// Translate receiver
 	info := decl.Recv
 	if info != nil {
 		mapped := lclMap[info.Index]
@@ -310,29 +302,7 @@ func RetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.FlowFun
 		}
 	}
 
-	// Translate parameters
-	ft.Params = make([]*tree.Param, len(decl.Params))
-	for i, info := range decl.Params {
-		mapped := lclMap[info.Index]
-		ft.Params[i] = &tree.Param{
-			Name: mapped.Name,
-			Type: tree.RefForType(info.T),
-			Info: mapped,
-		}
-	}
-
-	// Translate returns
-	ft.Results = make([]*tree.Param, len(decl.Results))
-	for i, info := range decl.Results {
-		mapped := lclMap[info.Index]
-		ft.Results[i] = &tree.Param{
-			Name: mapped.Name,
-			Type: tree.RefForType(info.T),
-			Info: mapped,
-		}
-	}
-
-	funcDecl.Type = ft
+	funcDecl.Type = makeFuncType(decl, lclMap)
 
 	// Don't reconstruct empty functions.
 	_, first := decl.CFG.GetUniqueExit(decl.CFG.Entry())

@@ -330,6 +330,13 @@ type If struct {
 func (node *If) isStmt() {
 }
 
+type For struct {
+	Body []Stmt
+}
+
+func (node *For) isStmt() {
+}
+
 type Goto struct {
 	Text string
 }

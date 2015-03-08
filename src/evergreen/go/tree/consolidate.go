@@ -100,6 +100,8 @@ func defUseStmt(stmt Stmt, du *defUse) {
 		if stmt.Else != nil {
 			defUseStmt(stmt.Else, du)
 		}
+	case *For:
+		defUseBlock(stmt.Body, du)
 	case *BlockStmt:
 		defUseBlock(stmt.Body, du)
 	case *Return:
@@ -233,6 +235,8 @@ func consolidateStmt(stmt Stmt, du *defUse, out []Stmt) []Stmt {
 		if stmt.Else != nil {
 			consolidateStmt(stmt.Else, du, nil)
 		}
+	case *For:
+		stmt.Body = consolidateBlock(stmt.Body, du)
 	case *BlockStmt:
 		stmt.Body = consolidateBlock(stmt.Body, du)
 	case *Return:

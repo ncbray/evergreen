@@ -168,6 +168,8 @@ func nameifyStmt(stmt Stmt, info *FileInfo) Stmt {
 		if stmt.Else != nil {
 			stmt.Else = nameifyStmt(stmt.Else, info)
 		}
+	case *For:
+		nameifyBody(stmt.Body, info)
 	case *BlockStmt:
 		nameifyBody(stmt.Body, info)
 	case *Return:

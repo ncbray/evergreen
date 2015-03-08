@@ -200,6 +200,10 @@ func GenerateStmt(gen *textGenerator, stmt Stmt, w *text.CodeWriter) {
 			}
 		}
 		w.Line("}")
+	case *For:
+		w.Linef("for {")
+		GenerateBody(gen, stmt.Body, w)
+		w.Line("}")
 	case *Assign:
 		sources := GenerateExprList(gen, stmt.Sources)
 		targets := GenerateTargetList(gen, stmt.Targets)

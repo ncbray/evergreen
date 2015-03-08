@@ -86,6 +86,8 @@ func sweepStmt(stmt Stmt, rewriter refRewriter) {
 		if stmt.Else != nil {
 			sweepStmt(stmt.Else, rewriter)
 		}
+	case *For:
+		sweepBlock(stmt.Body, rewriter)
 	case *BlockStmt:
 		sweepBlock(stmt.Body, rewriter)
 	case *Return:

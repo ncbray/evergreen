@@ -170,6 +170,10 @@ struct If implements Stmt {
   Else Stmt
 }
 
+struct For implements Stmt {
+  Body []Stmt
+}
+
 struct Goto implements Stmt {
   Text string
 }

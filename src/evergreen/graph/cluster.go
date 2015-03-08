@@ -97,7 +97,7 @@ func (cluster *ClusterLoop) DumpShort() string {
 	return fmt.Sprintf("{%s}", cluster.Body.DumpShort())
 }
 
-func makeCluster(g *Graph) Cluster {
+func MakeCluster(g *Graph) Cluster {
 	g = g.Copy()
 	info, edges, postorder := analyzeStructure(g)
 	return contractClusters(g, info, edges, postorder)
