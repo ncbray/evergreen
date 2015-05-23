@@ -46,6 +46,25 @@ func assertEdgeTypeList(actual []EdgeType, expected []EdgeType, t *testing.T) {
 	}
 }
 
+func assertDominates(info []NodeInfo, n NodeID, child NodeID, t *testing.T) {
+	if !Dominates(info, n, child) {
+		t.Errorf("%v does not dominate %v", n, child)
+	} else {
+		if Dominates(info, child, n) {
+			t.Errorf("inconsistent domination: %v dominates %v", child, n)
+		}
+	}
+}
+
+func assertNotDominates(info []NodeInfo, n NodeID, child NodeID, t *testing.T) {
+	if Dominates(info, n, child) {
+		t.Errorf("%v dominates %v", n, child)
+		if Dominates(info, child, n) {
+			t.Errorf("inconsistent domination: %v dominates %v", child, n)
+		}
+	}
+}
+
 func TestLinear(t *testing.T) {
 	g := CreateGraph()
 	e := g.Entry()
@@ -378,6 +397,16 @@ func Test2Levelif(t *testing.T) {
 		n2,
 		e,
 	}, t)
+
+	assertNotDominates(info, n1, e, t)
+	assertNotDominates(info, n1, x, t)
+	assertNotDominates(info, n1, n2, t)
+	assertDominates(info, n1, n3, t)
+	assertDominates(info, n1, n4, t)
+	assertNotDominates(info, n1, n5, t)
+	assertNotDominates(info, n1, n6, t)
+	assertDominates(info, n1, n7, t)
+	assertNotDominates(info, n1, n8, t)
 }
 
 func TestDualLoop(t *testing.T) {
@@ -448,6 +477,18 @@ func TestDualLoop(t *testing.T) {
 		n1,
 		e,
 	}, t)
+
+	assertDominates(info, e, x, t)
+	assertNotDominates(info, n1, e, t)
+	assertDominates(info, n1, x, t)
+	assertDominates(info, n1, n2, t)
+	assertDominates(info, n1, n3, t)
+	assertDominates(info, n1, n4, t)
+	assertDominates(info, n2, n3, t)
+	assertDominates(info, n2, n4, t)
+	assertNotDominates(info, n3, n4, t)
+	assertNotDominates(info, n3, x, t)
+	assertNotDominates(info, n4, x, t)
 }
 
 func TestForwardEdgeLoop(t *testing.T) {

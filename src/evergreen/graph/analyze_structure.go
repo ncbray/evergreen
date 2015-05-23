@@ -152,6 +152,18 @@ func Intersect(nodes []NodeInfo, n0 NodeID, n1 NodeID) NodeID {
 	return n0
 }
 
+func Dominates(nodes []NodeInfo, n NodeID, child NodeID) bool {
+	idom := nodes[child].IDom
+
+	p0 := nodes[n].Post
+	p1 := nodes[idom].Post
+	for p0 > p1 {
+		idom = nodes[idom].IDom
+		p1 = nodes[idom].Post
+	}
+	return n == idom
+}
+
 func (lf *loopFinder) intersect(n0 NodeID, n1 NodeID) NodeID {
 	return Intersect(lf.node, n0, n1)
 }
