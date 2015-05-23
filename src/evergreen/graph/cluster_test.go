@@ -5,23 +5,23 @@ import (
 	"testing"
 )
 
-func assertNodeInfos(actual []nodeInfo, expected []nodeInfo, t *testing.T) {
+func assertNodeInfos(actual []NodeInfo, expected []NodeInfo, t *testing.T) {
 	assert.IntEquals(t, len(actual), len(expected))
 
 	for i := 0; i < len(expected); i++ {
 		a := actual[i]
 		e := expected[i]
-		if a.idom != e.idom {
-			t.Errorf("%d idom: %v vs %v", i, a.idom, e.idom)
+		if a.IDom != e.IDom {
+			t.Errorf("%d idom: %v vs %v", i, a.IDom, e.IDom)
 		}
-		if a.loopHead != e.loopHead {
-			t.Errorf("%d loop head: %v vs %v", i, a.loopHead, e.loopHead)
+		if a.LoopHead != e.LoopHead {
+			t.Errorf("%d loop head: %v vs %v", i, a.LoopHead, e.LoopHead)
 		}
-		if a.isHead != e.isHead {
-			t.Errorf("%d is head: %v vs %v", i, a.isHead, e.isHead)
+		if a.IsHead != e.IsHead {
+			t.Errorf("%d is head: %v vs %v", i, a.IsHead, e.IsHead)
 		}
-		if a.isIrreducible != e.isIrreducible {
-			t.Errorf("%d is irreducible: %v vs %v", i, a.isIrreducible, e.isIrreducible)
+		if a.IsIrreducible != e.IsIrreducible {
+			t.Errorf("%d is irreducible: %v vs %v", i, a.IsIrreducible, e.IsIrreducible)
 		}
 	}
 }
@@ -36,7 +36,7 @@ func assertNodeList(actual []NodeID, expected []NodeID, t *testing.T) {
 	}
 }
 
-func assertEdgeTypeList(actual []edgeType, expected []edgeType, t *testing.T) {
+func assertEdgeTypeList(actual []EdgeType, expected []EdgeType, t *testing.T) {
 	assert.IntEquals(t, len(actual), len(expected))
 
 	for i := 0; i < len(expected); i++ {
@@ -309,62 +309,62 @@ func Test2Levelif(t *testing.T) {
 	cluster := MakeCluster(g)
 	assert.StringEquals(t, cluster.DumpShort(), "[(0) <[(2) <(4) (5)> (8)] [(3) <(6) (7)> (9)]> (1)]")
 
-	info, edges, postorder := analyzeStructure(g)
+	info, edges, postorder := AnalyzeStructure(g)
 
-	assertNodeInfos(info, []nodeInfo{
+	assertNodeInfos(info, []NodeInfo{
 		// e
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
 		},
 		// x
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
 		},
 		// n1
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
 		},
 		// n2
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
 		},
 		// n3
-		nodeInfo{
-			idom:     n1,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     n1,
+			LoopHead: NoNode,
 		},
 		// n4
-		nodeInfo{
-			idom:     n1,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     n1,
+			LoopHead: NoNode,
 		},
 		// n5
-		nodeInfo{
-			idom:     n2,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     n2,
+			LoopHead: NoNode,
 		},
 		// n6
-		nodeInfo{
-			idom:     n2,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     n2,
+			LoopHead: NoNode,
 		},
 		// n7
-		nodeInfo{
-			idom:     n1,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     n1,
+			LoopHead: NoNode,
 		},
 		// n8
-		nodeInfo{
-			idom:     n2,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     n2,
+			LoopHead: NoNode,
 		},
 	}, t)
 
-	assertEdgeTypeList(edges, []edgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, CROSS, FORWARD, CROSS, FORWARD, CROSS}, t)
+	assertEdgeTypeList(edges, []EdgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, CROSS, FORWARD, CROSS, FORWARD, CROSS}, t)
 
 	assertNodeList(postorder, []NodeID{
 		x,
@@ -401,44 +401,44 @@ func TestDualLoop(t *testing.T) {
 
 	emitFullEdge(g, n4, n1)
 
-	info, edges, postorder := analyzeStructure(g)
+	info, edges, postorder := AnalyzeStructure(g)
 
-	assertNodeInfos(info, []nodeInfo{
+	assertNodeInfos(info, []NodeInfo{
 		// e
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
 		},
 		// x
-		nodeInfo{
-			idom:     n1,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     n1,
+			LoopHead: NoNode,
 		},
 		// n1
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
-			isHead:   true,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
+			IsHead:   true,
 		},
 		// n2
-		nodeInfo{
-			idom:     n1,
-			loopHead: n1,
-			isHead:   true,
+		NodeInfo{
+			IDom:     n1,
+			LoopHead: n1,
+			IsHead:   true,
 		},
 		// n3
-		nodeInfo{
-			idom:     n2,
-			loopHead: n2,
+		NodeInfo{
+			IDom:     n2,
+			LoopHead: n2,
 		},
 		// n4
-		nodeInfo{
-			idom:     n2,
-			loopHead: n1,
+		NodeInfo{
+			IDom:     n2,
+			LoopHead: n1,
 		},
 	}, t)
 
-	assertEdgeTypeList(edges, []edgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, BACKWARD, BACKWARD}, t)
+	assertEdgeTypeList(edges, []EdgeType{FORWARD, FORWARD, FORWARD, FORWARD, FORWARD, BACKWARD, BACKWARD}, t)
 
 	assertNodeList(postorder, []NodeID{
 		n3,
@@ -470,44 +470,44 @@ func TestForwardEdgeLoop(t *testing.T) {
 
 	emitFullEdge(g, n4, n2)
 
-	info, edges, postorder := analyzeStructure(g)
+	info, edges, postorder := AnalyzeStructure(g)
 
-	assertNodeInfos(info, []nodeInfo{
+	assertNodeInfos(info, []NodeInfo{
 		// e
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
 		},
 		// x
-		nodeInfo{
-			idom:     n2,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     n2,
+			LoopHead: NoNode,
 		},
 		// n1
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
 		},
 		// n2
-		nodeInfo{
-			idom:          n1,
-			loopHead:      NoNode,
-			isHead:        true,
-			isIrreducible: true,
+		NodeInfo{
+			IDom:          n1,
+			LoopHead:      NoNode,
+			IsHead:        true,
+			IsIrreducible: true,
 		},
 		// n3
-		nodeInfo{
-			idom:     n1,
-			loopHead: n2,
+		NodeInfo{
+			IDom:     n1,
+			LoopHead: n2,
 		},
 		// n4
-		nodeInfo{
-			idom:     n3,
-			loopHead: n2,
+		NodeInfo{
+			IDom:     n3,
+			LoopHead: n2,
 		},
 	}, t)
 
-	assertEdgeTypeList(edges, []edgeType{FORWARD, FORWARD, REENTRY, FORWARD, FORWARD, FORWARD, BACKWARD}, t)
+	assertEdgeTypeList(edges, []EdgeType{FORWARD, FORWARD, REENTRY, FORWARD, FORWARD, FORWARD, BACKWARD}, t)
 
 	assertNodeList(postorder, []NodeID{
 		n4,
@@ -543,46 +543,46 @@ func TestClassicIrreducible(t *testing.T) {
 
 	emitFullEdge(g, n4, n3)
 
-	info, edges, postorder := analyzeStructure(g)
+	info, edges, postorder := AnalyzeStructure(g)
 
-	assertNodeInfos(info, []nodeInfo{
+	assertNodeInfos(info, []NodeInfo{
 		// e
-		nodeInfo{
-			loopHead: NoNode,
-			idom:     e,
+		NodeInfo{
+			LoopHead: NoNode,
+			IDom:     e,
 		},
 		// x
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
 		},
 		// n1
-		nodeInfo{
-			idom:     e,
-			loopHead: NoNode,
-			isHead:   true,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: NoNode,
+			IsHead:   true,
 		},
 		// n2
-		nodeInfo{
-			idom:     e,
-			loopHead: n1,
-			isHead:   true,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: n1,
+			IsHead:   true,
 		},
 		// n3
-		nodeInfo{
-			idom:          e,
-			loopHead:      n2,
-			isHead:        true,
-			isIrreducible: true,
+		NodeInfo{
+			IDom:          e,
+			LoopHead:      n2,
+			IsHead:        true,
+			IsIrreducible: true,
 		},
 		// n4
-		nodeInfo{
-			idom:     e,
-			loopHead: n3,
+		NodeInfo{
+			IDom:     e,
+			LoopHead: n3,
 		},
 	}, t)
 
-	assertEdgeTypeList(edges, []edgeType{FORWARD, REENTRY, FORWARD, FORWARD, BACKWARD, CROSS, FORWARD, BACKWARD, FORWARD, BACKWARD}, t)
+	assertEdgeTypeList(edges, []EdgeType{FORWARD, REENTRY, FORWARD, FORWARD, BACKWARD, CROSS, FORWARD, BACKWARD, FORWARD, BACKWARD}, t)
 
 	assertNodeList(postorder, []NodeID{
 		n4,

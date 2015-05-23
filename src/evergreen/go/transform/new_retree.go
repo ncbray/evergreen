@@ -273,6 +273,9 @@ func NewRetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.Flow
 		return funcDecl
 	}
 
+	//RetreeFunc3(decl)
+	//panic(f.Name)
+
 	cluster := graph.MakeCluster(decl.CFG)
 	retree := &retreeGo{
 		Decl:   decl,
@@ -281,4 +284,46 @@ func NewRetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.Flow
 	funcDecl.Body = retreeCluster(retree, cluster, funcDecl.Body)
 
 	return funcDecl
+}
+
+// Start new
+
+type retreeState struct {
+	cfg      *graph.Graph
+	nodeInfo []graph.NodeInfo
+	edgeType []graph.EdgeType
+
+	current graph.NodeID
+}
+
+func (state *retreeState) Init(n graph.NodeID) {
+	state.current = n
+}
+
+func (state *retreeState) Contract() bool {
+	xit := state.cfg.ExitIterator(state.current)
+	for xit.HasNext() {
+		_, dst := xit.GetNext()
+		dom := graph.Intersect(state.nodeInfo, state.current, dst)
+		if dom != state.current {
+			return false
+		}
+	}
+
+	return false
+}
+
+func RetreeFunc3(decl *flow.FlowFunc) {
+	nodes, edges, postorder := graph.AnalyzeStructure(decl.CFG)
+	state := &retreeState{
+		cfg:      decl.CFG.Copy(),
+		nodeInfo: nodes,
+		edgeType: edges,
+	}
+
+	for _, n := range postorder {
+		state.Init(n)
+		for state.Contract() {
+		}
+	}
 }

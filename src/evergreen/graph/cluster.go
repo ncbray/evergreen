@@ -99,196 +99,8 @@ func (cluster *ClusterLoop) DumpShort() string {
 
 func MakeCluster(g *Graph) Cluster {
 	g = g.Copy()
-	info, edges, postorder := analyzeStructure(g)
+	info, edges, postorder := AnalyzeStructure(g)
 	return contractClusters(g, info, edges, postorder)
-}
-
-type nodeInfo struct {
-	pre           int
-	post          int
-	idom          NodeID
-	loopHead      NodeID
-	isHead        bool
-	isIrreducible bool
-	live          bool
-}
-
-type edgeType int
-
-const (
-	DEAD edgeType = iota
-	FORWARD
-	BACKWARD
-	CROSS
-	REENTRY
-)
-
-type loopFinder struct {
-	graph     *Graph
-	node      []nodeInfo
-	edge      []edgeType
-	postorder []NodeID
-	depth     []int
-	current   int
-}
-
-func (lf *loopFinder) beginTraversingNode(n NodeID, prev NodeID) {
-	lf.current += 1
-
-	lf.node[n] = nodeInfo{
-		pre:      lf.current,
-		idom:     prev, // A reasonable inital guess.
-		loopHead: NoNode,
-		live:     true,
-	}
-
-	lf.depth[n] = lf.current
-}
-
-func (lf *loopFinder) endTraversingNode(n NodeID) {
-	lf.current += 1
-	lf.node[n].post = lf.current
-
-	lf.depth[n] = 0
-
-	lf.postorder = append(lf.postorder, n)
-}
-
-func (lf *loopFinder) isUnprocessed(n NodeID) bool {
-	return !lf.node[n].live
-}
-
-func (lf *loopFinder) isBeingProcessed(dst NodeID) bool {
-	return lf.depth[dst] > 0
-}
-
-func (lf *loopFinder) markLoopHeader(child NodeID, head NodeID) {
-	if child == head {
-		// Trivial loop.
-		return
-	}
-	childHead := lf.node[child].loopHead
-	for childHead != NoNode {
-		if childHead == head {
-			return
-		}
-		if lf.depth[childHead] < lf.depth[head] {
-			// Found a closer head for this child, adopt it.
-			lf.node[child].loopHead = head
-			child, head = head, childHead
-		} else {
-			child = childHead
-		}
-		childHead = lf.node[child].loopHead
-	}
-	lf.node[child].loopHead = head
-}
-
-func (lf *loopFinder) process(n NodeID, prev NodeID) {
-	lf.beginTraversingNode(n, prev)
-	xit := lf.graph.ExitIterator(n)
-	for xit.HasNext() {
-		e, next := xit.GetNext()
-		if lf.isUnprocessed(next) {
-			lf.edge[e] = FORWARD
-			lf.process(next, n)
-
-			// Propagage loop headers upwards.
-			head := lf.node[next].loopHead
-			if head != NoNode {
-				lf.markLoopHeader(n, head)
-			}
-		} else if lf.isBeingProcessed(next) {
-			lf.edge[e] = BACKWARD
-			lf.node[next].isHead = true
-			lf.markLoopHeader(n, next)
-		} else {
-			lf.edge[e] = CROSS
-			if lf.node[next].loopHead != NoNode {
-				// Propagate loop header from cross edge.
-				otherHead := lf.node[next].loopHead
-				if lf.isBeingProcessed(otherHead) {
-					lf.markLoopHeader(n, otherHead)
-				} else {
-					lf.edge[e] = REENTRY
-					lf.node[otherHead].isIrreducible = true
-					// Find and mark the common loop head.
-					otherHead = lf.node[otherHead].loopHead
-					for otherHead != NoNode {
-						if lf.isBeingProcessed(otherHead) {
-							lf.markLoopHeader(n, otherHead)
-							break
-						}
-						otherHead = lf.node[otherHead].loopHead
-					}
-				}
-			}
-		}
-	}
-	lf.endTraversingNode(n)
-}
-
-func (lf *loopFinder) intersect(n0 NodeID, n1 NodeID) NodeID {
-	i0 := lf.node[n0].post
-	i1 := lf.node[n1].post
-	for i0 != i1 {
-		for i0 < i1 {
-			n0 = lf.node[n0].idom
-			i0 = lf.node[n0].post
-		}
-		for i0 > i1 {
-			n1 = lf.node[n1].idom
-			i1 = lf.node[n1].post
-		}
-	}
-	return n0
-}
-
-func (lf *loopFinder) cleanDeadEdges() {
-	numEdges := lf.graph.NumEdges()
-	for i := 0; i < numEdges; i++ {
-		if lf.edge[i] == DEAD {
-			lf.graph.KillEdge(EdgeID(i))
-		}
-	}
-}
-
-func (lf *loopFinder) findIdoms() {
-	g := lf.graph
-	changed := true
-	for changed {
-		changed = false
-		for i := len(lf.postorder) - 1; i >= 0; i-- {
-			n := lf.postorder[i]
-			original := lf.node[n].idom
-			idom := original
-			eit := g.EntryIterator(n)
-			for eit.HasNext() {
-				src, _ := eit.GetNext()
-				idom = lf.intersect(idom, src)
-			}
-			if idom != original {
-				lf.node[n].idom = idom
-				changed = true
-			}
-		}
-	}
-}
-
-func analyzeStructure(g *Graph) ([]nodeInfo, []edgeType, []NodeID) {
-	numNodes := g.NumNodes()
-	lf := &loopFinder{
-		graph: g,
-		node:  make([]nodeInfo, numNodes),
-		edge:  make([]edgeType, g.NumEdges()),
-		depth: make([]int, numNodes),
-	}
-
-	e := g.Entry()
-	lf.process(e, e)
-	lf.cleanDeadEdges()
-	lf.findIdoms()
-	return lf.node, lf.edge, lf.postorder
 }
 
 func uniqueEntry(g *Graph, src NodeID, dst NodeID) bool {
@@ -302,7 +114,7 @@ func uniqueEntry(g *Graph, src NodeID, dst NodeID) bool {
 	return true
 }
 
-func contract(g *Graph, src NodeID, dst NodeID, nodes []nodeInfo) {
+func contract(g *Graph, src NodeID, dst NodeID, nodes []NodeInfo) {
 	transferedExits := false
 	eit := g.EntryIterator(dst)
 	for eit.HasNext() {
@@ -373,18 +185,18 @@ func appendCluster(src Cluster, dst Cluster, shouldFuse bool) Cluster {
 	return &ClusterLinear{Clusters: []Cluster{src, dst}}
 }
 
-func isClusterHead(g *Graph, src NodeID, nodes []nodeInfo, edges []edgeType) bool {
+func isClusterHead(g *Graph, src NodeID, nodes []NodeInfo, edges []EdgeType) bool {
 	xit := g.ExitIterator(src)
 	for xit.HasNext() {
 		e, dst := xit.GetNext()
-		if edges[e] != BACKWARD && nodes[dst].idom != src {
+		if edges[e] != BACKWARD && nodes[dst].IDom != src {
 			return false
 		}
 	}
 	return true
 }
 
-func clusterRegion(g *Graph, n NodeID, currentHead NodeID, cluster Cluster, clusters []Cluster, nodes []nodeInfo, edges []edgeType) Cluster {
+func clusterRegion(g *Graph, n NodeID, currentHead NodeID, cluster Cluster, clusters []Cluster, nodes []NodeInfo, edges []EdgeType) Cluster {
 	for {
 		ready := []NodeID{}
 		readyClusters := []Cluster{}
@@ -395,7 +207,7 @@ func clusterRegion(g *Graph, n NodeID, currentHead NodeID, cluster Cluster, clus
 		for xit.HasNext() {
 			e, dst := xit.GetNext()
 			numExits += 1
-			if nodes[dst].loopHead != currentHead {
+			if nodes[dst].LoopHead != currentHead {
 				continue
 			}
 			if edges[e] == BACKWARD {
@@ -424,20 +236,20 @@ func clusterRegion(g *Graph, n NodeID, currentHead NodeID, cluster Cluster, clus
 	}
 }
 
-func contractClusters(g *Graph, nodes []nodeInfo, edges []edgeType, postorder []NodeID) Cluster {
+func contractClusters(g *Graph, nodes []NodeInfo, edges []EdgeType, postorder []NodeID) Cluster {
 	clusters := make([]Cluster, g.NumNodes())
 
 	for _, n := range postorder {
 		var cluster Cluster = &ClusterLeaf{
 			Nodes: []NodeID{n},
 		}
-		if nodes[n].isHead {
+		if nodes[n].IsHead {
 			cluster = clusterRegion(g, n, n, cluster, clusters, nodes, edges)
 			contractLoop(g, n)
 			cluster = &ClusterLoop{Body: cluster}
 		}
 		if isClusterHead(g, n, nodes, edges) {
-			cluster = clusterRegion(g, n, nodes[n].loopHead, cluster, clusters, nodes, edges)
+			cluster = clusterRegion(g, n, nodes[n].LoopHead, cluster, clusters, nodes, edges)
 		}
 		clusters[n] = cluster
 	}
