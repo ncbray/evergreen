@@ -81,6 +81,16 @@ func (lf *loopFinder) markLoopHeader(child NodeID, head NodeID) {
 	lf.node[child].LoopHead = head
 }
 
+func (lf *loopFinder) updateCrossEdgeIDom(n NodeID) {
+	// The IDom will always be in the path of nodes being processed.
+	// Climb until we find the path.
+	idom := lf.node[n].IDom
+	for !lf.isBeingProcessed(idom) {
+		idom = lf.node[idom].IDom
+	}
+	lf.node[n].IDom = idom
+}
+
 func (lf *loopFinder) process(n NodeID, prev NodeID) {
 	lf.beginTraversingNode(n, prev)
 	xit := lf.graph.ExitIterator(n)
@@ -101,6 +111,7 @@ func (lf *loopFinder) process(n NodeID, prev NodeID) {
 			lf.markLoopHeader(n, next)
 		} else {
 			lf.edge[e] = CROSS
+			lf.updateCrossEdgeIDom(next)
 			if lf.node[next].LoopHead != NoNode {
 				// Propagate loop header from cross edge.
 				otherHead := lf.node[next].LoopHead
