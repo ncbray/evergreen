@@ -5,6 +5,7 @@ import (
 	"evergreen/go/flow"
 	"evergreen/go/tree"
 	"evergreen/graph"
+	"fmt"
 )
 
 type retreeGo struct {
@@ -288,42 +289,169 @@ func NewRetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.Flow
 
 // Start new
 
-type retreeState struct {
+type GoASTBuilder struct {
+	head graph.NodeID
+}
+
+type GoASTBuilderFactory struct {
+	cfg *graph.Graph
+}
+
+func (factory *GoASTBuilderFactory) CreateInitial(n graph.NodeID) ASTBuilder {
+	return &GoASTBuilder{head: n}
+}
+
+type ASTBuilder interface {
+}
+
+type ASTBuilderFactory interface {
+	CreateInitial(n graph.NodeID) ASTBuilder
+}
+
+type nodeSequenceInfo struct {
+	builder           ASTBuilder
+	incomingEdgeCount int
+	edgeExists        bool
+	consume           bool
+}
+
+type retreeSequencer struct {
 	cfg      *graph.Graph
 	nodeInfo []graph.NodeInfo
 	edgeType []graph.EdgeType
 
+	factory ASTBuilderFactory
+
+	nodeSequence []nodeSequenceInfo
+
 	current graph.NodeID
+	loop    graph.NodeID
+
+	edgeCount  int
+	shouldStop bool
 }
 
-func (state *retreeState) Init(n graph.NodeID) {
-	state.current = n
+func (seq *retreeSequencer) Init(n graph.NodeID, loop graph.NodeID) {
+	fmt.Println("init", n, loop)
+	seq.current = n
+	seq.loop = loop
+	seq.edgeCount = 0
+	seq.shouldStop = false
+
+	seq.nodeSequence[n].builder = seq.factory.CreateInitial(n)
+
+	seq.prepChild(n, n)
 }
 
-func (state *retreeState) Contract() bool {
-	xit := state.cfg.ExitIterator(state.current)
+func (seq *retreeSequencer) prepChild(n graph.NodeID, child graph.NodeID) {
+	init := n == child
+
+	xit := seq.cfg.ExitIterator(child)
+	for xit.HasNext() {
+		e, dst := xit.GetNext()
+
+		// Clean up redundant edges
+		if seq.nodeSequence[dst].edgeExists {
+			if !init {
+				seq.nodeSequence[dst].incomingEdgeCount -= 1
+			}
+			seq.cfg.KillEdge(e)
+			continue
+		}
+
+		fmt.Println("?", n, child, dst, graph.Dominates(seq.nodeInfo, n, dst))
+		seq.edgeCount += 1
+		seq.nodeSequence[dst].edgeExists = true
+
+		if init {
+			seq.nodeSequence[dst].incomingEdgeCount += 1
+		}
+
+		// If this node has a dominator cross edge in this loop, stop processing.
+		if seq.nodeInfo[dst].LoopHead == seq.loop && !graph.Dominates(seq.nodeInfo, n, dst) {
+			seq.shouldStop = true
+		}
+	}
+}
+
+func (seq *retreeSequencer) Done(n graph.NodeID) {
+	cfg := seq.cfg
+	xit := cfg.ExitIterator(n)
 	for xit.HasNext() {
 		_, dst := xit.GetNext()
-		dom := graph.Intersect(state.nodeInfo, state.current, dst)
-		if dom != state.current {
-			return false
+		// Clean up
+		if !seq.nodeSequence[dst].edgeExists {
+			panic(n)
+		}
+		seq.nodeSequence[dst].edgeExists = false
+		seq.edgeCount -= 1
+	}
+	if seq.edgeCount != 0 {
+		panic(n)
+	}
+}
+
+func (seq *retreeSequencer) Contract() bool {
+	if seq.shouldStop || seq.edgeCount == 0 {
+		return false
+	}
+
+	cfg := seq.cfg
+	n := seq.current
+
+	fmt.Println(">>>>", n, seq.edgeCount)
+
+	xit := cfg.ExitIterator(n)
+	for xit.HasNext() {
+		_, dst := xit.GetNext()
+		seq.nodeSequence[dst].consume = false
+
+		if seq.nodeInfo[dst].LoopHead != seq.loop {
+			fmt.Println(n, dst, "out of loop")
+			panic(n)
+		} else if seq.nodeSequence[dst].incomingEdgeCount == 1 {
+			fmt.Println(n, dst, "consume")
+			seq.nodeSequence[dst].consume = true
+		} else {
+			fmt.Println(n, dst, "defer")
+			panic(n)
 		}
 	}
 
-	return false
+	// Contract the graph
+	xit = cfg.ExitIterator(n)
+	for xit.HasNext() {
+		e, dst := xit.GetNext()
+		if seq.nodeSequence[dst].consume {
+			seq.prepChild(n, dst)
+			cfg.ReplaceEdgeWithExits(e, dst)
+			seq.edgeCount -= 1
+		}
+	}
+
+	fmt.Println("<<<<", n)
+
+	return true
 }
 
 func RetreeFunc3(decl *flow.FlowFunc) {
 	nodes, edges, postorder := graph.AnalyzeStructure(decl.CFG)
-	state := &retreeState{
-		cfg:      decl.CFG.Copy(),
-		nodeInfo: nodes,
-		edgeType: edges,
+	seq := &retreeSequencer{
+		cfg:          decl.CFG.Copy(),
+		nodeInfo:     nodes,
+		edgeType:     edges,
+		nodeSequence: make([]nodeSequenceInfo, len(nodes)),
+		factory:      &GoASTBuilderFactory{},
 	}
 
 	for _, n := range postorder {
-		state.Init(n)
-		for state.Contract() {
+		if seq.nodeInfo[n].IsHead {
+			panic(n)
 		}
+
+		seq.Init(n, seq.nodeInfo[n].LoopHead)
+		for seq.Contract() {
+		}
+		fmt.Println()
 	}
 }
