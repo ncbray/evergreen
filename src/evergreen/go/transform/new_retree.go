@@ -13,6 +13,195 @@ type retreeGo struct {
 	LclMap []*tree.LocalInfo
 }
 
+func switchExits(decl *flow.FlowFunc, nid graph.NodeID) (graph.NodeID, graph.NodeID) {
+	t := graph.NoNode
+	f := graph.NoNode
+
+	eit := decl.CFG.ExitIterator(nid)
+	for eit.HasNext() {
+		e, next := eit.GetNext()
+		flowID := decl.Edges[e]
+		switch flowID {
+		case flow.COND_TRUE:
+			if t != graph.NoNode {
+				panic(e)
+			}
+			t = next
+		case flow.COND_FALSE:
+			if f != graph.NoNode {
+				panic(e)
+			}
+			f = next
+		default:
+			panic(flowID)
+		}
+	}
+	if t == graph.NoNode || f == graph.NoNode {
+		panic(nid)
+	}
+	return t, f
+}
+
+func linearExit(decl *flow.FlowFunc, nid graph.NodeID) graph.NodeID {
+	exit := graph.NoNode
+
+	eit := decl.CFG.ExitIterator(nid)
+	for eit.HasNext() {
+		e, next := eit.GetNext()
+		flowID := decl.Edges[e]
+		switch flowID {
+		case flow.NORMAL, flow.RETURN:
+			if exit != graph.NoNode {
+				panic(e)
+			}
+			exit = next
+		default:
+			panic(flowID)
+		}
+	}
+	return exit
+}
+
+func opToStmts(decl *flow.FlowFunc, lcl_map []*tree.LocalInfo, nid graph.NodeID, block []tree.Stmt) ([]tree.Stmt, bool) {
+	op := decl.Ops[nid]
+	terminal := false
+	switch op := op.(type) {
+	case *flow.Entry:
+		// TODO
+	case *flow.Exit:
+		// TODO
+		block = append(block, &tree.Return{})
+		terminal = true
+	case *flow.ConstantString:
+		block = append(block, scalarAssign(&tree.StringLiteral{
+			Value: op.Value,
+		}, lcl_map, op.Dst))
+	case *flow.ConstantRune:
+		block = append(block, scalarAssign(&tree.RuneLiteral{
+			Value: op.Value,
+		}, lcl_map, op.Dst))
+	case *flow.ConstantInt:
+		block = append(block, scalarAssign(&tree.IntLiteral{
+			Value: int(op.Value),
+		}, lcl_map, op.Dst))
+	case *flow.ConstantFloat32:
+		block = append(block, scalarAssign(&tree.Float32Literal{
+			Value: op.Value,
+		}, lcl_map, op.Dst))
+	case *flow.ConstantBool:
+		block = append(block, scalarAssign(&tree.BoolLiteral{
+			Value: op.Value,
+		}, lcl_map, op.Dst))
+	case *flow.ConstantNil:
+		block = append(block, scalarAssign(&tree.NilLiteral{}, lcl_map, op.Dst))
+	case *flow.Call:
+		f := op.Target
+		block = append(block, multiAssign(&tree.Call{
+			Expr: &tree.GetFunction{Func: f},
+			Args: getLocalList(lcl_map, op.Args),
+		}, lcl_map, op.Dsts))
+	case *flow.MethodCall:
+		// TODO simple IR
+		block = append(block, multiAssign(&tree.Call{
+			Expr: &tree.Selector{
+				Expr: getLocal(lcl_map, op.Expr),
+				Text: op.Name,
+			},
+			Args: getLocalList(lcl_map, op.Args),
+		}, lcl_map, op.Dsts))
+	case *flow.Transfer:
+		srcs := []tree.Expr{}
+		tgts := []tree.Target{}
+		// SSA can cause registers to be transfered to themselves.  Filter this out.
+		for i := 0; i < len(op.Srcs); i++ {
+			src := op.Srcs[i]
+			tgt := op.Dsts[i]
+			if src != tgt {
+				srcs = append(srcs, getLocal(lcl_map, src))
+				tgts = append(tgts, setLocal(lcl_map, tgt))
+			}
+		}
+		if len(srcs) > 0 {
+			block = append(block, &tree.Assign{
+				Sources: srcs,
+				Op:      "=",
+				Targets: tgts,
+			})
+		}
+	case *flow.Coerce:
+		block = append(block, scalarAssign(&tree.TypeCoerce{
+			Type: tree.RefForType(op.Type),
+			Expr: getLocal(lcl_map, op.Src),
+		}, lcl_map, op.Dst))
+	case *flow.Attr:
+		block = append(block, scalarAssign(&tree.Selector{
+			Expr: getLocal(lcl_map, op.Expr),
+			Text: op.Name,
+		}, lcl_map, op.Dst))
+	case *flow.BinaryOp:
+		block = append(block, scalarAssign(&tree.BinaryExpr{
+			Left:  getLocal(lcl_map, op.Left),
+			Op:    op.Op,
+			Right: getLocal(lcl_map, op.Right),
+		}, lcl_map, op.Dst))
+	case *flow.ConstructStruct:
+		args := make([]*tree.KeywordExpr, len(op.Args))
+		for i, arg := range op.Args {
+			args[i] = &tree.KeywordExpr{
+				Name: arg.Name,
+				Expr: getLocal(lcl_map, arg.Arg),
+			}
+		}
+		var expr tree.Expr = &tree.StructLiteral{
+			Type: tree.RefForType(op.Type),
+			Args: args,
+		}
+		if op.AddrTaken {
+			expr = &tree.UnaryExpr{
+				Op:   "&",
+				Expr: expr,
+			}
+		}
+		block = append(block, scalarAssign(expr, lcl_map, op.Dst))
+	case *flow.ConstructSlice:
+		ref := tree.RefForType(op.Type)
+		sref, ok := ref.(*tree.SliceRef)
+		if !ok {
+			panic(op.Type)
+		}
+		block = append(block, scalarAssign(&tree.ListLiteral{
+			Type: sref,
+			Args: getLocalList(lcl_map, op.Args),
+		}, lcl_map, op.Dst))
+	case *flow.Nop:
+		// TODO
+	case *flow.Return:
+		block = append(block, &tree.Return{
+			Args: getLocalList(lcl_map, op.Args),
+		})
+		terminal = true
+	case *flow.Switch:
+		tid, fid := switchExits(decl, nid)
+
+		t := gotoBlock(int(tid))
+		f := gotoBlock(int(fid))
+
+		block = append(block, &tree.If{
+			Cond: getLocal(lcl_map, op.Cond),
+			T: &tree.Block{
+				Body: []tree.Stmt{t},
+			},
+			F: &tree.Block{
+				Body: []tree.Stmt{f},
+			},
+		})
+		terminal = true // TODO correct ???
+	default:
+		panic(op)
+	}
+	return block, terminal
+}
+
 func retreeBlock(retree *retreeGo, nodes []graph.NodeID, block []tree.Stmt) []tree.Stmt {
 	// HACK assume returns have been inserted before all exits.
 	if nodes[0] == retree.Decl.CFG.Exit() {
@@ -25,155 +214,11 @@ func retreeBlock(retree *retreeGo, nodes []graph.NodeID, block []tree.Stmt) []tr
 	}
 
 	// Handle the nodes.
+	terminal := false
 	for _, nid := range nodes {
-		op := retree.Decl.Ops[nid]
-		switch op := op.(type) {
-		case *flow.Entry:
-			// TODO
-		case *flow.Exit:
-			// TODO
-			block = append(block, &tree.Return{})
+		block, terminal = opToStmts(retree.Decl, retree.LclMap, nid, block)
+		if terminal {
 			return block
-		case *flow.ConstantString:
-			block = append(block, scalarAssign(&tree.StringLiteral{
-				Value: op.Value,
-			}, retree.LclMap, op.Dst))
-		case *flow.ConstantRune:
-			block = append(block, scalarAssign(&tree.RuneLiteral{
-				Value: op.Value,
-			}, retree.LclMap, op.Dst))
-		case *flow.ConstantInt:
-			block = append(block, scalarAssign(&tree.IntLiteral{
-				Value: int(op.Value),
-			}, retree.LclMap, op.Dst))
-		case *flow.ConstantFloat32:
-			block = append(block, scalarAssign(&tree.Float32Literal{
-				Value: op.Value,
-			}, retree.LclMap, op.Dst))
-		case *flow.ConstantBool:
-			block = append(block, scalarAssign(&tree.BoolLiteral{
-				Value: op.Value,
-			}, retree.LclMap, op.Dst))
-		case *flow.ConstantNil:
-			block = append(block, scalarAssign(&tree.NilLiteral{}, retree.LclMap, op.Dst))
-		case *flow.Call:
-			f := op.Target
-			block = append(block, multiAssign(&tree.Call{
-				Expr: &tree.GetFunction{Func: f},
-				Args: getLocalList(retree.LclMap, op.Args),
-			}, retree.LclMap, op.Dsts))
-		case *flow.MethodCall:
-			// TODO simple IR
-			block = append(block, multiAssign(&tree.Call{
-				Expr: &tree.Selector{
-					Expr: getLocal(retree.LclMap, op.Expr),
-					Text: op.Name,
-				},
-				Args: getLocalList(retree.LclMap, op.Args),
-			}, retree.LclMap, op.Dsts))
-		case *flow.Transfer:
-			srcs := []tree.Expr{}
-			tgts := []tree.Target{}
-			// SSA can cause registers to be transfered to themselves.  Filter this out.
-			for i := 0; i < len(op.Srcs); i++ {
-				src := op.Srcs[i]
-				tgt := op.Dsts[i]
-				if src != tgt {
-					srcs = append(srcs, getLocal(retree.LclMap, src))
-					tgts = append(tgts, setLocal(retree.LclMap, tgt))
-				}
-			}
-			if len(srcs) > 0 {
-				block = append(block, &tree.Assign{
-					Sources: srcs,
-					Op:      "=",
-					Targets: tgts,
-				})
-			}
-		case *flow.Coerce:
-			block = append(block, scalarAssign(&tree.TypeCoerce{
-				Type: tree.RefForType(op.Type),
-				Expr: getLocal(retree.LclMap, op.Src),
-			}, retree.LclMap, op.Dst))
-		case *flow.Attr:
-			block = append(block, scalarAssign(&tree.Selector{
-				Expr: getLocal(retree.LclMap, op.Expr),
-				Text: op.Name,
-			}, retree.LclMap, op.Dst))
-		case *flow.BinaryOp:
-			block = append(block, scalarAssign(&tree.BinaryExpr{
-				Left:  getLocal(retree.LclMap, op.Left),
-				Op:    op.Op,
-				Right: getLocal(retree.LclMap, op.Right),
-			}, retree.LclMap, op.Dst))
-		case *flow.ConstructStruct:
-			args := make([]*tree.KeywordExpr, len(op.Args))
-			for i, arg := range op.Args {
-				args[i] = &tree.KeywordExpr{
-					Name: arg.Name,
-					Expr: getLocal(retree.LclMap, arg.Arg),
-				}
-			}
-			var expr tree.Expr = &tree.StructLiteral{
-				Type: tree.RefForType(op.Type),
-				Args: args,
-			}
-			if op.AddrTaken {
-				expr = &tree.UnaryExpr{
-					Op:   "&",
-					Expr: expr,
-				}
-			}
-			block = append(block, scalarAssign(expr, retree.LclMap, op.Dst))
-		case *flow.ConstructSlice:
-			ref := tree.RefForType(op.Type)
-			sref, ok := ref.(*tree.SliceRef)
-			if !ok {
-				panic(op.Type)
-			}
-			block = append(block, scalarAssign(&tree.ListLiteral{
-				Type: sref,
-				Args: getLocalList(retree.LclMap, op.Args),
-			}, retree.LclMap, op.Dst))
-		case *flow.Nop:
-			// TODO
-		case *flow.Return:
-			block = append(block, &tree.Return{
-				Args: getLocalList(retree.LclMap, op.Args),
-			})
-			return block
-		case *flow.Switch:
-			var t tree.Stmt
-			var f tree.Stmt
-
-			eit := retree.Decl.CFG.ExitIterator(nid)
-			for eit.HasNext() {
-				e, next := eit.GetNext()
-				flowID := retree.Decl.Edges[e]
-				switch flowID {
-				case flow.COND_TRUE:
-					t = gotoBlock(int(next))
-				case flow.COND_FALSE:
-					f = gotoBlock(int(next))
-				default:
-					panic(flowID)
-				}
-			}
-			if t == nil || f == nil {
-				panic(op)
-			}
-			block = append(block, &tree.If{
-				Cond: getLocal(retree.LclMap, op.Cond),
-				T: &tree.Block{
-					Body: []tree.Stmt{t},
-				},
-				F: &tree.Block{
-					Body: []tree.Stmt{f},
-				},
-			})
-			return block
-		default:
-			panic(op)
 		}
 	}
 
@@ -276,7 +321,7 @@ func NewRetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.Flow
 		return funcDecl
 	}
 
-	//RetreeFunc3(decl)
+	//tree.DumpDecl(RetreeFunc3(f, decl))
 	//panic(f.Name)
 
 	cluster := graph.MakeCluster(decl.CFG)
@@ -291,23 +336,214 @@ func NewRetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.Flow
 
 // Start new
 
+type GoASTBuilderExit interface {
+}
+
+type LinearExit struct {
+	dst graph.NodeID
+}
+
+type BranchExit struct {
+	cond tree.Expr
+	t    graph.NodeID
+	f    graph.NodeID
+}
+
+type DanglingExit struct {
+	block *tree.Block
+	dst   graph.NodeID
+}
+
+type MultiExit struct {
+	exits []DanglingExit
+}
+
+func (self *MultiExit) Merge(other *MultiExit) GoASTBuilderExit {
+	exits := make([]DanglingExit, len(self.exits)+len(other.exits))
+	for i := 0; i < len(self.exits); i++ {
+		exits[i] = self.exits[i]
+	}
+	for i := 0; i < len(other.exits); i++ {
+		exits[len(self.exits)+i] = other.exits[i]
+	}
+	// TODO infer linear exit.
+	return &MultiExit{exits: exits}
+}
+
+func singleExit(block *tree.Block, dst graph.NodeID) *MultiExit {
+	return &MultiExit{
+		exits: []DanglingExit{
+			DanglingExit{
+				block: block,
+				dst:   dst,
+			},
+		},
+	}
+}
+
 type GoASTBuilder struct {
-	head graph.NodeID
+	head     graph.NodeID
+	funcDecl *tree.FuncDecl
+	block    []tree.Stmt
+	exit     GoASTBuilderExit
+}
+
+func (builder *GoASTBuilder) finalize() (*tree.Block, *MultiExit) {
+	block := &tree.Block{Body: builder.block}
+	switch exit := builder.exit.(type) {
+	case *LinearExit:
+		return block, &MultiExit{
+			exits: []DanglingExit{
+				DanglingExit{
+					block: block,
+					dst:   exit.dst,
+				},
+			},
+		}
+	case *BranchExit:
+		tBlock := &tree.Block{Body: []tree.Stmt{}}
+		fBlock := &tree.Block{Body: []tree.Stmt{}}
+		block.Body = append(block.Body, &tree.If{
+			Cond: exit.cond,
+			T:    tBlock,
+			F:    fBlock,
+		})
+		return block, &MultiExit{
+			exits: []DanglingExit{
+				DanglingExit{
+					block: tBlock,
+					dst:   exit.t,
+				},
+				DanglingExit{
+					block: fBlock,
+					dst:   exit.f,
+				},
+			},
+		}
+	case *MultiExit:
+		return block, exit
+	default:
+		panic(exit)
+	}
+}
+
+func (builder *GoASTBuilder) AppendChildren(children []ASTBuilder) {
+	switch len(children) {
+	case 1:
+		c0 := children[0].(*GoASTBuilder)
+
+		switch exit := builder.exit.(type) {
+		case *LinearExit:
+			if exit.dst != c0.head {
+				panic(exit)
+			}
+			builder.block = append(builder.block, c0.block...)
+			builder.exit = c0.exit
+
+		case *MultiExit:
+			for _, dangling := range exit.exits {
+				if dangling.dst != c0.head {
+					panic(c0.head)
+				}
+			}
+
+			builder.block = append(builder.block, c0.block...)
+			builder.exit = c0.exit
+		default:
+			panic(exit)
+		}
+	case 2:
+		c0 := children[0].(*GoASTBuilder)
+		c1 := children[1].(*GoASTBuilder)
+
+		var cond tree.Expr
+
+		switch exit := builder.exit.(type) {
+		case *BranchExit:
+			// HACK assume order is preserved
+			if c0.head != exit.t || c1.head != exit.f {
+				panic(exit)
+			}
+			cond = exit.cond
+
+		case *MultiExit:
+			lclInfo := builder.funcDecl.LocalInfo_Scope.Register(&tree.LocalInfo{
+				Name: "next",
+				T:    &tree.NameRef{Name: "int"},
+			})
+
+			for _, dangling := range exit.exits {
+				label := -1
+				if dangling.dst == c0.head {
+					label = 1
+				} else if dangling.dst == c1.head {
+					label = 0
+				} else {
+					panic(c0.head)
+				}
+				dangling.block.Body = append(dangling.block.Body, &tree.Assign{
+					Targets: []tree.Target{
+						&tree.SetLocal{Info: lclInfo},
+					},
+					Op: "=",
+					Sources: []tree.Expr{
+						&tree.IntLiteral{Value: label},
+					},
+				})
+			}
+
+			cond = &tree.GetLocal{Info: lclInfo}
+		default:
+			panic(exit)
+		}
+
+		tBlock, tExit := c0.finalize()
+		fBlock, fExit := c1.finalize()
+
+		builder.block = append(builder.block, &tree.If{
+			Cond: cond,
+			T:    tBlock,
+			F:    fBlock,
+		})
+
+		builder.exit = tExit.Merge(fExit)
+
+	default:
+		panic(len(children))
+	}
 }
 
 type GoASTBuilderFactory struct {
-	cfg *graph.Graph
+	decl     *flow.FlowFunc
+	funcDecl *tree.FuncDecl
+	lclMap   []*tree.LocalInfo
 }
 
 func (factory *GoASTBuilderFactory) CreateInitial(n graph.NodeID) ASTBuilder {
-	return &GoASTBuilder{head: n}
+	builder := &GoASTBuilder{head: n, funcDecl: factory.funcDecl}
+	switch op := factory.decl.Ops[n].(type) {
+	case *flow.Switch:
+		cond := getLocal(factory.lclMap, op.Cond)
+		t, f := switchExits(factory.decl, n)
+		builder.exit = &BranchExit{cond: cond, t: t, f: f}
+	default:
+		builder.block, _ = opToStmts(factory.decl, factory.lclMap, n, []tree.Stmt{})
+		builder.exit = &LinearExit{dst: linearExit(factory.decl, n)}
+	}
+	return builder
+}
+
+func (factory *GoASTBuilderFactory) Placeholder(n graph.NodeID) ASTBuilder {
+	return &GoASTBuilder{head: n, funcDecl: factory.funcDecl, exit: &LinearExit{dst: n}}
 }
 
 type ASTBuilder interface {
+	AppendChildren(children []ASTBuilder)
 }
 
 type ASTBuilderFactory interface {
 	CreateInitial(n graph.NodeID) ASTBuilder
+	Placeholder(n graph.NodeID) ASTBuilder
 }
 
 type nodeSequenceInfo struct {
@@ -354,6 +590,7 @@ func (seq *retreeSequencer) prepChild(n graph.NodeID, child graph.NodeID) {
 
 		// Clean up redundant edges
 		if seq.nodeSequence[dst].edgeExists {
+			fmt.Println("exists", n, child, dst)
 			if !init {
 				seq.nodeSequence[dst].incomingEdgeCount -= 1
 			}
@@ -381,6 +618,7 @@ func (seq *retreeSequencer) Done(n graph.NodeID) {
 	xit := cfg.ExitIterator(n)
 	for xit.HasNext() {
 		_, dst := xit.GetNext()
+		fmt.Println("Unmarking", dst)
 		// Clean up
 		if !seq.nodeSequence[dst].edgeExists {
 			panic(n)
@@ -403,6 +641,8 @@ func (seq *retreeSequencer) Contract() bool {
 
 	fmt.Println(">>>>", n, seq.edgeCount)
 
+	children := []ASTBuilder{}
+
 	xit := cfg.ExitIterator(n)
 	for xit.HasNext() {
 		_, dst := xit.GetNext()
@@ -414,11 +654,17 @@ func (seq *retreeSequencer) Contract() bool {
 		} else if seq.nodeSequence[dst].incomingEdgeCount == 1 {
 			fmt.Println(n, dst, "consume")
 			seq.nodeSequence[dst].consume = true
+			children = append(children, seq.nodeSequence[dst].builder)
+			seq.nodeSequence[dst].builder = nil
 		} else {
 			fmt.Println(n, dst, "defer")
-			panic(n)
+			children = append(children, seq.factory.Placeholder(dst))
 		}
 	}
+
+	current := seq.nodeSequence[n].builder
+
+	current.AppendChildren(children)
 
 	// Contract the graph
 	xit = cfg.ExitIterator(n)
@@ -436,14 +682,23 @@ func (seq *retreeSequencer) Contract() bool {
 	return true
 }
 
-func RetreeFunc3(decl *flow.FlowFunc) {
+func RetreeFunc3(f *core.Function, decl *flow.FlowFunc) *tree.FuncDecl {
+	funcDecl := &tree.FuncDecl{
+		Name:            f.Name,
+		LocalInfo_Scope: &tree.LocalInfo_Scope{},
+		Block:           &tree.Block{Body: []tree.Stmt{}},
+	}
+
+	lclMap := makeLocalMap(decl, funcDecl)
+	funcDecl.Type = makeFuncType(decl, lclMap)
+
 	nodes, edges, postorder := graph.AnalyzeStructure(decl.CFG)
 	seq := &retreeSequencer{
 		cfg:          decl.CFG.Copy(),
 		nodeInfo:     nodes,
 		edgeType:     edges,
 		nodeSequence: make([]nodeSequenceInfo, len(nodes)),
-		factory:      &GoASTBuilderFactory{},
+		factory:      &GoASTBuilderFactory{decl: decl, funcDecl: funcDecl, lclMap: lclMap},
 	}
 
 	for _, n := range postorder {
@@ -454,6 +709,11 @@ func RetreeFunc3(decl *flow.FlowFunc) {
 		seq.Init(n, seq.nodeInfo[n].LoopHead)
 		for seq.Contract() {
 		}
+		seq.Done(n)
 		fmt.Println()
 	}
+
+	funcDecl.Block.Body = seq.nodeSequence[decl.CFG.Entry()].builder.(*GoASTBuilder).block
+
+	return funcDecl
 }

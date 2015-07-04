@@ -398,3 +398,7 @@ func GenerateFile(file *FileAST, w *text.CodeWriter) {
 		w.EmptyLines(1)
 	}
 }
+
+func DumpDecl(decl Decl) {
+	GenerateDecl(decl, text.StdoutCodeWriter())
+}

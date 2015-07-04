@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"unicode"
 )
@@ -78,4 +79,8 @@ func BufferedCodeWriter() (*bytes.Buffer, *CodeWriter) {
 	b := &bytes.Buffer{}
 	w := &CodeWriter{Out: b}
 	return b, w
+}
+
+func StdoutCodeWriter() *CodeWriter {
+	return &CodeWriter{Out: os.Stdout}
 }
