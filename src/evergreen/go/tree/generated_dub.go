@@ -314,8 +314,12 @@ type Var struct {
 func (node *Var) isStmt() {
 }
 
-type BlockStmt struct {
+type Block struct {
 	Body []Stmt
+}
+
+type BlockStmt struct {
+	Block *Block
 }
 
 func (node *BlockStmt) isStmt() {
@@ -323,15 +327,15 @@ func (node *BlockStmt) isStmt() {
 
 type If struct {
 	Cond Expr
-	Body []Stmt
-	Else Stmt
+	T    *Block
+	F    *Block
 }
 
 func (node *If) isStmt() {
 }
 
 type For struct {
-	Body []Stmt
+	Block *Block
 }
 
 func (node *For) isStmt() {
@@ -376,7 +380,7 @@ type FuncDecl struct {
 	Name            string
 	Recv            *Param
 	Type            *FuncTypeRef
-	Body            []Stmt
+	Block           *Block
 	Package         *core.Package
 	LocalInfo_Scope *LocalInfo_Scope
 }

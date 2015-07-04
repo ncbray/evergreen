@@ -82,14 +82,14 @@ func sweepStmt(stmt Stmt, rewriter refRewriter) {
 		}
 	case *If:
 		sweepExpr(stmt.Cond, rewriter)
-		sweepBlock(stmt.Body, rewriter)
-		if stmt.Else != nil {
-			sweepStmt(stmt.Else, rewriter)
+		sweepBlock(stmt.T, rewriter)
+		if stmt.F != nil {
+			sweepBlock(stmt.F, rewriter)
 		}
 	case *For:
-		sweepBlock(stmt.Body, rewriter)
+		sweepBlock(stmt.Block, rewriter)
 	case *BlockStmt:
-		sweepBlock(stmt.Body, rewriter)
+		sweepBlock(stmt.Block, rewriter)
 	case *Return:
 		sweepExprList(stmt.Args, rewriter)
 	default:
@@ -102,8 +102,8 @@ func sweepStmt(stmt Stmt, rewriter refRewriter) {
 	}
 }
 
-func sweepBlock(stmts []Stmt, rewriter refRewriter) {
-	for _, stmt := range stmts {
+func sweepBlock(block *Block, rewriter refRewriter) {
+	for _, stmt := range block.Body {
 		sweepStmt(stmt, rewriter)
 	}
 }
@@ -123,7 +123,10 @@ func sweepFunc(decl *FuncDecl, rewriter refRewriter) {
 	for _, p := range decl.Type.Results {
 		sweepParam(p, rewriter)
 	}
-	sweepBlock(decl.Body, rewriter)
+	if decl.Block == nil {
+		panic(decl.Name)
+	}
+	sweepBlock(decl.Block, rewriter)
 }
 
 func MakeRemap(live []bool) ([]LocalInfo_Ref, int) {
@@ -190,7 +193,7 @@ func InsertVarDecls(decl *FuncDecl) {
 		})
 	}
 
-	decl.Body = append(stmts, decl.Body...)
+	decl.Block.Body = append(stmts, decl.Block.Body...)
 }
 
 func (scope *LocalInfo_Scope) Get(ref LocalInfo_Ref) *LocalInfo {

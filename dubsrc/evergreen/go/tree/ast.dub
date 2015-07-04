@@ -160,18 +160,22 @@ struct Var implements Stmt {
   Info LocalInfo
 }
 
-struct BlockStmt implements Stmt {
+struct Block {
   Body []Stmt
+}
+
+struct BlockStmt implements Stmt {
+  Block Block
 }
 
 struct If implements Stmt {
   Cond Expr
-  Body []Stmt
-  Else Stmt
+  T Block
+  F Block
 }
 
 struct For implements Stmt {
-  Body []Stmt
+  Block Block
 }
 
 struct Goto implements Stmt {
@@ -200,7 +204,7 @@ struct FuncDecl contains(LocalInfo) implements Decl {
   Name string
   Recv Param
   Type FuncTypeRef
-  Body []Stmt
+  Block Block
   Package core.Package
 }
 

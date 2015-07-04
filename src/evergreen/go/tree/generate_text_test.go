@@ -194,20 +194,28 @@ func TestFuncDecl(t *testing.T) {
 				&Param{Name: "baz", Type: &PointerRef{Element: &NameRef{Name: "int"}}},
 			},
 		},
-		Body: []Stmt{
+		Block: &Block{Body: []Stmt{
 			&If{
 				Cond: &GetName{Text: "cond"},
-				Body: []Stmt{
-					&StringLiteral{Value: "hello"},
-				},
-				Else: &If{
-					Cond: &UnaryExpr{Op: "!", Expr: &GetName{Text: "cond"}},
+				T: &Block{
 					Body: []Stmt{
-						&StringLiteral{Value: "goodbye"},
+						&StringLiteral{Value: "hello"},
 					},
-					Else: &BlockStmt{
-						Body: []Stmt{
-							&StringLiteral{Value: "impossible"},
+				},
+				F: &Block{
+					Body: []Stmt{
+						&If{
+							Cond: &UnaryExpr{Op: "!", Expr: &GetName{Text: "cond"}},
+							T: &Block{
+								Body: []Stmt{
+									&StringLiteral{Value: "goodbye"},
+								},
+							},
+							F: &Block{
+								Body: []Stmt{
+									&StringLiteral{Value: "impossible"},
+								},
+							},
 						},
 					},
 				},
@@ -226,7 +234,7 @@ func TestFuncDecl(t *testing.T) {
 					&SetName{Text: "baz"},
 				},
 			},
-		},
+		}},
 		LocalInfo_Scope: &LocalInfo_Scope{},
 	}
 	b, w := text.BufferedCodeWriter()
@@ -272,14 +280,12 @@ func TestFile(t *testing.T) {
 			&FuncDecl{
 				Name: "F",
 				Type: &FuncTypeRef{},
-				Body: []Stmt{
-					&BlockStmt{
-						Body: []Stmt{
-							&Var{Name: "foo", Type: &NameRef{Name: "int"}, Expr: &IntLiteral{Value: 7}},
-							&Goto{Text: "block"},
-							&Label{Text: "block"},
-							&Return{},
-						},
+				Block: &Block{
+					Body: []Stmt{
+						&Var{Name: "foo", Type: &NameRef{Name: "int"}, Expr: &IntLiteral{Value: 7}},
+						&Goto{Text: "block"},
+						&Label{Text: "block"},
+						&Return{},
 					},
 				},
 				LocalInfo_Scope: &LocalInfo_Scope{},
@@ -309,6 +315,7 @@ func TestFile(t *testing.T) {
 
 	b, w := text.BufferedCodeWriter()
 	GenerateFile(file, w)
-	checkCode(b.String(), "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n\nfunc F() {\n\t{\n\t\tvar foo int = 7\n\t\tgoto block\n\tblock:\n\t\treturn\n\t}\n}\n\ntype I interface {\n\tTouch()\n\tProcess(inp int) (outp string)\n}\n", t)
+	expected := "package foo\n\nimport (\n\tmore \"more/other\"\n\t\"some/other\"\n\tx \"x/other\"\n)\n\ntype Bar struct {\n\tBaz    other.Biz\n\tBazXYZ more.Biz\n}\n\nfunc F() {\n\tvar foo int = 7\n\tgoto block\nblock:\n\treturn\n}\n\ntype I interface {\n\tTouch()\n\tProcess(inp int) (outp string)\n}\n"
+	checkCode(b.String(), expected, t)
 
 }

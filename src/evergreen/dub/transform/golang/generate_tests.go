@@ -60,10 +60,12 @@ func (ctx *testingContext) makeFatalTest(cond dst.Expr, f string, args ...dst.Ex
 	wrapped = append(wrapped, args...)
 	return &dst.If{
 		Cond: cond,
-		Body: []dst.Stmt{
-			&dst.Call{
-				Expr: attr(&dst.GetLocal{Info: ctx.tInfo}, "Fatalf"),
-				Args: wrapped,
+		T: &dst.Block{
+			Body: []dst.Stmt{
+				&dst.Call{
+					Expr: attr(&dst.GetLocal{Info: ctx.tInfo}, "Fatalf"),
+					Args: wrapped,
+				},
 			},
 		},
 	}
@@ -373,7 +375,7 @@ func generateGoTest(tst *tree.Test, gctx *DubToGoContext) *dst.FuncDecl {
 		},
 		Results: []*dst.Param{},
 	}
-	decl.Body = stmts
+	decl.Block = &dst.Block{Body: stmts}
 	return decl
 }
 

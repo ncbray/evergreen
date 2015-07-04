@@ -164,8 +164,10 @@ func retreeBlock(retree *retreeGo, nodes []graph.NodeID, block []tree.Stmt) []tr
 			}
 			block = append(block, &tree.If{
 				Cond: getLocal(retree.LclMap, op.Cond),
-				Body: []tree.Stmt{t},
-				Else: &tree.BlockStmt{
+				T: &tree.Block{
+					Body: []tree.Stmt{t},
+				},
+				F: &tree.Block{
 					Body: []tree.Stmt{f},
 				},
 			})
@@ -198,7 +200,7 @@ func retreeCluster(retree *retreeGo, cluster graph.Cluster, stmts []tree.Stmt) [
 		}
 	case *graph.ClusterLoop:
 		stmts = append(stmts, &tree.For{
-			Body: retreeCluster(retree, cluster.Body, []tree.Stmt{}),
+			Block: &tree.Block{Body: retreeCluster(retree, cluster.Body, []tree.Stmt{})},
 		})
 	default:
 		panic(cluster)
@@ -250,7 +252,7 @@ func NewRetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.Flow
 	funcDecl := &tree.FuncDecl{
 		Name:            f.Name,
 		LocalInfo_Scope: &tree.LocalInfo_Scope{},
-		Body:            []tree.Stmt{},
+		Block:           &tree.Block{Body: []tree.Stmt{}},
 	}
 
 	lclMap := makeLocalMap(decl, funcDecl)
@@ -282,7 +284,7 @@ func NewRetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.Flow
 		Decl:   decl,
 		LclMap: lclMap,
 	}
-	funcDecl.Body = retreeCluster(retree, cluster, funcDecl.Body)
+	funcDecl.Block.Body = retreeCluster(retree, cluster, funcDecl.Block.Body)
 
 	return funcDecl
 }

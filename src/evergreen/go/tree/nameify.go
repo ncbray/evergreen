@@ -164,14 +164,14 @@ func nameifyStmt(stmt Stmt, info *FileInfo) Stmt {
 		}
 	case *If:
 		stmt.Cond = nameifyExpr(stmt.Cond, info)
-		nameifyBody(stmt.Body, info)
-		if stmt.Else != nil {
-			stmt.Else = nameifyStmt(stmt.Else, info)
+		nameifyBody(stmt.T, info)
+		if stmt.F != nil {
+			nameifyBody(stmt.F, info)
 		}
 	case *For:
-		nameifyBody(stmt.Body, info)
+		nameifyBody(stmt.Block, info)
 	case *BlockStmt:
-		nameifyBody(stmt.Body, info)
+		nameifyBody(stmt.Block, info)
 	case *Return:
 		for i, e := range stmt.Args {
 			stmt.Args[i] = nameifyExpr(e, info)
@@ -192,9 +192,9 @@ func nameifyStmt(stmt Stmt, info *FileInfo) Stmt {
 	return stmt
 }
 
-func nameifyBody(body []Stmt, info *FileInfo) {
-	for i, stmt := range body {
-		body[i] = nameifyStmt(stmt, info)
+func nameifyBody(block *Block, info *FileInfo) {
+	for i, stmt := range block.Body {
+		block.Body[i] = nameifyStmt(stmt, info)
 	}
 }
 
@@ -265,7 +265,7 @@ func nameifyFunc(decl *FuncDecl, info *FileInfo) {
 	// HACK not writing back to decl.Type due to type widening.
 	// Function types should not be rewritten, however.
 	nameifyType(decl.Type, info)
-	nameifyBody(decl.Body, info)
+	nameifyBody(decl.Block, info)
 	InsertVarDecls(decl)
 }
 

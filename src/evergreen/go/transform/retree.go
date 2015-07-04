@@ -249,14 +249,14 @@ func generateNode(coreProg *core.CoreProgram, decl *flow.FlowFunc, lclMap []*tre
 					panic(flowID)
 				}
 			}
-			var elseStmt tree.Stmt = nil
+			var else_ *tree.Block = nil
 			if len(elseBody) > 0 && bodyFall {
-				elseStmt = &tree.BlockStmt{Body: elseBody}
+				else_ = &tree.Block{Body: elseBody}
 			}
 			block = append(block, &tree.If{
 				Cond: getLocal(lclMap, op.Cond),
-				Body: body,
-				Else: elseStmt,
+				T:    &tree.Block{Body: body},
+				F:    else_,
 			})
 			if !bodyFall {
 				block = append(block, elseBody...)
@@ -286,6 +286,7 @@ func RetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.FlowFun
 	funcDecl := &tree.FuncDecl{
 		Name:            f.Name,
 		LocalInfo_Scope: &tree.LocalInfo_Scope{},
+		Block:           &tree.Block{Body: []tree.Stmt{}},
 	}
 
 	// Translate locals
@@ -324,7 +325,7 @@ func RetreeFunc(coreProg *core.CoreProgram, f *core.Function, decl *flow.FlowFun
 			stmts = append(stmts, block...)
 		}
 
-		funcDecl.Body = stmts
+		funcDecl.Block.Body = stmts
 	}
 	return funcDecl
 }

@@ -96,14 +96,14 @@ func defUseStmt(stmt Stmt, du *defUse) {
 		}
 	case *If:
 		defUseExpr(stmt.Cond, du)
-		defUseBlock(stmt.Body, du)
-		if stmt.Else != nil {
-			defUseStmt(stmt.Else, du)
+		defUseBlock(stmt.T, du)
+		if stmt.F != nil {
+			defUseBlock(stmt.F, du)
 		}
 	case *For:
-		defUseBlock(stmt.Body, du)
+		defUseBlock(stmt.Block, du)
 	case *BlockStmt:
-		defUseBlock(stmt.Body, du)
+		defUseBlock(stmt.Block, du)
 	case *Return:
 		defUseExprList(stmt.Args, du)
 	default:
@@ -122,8 +122,8 @@ func defUseExprList(exprs []Expr, du *defUse) {
 	}
 }
 
-func defUseBlock(stmts []Stmt, du *defUse) {
-	for _, stmt := range stmts {
+func defUseBlock(block *Block, du *defUse) {
+	for _, stmt := range block.Body {
 		defUseStmt(stmt, du)
 	}
 }
@@ -146,7 +146,7 @@ func defUseFunc(decl *FuncDecl, du *defUse) {
 	for _, p := range decl.Type.Results {
 		defUseParam(p, false, du)
 	}
-	defUseBlock(decl.Body, du)
+	defUseBlock(decl.Block, du)
 }
 
 func pullLocal(expr *GetLocal, du *defUse, out []Stmt) (Expr, []Stmt) {
@@ -231,14 +231,14 @@ func consolidateStmt(stmt Stmt, du *defUse, out []Stmt) []Stmt {
 		stmt.Expr, out = consolidateExpr(stmt.Expr, du, out)
 	case *If:
 		stmt.Cond, out = consolidateExpr(stmt.Cond, du, out)
-		stmt.Body = consolidateBlock(stmt.Body, du)
-		if stmt.Else != nil {
-			consolidateStmt(stmt.Else, du, nil)
+		stmt.T = consolidateBlock(stmt.T, du)
+		if stmt.F != nil {
+			stmt.F = consolidateBlock(stmt.F, du)
 		}
 	case *For:
-		stmt.Body = consolidateBlock(stmt.Body, du)
+		stmt.Block = consolidateBlock(stmt.Block, du)
 	case *BlockStmt:
-		stmt.Body = consolidateBlock(stmt.Body, du)
+		stmt.Block = consolidateBlock(stmt.Block, du)
 	case *Return:
 		out = consolidateExprList(stmt.Args, du, out)
 	default:
@@ -253,20 +253,20 @@ func consolidateStmt(stmt Stmt, du *defUse, out []Stmt) []Stmt {
 	return out
 }
 
-func consolidateBlock(stmts []Stmt, du *defUse) []Stmt {
+func consolidateBlock(block *Block, du *defUse) *Block {
 	out := []Stmt{}
-	for _, stmt := range stmts {
+	for _, stmt := range block.Body {
 		out = consolidateStmt(stmt, du, out)
 		out = append(out, stmt)
 	}
-	return out
+	return &Block{Body: out}
 }
 
 func ConsolidateFunc(decl *FuncDecl) {
-	if decl.Body != nil {
+	if decl.Block != nil && decl.Block.Body != nil {
 		du := makeApproxDefUse(decl)
 		defUseFunc(decl, du)
-		decl.Body = consolidateBlock(decl.Body, du)
+		decl.Block = consolidateBlock(decl.Block, du)
 	}
 }
 

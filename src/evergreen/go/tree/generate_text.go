@@ -179,30 +179,30 @@ func GenerateStmt(gen *textGenerator, stmt Stmt, w *text.CodeWriter) {
 	switch stmt := stmt.(type) {
 	case *BlockStmt:
 		w.Line("{")
-		GenerateBody(gen, stmt.Body, w)
+		GenerateBody(gen, stmt.Block, w)
 		w.Line("}")
 	case *If:
 		w.Linef("if %s {", GenerateExpr(gen, stmt.Cond))
-		GenerateBody(gen, stmt.Body, w)
-		next := stmt.Else
-		for next != nil {
-			switch stmt := next.(type) {
-			case *If:
-				w.Linef("} else if %s {", GenerateExpr(gen, stmt.Cond))
-				GenerateBody(gen, stmt.Body, w)
-				next = stmt.Else
-			case *BlockStmt:
-				w.Line("} else {")
-				GenerateBody(gen, stmt.Body, w)
-				next = nil
-			default:
-				panic(next)
+		GenerateBody(gen, stmt.T, w)
+		next := stmt.F
+		for next != nil && len(next.Body) > 0 {
+			if len(next.Body) == 1 {
+				switch stmt := next.Body[0].(type) {
+				case *If:
+					w.Linef("} else if %s {", GenerateExpr(gen, stmt.Cond))
+					GenerateBody(gen, stmt.T, w)
+					next = stmt.F
+					continue
+				}
 			}
+			w.Line("} else {")
+			GenerateBody(gen, next, w)
+			next = nil
 		}
 		w.Line("}")
 	case *For:
 		w.Linef("for {")
-		GenerateBody(gen, stmt.Body, w)
+		GenerateBody(gen, stmt.Block, w)
 		w.Line("}")
 	case *Assign:
 		sources := GenerateExprList(gen, stmt.Sources)
@@ -247,15 +247,15 @@ func GenerateType(t TypeRef) string {
 	}
 }
 
-func generateBlock(gen *textGenerator, stmts []Stmt, w *text.CodeWriter) {
-	for _, stmt := range stmts {
+func generateBlock(gen *textGenerator, block *Block, w *text.CodeWriter) {
+	for _, stmt := range block.Body {
 		GenerateStmt(gen, stmt, w)
 	}
 }
 
-func GenerateBody(gen *textGenerator, stmts []Stmt, w *text.CodeWriter) {
+func GenerateBody(gen *textGenerator, block *Block, w *text.CodeWriter) {
 	w.AppendMargin(indent)
-	generateBlock(gen, stmts, w)
+	generateBlock(gen, block, w)
 	w.RestoreMargin()
 }
 
@@ -298,7 +298,7 @@ func GenerateFunc(gen *textGenerator, decl *FuncDecl, w *text.CodeWriter) {
 	}
 	t := GenerateFuncType(decl.Type)
 	w.Linef("func %s%s%s {", recv, decl.Name, t)
-	GenerateBody(gen, decl.Body, w)
+	GenerateBody(gen, decl.Block, w)
 	w.Line("}")
 }
 

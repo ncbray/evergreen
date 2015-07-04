@@ -7,11 +7,12 @@ import (
 	"testing"
 )
 
-func binaryOpExample(swap bool) (*FuncDecl, []Stmt) {
+func binaryOpExample(swap bool) *FuncDecl {
 	decl := &FuncDecl{
 		Name:            "foo",
 		Type:            &FuncTypeRef{},
 		LocalInfo_Scope: &LocalInfo_Scope{},
+		Block:           &Block{},
 	}
 
 	intType := &core.ExternalType{Name: "int"}
@@ -62,19 +63,18 @@ func binaryOpExample(swap bool) (*FuncDecl, []Stmt) {
 			},
 		},
 	}
-	decl.Body = block
-	return decl, block
-}
-
-func functionExample() *FuncDecl {
-	decl, _ := binaryOpExample(false)
+	decl.Block.Body = block
 	return decl
 }
 
+func functionExample() *FuncDecl {
+	return binaryOpExample(false)
+}
+
 func TestBinaryExprDefUse(t *testing.T) {
-	decl, block := binaryOpExample(false)
+	decl := binaryOpExample(false)
 	du := makeApproxDefUse(decl)
-	defUseBlock(block, du)
+	defUseBlock(decl.Block, du)
 
 	info := du.GetLocalInfo(0)
 	assert.IntEquals(t, info.Defs, 1)
@@ -90,30 +90,30 @@ func TestBinaryExprDefUse(t *testing.T) {
 }
 
 func TestBinaryExprConsolidate(t *testing.T) {
-	decl, block := binaryOpExample(false)
+	decl := binaryOpExample(false)
 
 	du := makeApproxDefUse(decl)
 
-	defUseBlock(block, du)
-	block = consolidateBlock(block, du)
+	defUseBlock(decl.Block, du)
+	decl.Block = consolidateBlock(decl.Block, du)
 
 	b, w := text.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
-	generateBlock(gen, block, w)
+	generateBlock(gen, decl.Block, w)
 	checkCode(b.String(), "ret0 := 2 + 3\n", t)
 }
 
 func TestBinaryExprConsolidateSwap(t *testing.T) {
-	decl, block := binaryOpExample(true)
+	decl := binaryOpExample(true)
 
 	du := makeApproxDefUse(decl)
 
-	defUseBlock(block, du)
-	block = consolidateBlock(block, du)
+	defUseBlock(decl.Block, du)
+	decl.Block = consolidateBlock(decl.Block, du)
 
 	b, w := text.BufferedCodeWriter()
 	gen := &textGenerator{decl: decl}
-	generateBlock(gen, block, w)
+	generateBlock(gen, decl.Block, w)
 	checkCode(b.String(), "b := 2\nret0 := 3 + b\n", t)
 }
 
