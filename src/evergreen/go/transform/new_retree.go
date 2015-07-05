@@ -526,9 +526,16 @@ func (factory *GoASTBuilderFactory) CreateInitial(n graph.NodeID) ASTBuilder {
 		cond := getLocal(factory.lclMap, op.Cond)
 		t, f := switchExits(factory.decl, n)
 		builder.exit = &BranchExit{cond: cond, t: t, f: f}
+	case *flow.Exit:
+		builder.exit = &MultiExit{}
 	default:
 		builder.block, _ = opToStmts(factory.decl, factory.lclMap, n, []tree.Stmt{})
-		builder.exit = &LinearExit{dst: linearExit(factory.decl, n)}
+		dst := linearExit(factory.decl, n)
+		if dst == graph.NoNode || dst == factory.decl.CFG.Exit() {
+			builder.exit = &MultiExit{}
+		} else {
+			builder.exit = &LinearExit{dst: dst}
+		}
 	}
 	return builder
 }
@@ -692,9 +699,20 @@ func RetreeFunc3(f *core.Function, decl *flow.FlowFunc) *tree.FuncDecl {
 	lclMap := makeLocalMap(decl, funcDecl)
 	funcDecl.Type = makeFuncType(decl, lclMap)
 
-	nodes, edges, postorder := graph.AnalyzeStructure(decl.CFG)
+	cfg := decl.CFG
+	nodes, edges, postorder := graph.AnalyzeStructure(cfg)
+
+	// Eliminate edges to the exit node, flow does not need to remerge to exit the function.
+	// If the exit node is not disconnected, restructuring will try to re-merge after return, etc.
+	cfg = cfg.Copy()
+	eit := cfg.EntryIterator(cfg.Exit())
+	for eit.HasNext() {
+		_, e := eit.GetNext()
+		cfg.KillEdge(e)
+	}
+
 	seq := &retreeSequencer{
-		cfg:          decl.CFG.Copy(),
+		cfg:          cfg,
 		nodeInfo:     nodes,
 		edgeType:     edges,
 		nodeSequence: make([]nodeSequenceInfo, len(nodes)),
