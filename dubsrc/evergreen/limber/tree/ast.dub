@@ -1,0 +1,4 @@
+struct Identifier {
+  Pos int
+  Text string
+}

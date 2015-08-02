@@ -1,5 +1,9 @@
 package core
 
+import (
+	"strings"
+)
+
 func TypeName(t DubType) string {
 	switch t := t.(type) {
 	case *StructType:
@@ -8,6 +12,12 @@ func TypeName(t DubType) string {
 		return "[]" + TypeName(t.Type)
 	case *BuiltinType:
 		return t.Name
+	case *FunctionType:
+		params := make([]string, len(t.Params))
+		for i, p := range t.Params {
+			params[i] = TypeName(p)
+		}
+		return "(" + strings.Join(params, ",") + ")" + TypeName(t.Result)
 	default:
 		panic(t)
 	}

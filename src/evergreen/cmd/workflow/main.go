@@ -13,6 +13,23 @@ var dubsrc = "dubsrc"
 
 var outdir = "output"
 
+type Project struct {
+	Name     string
+	Subdir   string
+	TestOnly bool
+}
+
+var projects = []Project{
+	{
+		Name: "evergreen",
+	},
+	{
+		Name:     "playground",
+		Subdir:   "playground",
+		TestOnly: true,
+	},
+}
+
 type Mode struct {
 	Name string
 	Run  func(*Context)
@@ -81,9 +98,18 @@ func Build(ctx *Context) {
 
 func Sync(ctx *Context) {
 	ctx.Step("Regenerating sources")
-	ctx.SimpleCommand("bin/egc", "-indir="+filepath.Join(dubsrc, "evergreen"), "-outdir=src", "-gopackage=evergreen")
-	if ctx.Errored {
-		return
+	for _, p := range projects {
+		if p.TestOnly {
+			continue
+		}
+		genout := "evergreen"
+		if p.Subdir != "" {
+			genout = filepath.Join(genout, p.Subdir)
+		}
+		ctx.SimpleCommand("bin/egc", "-indir="+filepath.Join(dubsrc, p.Name), "-outdir=src", "-gopackage="+genout)
+		if ctx.Errored {
+			return
+		}
 	}
 	ctx.Step("Formatting sources")
 	ctx.SimpleCommand("go", "fmt", "./...")
@@ -105,13 +131,15 @@ func Test(ctx *Context) {
 		return
 	}
 	ctx.Step("Generating sources for testing")
-	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir="+filepath.Join(dubsrc, "evergreen"), "-outdir=src", "-gopackage=generated", "-gentests")
-	if ctx.Errored {
-		return
-	}
-	ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir="+filepath.Join(dubsrc, "playground"), "-outdir=src", "-gopackage=generated/playground", "-gentests")
-	if ctx.Errored {
-		return
+	for _, p := range projects {
+		genout := "generated"
+		if p.Subdir != "" {
+			genout = filepath.Join(genout, p.Subdir)
+		}
+		ctx.SimpleCommand("go", "run", "src/evergreen/cmd/egc/main.go", "-indir="+filepath.Join(dubsrc, p.Name), "-outdir=src", "-gopackage="+genout, "-gentests")
+		if ctx.Errored {
+			return
+		}
 	}
 	ctx.Step("Running tests")
 	ctx.SimpleCommand("go", "test", "./...")
