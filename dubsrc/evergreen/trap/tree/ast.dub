@@ -1,0 +1,40 @@
+struct Identifier {
+  Pos int
+  Text string
+}
+
+struct TypeRef {
+}
+
+struct NamedTypeRef implements TypeRef {
+  Name Identifier
+}
+
+struct ListTypeRef implements TypeRef {
+  Type TypeRef
+}
+
+struct SumTypeRef implements TypeRef {
+  Types []TypeRef
+}
+
+struct FieldDecl {
+  Name Identifier
+  Type TypeRef
+}
+
+struct TypeImpl {
+}
+
+struct StructDecl implements TypeImpl {
+  Fields []FieldDecl
+}
+
+struct TypeAliasDecl implements TypeImpl {
+  Type TypeRef
+}
+
+struct TypeDecl {
+  Name Identifier
+  Decl TypeImpl
+}

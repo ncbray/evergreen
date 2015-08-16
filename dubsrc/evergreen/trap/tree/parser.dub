@@ -1,0 +1,148 @@
+func EOL() {
+  /"\n"|"\r\n"|"\r"/
+}
+
+func SingleLineComment() {
+  /"//" [^\n\r]*/
+}
+
+func S() {
+  star {
+    choose {
+      /[ \t]/
+    } or {
+      EOL()
+    } or {
+      SingleLineComment()
+    }
+  }
+}
+
+func EOSInsertionPoint() {
+  /[ \t]*/
+}
+
+func EOS() {
+  choose {
+    S()
+    /[;]|&[)}]|![^]/
+  } or {
+    question {
+      SingleLineComment()
+    }
+    EOL()
+  }
+}
+
+func EndKeyword() {
+  /![a-zA-Z_0-9]/
+}
+
+func NotReserved() {
+  /!(("type"|"struct") ![a-zA-Z_0-9])/
+}
+
+func Id() Identifier {
+  p := position()
+  NotReserved();
+  text := /[a-zA-Z_][a-zA-Z_0-9]*/
+  return Identifier{Pos: p, Text: text}
+}
+
+func ParseNamedTypeRef() TypeRef {
+  name := Id()
+  return NamedTypeRef {
+    Name: name
+  }
+}
+
+func ParseListTypeRef() TypeRef {
+  choose {
+    /"[]"/;
+    S();
+    return ListTypeRef{Type: ParseListTypeRef()}
+  } or {
+    return ParseNamedTypeRef()
+  }
+}
+
+func ParseSumTypeRef() TypeRef {
+  t := ParseListTypeRef()
+  choose {
+    types := []TypeRef{t}
+    plus {
+      S()
+      /[|]/
+      S()
+      types = append(types, ParseListTypeRef())
+    }
+    return SumTypeRef{Types: types}
+  } or {
+    return t
+  }
+}
+
+func ParseTypeRef() TypeRef {
+  return ParseSumTypeRef()
+}
+
+func ParseField() FieldDecl {
+  name := Id()
+  S()
+  type := ParseTypeRef()
+  EOS()
+  return FieldDecl {
+    Name: name,
+    Type: type
+  }
+}
+
+func ParseFields() []FieldDecl {
+  fields := []FieldDecl{}
+  star {
+    fields = append(fields, ParseField())
+    S()
+  }
+  return fields
+}
+
+func ParseStructDecl() StructDecl {
+  /"struct"/
+  EndKeyword()
+  S()
+  /[{]/
+  S()
+  fields := ParseFields()
+  S()
+  /[}]/
+  return StructDecl {
+    Fields: fields
+  }
+}
+
+func ParseTypeAliasDecl() TypeAliasDecl {
+  /"="/
+  S()
+  t := ParseTypeRef()
+  S()
+  /[;]/
+  return TypeAliasDecl{Type: t}
+}
+
+func ParseTypeDecl() TypeDecl {
+  /"type"/
+  EndKeyword()
+  S()
+  name := Id()
+  S()
+  var impl TypeImpl
+  choose {
+    impl = ParseStructDecl()
+  } or {
+    impl = ParseTypeAliasDecl()
+  }
+  return TypeDecl {
+    Name: name,
+    Decl: impl
+  }
+}

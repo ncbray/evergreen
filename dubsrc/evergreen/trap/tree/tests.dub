@@ -1,0 +1,29 @@
+test Basic ParseTypeDecl() "type Foo struct {bar i32; baz u32}"
+  TypeDecl {
+    Name: Identifier{Text: "Foo"}
+    Decl: StructDecl {
+      Fields: []FieldDecl {
+        FieldDecl {
+          Name: Identifier{Text: "bar"}
+          Type: NamedTypeRef{Name: Identifier{Text: "i32"}}
+        }
+        FieldDecl {
+          Name: Identifier{Text: "baz"}
+          Type: NamedTypeRef{Name: Identifier{Text: "u32"}}
+        }
+      }
+    }
+  }
+
+test SumAlias ParseTypeDecl() "type Foo = Bar | []Baz;"
+  TypeDecl {
+    Name: Identifier{Text: "Foo"}
+    Decl: TypeAliasDecl {
+      Type: SumTypeRef{
+        Types: []TypeRef{
+          NamedTypeRef{Name: Identifier{Text: "Bar"}}
+          ListTypeRef{Type: NamedTypeRef{Name: Identifier{Text: "Baz"}}}
+        }
+      }
+    }
+  }

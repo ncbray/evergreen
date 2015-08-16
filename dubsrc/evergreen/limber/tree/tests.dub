@@ -1,5 +1,0 @@
-test Basic IdList() "foo bar"
-  []Identifier {
-    Identifier{Text: "foo"}
-    Identifier{Text: "bar"}
-  }

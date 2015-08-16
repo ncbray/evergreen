@@ -351,6 +351,8 @@ func rewriteNamedLookup(named namedElement) (ASTExpr, core.DubType) {
 		return &GetFunctionTemplate{Template: named.Func}, &core.FunctionTemplateType{}
 	case *namedPackage:
 		return &GetPackage{Package: named.Scope.Package}, &core.PackageType{}
+	case *namedType:
+		panic(core.TypeName(named.T))
 	default:
 		panic(named)
 	}
