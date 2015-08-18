@@ -1,4 +1,4 @@
-struct Identifier {
+struct Token {
   Pos int
   Text string
 }
@@ -7,7 +7,7 @@ struct TypeRef {
 }
 
 struct NamedTypeRef implements TypeRef {
-  Name Identifier
+  Name Token
 }
 
 struct ListTypeRef implements TypeRef {
@@ -19,7 +19,7 @@ struct SumTypeRef implements TypeRef {
 }
 
 struct FieldDecl {
-  Name Identifier
+  Name Token
   Type TypeRef
 }
 
@@ -34,7 +34,36 @@ struct TypeAliasDecl implements TypeImpl {
   Type TypeRef
 }
 
-struct TypeDecl {
-  Name Identifier
+struct Decl {
+}
+
+struct TypeDecl implements Decl {
+  Name Token
   Decl TypeImpl
+}
+
+struct Stmt {
+}
+
+struct Expr implements Stmt {
+}
+
+struct IntLiteral implements Expr {
+  Pos int
+  Text string
+}
+
+struct InfixOp implements Expr {
+  Left Expr
+  Op Token
+  Right Expr
+}
+
+struct Return implements Expr {
+  Expr Expr
+}
+
+struct FuncDecl implements Decl {
+  Name Token
+  Body []Stmt
 }

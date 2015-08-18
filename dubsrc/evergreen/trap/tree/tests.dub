@@ -1,15 +1,15 @@
 test Basic ParseTypeDecl() "type Foo struct {bar i32; baz u32}"
   TypeDecl {
-    Name: Identifier{Text: "Foo"}
+    Name: Token{Text: "Foo"}
     Decl: StructDecl {
       Fields: []FieldDecl {
         FieldDecl {
-          Name: Identifier{Text: "bar"}
-          Type: NamedTypeRef{Name: Identifier{Text: "i32"}}
+          Name: Token{Text: "bar"}
+          Type: NamedTypeRef{Name: Token{Text: "i32"}}
         }
         FieldDecl {
-          Name: Identifier{Text: "baz"}
-          Type: NamedTypeRef{Name: Identifier{Text: "u32"}}
+          Name: Token{Text: "baz"}
+          Type: NamedTypeRef{Name: Token{Text: "u32"}}
         }
       }
     }
@@ -17,13 +17,31 @@ test Basic ParseTypeDecl() "type Foo struct {bar i32; baz u32}"
 
 test SumAlias ParseTypeDecl() "type Foo = Bar | []Baz;"
   TypeDecl {
-    Name: Identifier{Text: "Foo"}
+    Name: Token{Text: "Foo"}
     Decl: TypeAliasDecl {
       Type: SumTypeRef{
         Types: []TypeRef{
-          NamedTypeRef{Name: Identifier{Text: "Bar"}}
-          ListTypeRef{Type: NamedTypeRef{Name: Identifier{Text: "Baz"}}}
+          NamedTypeRef{Name: Token{Text: "Bar"}}
+          ListTypeRef{Type: NamedTypeRef{Name: Token{Text: "Baz"}}}
         }
+      }
+    }
+  }
+
+test SimpleFunc ParseFuncDecl() "func Foo() {return 12 + 345;}"
+  FuncDecl {
+    Name: Token{Text: "Foo"}
+    Body: []Stmt{
+      Return{
+        Expr: InfixOp{
+          Left: IntLiteral{
+            Text: "12"
+          }
+          Op: Token{Text: "+"}
+          Right: IntLiteral{
+            Text: "345"
+          }
+	}
       }
     }
   }
