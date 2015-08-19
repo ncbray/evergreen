@@ -147,12 +147,84 @@ func ParseTypeDecl() TypeDecl {
   }
 }
 
+func ParseNamedExpr() NamedExpr {
+  name := Id()
+  S()
+  /":"/
+  S()
+  value := ParseExpr()
+  return NamedExpr {
+    Name: name,
+    Value: value
+  }
+}
+
+func ParseExprList() []Expr {
+  exprs := []Expr{}
+  question {
+    exprs = append(exprs, ParseExpr())
+    star {
+      S();
+      /","/
+      S()
+      exprs = append(exprs, ParseExpr())
+    }
+    question {
+      S();
+      /","/
+    }
+  }
+  return exprs
+}
+
+func ParseNamedExprList() []NamedExpr {
+  exprs := []NamedExpr{}
+  question {
+    exprs = append(exprs, ParseNamedExpr())
+    star {
+      S();
+      /","/
+      S()
+      exprs = append(exprs, ParseNamedExpr())
+    }
+    question {
+      S();
+      /","/
+    }
+  }
+  return exprs
+}
+
 func ParseExprAtom() Expr {
   p := position()
-  text := /[0-9]+/
-  return IntLiteral {
-    Pos: p,
-    Text: text
+  choose {
+    text := /[0-9]+/
+    return IntLiteral {
+      Pos: p,
+      Text: text
+    }
+  } or {
+    t := ParseTypeRef()
+    S()
+    /"{"/;
+    S();
+    choose {
+      args := ParseNamedExprList()
+      S();
+      /"}"/;
+      return CreateStruct {
+        Type: t,
+        Args: args
+      }
+    } or {
+      args := ParseExprList()
+      S();
+      /"}"/;
+      return CreateList {
+        Type: t,
+        Args: args
+      }
+    }
   }
 }
 

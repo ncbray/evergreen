@@ -45,3 +45,25 @@ test SimpleFunc ParseFuncDecl() "func Foo() {return 12 + 345;}"
       }
     }
   }
+
+test Struct ParseExpr() "Foo{ Bar: 1, Baz: Biz { }, Boz: 2 }"
+  CreateStruct {
+    Type: NamedTypeRef {Name: Token{Text: "Foo"}}
+    Args: []NamedExpr {
+      NamedExpr {
+        Name: Token{Text: "Bar"}
+	Value: IntLiteral{Text: "1"}
+      }
+      NamedExpr {
+        Name: Token{Text: "Baz"}
+	Value: CreateStruct {
+          Type: NamedTypeRef {Name: Token{Text: "Biz"}}
+          Args: []NamedExpr {}
+        }
+      }
+      NamedExpr {
+        Name: Token{Text: "Boz"}
+	Value: IntLiteral{Text: "2"}
+      }
+    }
+  }

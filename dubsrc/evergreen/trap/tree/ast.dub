@@ -59,7 +59,22 @@ struct InfixOp implements Expr {
   Right Expr
 }
 
-struct Return implements Expr {
+struct NamedExpr {
+  Name Token
+  Value Expr
+}
+
+struct CreateStruct implements Expr {
+  Type TypeRef
+  Args []NamedExpr
+}
+
+struct CreateList implements Expr {
+  Type TypeRef
+  Args []Expr
+}
+
+struct Return implements Stmt {
   Expr Expr
 }
 
