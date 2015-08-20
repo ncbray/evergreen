@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func callAndReturnInt(i *Interpreter, f *Function, args []Object, value int32, t *testing.T) {
+func callAndReturnInt(i *Interpreter, f int, args []Object, value int32, t *testing.T) {
 	i.SetTemp(args)
 	i.Invoke(f)
 	i.Run()
@@ -26,32 +26,64 @@ func callAndReturnInt(i *Interpreter, f *Function, args []Object, value int32, t
 }
 
 func TestSanity(t *testing.T) {
-	i := CreateInterpreter()
+	i := CreateInterpreter([]*Function{})
 	if i.Flow != NORMAL {
 		t.Errorf("Expected normal flow, got %d", i.Flow)
 	}
 }
 
 func TestReturnInt(t *testing.T) {
-	i := CreateInterpreter()
-
-	f := &Function{
-		Name:      "Foo",
-		NumParams: 1,
-		NumLocals: 1,
-		Constants: []Object{
-			&I32{Value: 7},
-			&I32{Value: 11},
-		},
-		Body: []Op{
-			&ConditionalJump{Arg: 0, Location: 3},
-			&StoreConst{Const: 0, Target: 0},
-			&Jump{Location: 4},
-			&StoreConst{Const: 1, Target: 0},
-			&Return{Args: Locals{0}},
+	funcs := []*Function{
+		&Function{
+			Name:      "Foo",
+			NumParams: 1,
+			NumLocals: 1,
+			Constants: []Object{
+				&I32{Value: 7},
+				&I32{Value: 11},
+			},
+			Body: []Op{
+				&ConditionalJump{Arg: 0, Location: 3},
+				&StoreConst{Const: 0, Target: 0},
+				&Jump{Location: 4},
+				&StoreConst{Const: 1, Target: 0},
+				&Return{Args: Locals{0}},
+			},
 		},
 	}
 
-	callAndReturnInt(i, f, []Object{&I32{Value: 0}}, 7, t)
-	callAndReturnInt(i, f, []Object{&I32{Value: 1}}, 11, t)
+	i := CreateInterpreter(funcs)
+
+	callAndReturnInt(i, 0, []Object{&I32{Value: 0}}, 7, t)
+	callAndReturnInt(i, 0, []Object{&I32{Value: 1}}, 11, t)
+}
+
+func TestSwap(t *testing.T) {
+	funcs := []*Function{
+		&Function{
+			Name:      "Swap",
+			NumParams: 2,
+			NumLocals: 2,
+			Constants: []Object{},
+			Body: []Op{
+				&Return{Args: Locals{1, 0}},
+			},
+		},
+		&Function{
+			Name:      "Main",
+			NumParams: 2,
+			NumLocals: 2,
+			Constants: []Object{},
+			Body: []Op{
+				&Call{Func: 0, Args: Locals{0, 1}, Targets: Locals{0, 1}},
+				&BinaryOp{Op: "-", Left: 0, Right: 1, Target: 0},
+				&Return{Args: Locals{0}},
+			},
+		},
+	}
+
+	i := CreateInterpreter(funcs)
+
+	callAndReturnInt(i, 1, []Object{&I32{Value: 5}, &I32{Value: 11}}, 6, t)
+	callAndReturnInt(i, 1, []Object{&I32{Value: 7}, &I32{Value: 4}}, -3, t)
 }

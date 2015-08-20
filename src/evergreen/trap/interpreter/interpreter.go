@@ -49,6 +49,19 @@ type Jump struct {
 	Location int
 }
 
+type Call struct {
+	Func    int
+	Args    Locals
+	Targets Locals
+}
+
+type BinaryOp struct {
+	Op     string
+	Left   int
+	Right  int
+	Target int
+}
+
 type Function struct {
 	Name      string
 	NumParams int
@@ -61,6 +74,7 @@ type StackFrame struct {
 	F        *Function
 	Location int
 	Locals   []Object
+	Targets  Locals
 	Parent   *StackFrame
 }
 
@@ -73,11 +87,26 @@ func toBool(o Object) bool {
 	}
 }
 
+func subtract(l Object, r Object) Object {
+	switch l := l.(type) {
+	case *I32:
+		switch r := r.(type) {
+		case *I32:
+			return &I32{Value: l.Value - r.Value}
+		default:
+			panic(r)
+		}
+	default:
+		panic(l)
+	}
+}
+
 type Interpreter struct {
 	Frame   *StackFrame
 	Flow    int
 	Temp    []Object
 	TempLen int
+	Funcs   []*Function
 }
 
 func (i *Interpreter) GatherTemp(args Locals) {
@@ -87,6 +116,12 @@ func (i *Interpreter) GatherTemp(args Locals) {
 	i.TempLen = len(args)
 }
 
+func (i *Interpreter) ScatterTemp(targets Locals) {
+	for idx, lcl := range targets {
+		i.Frame.Locals[lcl] = i.Temp[idx]
+	}
+}
+
 func (i *Interpreter) SetTemp(args []Object) {
 	for idx, o := range args {
 		i.Temp[idx] = o
@@ -94,7 +129,8 @@ func (i *Interpreter) SetTemp(args []Object) {
 	i.TempLen = len(args)
 }
 
-func (i *Interpreter) Invoke(f *Function) {
+func (i *Interpreter) Invoke(uid int) {
+	f := i.Funcs[uid]
 	if i.TempLen != f.NumParams {
 		panic(i.TempLen)
 	}
@@ -126,6 +162,18 @@ func (i *Interpreter) Run() {
 			continue
 		case *StoreConst:
 			i.Frame.Locals[op.Target] = i.Frame.F.Constants[op.Const]
+		case *BinaryOp:
+			switch op.Op {
+			case "-":
+				i.Frame.Locals[op.Target] = subtract(i.Frame.Locals[op.Left], i.Frame.Locals[op.Right])
+			default:
+				panic(op.Op)
+			}
+		case *Call:
+			i.GatherTemp(op.Args)
+			i.Frame.Targets = op.Targets
+			i.Invoke(op.Func)
+			continue
 		case *Return:
 			i.GatherTemp(op.Args)
 			i.Frame = i.Frame.Parent
@@ -133,8 +181,7 @@ func (i *Interpreter) Run() {
 				// Returned off end of stack.
 				return
 			}
-			// TODO return value assignment.
-			continue // Skip PC increment
+			i.ScatterTemp(i.Frame.Targets)
 		default:
 			panic(op)
 		}
@@ -142,11 +189,12 @@ func (i *Interpreter) Run() {
 	}
 }
 
-func CreateInterpreter() *Interpreter {
+func CreateInterpreter(funcs []*Function) *Interpreter {
 	i := &Interpreter{
 		Flow:    NORMAL,
 		Temp:    make([]Object, 10),
 		TempLen: 0,
+		Funcs:   funcs,
 	}
 	return i
 }
