@@ -87,3 +87,35 @@ func TestSwap(t *testing.T) {
 	callAndReturnInt(i, 1, []Object{&I32{Value: 5}, &I32{Value: 11}}, 6, t)
 	callAndReturnInt(i, 1, []Object{&I32{Value: 7}, &I32{Value: 4}}, -3, t)
 }
+
+func TestGetAttr(t *testing.T) {
+	funcs := []*Function{
+		&Function{
+			Name:      "Get0",
+			NumParams: 1,
+			NumLocals: 2,
+			Constants: []Object{},
+			Body: []Op{
+				&GetAttr{Expr: 0, Slot: 0, Target: 1},
+				&Return{Args: Locals{1}},
+			},
+		},
+		&Function{
+			Name:      "Get1",
+			NumParams: 1,
+			NumLocals: 2,
+			Constants: []Object{},
+			Body: []Op{
+				&GetAttr{Expr: 0, Slot: 1, Target: 1},
+				&Return{Args: Locals{1}},
+			},
+		},
+	}
+
+	i := CreateInterpreter(funcs)
+
+	o := &Struct{Slots: []Object{&I32{Value: 13}, &I32{Value: 17}}}
+
+	callAndReturnInt(i, 0, []Object{o}, 13, t)
+	callAndReturnInt(i, 1, []Object{o}, 17, t)
+}

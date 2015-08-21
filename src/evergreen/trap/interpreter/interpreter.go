@@ -113,6 +113,14 @@ func (i *Interpreter) Run() {
 			i.Frame.Locals[op.Target] = i.Frame.F.Constants[op.Const]
 		case *BinaryOp:
 			i.Frame.Locals[op.Target] = binop(op.Op, i.Frame.Locals[op.Left], i.Frame.Locals[op.Right])
+		case *GetAttr:
+			expr := i.Frame.Locals[op.Expr]
+			switch expr := expr.(type) {
+			case *Struct:
+				i.Frame.Locals[op.Target] = expr.Slots[op.Slot]
+			default:
+				panic(expr)
+			}
 		case *Call:
 			i.GatherTemp(op.Args)
 			i.Frame.Targets = op.Targets

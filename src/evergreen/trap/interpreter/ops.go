@@ -46,6 +46,12 @@ type BinaryOp struct {
 	Target int
 }
 
+type GetAttr struct {
+	Expr   int
+	Slot   int
+	Target int
+}
+
 type Function struct {
 	Name      string
 	NumParams int

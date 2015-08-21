@@ -19,3 +19,16 @@ type I32 struct {
 func (o *I32) Type() Type {
 	return i32Type
 }
+
+type StructType struct {
+}
+
+var structType Type = &StructType{}
+
+type Struct struct {
+	Slots []Object
+}
+
+func (o *Struct) Type() Type {
+	return structType
+}
