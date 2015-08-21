@@ -33,14 +33,15 @@ func TestSanity(t *testing.T) {
 }
 
 func TestReturnInt(t *testing.T) {
+	b := CreateProgramBuilder()
 	funcs := []*Function{
 		&Function{
 			Name:      "Foo",
 			NumParams: 1,
 			NumLocals: 1,
 			Constants: []Object{
-				&I32{Value: 7},
-				&I32{Value: 11},
+				b.i32(7),
+				b.i32(11),
 			},
 			Body: []Op{
 				&ConditionalJump{Arg: 0, Location: 3},
@@ -54,11 +55,12 @@ func TestReturnInt(t *testing.T) {
 
 	i := CreateInterpreter(funcs)
 
-	callAndReturnInt(i, 0, []Object{&I32{Value: 0}}, 7, t)
-	callAndReturnInt(i, 0, []Object{&I32{Value: 1}}, 11, t)
+	callAndReturnInt(i, 0, []Object{b.i32(0)}, 7, t)
+	callAndReturnInt(i, 0, []Object{b.i32(1)}, 11, t)
 }
 
 func TestSwap(t *testing.T) {
+	b := CreateProgramBuilder()
 	funcs := []*Function{
 		&Function{
 			Name:      "Swap",
@@ -84,11 +86,12 @@ func TestSwap(t *testing.T) {
 
 	i := CreateInterpreter(funcs)
 
-	callAndReturnInt(i, 1, []Object{&I32{Value: 5}, &I32{Value: 11}}, 6, t)
-	callAndReturnInt(i, 1, []Object{&I32{Value: 7}, &I32{Value: 4}}, -3, t)
+	callAndReturnInt(i, 1, []Object{b.i32(5), b.i32(11)}, 6, t)
+	callAndReturnInt(i, 1, []Object{b.i32(7), b.i32(4)}, -3, t)
 }
 
 func TestGetAttr(t *testing.T) {
+	b := CreateProgramBuilder()
 	funcs := []*Function{
 		&Function{
 			Name:      "Get0",
@@ -114,7 +117,7 @@ func TestGetAttr(t *testing.T) {
 
 	i := CreateInterpreter(funcs)
 
-	o := &Struct{Slots: []Object{&I32{Value: 13}, &I32{Value: 17}}}
+	o := &Struct{Slots: []Object{b.i32(13), b.i32(17)}}
 
 	callAndReturnInt(i, 0, []Object{o}, 13, t)
 	callAndReturnInt(i, 1, []Object{o}, 17, t)

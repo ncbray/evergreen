@@ -1,5 +1,16 @@
 package interpreter
 
+type ProgramBuilder struct {
+}
+
+func (b *ProgramBuilder) i32(value int32) Object {
+	return &I32{Value: value}
+}
+
+func CreateProgramBuilder() *ProgramBuilder {
+	return &ProgramBuilder{}
+}
+
 const (
 	NORMAL = iota
 	FAIL
