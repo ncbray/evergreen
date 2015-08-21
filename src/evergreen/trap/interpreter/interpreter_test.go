@@ -76,7 +76,7 @@ func TestSwap(t *testing.T) {
 			Constants: []Object{},
 			Body: []Op{
 				&Call{Func: 0, Args: Locals{0, 1}, Targets: Locals{0, 1}},
-				&BinaryOp{Op: "-", Left: 0, Right: 1, Target: 0},
+				&BinaryOp{Op: SUB, Left: 0, Right: 1, Target: 0},
 				&Return{Args: Locals{0}},
 			},
 		},

@@ -6,70 +6,6 @@ const (
 	NUM_FLOWS
 )
 
-type Type interface {
-}
-
-type Object interface {
-	Type() Type
-}
-
-type I32Type struct {
-}
-
-var i32Type Type = &I32Type{}
-
-type I32 struct {
-	Value int32
-}
-
-func (o *I32) Type() Type {
-	return i32Type
-}
-
-type Op interface {
-}
-
-type Locals []int
-
-type StoreConst struct {
-	Const  int
-	Target int
-}
-
-type Return struct {
-	Args Locals
-}
-
-type ConditionalJump struct {
-	Arg      int
-	Location int
-}
-
-type Jump struct {
-	Location int
-}
-
-type Call struct {
-	Func    int
-	Args    Locals
-	Targets Locals
-}
-
-type BinaryOp struct {
-	Op     string
-	Left   int
-	Right  int
-	Target int
-}
-
-type Function struct {
-	Name      string
-	NumParams int
-	NumLocals int
-	Constants []Object
-	Body      []Op
-}
-
 type StackFrame struct {
 	F        *Function
 	Location int
@@ -87,12 +23,25 @@ func toBool(o Object) bool {
 	}
 }
 
-func subtract(l Object, r Object) Object {
+func binop(op BinOp, l Object, r Object) Object {
 	switch l := l.(type) {
 	case *I32:
 		switch r := r.(type) {
 		case *I32:
-			return &I32{Value: l.Value - r.Value}
+			switch op {
+			case ADD:
+				return &I32{Value: l.Value + r.Value}
+			case SUB:
+				return &I32{Value: l.Value - r.Value}
+			case MUL:
+				return &I32{Value: l.Value * r.Value}
+			case DIV:
+				return &I32{Value: l.Value / r.Value}
+			case REM:
+				return &I32{Value: l.Value % r.Value}
+			default:
+				panic(op)
+			}
 		default:
 			panic(r)
 		}
@@ -163,12 +112,7 @@ func (i *Interpreter) Run() {
 		case *StoreConst:
 			i.Frame.Locals[op.Target] = i.Frame.F.Constants[op.Const]
 		case *BinaryOp:
-			switch op.Op {
-			case "-":
-				i.Frame.Locals[op.Target] = subtract(i.Frame.Locals[op.Left], i.Frame.Locals[op.Right])
-			default:
-				panic(op.Op)
-			}
+			i.Frame.Locals[op.Target] = binop(op.Op, i.Frame.Locals[op.Left], i.Frame.Locals[op.Right])
 		case *Call:
 			i.GatherTemp(op.Args)
 			i.Frame.Targets = op.Targets
