@@ -52,6 +52,12 @@ type GetAttr struct {
 	Target int
 }
 
+type SetAttr struct {
+	Expr  int
+	Slot  int
+	Value int
+}
+
 type Function struct {
 	Name      string
 	NumParams int

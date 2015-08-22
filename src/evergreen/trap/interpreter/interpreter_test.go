@@ -122,3 +122,26 @@ func TestGetAttr(t *testing.T) {
 	callAndReturnInt(i, 0, []Object{o}, 13, t)
 	callAndReturnInt(i, 1, []Object{o}, 17, t)
 }
+
+func TestSetAttr(t *testing.T) {
+	b := CreateProgramBuilder()
+	funcs := []*Function{
+		&Function{
+			Name:      "Set0",
+			NumParams: 1,
+			NumLocals: 3,
+			Constants: []Object{b.i32(15)},
+			Body: []Op{
+				&StoreConst{Const: 0, Target: 1},
+				&SetAttr{Expr: 0, Slot: 0, Value: 1},
+				&GetAttr{Expr: 0, Slot: 0, Target: 2},
+				&Return{Args: Locals{2}},
+			},
+		},
+	}
+
+	i := CreateInterpreter(funcs)
+
+	o := &Struct{Slots: []Object{b.i32(13), b.i32(17)}}
+	callAndReturnInt(i, 0, []Object{o}, 15, t)
+}

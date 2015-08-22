@@ -132,6 +132,15 @@ func (i *Interpreter) Run() {
 			default:
 				panic(expr)
 			}
+		case *SetAttr:
+			expr := i.Frame.Locals[op.Expr]
+			value := i.Frame.Locals[op.Value]
+			switch expr := expr.(type) {
+			case *Struct:
+				expr.Slots[op.Slot] = value
+			default:
+				panic(expr)
+			}
 		case *Call:
 			i.GatherTemp(op.Args)
 			i.Frame.Targets = op.Targets
