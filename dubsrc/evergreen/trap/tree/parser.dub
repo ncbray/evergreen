@@ -225,7 +225,33 @@ func ParseExprAtom() Expr {
         Args: args
       }
     }
+  } or {
+    name := Id()
+    return GetName {
+      Name: name
+    }
   }
+}
+
+func ParseExprPostfix() Expr {
+  expr := ParseExprAtom()
+  star {
+    S()
+    choose {
+      /"."/
+      S()
+      attr := Id()
+      expr = GetAttr{Expr: expr, Attr: attr}
+    } or {
+      /"["/
+      S()
+      index := ParseExpr()
+      S()
+      /"]"/
+      expr = GetIndex{Expr: expr, Index: index}
+    }
+  }
+  return expr
 }
 
 func ParseAddOp() Token {
@@ -238,12 +264,12 @@ func ParseAddOp() Token {
 }
 
 func ParseAddExpr() Expr {
-  e := ParseExprAtom()
+  e := ParseExprPostfix()
   star {
     S()
     op := ParseAddOp()
     S()
-    other := ParseExprAtom()
+    other := ParseExprPostfix()
     e = InfixOp{
       Left: e,
       Op: op,

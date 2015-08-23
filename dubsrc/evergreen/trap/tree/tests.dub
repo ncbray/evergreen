@@ -67,3 +67,25 @@ test Struct ParseExpr() "Foo{ Bar: 1, Baz: Biz { }, Boz: 2 }"
       }
     }
   }
+
+test GetAttr ParseExpr() "Foo.Bar.Baz"
+  GetAttr {
+    Expr: GetAttr {
+      Expr: GetName {
+        Name: Token{Text: "Foo"}
+      }
+      Attr: Token{Text: "Bar"}
+    }
+    Attr: Token{Text: "Baz"}
+  }
+
+test GetIndex ParseExpr() "Foo[0][1]"
+  GetIndex {
+    Expr: GetIndex {
+      Expr: GetName {
+        Name: Token{Text: "Foo"}
+      }
+      Index: IntLiteral{Text: "0"}
+    }
+    Index: IntLiteral{Text: "1"}
+  }

@@ -48,6 +48,10 @@ struct Stmt {
 struct Expr implements Stmt {
 }
 
+struct GetName implements Expr {
+  Name Token
+}
+
 struct IntLiteral implements Expr {
   Pos int
   Text string
@@ -57,6 +61,16 @@ struct InfixOp implements Expr {
   Left Expr
   Op Token
   Right Expr
+}
+
+struct GetAttr implements Expr {
+  Expr Expr
+  Attr Token
+}
+
+struct GetIndex implements Expr {
+  Expr Expr
+  Index Expr
 }
 
 struct NamedExpr {
