@@ -279,8 +279,33 @@ func ParseAddExpr() Expr {
   return e
 }
 
+func ParseAssignOp() Token {
+  p := position()
+  op := /"="/
+  return Token {
+    Pos: p,
+    Text: op
+  }
+}
+
+func ParseAssignExpr() Expr {
+  e := ParseAddExpr()
+  question {
+    S()
+    op := ParseAssignOp()
+    S()
+    other := ParseAssignExpr()
+    e = AssignOp{
+      Target: e,
+      Op: op,
+      Value: other
+    }
+  }
+  return e
+}
+
 func ParseExpr() Expr {
-  return ParseAddExpr();
+  return ParseAssignExpr();
 }
 
 func ParseStatement() Stmt {

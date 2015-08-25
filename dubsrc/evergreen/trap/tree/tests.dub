@@ -89,3 +89,10 @@ test GetIndex ParseExpr() "Foo[0][1]"
     }
     Index: IntLiteral{Text: "1"}
   }
+
+test AssignName ParseExpr() "foo = bar"
+  AssignOp {
+    Target: GetName{Name: Token{Text: "foo"}}
+    Op: Token{Text: "="}
+    Value: GetName{Name: Token{Text: "bar"}}
+  }

@@ -73,6 +73,12 @@ struct GetIndex implements Expr {
   Index Expr
 }
 
+struct AssignOp implements Expr {
+  Target Expr
+  Op Token
+  Value Expr
+}
+
 struct NamedExpr {
   Name Token
   Value Expr
