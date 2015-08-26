@@ -100,5 +100,6 @@ struct Return implements Stmt {
 
 struct FuncDecl implements Decl {
   Name Token
+  ReturnTypes []TypeRef
   Body []Stmt
 }

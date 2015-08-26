@@ -96,3 +96,39 @@ test AssignName ParseExpr() "foo = bar"
     Op: Token{Text: "="}
     Value: GetName{Name: Token{Text: "bar"}}
   }
+
+test WithSemis ParseFuncDecl() "func Foo() i32 {a = 123; return a;}"
+  FuncDecl {
+    Name: Token{Text: "Foo"}
+    ReturnTypes: []TypeRef{
+      NamedTypeRef{Name: Token{Text: "i32"}}
+    }
+    Body: []Stmt{
+      AssignOp{
+        Target: GetName{Name: Token{Text: "a"}}
+        Op: Token{Text: "="}
+        Value: IntLiteral{Text: "123"}
+      }
+      Return{
+        Expr: GetName{Name: Token{Text: "a"}}
+      }
+    }
+  }
+
+test WithoutSemis ParseFuncDecl() "func Foo() i32 {a = 123\nreturn a}"
+  FuncDecl {
+    Name: Token{Text: "Foo"}
+    ReturnTypes: []TypeRef{
+      NamedTypeRef{Name: Token{Text: "i32"}}
+    }
+    Body: []Stmt{
+      AssignOp{
+        Target: GetName{Name: Token{Text: "a"}}
+        Op: Token{Text: "="}
+        Value: IntLiteral{Text: "123"}
+      }
+      Return{
+        Expr: GetName{Name: Token{Text: "a"}}
+      }
+    }
+  }

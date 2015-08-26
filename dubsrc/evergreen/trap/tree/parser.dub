@@ -311,17 +311,20 @@ func ParseExpr() Expr {
 func ParseStatement() Stmt {
   choose {
     /"return"/
-    EndKeyword();
-    S();
+    EndKeyword()
+    EOSInsertionPoint()
     var expr Expr
     question {
       expr = ParseExpr()
-      S();
+      EOSInsertionPoint()
     }
-    /";"/
+    EOS()
     return Return{Expr: expr}
   } or {
-    return ParseExpr()
+    expr := ParseExpr()
+    EOSInsertionPoint()
+    EOS()
+    return expr
   }
 }
 
@@ -337,6 +340,35 @@ func ParseStatementList() []Stmt {
   return stmts
 }
 
+func ParseTypeList() []TypeRef {
+  types := []TypeRef{}
+  question {
+    types = append(types, ParseTypeRef())
+    star {
+      S()
+      /[,]/
+      S()
+      types = append(types, ParseTypeRef())
+    }
+  }
+  return types
+}
+
+func ParseReturnTypeList() []TypeRef {
+  choose {
+    /[(]/
+    S()
+    types := ParseTypeList()
+    S()
+    /[)]/
+    return types
+  } or {
+    return []TypeRef{ParseTypeRef()}
+  } or {
+    return []TypeRef{}
+  }
+}
+
 func ParseFuncDecl() FuncDecl {
   /"func"/
   EndKeyword()
@@ -347,6 +379,8 @@ func ParseFuncDecl() FuncDecl {
   S()
   /")"/
   S()
+  retTypes := ParseReturnTypeList()
+  S()
   /"{"/
   S()
   body := ParseStatementList()
@@ -354,6 +388,7 @@ func ParseFuncDecl() FuncDecl {
   /"}"/
   return FuncDecl {
     Name: name,
+    ReturnTypes: retTypes,
     Body: body
   }
 }
