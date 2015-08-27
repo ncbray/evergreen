@@ -230,6 +230,13 @@ func ParseExprAtom() Expr {
     return GetName {
       Name: name
     }
+  } or {
+    /"("/
+    S()
+    expr := ParseExpr()
+    S()
+    /")"/
+    return expr
   }
 }
 
@@ -254,26 +261,39 @@ func ParseExprPostfix() Expr {
   return expr
 }
 
-func ParseAddOp() Token {
+func InfixOperator() (Token, int) {
   p := position()
-  op := /"+"/
-  return Token {
-    Pos: p,
-    Text: op
+  var text string
+  var prec int
+  choose {
+    text = /[*/%]/
+    prec = 5
+  } or {
+    text = /[+\-]/
+    prec = 4
+  } or {
+    text = /([<>][=]?)|([!=][=])/
+    prec = 3
   }
+  return Token{Pos: p, Text: text}, prec
 }
 
-func ParseAddExpr() Expr {
+
+func ParseBinaryOp(min_prec int) Expr {
   e := ParseExprPostfix()
   star {
+    // TODO associativity
     S()
-    op := ParseAddOp()
+    op, prec := InfixOperator()
+    if prec < min_prec {
+      fail
+    }
     S()
-    other := ParseExprPostfix()
+    r := ParseBinaryOp(prec + 1)
     e = InfixOp{
       Left: e,
       Op: op,
-      Right: other
+      Right: r
     }
   }
   return e
@@ -281,7 +301,7 @@ func ParseAddExpr() Expr {
 
 func ParseAssignOp() Token {
   p := position()
-  op := /"="/
+  op := /":="|"="/
   return Token {
     Pos: p,
     Text: op
@@ -289,12 +309,12 @@ func ParseAssignOp() Token {
 }
 
 func ParseAssignExpr() Expr {
-  e := ParseAddExpr()
+  e := ParseBinaryOp(1)
   question {
     S()
     op := ParseAssignOp()
     S()
-    other := ParseAssignExpr()
+    other := ParseBinaryOp(1)
     e = AssignOp{
       Target: e,
       Op: op,

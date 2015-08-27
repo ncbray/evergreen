@@ -46,6 +46,52 @@ test SimpleFunc ParseFuncDecl() "func Foo() {return 12 + 345;}"
     }
   }
 
+test Precidence ParseExpr() "1 * 2 + 3 / 4 - 5 % 6"
+  InfixOp {
+    Left: InfixOp{
+      Left: InfixOp{
+        Left: IntLiteral{Text: "1"}
+        Op: Token{Text: "*"}
+        Right: IntLiteral{Text: "2"}
+      }
+      Op: Token{Text: "+"}
+      Right: InfixOp{
+        Left: IntLiteral{Text: "3"}
+        Op: Token{Text: "/"}
+        Right: IntLiteral{Text: "4"}
+      }
+    }
+    Op: Token{Text: "-"}
+    Right: InfixOp{
+      Left: IntLiteral{Text: "5"}
+      Op: Token{Text: "%"}
+      Right: IntLiteral{Text: "6"}
+    }
+  }
+
+test PrecidenceParenth ParseExpr() "1 * (2 + 3) / (4 - 5) % 6"
+  InfixOp {
+    Left: InfixOp{
+      Left: InfixOp{
+        Left: IntLiteral{Text: "1"}
+        Op: Token{Text: "*"}
+        Right: InfixOp{
+          Left: IntLiteral{Text: "2"}
+          Op: Token{Text: "+"}
+          Right: IntLiteral{Text: "3"}
+        }
+      }
+      Op: Token{Text: "/"}
+      Right: InfixOp{
+        Left: IntLiteral{Text: "4"}
+        Op: Token{Text: "-"}
+        Right: IntLiteral{Text: "5"}
+      }
+    }
+    Op: Token{Text: "%"}
+    Right: IntLiteral{Text: "6"}
+  }
+
 test Struct ParseExpr() "Foo{ Bar: 1, Baz: Biz { }, Boz: 2 }"
   CreateStruct {
     Type: NamedTypeRef {Name: Token{Text: "Foo"}}
