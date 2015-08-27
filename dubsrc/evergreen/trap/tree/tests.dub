@@ -100,6 +100,7 @@ test AssignName ParseExpr() "foo = bar"
 test WithSemis ParseFuncDecl() "func Foo() i32 {a = 123; return a;}"
   FuncDecl {
     Name: Token{Text: "Foo"}
+    Parameters: []Parameter{}
     ReturnTypes: []TypeRef{
       NamedTypeRef{Name: Token{Text: "i32"}}
     }
@@ -118,6 +119,7 @@ test WithSemis ParseFuncDecl() "func Foo() i32 {a = 123; return a;}"
 test WithoutSemis ParseFuncDecl() "func Foo() i32 {a = 123\nreturn a}"
   FuncDecl {
     Name: Token{Text: "Foo"}
+    Parameters: []Parameter{}
     ReturnTypes: []TypeRef{
       NamedTypeRef{Name: Token{Text: "i32"}}
     }
@@ -129,6 +131,32 @@ test WithoutSemis ParseFuncDecl() "func Foo() i32 {a = 123\nreturn a}"
       }
       Return{
         Expr: GetName{Name: Token{Text: "a"}}
+      }
+    }
+  }
+
+test Parameters ParseFuncDecl() "func Foo(a i32, b i32) i32 {return a + b}"
+  FuncDecl {
+    Name: Token{Text: "Foo"}
+    Parameters: []Parameter{
+      Parameter{
+        Name: Token{Text: "a"}
+      }
+      Parameter{
+        Name: Token{Text: "b"}
+      }
+    }
+    ReturnTypes: []TypeRef{
+      NamedTypeRef{Name: Token{Text: "i32"}}
+    }
+    Body: []Stmt{
+      Return{
+        Expr: InfixOp{
+          Left: GetName{Name: Token{Text: "a"}}
+          Op: Token{Text: "+"}
+          Right: GetName{Name: Token{Text: "b"}}
+	}
+
       }
     }
   }

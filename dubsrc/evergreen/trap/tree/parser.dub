@@ -369,6 +369,27 @@ func ParseReturnTypeList() []TypeRef {
   }
 }
 
+func ParseParameter() Parameter {
+  name := Id()
+  S()
+  type := ParseTypeRef()
+  return Parameter{Name: name, Type: type}
+}
+
+func ParseParameterList() []Parameter {
+  params := []Parameter{}
+  question {
+    params = append(params, ParseParameter())
+    star {
+      S()
+      /[,]/
+      S()
+      params = append(params, ParseParameter())
+    }
+  }
+  return params
+}
+
 func ParseFuncDecl() FuncDecl {
   /"func"/
   EndKeyword()
@@ -376,6 +397,8 @@ func ParseFuncDecl() FuncDecl {
   name := Id()
   S()
   /"("/
+  S()
+  params := ParseParameterList()
   S()
   /")"/
   S()
@@ -388,6 +411,7 @@ func ParseFuncDecl() FuncDecl {
   /"}"/
   return FuncDecl {
     Name: name,
+    Parameters: params,
     ReturnTypes: retTypes,
     Body: body
   }

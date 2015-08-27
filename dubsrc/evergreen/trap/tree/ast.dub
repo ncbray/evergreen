@@ -98,8 +98,14 @@ struct Return implements Stmt {
   Expr Expr
 }
 
+struct Parameter {
+  Name Token
+  Type TypeRef
+}
+
 struct FuncDecl implements Decl {
   Name Token
+  Parameters []Parameter
   ReturnTypes []TypeRef
   Body []Stmt
 }
